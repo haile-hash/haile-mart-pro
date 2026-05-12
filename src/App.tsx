@@ -18,8 +18,8 @@ export default function App() {
 
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
-  const [newImportPrice, setNewImportPrice] = useState(""); // GIÁ NHẬP
-  const [newPrice, setNewPrice] = useState(""); // GIÁ BÁN
+  const [newImportPrice, setNewImportPrice] = useState(""); 
+  const [newPrice, setNewPrice] = useState(""); 
   const [newStock, setNewStock] = useState("");
   const [newExpiry, setNewExpiry] = useState(""); 
 
@@ -67,7 +67,7 @@ export default function App() {
 
   const exportToCSV = () => {
     if (history.length === 0) return alert("Chưa có lịch sử để xuất!");
-    let csvContent = "\uFEFFThời gian,Loại,Sản phẩm,Số lượng,Thành tiền (VNĐ),Lợi nhuận\n";
+    let csvContent = "\uFEFFThời gian,Loại,Sản phẩm,Số lượng,Thành tiền (VNĐ),Lợi nhuận (VNĐ)\n";
     history.forEach(log => {
       csvContent += `${log.time},${log.type},${log.name},${log.qty},${log.total},${log.profit || 0}\n`;
     });
@@ -126,9 +126,9 @@ export default function App() {
             alert(`Kho chỉ còn ${foundProduct.stock} ${foundProduct.name}!`);
           } else {
             if (existingItem) {
-              setCart(cart.map(item => item.product.id === foundProduct.id ? { ...item, qty: item.qty + 1, total: (item.qty + 1) * foundProduct.sale_price, profit: (item.qty + 1) * (foundProduct.sale_price - foundProduct.import_price) } : item));
+              setCart(cart.map(item => item.product.id === foundProduct.id ? { ...item, qty: item.qty + 1, total: (item.qty + 1) * foundProduct.sale_price, profit: (item.qty + 1) * (foundProduct.sale_price - (foundProduct.import_price || 0)) } : item));
             } else {
-              setCart([...cart, { product: foundProduct, qty: 1, total: foundProduct.sale_price, profit: foundProduct.sale_price - foundProduct.import_price }]);
+              setCart([...cart, { product: foundProduct, qty: 1, total: foundProduct.sale_price, profit: foundProduct.sale_price - (foundProduct.import_price || 0) }]);
             }
           }
         }
@@ -184,7 +184,7 @@ export default function App() {
     setLoading(false);
   };
 
-  // --- NHẬP KHO THÔNG MINH ---
+  // --- NHẬP KHO THÔNG MINH (THUẬT TOÁN GIÁ BÌNH QUÂN GIA QUYỀN) ---
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const code = e.target.value;
     setNewCode(code);
@@ -210,14 +210,28 @@ export default function App() {
     e.preventDefault();
     if (!newCode || !newName || !newPrice || !newImportPrice) return alert("Điền đủ Mã, Tên, Giá Nhập và Giá Bán!");
     setLoading(true);
+    
     const existingProduct = products.find((p: any) => p.product_code === newCode);
     const addedStock = parseInt(newStock || "0");
+    const inputImportPrice = parseInt(newImportPrice);
+    
+    let finalImportPrice = inputImportPrice; // Mặc định là giá mới nhập
+
+    // THUẬT TOÁN TÍNH GIÁ BÌNH QUÂN KHI NHẬP THÊM HÀNG CÙNG MÃ NHƯNG KHÁC GIÁ
+    if (existingProduct && existingProduct.stock > 0 && addedStock > 0) {
+        const oldTotalValue = existingProduct.stock * (existingProduct.import_price || 0); // Vốn cũ
+        const newTotalValue = addedStock * inputImportPrice; // Vốn mới
+        const totalStock = existingProduct.stock + addedStock; // Tổng số lượng
+        finalImportPrice = Math.round((oldTotalValue + newTotalValue) / totalStock); // Trung bình cộng giá nhập
+    }
+
     const dataSave = { 
         name: newName, 
-        import_price: parseInt(newImportPrice),
+        import_price: finalImportPrice, // Lưu giá vốn bình quân
         sale_price: parseInt(newPrice), 
         stock: existingProduct ? existingProduct.stock + addedStock : addedStock,
-        expiry_date: newExpiry || null 
+        // Nếu lúc nhập điền HSD mới thì lấy HSD mới, không điền thì giữ lại HSD cũ
+        expiry_date: newExpiry || (existingProduct ? existingProduct.expiry_date : null) 
     };
 
     if (existingProduct) {
@@ -235,8 +249,18 @@ export default function App() {
     setTimeout(() => { document.getElementById("codeInput")?.focus(); }, 100);
   };
 
+  const handleDelete = async (id: any, name: any) => {
+    if (window.confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn sản phẩm [${name}] khỏi hệ thống không?`)) {
+      await supabase.from("products").delete().eq("id", id);
+      fetchProducts();
+    }
+  };
+
   const handleEdit = async (id: any, field: string, oldVal: any, isDate: boolean = false) => {
-    const newVal = window.prompt(`Nhập giá trị mới cho ${field}:`, oldVal || "");
+    const promptText = isDate 
+      ? `Nhập Hạn Sử Dụng mới (Định dạng: Năm-Tháng-Ngày, ví dụ: 2026-12-31):` 
+      : `Nhập giá trị mới cho ${field}:`;
+    const newVal = window.prompt(promptText, oldVal || "");
     if (newVal !== null && newVal.trim() !== "") {
       const updateVal = isDate ? newVal : parseInt(newVal);
       await supabase.from("products").update({ [field]: updateVal }).eq("id", id);
@@ -244,8 +268,15 @@ export default function App() {
     }
   };
 
+  const handleClearHistory = () => {
+    if (window.confirm("Xóa sạch lịch sử, doanh thu và lợi nhuận?")) {
+      setHistory([]);
+      setRevenue(0);
+      setProfit(0);
+    }
+  };
+
   const totalItems = products.reduce((sum, p: any) => sum + (Number(p.stock) || 0), 0);
-  // GIÁ TRỊ KHO BÂY GIỜ TÍNH THEO GIÁ NHẬP (VỐN)
   const totalValue = products.reduce((sum, p: any) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0);
 
   if (!isLoggedIn) {
@@ -278,7 +309,7 @@ export default function App() {
             <img src={`https://img.vietqr.io/image/970422-0680124181004-compact2.png?amount=${cartTotalAmount}&addInfo=Thanh toan&accountName=LE%20HONG%20HAI`} style={{ width: "220px", marginBottom: "20px" }} />
             <div style={{ display: "flex", gap: "10px" }}>
               <button onClick={() => setShowCheckout(false)} style={{ flex: 1, padding: "12px", borderRadius: "8px", border: "none" }}>Hủy</button>
-              <button onClick={confirmCheckout} style={{ flex: 2, padding: "12px", backgroundColor: "#10b981", color: "#fff", borderRadius: "8px", border: "none", fontWeight: "bold" }}>Đã nhận tiền</button>
+              <button onClick={confirmCheckout} style={{ flex: 2, padding: "12px", backgroundColor: "#10b981", color: "#fff", borderRadius: "8px", border: "none", fontWeight: "bold", cursor: "pointer" }}>Đã nhận tiền</button>
             </div>
           </div>
         </div>
@@ -309,12 +340,12 @@ export default function App() {
           <div style={{ backgroundColor: "#fff", padding: "20px", borderRadius: "16px", boxShadow: "0 10px 15px rgba(0,0,0,0.05)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "15px" }}>
               <h2 style={{ color: "#1e3a8a", margin: 0 }}>🏪 HẢI LÊ MART PRO</h2>
-              <button onClick={handleLogout} style={{ padding: "5px 10px", backgroundColor: "#fee2e2", color: "#ef4444", border: "none", borderRadius: "6px" }}>Khóa 🔒</button>
+              <button onClick={handleLogout} style={{ padding: "5px 10px", backgroundColor: "#fee2e2", color: "#ef4444", border: "none", borderRadius: "6px", cursor: "pointer" }}>Khóa 🔒</button>
             </div>
             
             <input placeholder="🛒 QUÉT MÃ BÁN HÀNG..." value={barcodeInput} onChange={e => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeSubmit} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px solid #3b82f6", marginBottom: "15px", fontWeight: "bold" }} />
 
-            <div style={{ fontSize: "11px", fontWeight: "bold", color: "#64748b", marginBottom: "5px" }}>📦 NHẬP KHO</div>
+            <div style={{ fontSize: "11px", fontWeight: "bold", color: "#64748b", marginBottom: "5px" }}>📦 NHẬP KHO THÔNG MINH</div>
             <form onSubmit={handleAddProduct} style={{ display: "flex", gap: "5px", marginBottom: "15px", padding: "10px", backgroundColor: "#f8fafc", borderRadius: "10px", flexWrap: "wrap" }}>
               <input id="codeInput" placeholder="Mã" value={newCode} onChange={handleCodeChange} onKeyDown={handleCodeKeyDown} style={{ flex: "1", padding: "8px", borderRadius: "5px", border: "1px solid #cbd5e1" }} />
               <input id="nameInput" placeholder="Tên SP" value={newName} onChange={e => setNewName(e.target.value)} style={{ flex: "2", padding: "8px", borderRadius: "5px", border: "1px solid #cbd5e1" }} />
@@ -322,7 +353,7 @@ export default function App() {
               <input type="number" placeholder="G.Bán" value={newPrice} onChange={e => setNewPrice(e.target.value)} style={{ flex: "1", padding: "8px", borderRadius: "5px", border: "1px solid #cbd5e1" }} />
               <input type="date" value={newExpiry} onChange={e => setNewExpiry(e.target.value)} style={{ flex: "1.2", padding: "8px", borderRadius: "5px", border: "1px solid #cbd5e1" }} />
               <input id="stockInput" type="number" placeholder="SL" value={newStock} onChange={e => setNewStock(e.target.value)} style={{ flex: "0.8", padding: "8px", borderRadius: "5px", border: "1px solid #cbd5e1" }} />
-              <button type="submit" style={{ padding: "8px 15px", backgroundColor: "#1e3a8a", color: "#fff", borderRadius: "5px", border: "none", fontWeight: "bold" }}>NHẬP</button>
+              <button type="submit" style={{ padding: "8px 15px", backgroundColor: "#1e3a8a", color: "#fff", borderRadius: "5px", border: "none", fontWeight: "bold", cursor: "pointer" }}>NHẬP</button>
             </form>
 
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -343,14 +374,17 @@ export default function App() {
                     <tr key={p.id} style={{ borderBottom: "1px solid #f1f5f9", fontSize: "13px" }}>
                       <td style={{ padding: "8px" }}><b>{p.name}</b><br/><small>{p.product_code}</small></td>
                       <td style={{ textAlign: "center" }}>{p.stock}</td>
-                      <td style={{ textAlign: "center", color: "#64748b" }} onClick={() => handleEdit(p.id, 'import_price', p.import_price)}>{p.import_price?.toLocaleString()}đ</td>
-                      <td style={{ textAlign: "center", fontWeight: "bold", color: "#059669" }} onClick={() => handleEdit(p.id, 'sale_price', p.sale_price)}>{p.sale_price.toLocaleString()}đ</td>
+                      <td style={{ textAlign: "center", color: "#64748b", cursor: "pointer" }} onClick={() => handleEdit(p.id, 'import_price', p.import_price)}>{p.import_price?.toLocaleString()}đ</td>
+                      <td style={{ textAlign: "center", fontWeight: "bold", color: "#059669", cursor: "pointer" }} onClick={() => handleEdit(p.id, 'sale_price', p.sale_price)}>{p.sale_price.toLocaleString()}đ</td>
                       <td style={{ textAlign: "center", fontSize: "10px" }}>
-                        <span onClick={() => handleEdit(p.id, 'expiry_date', p.expiry_date, true)} style={{color: "#b91c1c"}}>{p.expiry_date || "Chưa có HSD"}</span><br/>
+                        <span onClick={() => handleEdit(p.id, 'expiry_date', p.expiry_date, true)} style={{color: "#b91c1c", cursor: "pointer"}} title="Bấm để sửa HSD">{p.expiry_date || "Chưa có HSD"}</span><br/>
                         <span style={{color: "#ea580c"}}>{diffDays} ngày trong kho</span>
                       </td>
                       <td style={{ textAlign: "center" }}>
-                        <button onClick={() => addToCart(p)} style={{ padding: "5px", backgroundColor: "#f59e0b", color: "#fff", border: "none", borderRadius: "4px", fontSize: "10px", fontWeight: "bold" }}>+ GIỎ HÀNG</button>
+                        <div style={{ display: "flex", justifyContent: "center", gap: "8px" }}>
+                          <button onClick={() => addToCart(p)} style={{ padding: "5px 8px", backgroundColor: "#f59e0b", color: "#fff", border: "none", borderRadius: "4px", fontSize: "10px", fontWeight: "bold", cursor: "pointer" }}>+ GIỎ HÀNG</button>
+                          <button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "14px" }} title="Xóa sản phẩm">🗑️</button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -366,17 +400,17 @@ export default function App() {
                 {cart.map((item, idx) => (
                   <div key={idx} style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px" }}>
                     <span>{item.product.name} x{item.qty}</span>
-                    <button onClick={() => removeFromCart(item.product.id)} style={{border: "none", background: "none", color: "#ef4444"}}>x</button>
+                    <button onClick={() => removeFromCart(item.product.id)} style={{border: "none", background: "none", color: "#ef4444", cursor: "pointer"}}>x</button>
                   </div>
                 ))}
               </div>
-              {cart.length > 0 && <button onClick={() => setShowCheckout(true)} style={{ width: "100%", padding: "10px", backgroundColor: "#10b981", color: "#fff", borderRadius: "8px", border: "none", marginTop: "10px", fontWeight: "bold" }}>{cartTotalAmount.toLocaleString()}đ - THANH TOÁN</button>}
+              {cart.length > 0 && <button onClick={() => setShowCheckout(true)} style={{ width: "100%", padding: "10px", backgroundColor: "#10b981", color: "#fff", borderRadius: "8px", border: "none", marginTop: "10px", fontWeight: "bold", cursor: "pointer" }}>{cartTotalAmount.toLocaleString()}đ - THANH TOÁN</button>}
             </div>
 
             <div style={{ backgroundColor: "#fff", padding: "15px", borderRadius: "16px", boxShadow: "0 4px 6px rgba(0,0,0,0.05)", flex: 1 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
                 <h4 style={{ margin: 0 }}>📋 LỊCH SỬ</h4>
-                <button onClick={exportToCSV} style={{ fontSize: "10px" }}>XUẤT EXCEL</button>
+                <button onClick={exportToCSV} style={{ fontSize: "10px", cursor: "pointer", padding: "2px 5px" }}>XUẤT EXCEL</button>
               </div>
               <div style={{ maxHeight: "300px", overflowY: "auto", fontSize: "11px" }}>
                 {history.map((log: any) => (
