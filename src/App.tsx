@@ -20,11 +20,12 @@ export default function App() {
   const [newName, setNewName] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newStock, setNewStock] = useState("");
+  const [newExpiry, setNewExpiry] = useState(""); // THÊM STATE HẠN SỬ DỤNG
 
   // --- STATES GIỎ HÀNG & MÃ VẠCH ---
   const [cart, setCart] = useState<any[]>([]);
   const [showCheckout, setShowCheckout] = useState(false);
-  const [barcodeInput, setBarcodeInput] = useState(""); // Ô quét bán hàng
+  const [barcodeInput, setBarcodeInput] = useState("");
 
   const [history, setHistory] = useState<any[]>(() => {
     const saved = localStorage.getItem("mart_history");
@@ -193,20 +194,19 @@ export default function App() {
     if (existingProduct) {
       setNewName(existingProduct.name);
       setNewPrice(existingProduct.sale_price.toString());
+      // Tự động điền HSD cũ nếu có
+      setNewExpiry(existingProduct.expiry_date || "");
     }
   };
 
-  // Bắt sự kiện phím Enter của máy quét vạch ở ô Nhập Hàng
   const handleCodeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      e.preventDefault(); // Chặn việc gửi form ngay lập tức
+      e.preventDefault();
       const code = e.currentTarget.value.trim();
       const existingProduct = products.find((p: any) => p.product_code === code);
       if (existingProduct) {
-        // Có mã rồi -> nhảy sang ô Số Lượng
         document.getElementById("stockInput")?.focus();
       } else {
-        // Mã mới toanh -> nhảy sang ô Tên SP
         document.getElementById("nameInput")?.focus();
       }
     }
@@ -219,25 +219,34 @@ export default function App() {
 
     const existingProduct = products.find((p: any) => p.product_code === newCode);
     const addedStock = parseInt(newStock || "0");
+    const expiryValue = newExpiry ? newExpiry : null;
 
     if (existingProduct) {
-      await supabase.from("products").update({ name: newName, sale_price: parseInt(newPrice), stock: existingProduct.stock + addedStock }).eq("id", existingProduct.id);
+      await supabase.from("products").update({ 
+        name: newName, 
+        sale_price: parseInt(newPrice), 
+        stock: existingProduct.stock + addedStock,
+        expiry_date: expiryValue // Cập nhật HSD
+      }).eq("id", existingProduct.id);
     } else {
-      await supabase.from("products").insert([{ product_code: newCode, name: newName, sale_price: parseInt(newPrice), stock: addedStock }]);
+      await supabase.from("products").insert([{ 
+        product_code: newCode, 
+        name: newName, 
+        sale_price: parseInt(newPrice), 
+        stock: addedStock,
+        expiry_date: expiryValue // Thêm HSD
+      }]);
     }
     
     if (addedStock > 0) {
       setHistory(prev => [{ id: Date.now(), type: "NHẬP", name: newName, qty: addedStock, total: 0, time: new Date().toLocaleString() }, ...prev]);
     }
 
-    setNewCode(""); setNewName(""); setNewPrice(""); setNewStock("");
+    setNewCode(""); setNewName(""); setNewPrice(""); setNewStock(""); setNewExpiry("");
     fetchProducts();
     setLoading(false);
     
-    // Nhập thành công -> Tự động quay lại ô Mã để tít món tiếp theo
-    setTimeout(() => {
-      document.getElementById("codeInput")?.focus();
-    }, 100);
+    setTimeout(() => { document.getElementById("codeInput")?.focus(); }, 100);
   };
 
   const handleDelete = async (id: any, name: any) => {
@@ -333,7 +342,7 @@ export default function App() {
         </div>
       )}
 
-      <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
+      <div style={{ maxWidth: "1250px", margin: "0 auto" }}>
         {/* THANH THỐNG KÊ */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "15px", marginBottom: "20px" }}>
           <div style={{ padding: "20px", backgroundColor: "#fff", borderRadius: "12px", borderLeft: "6px solid #3b82f6" }}>
@@ -350,7 +359,7 @@ export default function App() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "2.2fr 1fr", gap: "20px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "2.4fr 1fr", gap: "20px" }}>
           {/* CỘT TRÁI */}
           <div style={{ backgroundColor: "#fff", padding: "25px", borderRadius: "16px", boxShadow: "0 10px 15px rgba(0,0,0,0.05)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
@@ -372,13 +381,12 @@ export default function App() {
 
             {/* FORM NHẬP KHO THÔNG MINH */}
             <div style={{ fontSize: "12px", fontWeight: "bold", color: "#64748b", marginBottom: "5px", borderTop: "2px dashed #e2e8f0", paddingTop: "15px" }}>📦 FORM NHẬP KHO CHUYÊN NGHIỆP</div>
-            <form onSubmit={handleAddProduct} style={{ display: "flex", gap: "5px", marginBottom: "20px", padding: "15px", backgroundColor: "#f8fafc", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
-              {/* Thêm id="codeInput" và onKeyDown để bẫy Enter */}
-              <input id="codeInput" placeholder="Mã" value={newCode} onChange={handleCodeChange} onKeyDown={handleCodeKeyDown} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
-              <input id="nameInput" placeholder="Tên SP" value={newName} onChange={e => setNewName(e.target.value)} style={{ flex: 2, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
-              <input type="number" placeholder="Giá" value={newPrice} onChange={e => setNewPrice(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
-              {/* Thêm id="stockInput" để tự động nhảy trỏ chuột tới đây */}
-              <input id="stockInput" type="number" placeholder="SL Nhập" value={newStock} onChange={e => setNewStock(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+            <form onSubmit={handleAddProduct} style={{ display: "flex", gap: "5px", marginBottom: "20px", padding: "15px", backgroundColor: "#f8fafc", borderRadius: "10px", border: "1px solid #e2e8f0", flexWrap: "wrap" }}>
+              <input id="codeInput" placeholder="Mã" value={newCode} onChange={handleCodeChange} onKeyDown={handleCodeKeyDown} style={{ flex: "1 1 100px", padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+              <input id="nameInput" placeholder="Tên SP" value={newName} onChange={e => setNewName(e.target.value)} style={{ flex: "2 1 150px", padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+              <input type="number" placeholder="Giá" value={newPrice} onChange={e => setNewPrice(e.target.value)} style={{ flex: "1 1 80px", padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+              <input type="date" title="Hạn sử dụng" value={newExpiry} onChange={e => setNewExpiry(e.target.value)} style={{ flex: "1 1 120px", padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1", color: "#475569" }} />
+              <input id="stockInput" type="number" placeholder="SL Nhập" value={newStock} onChange={e => setNewStock(e.target.value)} style={{ flex: "1 1 80px", padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
               <button type="submit" disabled={loading} style={{ padding: "10px 15px", backgroundColor: "#1e3a8a", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>NHẬP</button>
             </form>
 
@@ -388,30 +396,47 @@ export default function App() {
               <thead>
                 <tr style={{ borderBottom: "2px solid #f1f5f9", color: "#64748b", fontSize: "12px" }}>
                   <th style={{ textAlign: "left", padding: "10px" }}>SẢN PHẨM</th>
-                  <th style={{ textAlign: "center", padding: "10px" }}>KHO</th>
+                  <th style={{ textAlign: "center", padding: "10px" }}>TỒN KHO</th>
+                  <th style={{ textAlign: "center", padding: "10px" }}>HSD & LƯU KHO</th>
                   <th style={{ textAlign: "right", padding: "10px" }}>GIÁ BÁN</th>
                   <th style={{ textAlign: "center", padding: "10px" }}>QUẢN LÝ</th>
                 </tr>
               </thead>
               <tbody>
-                {products.filter((p: any) => p.name.toLowerCase().includes(searchTerm.toLowerCase())).map((p: any) => (
-                  <tr key={p.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                    <td style={{ padding: "10px" }}>
-                      <div style={{ fontWeight: "bold" }}>{p.name}</div>
-                      <small style={{ color: "#94a3b8" }}>{p.product_code}</small>
-                    </td>
-                    <td style={{ textAlign: "center" }}>
-                      <button onClick={() => handleEdit(p.id, 'stock', p.stock)} style={{ border: "none", background: p.stock < 5 ? "#fee2e2" : "#f1f5f9", color: p.stock < 5 ? "#ef4444" : "#475569", padding: "3px 8px", borderRadius: "5px", fontWeight: "bold", cursor: "pointer" }}>{p.stock}</button>
-                    </td>
-                    <td style={{ textAlign: "right", fontWeight: "bold", color: "#059669" }}>
-                      <span onClick={() => handleEdit(p.id, 'sale_price', p.sale_price)} style={{ cursor: "pointer" }}>{p.sale_price.toLocaleString()}đ</span>
-                    </td>
-                    <td style={{ textAlign: "center" }}>
-                      <button onClick={() => addToCart(p)} style={{ padding: "5px 12px", backgroundColor: "#f59e0b", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "12px" }}>+ THÊM VÀO GIỎ</button>
-                      <button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#cbd5e1", cursor: "pointer", marginLeft: "10px" }}>🗑️</button>
-                    </td>
-                  </tr>
-                ))}
+                {products.filter((p: any) => p.name.toLowerCase().includes(searchTerm.toLowerCase())).map((p: any) => {
+                  // Tính số ngày lưu kho
+                  const today = new Date();
+                  const createdDate = new Date(p.created_at);
+                  const diffTime = Math.abs(today.getTime() - createdDate.getTime());
+                  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+                  return (
+                    <tr key={p.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                      <td style={{ padding: "10px" }}>
+                        <div style={{ fontWeight: "bold" }}>{p.name}</div>
+                        <small style={{ color: "#94a3b8" }}>{p.product_code}</small>
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <button onClick={() => handleEdit(p.id, 'stock', p.stock)} style={{ border: "none", background: p.stock < 5 ? "#fee2e2" : "#f1f5f9", color: p.stock < 5 ? "#ef4444" : "#475569", padding: "3px 8px", borderRadius: "5px", fontWeight: "bold", cursor: "pointer" }}>{p.stock}</button>
+                      </td>
+                      <td style={{ textAlign: "center", fontSize: "11px" }}>
+                        <div style={{ color: p.expiry_date ? "#b91c1c" : "#94a3b8", fontWeight: "bold", marginBottom: "2px" }}>
+                          HSD: {p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : "---"}
+                        </div>
+                        <div style={{ color: diffDays > 30 ? "#ea580c" : "#16a34a" }}>
+                          Kho: {diffDays === 0 ? "Mới nhập" : `${diffDays} ngày`}
+                        </div>
+                      </td>
+                      <td style={{ textAlign: "right", fontWeight: "bold", color: "#059669" }}>
+                        <span onClick={() => handleEdit(p.id, 'sale_price', p.sale_price)} style={{ cursor: "pointer" }}>{p.sale_price.toLocaleString()}đ</span>
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <button onClick={() => addToCart(p)} style={{ padding: "5px 10px", backgroundColor: "#f59e0b", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "11px" }}>+ VÀO GIỎ</button>
+                        <button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#cbd5e1", cursor: "pointer", marginLeft: "5px" }}>🗑️</button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
