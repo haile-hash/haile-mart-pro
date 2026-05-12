@@ -21,8 +21,9 @@ export default function App() {
   const [newPrice, setNewPrice] = useState("");
   const [newStock, setNewStock] = useState("");
 
-  // STATE THANH TOÁN QR
-  const [checkoutOrder, setCheckoutOrder] = useState<any>(null);
+  // --- STATES GIỎ HÀNG & THANH TOÁN ---
+  const [cart, setCart] = useState<any[]>([]);
+  const [showCheckout, setShowCheckout] = useState(false);
 
   const [history, setHistory] = useState<any[]>(() => {
     const saved = localStorage.getItem("mart_history");
@@ -101,32 +102,59 @@ export default function App() {
     }
   };
 
-  // --- QUY TRÌNH THANH TOÁN MỚI ---
-  const handleSellClick = (p: any) => {
+  // --- QUY TRÌNH GIỎ HÀNG & THANH TOÁN (MỚI) ---
+  const addToCart = (p: any) => {
     if (p.stock <= 0) return alert("Hết hàng!");
-    const qty = window.prompt(`Bán ${p.name}. Nhập số lượng:`, "1");
-    if (qty && parseInt(qty) > 0 && parseInt(qty) <= p.stock) {
-      const sellQty = parseInt(qty);
-      const total = p.sale_price * sellQty;
-      // Kích hoạt Popup Thanh Toán QR thay vì trừ kho luôn
-      setCheckoutOrder({ product: p, qty: sellQty, total: total });
-    } else if (qty) {
-      alert("Số lượng không hợp lệ hoặc vượt quá kho!");
+    const qty = window.prompt(`Thêm ${p.name} vào giỏ. Nhập số lượng:`, "1");
+    if (qty && parseInt(qty) > 0) {
+      const addQty = parseInt(qty);
+      
+      // Kiểm tra xem hàng trong giỏ + hàng mới thêm có vượt kho không
+      const existingItem = cart.find(item => item.product.id === p.id);
+      const currentCartQty = existingItem ? existingItem.qty : 0;
+      
+      if (currentCartQty + addQty > p.stock) {
+        return alert(`Kho chỉ còn ${p.stock} sản phẩm. Bạn đã có ${currentCartQty} trong giỏ!`);
+      }
+
+      if (existingItem) {
+        setCart(cart.map(item => item.product.id === p.id ? { ...item, qty: item.qty + addQty, total: (item.qty + addQty) * p.sale_price } : item));
+      } else {
+        setCart([...cart, { product: p, qty: addQty, total: addQty * p.sale_price }]);
+      }
     }
   };
 
+  const removeFromCart = (productId: any) => {
+    setCart(cart.filter(item => item.product.id !== productId));
+  };
+
+  const cartTotalAmount = cart.reduce((sum, item) => sum + item.total, 0);
+
+  const handleCheckoutClick = () => {
+    if (cart.length === 0) return alert("Giỏ hàng đang trống!");
+    setShowCheckout(true);
+  };
+
   const confirmCheckout = async () => {
-    if (!checkoutOrder) return;
     setLoading(true);
-    const { product: p, qty: sellQty, total } = checkoutOrder;
-    
-    const { error } = await supabase.from("products").update({ stock: p.stock - sellQty }).eq("id", p.id);
-    if (!error) {
-      setRevenue(prev => prev + total);
-      setHistory(prev => [{ id: Date.now(), type: "BÁN", name: p.name, qty: sellQty, total: total, time: new Date().toLocaleString() }, ...prev]);
-      fetchProducts();
+    let currentRevenue = revenue;
+    let newHistoryLogs: any[] = [];
+
+    // Duyệt qua từng món trong giỏ hàng để trừ kho và lưu lịch sử
+    for (const item of cart) {
+      const { product: p, qty, total } = item;
+      await supabase.from("products").update({ stock: p.stock - qty }).eq("id", p.id);
+      currentRevenue += total;
+      // Dùng hàm random mồi thêm vào ID để tránh trùng lặp thời gian khi mua nhiều món
+      newHistoryLogs.push({ id: Date.now() + Math.random(), type: "BÁN", name: p.name, qty: qty, total: total, time: new Date().toLocaleString() });
     }
-    setCheckoutOrder(null);
+
+    setRevenue(currentRevenue);
+    setHistory(prev => [...newHistoryLogs, ...prev]);
+    setCart([]); // Xóa giỏ hàng
+    setShowCheckout(false); // Đóng popup
+    fetchProducts();
     setLoading(false);
   };
 
@@ -225,30 +253,29 @@ export default function App() {
     <div style={{ padding: "20px", fontFamily: "'Segoe UI', sans-serif", backgroundColor: "#f0f4f8", minHeight: "100vh" }}>
       <style>{` button[title*="Sandbox"], .sp-preview-actions, #csb-embed-actions, [class*="SandboxBadge"] { display: none !important; opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; } `}</style>
 
-      {/* POPUP THANH TOÁN QR */}
-      {checkoutOrder && (
+      {/* POPUP THANH TOÁN QR CHO GIỎ HÀNG */}
+      {showCheckout && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
-          <div style={{ backgroundColor: "#fff", padding: "30px", borderRadius: "20px", width: "350px", textAlign: "center", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)" }}>
+          <div style={{ backgroundColor: "#fff", padding: "30px", borderRadius: "20px", width: "380px", textAlign: "center", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)" }}>
             <div style={{ fontSize: "40px", marginBottom: "10px" }}>📱</div>
-            <h3 style={{ margin: "0 0 5px 0", color: "#1e3a8a", fontSize: "20px" }}>Quét Mã Thanh Toán</h3>
+            <h3 style={{ margin: "0 0 5px 0", color: "#1e3a8a", fontSize: "20px" }}>Thanh Toán Đơn Hàng</h3>
             <p style={{ margin: "0 0 15px 0", color: "#64748b", fontSize: "14px" }}>LE HONG HAI - MB BANK</p>
             
             <div style={{ padding: "15px", backgroundColor: "#f8fafc", borderRadius: "12px", marginBottom: "20px" }}>
-              <div style={{ fontWeight: "bold", color: "#334155", fontSize: "16px", marginBottom: "5px" }}>{checkoutOrder.product.name} <span style={{color: "#94a3b8"}}>x{checkoutOrder.qty}</span></div>
-              <div style={{ color: "#ef4444", fontSize: "26px", fontWeight: "900" }}>{checkoutOrder.total.toLocaleString()}đ</div>
+              <div style={{ fontWeight: "bold", color: "#334155", fontSize: "15px", marginBottom: "5px" }}>{cart.length} món hàng</div>
+              <div style={{ color: "#ef4444", fontSize: "28px", fontWeight: "900" }}>{cartTotalAmount.toLocaleString()}đ</div>
             </div>
             
-            {/* API TẠO MÃ QR ĐỘNG CỦA VIETQR (MB BANK: 970422) */}
             <div style={{ background: "#fff", padding: "10px", borderRadius: "16px", border: "2px dashed #cbd5e1", display: "inline-block", marginBottom: "20px" }}>
               <img 
-                src={`https://img.vietqr.io/image/970422-0680124181004-compact2.png?amount=${checkoutOrder.total}&addInfo=Thanh toan don hang&accountName=LE%20HONG%20HAI`} 
+                src={`https://img.vietqr.io/image/970422-0680124181004-compact2.png?amount=${cartTotalAmount}&addInfo=Thanh toan don hang&accountName=LE%20HONG%20HAI`} 
                 alt="QR Thanh toán" 
                 style={{ width: "220px", height: "220px", display: "block" }} 
               />
             </div>
             
             <div style={{ display: "flex", gap: "10px" }}>
-              <button onClick={() => setCheckoutOrder(null)} disabled={loading} style={{ flex: 1, padding: "14px", backgroundColor: "#f1f5f9", border: "none", borderRadius: "10px", fontWeight: "bold", color: "#64748b", cursor: "pointer" }}>Hủy</button>
+              <button onClick={() => setShowCheckout(false)} disabled={loading} style={{ flex: 1, padding: "14px", backgroundColor: "#f1f5f9", border: "none", borderRadius: "10px", fontWeight: "bold", color: "#64748b", cursor: "pointer" }}>Hủy</button>
               <button onClick={confirmCheckout} disabled={loading} style={{ flex: 2, padding: "14px", backgroundColor: "#10b981", border: "none", borderRadius: "10px", fontWeight: "bold", color: "#fff", cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center", gap: "5px" }}>
                 {loading ? "Đang xử lý..." : "✔️ Đã nhận tiền"}
               </button>
@@ -257,7 +284,8 @@ export default function App() {
         </div>
       )}
 
-      <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
+      <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
+        {/* THANH THỐNG KÊ */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "15px", marginBottom: "20px" }}>
           <div style={{ padding: "20px", backgroundColor: "#fff", borderRadius: "12px", borderLeft: "6px solid #3b82f6" }}>
             <div style={{ color: "#64748b", fontSize: "12px", fontWeight: "bold" }}>TỔNG TỒN KHO</div>
@@ -274,6 +302,7 @@ export default function App() {
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "2.2fr 1fr", gap: "20px" }}>
+          {/* CỘT TRÁI: DANH SÁCH HÀNG & NHẬP HÀNG */}
           <div style={{ backgroundColor: "#fff", padding: "25px", borderRadius: "16px", boxShadow: "0 10px 15px rgba(0,0,0,0.05)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
               <h2 style={{ color: "#1e3a8a", margin: 0 }}>🏪 HẢI LÊ MART PRO</h2>
@@ -307,13 +336,13 @@ export default function App() {
                       <small style={{ color: "#94a3b8" }}>{p.product_code}</small>
                     </td>
                     <td style={{ textAlign: "center" }}>
-                      <button onClick={() => handleEdit(p.id, 'stock', p.stock)} style={{ border: "none", background: p.stock < 5 ? "#fee2e2" : "#f1f5f9", color: p.stock < 5 ? "#ef4444" : "#475569", padding: "3px 8px", borderRadius: "5px", fontWeight: "bold" }}>{p.stock}</button>
+                      <button onClick={() => handleEdit(p.id, 'stock', p.stock)} style={{ border: "none", background: p.stock < 5 ? "#fee2e2" : "#f1f5f9", color: p.stock < 5 ? "#ef4444" : "#475569", padding: "3px 8px", borderRadius: "5px", fontWeight: "bold", cursor: "pointer" }}>{p.stock}</button>
                     </td>
                     <td style={{ textAlign: "right", fontWeight: "bold", color: "#059669" }}>
                       <span onClick={() => handleEdit(p.id, 'sale_price', p.sale_price)} style={{ cursor: "pointer" }}>{p.sale_price.toLocaleString()}đ</span>
                     </td>
                     <td style={{ textAlign: "center" }}>
-                      <button onClick={() => handleSellClick(p)} style={{ padding: "5px 15px", backgroundColor: "#10b981", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>BÁN & QUÉT MÃ</button>
+                      <button onClick={() => addToCart(p)} style={{ padding: "5px 12px", backgroundColor: "#f59e0b", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "12px" }}>+ THÊM VÀO GIỎ</button>
                       <button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#cbd5e1", cursor: "pointer", marginLeft: "10px" }}>🗑️</button>
                     </td>
                   </tr>
@@ -322,30 +351,71 @@ export default function App() {
             </table>
           </div>
 
-          <div style={{ backgroundColor: "#fff", padding: "20px", borderRadius: "16px", boxShadow: "0 4px 6px rgba(0,0,0,0.05)", height: "fit-content" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #f1f5f9", paddingBottom: "10px", marginBottom: "10px" }}>
-              <h3 style={{ margin: 0, fontSize: "15px", color: "#1e3a8a" }}>📋 LỊCH SỬ</h3>
-              <button onClick={exportToCSV} style={{ padding: "4px 8px", backgroundColor: "#3b82f6", color: "#fff", border: "none", borderRadius: "4px", fontSize: "11px", fontWeight: "bold", cursor: "pointer" }}>XUẤT EXCEL</button>
-            </div>
+          {/* CỘT PHẢI: GIỎ HÀNG & LỊCH SỬ */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
             
-            <div style={{ maxHeight: "450px", overflowY: "auto" }}>
-              {history.length === 0 ? <p style={{ color: "#94a3b8", textAlign: "center", fontSize: "13px" }}>Chưa có biến động</p> : 
-                history.map((log: any) => (
-                  <div key={log.id} style={{ padding: "10px 0", borderBottom: "1px dashed #e2e8f0" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
-                      <span style={{ fontWeight: "bold", color: log.type === "NHẬP" ? "#2563eb" : "#334155" }}>
-                        [{log.type}] {log.name} x{log.qty}
-                      </span>
-                      {log.type === "BÁN" && <span style={{ color: "#10b981", fontWeight: "bold" }}>+{log.total.toLocaleString()}đ</span>}
+            {/* GIỎ HÀNG NẰM TRÊN */}
+            <div style={{ backgroundColor: "#fff", padding: "20px", borderRadius: "16px", boxShadow: "0 4px 6px rgba(0,0,0,0.05)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #f1f5f9", paddingBottom: "10px", marginBottom: "10px" }}>
+                <h3 style={{ margin: 0, fontSize: "15px", color: "#d97706" }}>🛒 GIỎ HÀNG ({cart.length})</h3>
+              </div>
+              
+              <div style={{ maxHeight: "200px", overflowY: "auto" }}>
+                {cart.length === 0 ? <p style={{ color: "#94a3b8", textAlign: "center", fontSize: "13px" }}>Chưa có món nào</p> : 
+                  cart.map((item: any, index: number) => (
+                    <div key={index} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px dashed #e2e8f0", fontSize: "13px" }}>
+                      <div>
+                        <span style={{ fontWeight: "bold" }}>{item.product.name}</span> <span style={{color: "#64748b"}}>x{item.qty}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <span style={{ fontWeight: "bold", color: "#ef4444" }}>{item.total.toLocaleString()}đ</span>
+                        <button onClick={() => removeFromCart(item.product.id)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", padding: 0 }}>✖</button>
+                      </div>
                     </div>
-                    <small style={{ color: "#94a3b8", fontSize: "11px" }}>{log.time}</small>
+                  ))
+                }
+              </div>
+
+              {cart.length > 0 && (
+                <div style={{ marginTop: "15px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", fontWeight: "bold", marginBottom: "15px" }}>
+                    <span>TỔNG TIỀN:</span>
+                    <span style={{ color: "#ef4444" }}>{cartTotalAmount.toLocaleString()}đ</span>
                   </div>
-                ))
-              }
+                  <button onClick={handleCheckoutClick} style={{ width: "100%", padding: "12px", backgroundColor: "#10b981", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer", fontSize: "14px", display: "flex", justifyContent: "center", alignItems: "center", gap: "5px" }}>
+                    THANH TOÁN QR
+                  </button>
+                </div>
+              )}
             </div>
-            {history.length > 0 && (
-              <button onClick={handleClearHistory} style={{ width: "100%", marginTop: "15px", padding: "8px", background: "#fee2e2", border: "none", borderRadius: "6px", color: "#ef4444", fontWeight: "bold", cursor: "pointer", fontSize: "11px" }}>XÓA LỊCH SỬ</button>
-            )}
+
+            {/* LỊCH SỬ NẰM DƯỚI */}
+            <div style={{ backgroundColor: "#fff", padding: "20px", borderRadius: "16px", boxShadow: "0 4px 6px rgba(0,0,0,0.05)", flex: 1 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #f1f5f9", paddingBottom: "10px", marginBottom: "10px" }}>
+                <h3 style={{ margin: 0, fontSize: "15px", color: "#1e3a8a" }}>📋 LỊCH SỬ</h3>
+                <button onClick={exportToCSV} style={{ padding: "4px 8px", backgroundColor: "#3b82f6", color: "#fff", border: "none", borderRadius: "4px", fontSize: "11px", fontWeight: "bold", cursor: "pointer" }}>XUẤT EXCEL</button>
+              </div>
+              
+              <div style={{ maxHeight: "250px", overflowY: "auto" }}>
+                {history.length === 0 ? <p style={{ color: "#94a3b8", textAlign: "center", fontSize: "13px" }}>Chưa có biến động</p> : 
+                  history.map((log: any) => (
+                    <div key={log.id} style={{ padding: "10px 0", borderBottom: "1px dashed #e2e8f0" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
+                        <span style={{ fontWeight: "bold", color: log.type === "NHẬP" ? "#2563eb" : "#334155" }}>
+                          [{log.type}] {log.name} x{log.qty}
+                        </span>
+                        {log.type === "BÁN" && <span style={{ color: "#10b981", fontWeight: "bold" }}>+{log.total.toLocaleString()}đ</span>}
+                      </div>
+                      <small style={{ color: "#94a3b8", fontSize: "11px" }}>{log.time}</small>
+                    </div>
+                  ))
+                }
+              </div>
+              {history.length > 0 && (
+                <button onClick={handleClearHistory} style={{ width: "100%", marginTop: "15px", padding: "8px", background: "#fee2e2", border: "none", borderRadius: "6px", color: "#ef4444", fontWeight: "bold", cursor: "pointer", fontSize: "11px" }}>XÓA LỊCH SỬ</button>
+              )}
+            </div>
+
           </div>
         </div>
       </div>
