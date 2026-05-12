@@ -110,7 +110,7 @@ export default function App() {
     } else alert("Sai tài khoản!");
   };
 
-  const handleLogout = () => { if (window.confirm("Khóa máy?")) { setIsLoggedIn(false); localStorage.removeItem("mart_logged_in"); } };
+  const handleLogout = () => { if (window.confirm("Bạn có chắc chắn muốn đăng xuất?")) { setIsLoggedIn(false); localStorage.removeItem("mart_logged_in"); } };
 
   const getActualPrice = (p: any) => (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price;
 
@@ -204,7 +204,7 @@ export default function App() {
 
   const handleDelete = async (id: any, name: any) => { if (window.confirm(`Xóa vĩnh viễn ${name}?`)) { await supabase.from("products").delete().eq("id", id); fetchProducts(); } };
   const handleEdit = async (id: any, field: string, old: any, isText: boolean = false) => {
-    const val = window.prompt(`Sửa ${field === 'promo_price' ? 'Giá KM (0 để hủy)' : field === 'gift_info' ? 'Quà Tặng (Trống để hủy)' : field}:`, old || "");
+    const val = window.prompt(`Sửa ${field === 'promo_price' ? 'Giá KM (Nhập 0 để hủy)' : field === 'gift_info' ? 'Quà Tặng (Bỏ trống để hủy)' : field}:`, old || "");
     if (val !== null) { await supabase.from("products").update({ [field]: isText ? val : (parseInt(val) || 0) }).eq("id", id); fetchProducts(); }
   };
 
@@ -249,6 +249,10 @@ export default function App() {
     groups[date].push({ ...log, t: new Date(Math.floor(log.id)).toLocaleTimeString('vi-VN') });
     return groups;
   }, {});
+
+  const toggleDateGroup = (dateStr: string) => {
+    setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
+  };
 
   return (
     <div>
@@ -353,7 +357,6 @@ export default function App() {
           <div style={{ display: "grid", gridTemplateColumns: "3fr 1fr", gap: "15px" }}>
             <div className="glass" style={{ padding: "15px" }}>
               
-              {/* TỐI ƯU CỰC ĐỘ: GỘP Ô TÌM KIẾM VÀ NÚT NHẬP KHO CHUNG 1 DÒNG */}
               <div style={{ display: "flex", gap: "10px", marginBottom: "15px" }}>
                 <input placeholder="🔍 BẮN MÃ VẠCH / TÌM KIẾM..." value={barcodeInput} onChange={e => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeSubmit} style={{ flex: 1, padding: "10px 15px", borderRadius: "8px", border: "2px solid #ef4444", fontSize: "14px", fontWeight: "bold", outline: "none", boxSizing: "border-box" }} />
                 <div onClick={() => setShowInputForm(!showInputForm)} style={{ padding: "10px 15px", borderRadius: "8px", fontWeight: "bold", color: "#b91c1c", cursor: "pointer", border: "1px dashed #ef4444", fontSize: "13px", display: "flex", alignItems: "center", whiteSpace: "nowrap", backgroundColor: "#fef2f2" }}>
@@ -386,7 +389,7 @@ export default function App() {
 
               <div style={{ maxHeight: "calc(100vh - 200px)", overflowY: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead><tr style={{ color: "#16a34a", fontSize: "11px", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}><th style={{ textAlign: "left", padding: "10px" }}>SẢN PHẨM</th><th style={{ textAlign: "center" }}>TỒN</th><th style={{ textAlign: "center" }}>GIÁ VỐN</th><th style={{ textAlign: "center" }}>GIÁ BÁN (CHƯA VAT)</th><th style={{ textAlign: "center" }}>HSD/KHO</th><th style={{ textAlign: "right" }}></th></tr></thead>
+                  <thead><tr style={{ color: "#16a34a", fontSize: "11px", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}><th style={{ textAlign: "left", padding: "10px" }}>SẢN PHẨM</th><th style={{ textAlign: "center" }}>TỒN</th><th style={{ textAlign: "center" }}>GIÁ VỐN</th><th style={{ textAlign: "center" }}>GIÁ BÁN (CHƯA VAT)</th><th style={{ textAlign: "center" }}>Hạn Sử Dụng / Thời Gian Lưu Kho</th><th style={{ textAlign: "right" }}></th></tr></thead>
                   <tbody>
                     {products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(searchTerm.toLowerCase()))).map(p => {
                       const isP = p.promo_price > 0; const d = Math.floor(Math.abs(new Date().getTime() - new Date(p.created_at).getTime()) / 86400000);
