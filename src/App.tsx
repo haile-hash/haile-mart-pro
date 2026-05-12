@@ -82,7 +82,6 @@ export default function App() {
     if (data) setProducts(data);
   };
 
-  // --- HÀM XUẤT EXCEL & GỬI EMAIL (ĐÃ ĐƯỢC KHÔI PHỤC LẠI) ---
   const exportToCSV = () => {
     if (history.length === 0) return alert("Chưa có lịch sử!");
     let csv = "\uFEFFGiờ,Loại,Khách,Sản phẩm,SL,Tổng(VAT),Lợi nhuận\n";
@@ -107,7 +106,6 @@ export default function App() {
     const body = encodeURIComponent(`Báo cáo ngày ${todayStr}:\n- Đã bán: ${sold} món\n- Doanh thu (có VAT): ${Math.round(rev).toLocaleString()}đ\n- Lợi nhuận: ${Math.round(prof).toLocaleString()}đ`);
     window.location.href = `mailto:lehonghaikt6@gmail.com?subject=${sub}&body=${body}`;
   };
-  // -----------------------------------------------------------
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -248,10 +246,11 @@ export default function App() {
   };
 
   const handlePayDebt = (phone: string) => {
-    const payAmt = window.prompt(`Khách ${customers[phone].name} đang nợ ${customers[phone].debt.toLocaleString()}đ. Nhập số tiền khách trả:`, customers[phone].debt.toString());
+    const currentDebt = customers[phone]?.debt || 0;
+    const payAmt = window.prompt(`Khách ${customers[phone].name} đang nợ ${currentDebt.toLocaleString()}đ. Nhập số tiền khách trả:`, currentDebt.toString());
     if (payAmt && parseInt(payAmt) > 0) {
       const amt = parseInt(payAmt);
-      setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], debt: Math.max(0, prev[phone].debt - amt) } }));
+      setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], debt: Math.max(0, (prev[phone]?.debt || 0) - amt) } }));
       setRevenue(prev => prev + amt);
       setHistory(prev => [{ id: Date.now(), type: "THU NỢ", name: "Thanh toán công nợ", qty: 1, total: amt, profit: 0, customer: `${customers[phone].name} (${phone})` }, ...prev]);
       alert("Đã thu nợ thành công!");
@@ -403,17 +402,17 @@ export default function App() {
               <button onClick={() => setShowDebtModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
             </div>
             <div style={{ overflowY: "auto", flex: 1 }}>
-              {Object.keys(customers).filter(p => customers[p].debt > 0).map(phone => (
+              {Object.keys(customers).filter(p => (customers[p].debt || 0) > 0).map(phone => (
                 <div key={phone} style={{ padding: "10px", borderBottom: "1px dashed #cbd5e1", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
                     <div style={{ fontWeight: "bold", color: "#1e293b" }}>{customers[phone].name}</div>
                     <div style={{ fontSize: "11px", color: "#64748b" }}>{phone}</div>
-                    <div style={{ color: "#ef4444", fontWeight: "bold" }}>Nợ: {customers[phone].debt.toLocaleString()}đ</div>
+                    <div style={{ color: "#ef4444", fontWeight: "bold" }}>Nợ: {(customers[phone].debt || 0).toLocaleString()}đ</div>
                   </div>
                   <button onClick={() => handlePayDebt(phone)} style={{ padding: "6px 12px", background: "#10b981", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "11px" }}>THU TIỀN</button>
                 </div>
               ))}
-              {Object.keys(customers).filter(p => customers[p].debt > 0).length === 0 && <div style={{textAlign: "center", color: "#94a3b8", marginTop: "20px"}}>Không có khoản nợ nào.</div>}
+              {Object.keys(customers).filter(p => (customers[p].debt || 0) > 0).length === 0 && <div style={{textAlign: "center", color: "#94a3b8", marginTop: "20px"}}>Không có khoản nợ nào.</div>}
             </div>
           </div>
         </div>
@@ -458,8 +457,8 @@ export default function App() {
                   <div style={{ marginTop: "10px", padding: "12px", backgroundColor: "#fff7ed", borderRadius: "8px", border: "1px dashed #f97316" }}>
                     {customers[custPhone] ? (
                       <div><div style={{ color: "#b91c1c", fontWeight: "bold" }}>⭐ {customers[custPhone].name}</div>
-                        <div>Ví điểm: <b>{Math.round(customers[custPhone].wallet).toLocaleString()}đ</b> | Nợ: <b style={{color:"#ef4444"}}>{customers[custPhone].debt.toLocaleString()}đ</b></div>
-                        {customers[custPhone].wallet > 0 && <label style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "10px", cursor: "pointer", color: "#ea580c", fontWeight: "bold" }}><input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} /> Dùng điểm lì xì!</label>}
+                        <div>Ví điểm: <b>{Math.round(customers[custPhone].wallet || 0).toLocaleString()}đ</b> | Nợ: <b style={{color:"#ef4444"}}>{(customers[custPhone].debt || 0).toLocaleString()}đ</b></div>
+                        {(customers[custPhone].wallet || 0) > 0 && <label style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "10px", cursor: "pointer", color: "#ea580c", fontWeight: "bold" }}><input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} /> Dùng điểm lì xì!</label>}
                       </div>
                     ) : <input type="text" placeholder="Tên khách mới..." value={custName} onChange={e => setCustName(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: "8px", outline: "none", border: "1px solid #fdba74", boxSizing: "border-box" }} />}
                   </div>
@@ -649,8 +648,8 @@ export default function App() {
                   <h3 style={{ margin: 0, fontSize: "13px", color: "#b91c1c" }}>📋 NHẬT KÝ</h3>
                   {role === 'admin' && (
                     <div style={{ display: "flex", gap: "2px" }}>
-                      <button onClick={exportToCSV} style={{ fontSize: "8px", padding: "2px 4px", background: "#10b981", color: "#fff", border: "none", borderRadius: "4px" }}>EXCEL</button>
-                      <button onClick={handleSendEmailReport} style={{ fontSize: "8px", padding: "2px 4px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "4px" }}>✉ CHỐT</button>
+                      <button onClick={exportToCSV} style={{ fontSize: "8px", padding: "2px 4px", background: "#10b981", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}>EXCEL</button>
+                      <button onClick={handleSendEmailReport} style={{ fontSize: "8px", padding: "2px 4px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}>✉ CHỐT</button>
                     </div>
                   )}
                 </div>
