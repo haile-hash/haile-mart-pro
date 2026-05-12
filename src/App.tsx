@@ -45,7 +45,7 @@ export default function App() {
     if (data) setProducts(data);
   };
 
-  // 2. XỬ LÝ BÁN HÀNG (Đã thêm lệnh tải lại kho ngay lập tức)
+  // 2. XỬ LÝ BÁN HÀNG
   const handleSell = async (p: any) => {
     if (p.stock <= 0) return alert("Hết hàng!");
     const qty = window.prompt(`Bán ${p.name}. Nhập số lượng:`, "1");
@@ -55,27 +55,61 @@ export default function App() {
       if (!error) {
         setRevenue(prev => prev + (p.sale_price * sellQty));
         setHistory(prev => [{ id: Date.now(), name: p.name, qty: sellQty, total: p.sale_price * sellQty, time: new Date().toLocaleTimeString() }, ...prev]);
-        fetchProducts(); // Cập nhật số liệu trên màn hình lập tức
+        fetchProducts();
       }
     } else if (qty) alert("Không đủ hàng trong kho!");
   };
 
-  // 3. THÊM HÀNG MỚI
+  // 3. TÍNH NĂNG MỚI: TỰ ĐỘNG ĐIỀN THÔNG TIN KHI NHẬP MÃ ĐÃ CÓ
+  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const code = e.target.value;
+    setNewCode(code);
+    
+    // Tìm xem mã này đã có trong kho chưa
+    const existingProduct = products.find((p: any) => p.product_code === code);
+    if (existingProduct) {
+      setNewName(existingProduct.name);
+      setNewPrice(existingProduct.sale_price.toString());
+      // Không tự động điền số lượng để bạn tự nhập lô hàng mới
+    }
+  };
+
+  // 4. NHẬP HÀNG THÔNG MINH (CỘNG DỒN HOẶC TẠO MỚI)
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCode || !newName || !newPrice) return alert("Vui lòng điền đủ thông tin!");
     setLoading(true);
-    await supabase.from("products").insert([{ product_code: newCode, name: newName, sale_price: parseInt(newPrice), stock: parseInt(newStock || "0") }]);
+
+    const existingProduct = products.find((p: any) => p.product_code === newCode);
+    const addedStock = parseInt(newStock || "0");
+
+    if (existingProduct) {
+      // Nếu mã đã tồn tại -> Cập nhật cộng dồn số lượng & lưu thay đổi Tên/Giá (nếu có sửa tay)
+      await supabase.from("products").update({ 
+        name: newName, 
+        sale_price: parseInt(newPrice), 
+        stock: existingProduct.stock + addedStock 
+      }).eq("id", existingProduct.id);
+    } else {
+      // Nếu mã mới tinh -> Tạo sản phẩm mới
+      await supabase.from("products").insert([{ 
+        product_code: newCode, 
+        name: newName, 
+        sale_price: parseInt(newPrice), 
+        stock: addedStock 
+      }]);
+    }
+
     setNewCode(""); setNewName(""); setNewPrice(""); setNewStock("");
-    fetchProducts(); // Cập nhật số liệu trên màn hình lập tức
+    fetchProducts();
     setLoading(false);
   };
 
-  // 4. XÓA & SỬA
+  // 5. XÓA & SỬA
   const handleDelete = async (id: any, name: any) => {
     if (window.confirm(`Xóa vĩnh viễn ${name}?`)) {
       await supabase.from("products").delete().eq("id", id);
-      fetchProducts(); // Cập nhật số liệu trên màn hình lập tức
+      fetchProducts();
     }
   };
 
@@ -83,11 +117,10 @@ export default function App() {
     const newVal = window.prompt(`Nhập giá trị mới cho ${field}:`, oldVal);
     if (newVal !== null) {
       await supabase.from("products").update({ [field]: parseInt(newVal) }).eq("id", id);
-      fetchProducts(); // Cập nhật số liệu trên màn hình lập tức
+      fetchProducts();
     }
   };
 
-  // Xóa toàn bộ lịch sử
   const handleClearHistory = () => {
     if (window.confirm("Bạn có chắc muốn xóa sạch doanh thu và lịch sử bán hàng?")) {
       setHistory([]);
@@ -127,10 +160,11 @@ export default function App() {
             <h2 style={{ color: "#1e3a8a", marginTop: 0, marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}>🏪 HẢI LÊ MART PRO</h2>
             
             <form onSubmit={handleAddProduct} style={{ display: "flex", gap: "5px", marginBottom: "25px", padding: "15px", backgroundColor: "#f8fafc", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
-              <input placeholder="Mã" value={newCode} onChange={e => setNewCode(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+              {/* Đã thay đổi sự kiện onChange ở ô Nhập Mã */}
+              <input placeholder="Mã" value={newCode} onChange={handleCodeChange} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
               <input placeholder="Tên SP" value={newName} onChange={e => setNewName(e.target.value)} style={{ flex: 2, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
               <input type="number" placeholder="Giá" value={newPrice} onChange={e => setNewPrice(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
-              <input type="number" placeholder="SL" value={newStock} onChange={e => setNewStock(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+              <input type="number" placeholder="SL Mới" value={newStock} onChange={e => setNewStock(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
               <button type="submit" disabled={loading} style={{ padding: "10px 15px", backgroundColor: "#1e3a8a", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>NHẬP</button>
             </form>
 
