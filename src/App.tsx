@@ -19,7 +19,7 @@ export default function App() {
   
   const [showDebtModal, setShowDebtModal] = useState(false);
   const [showStatsModal, setShowStatsModal] = useState(false);
-  const [showHandoverModal, setShowHandoverModal] = useState(false); // Modal chốt ca
+  const [showHandoverModal, setShowHandoverModal] = useState(false);
 
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
@@ -51,7 +51,6 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
   
-  // REVENUE và PROFIT giờ sẽ đóng vai trò là DOANH THU CA
   const [revenue, setRevenue] = useState<number>(() => {
     const saved = localStorage.getItem("mart_revenue");
     return saved ? Number(saved) : 0;
@@ -122,61 +121,68 @@ export default function App() {
     } else alert("Sai tài khoản hoặc mật khẩu!");
   };
 
-  // NÚT ĐĂNG XUẤT HIỆN BẢNG CHỐT CA
-  const handleLogoutClick = () => {
-    setShowHandoverModal(true);
-  };
+  const handleLogoutClick = () => setShowHandoverModal(true);
 
   const confirmHandover = () => {
-    // Reset tiền ca về 0 cho ca sau
-    setRevenue(0);
-    setProfit(0);
-    // Thoát
-    setIsLoggedIn(false);
-    setShowHandoverModal(false);
-    localStorage.removeItem("mart_logged_in");
-    localStorage.removeItem("mart_role");
+    setRevenue(0); setProfit(0); setIsLoggedIn(false); setShowHandoverModal(false);
+    localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role");
   };
 
   const getActualPrice = (p: any) => (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price;
 
+  // CHẶN BÁN KHỐNG KHI QUẸT MÃ VẠCH
   const handleBarcodeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const p = products.find(prod => prod.product_code === barcodeInput.trim());
       if (p) {
-        if (p.stock <= 0) alert("Hết hàng!");
-        else {
-          const price = getActualPrice(p);
-          const exist = cart.find(item => item.product.id === p.id);
-          if (exist) {
-            const newQty = exist.qty + 1;
-            setCart(cart.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i));
-          } else setCart([...cart, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }]);
+        if (p.stock <= 0) return alert("Đã hết hàng trong kho!");
+        const price = getActualPrice(p);
+        const exist = cart.find(item => item.product.id === p.id);
+        if (exist) {
+          const newQty = exist.qty + 1;
+          if (newQty > p.stock) return alert(`Không đủ hàng! Trong kho chỉ còn ${p.stock}.`);
+          setCart(cart.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i));
+        } else {
+          setCart([...cart, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }]);
         }
       } else alert("Mã sai!");
       setBarcodeInput(""); 
     }
   };
 
+  // CHẶN BÁN KHỐNG KHI BẤM NÚT "+ GIỎ" VÀ NHẬP SỐ LƯỢNG
   const addToCart = (p: any) => {
     if (p.stock <= 0) return alert("Đã hết hàng trong kho!");
-    const q = window.prompt(`Số lượng ${p.name}:`, "1");
+    const q = window.prompt(`Số lượng ${p.name} (Tồn: ${p.stock}):`, "1");
     if (q && parseInt(q) > 0) {
       const qty = parseInt(q); const pr = getActualPrice(p);
       const exist = cart.find(item => item.product.id === p.id);
       if (exist) {
         const newQty = exist.qty + qty;
+        if (newQty > p.stock) return alert(`Không đủ hàng! Trong kho chỉ còn ${p.stock}.`);
         setCart(cart.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*pr*(1+VAT_RATE)), profit: Math.round(newQty*(pr - (p.import_price||0))) } : i));
-      } else setCart([...cart, { product: p, qty, total: Math.round(qty*pr*(1+VAT_RATE)), profit: Math.round(qty*(pr - (p.import_price||0))) }]);
+      } else {
+        if (qty > p.stock) return alert(`Không đủ hàng! Trong kho chỉ còn ${p.stock}.`);
+        setCart([...cart, { product: p, qty, total: Math.round(qty*pr*(1+VAT_RATE)), profit: Math.round(qty*(pr - (p.import_price||0))) }]);
+      }
     }
   };
 
+  // CHẶN BÁN KHỐNG KHI BẤM DẤU CỘNG TRONG GIỎ HÀNG
   const adjustCartQty = (productId: any, delta: number) => {
+    let exceedStock = false;
+    let stockLimit = 0;
+    
     setCart(prev => {
       const updated = prev.map(item => {
         if (item.product.id === productId) {
           const newQty = item.qty + delta;
+          if (newQty > item.product.stock) {
+            exceedStock = true;
+            stockLimit = item.product.stock;
+            return item; // Trả về nguyên trạng, không tăng thêm
+          }
           const price = getActualPrice(item.product);
           return { ...item, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (item.product.import_price||0))) };
         }
@@ -184,6 +190,11 @@ export default function App() {
       });
       return updated.filter(item => item.qty > 0);
     });
+    
+    if (exceedStock) {
+        // Dùng setTimeout để đảm bảo alert không bị block React state update
+        setTimeout(() => alert(`Vượt quá tồn kho! Món này chỉ còn tối đa ${stockLimit} sản phẩm.`), 10);
+    }
   };
 
   const removeFromCart = (productId: any) => setCart(cart.filter(item => item.product.id !== productId));
@@ -411,7 +422,6 @@ export default function App() {
 
   const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
 
-  // THỐNG KÊ TỔNG TRONG NGÀY (Dành cho Admin xem khi đang trong ca)
   const todayStats = useMemo(() => {
     const todayStr = new Date().toLocaleDateString('vi-VN');
     const todayHistory = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStr);
@@ -449,13 +459,11 @@ export default function App() {
           <h1 style={{ color: "#ef4444", fontSize: "28px", margin: 0 }}>🧨 HẢI LÊ MART 🌸</h1>
           <p style={{ color: "#b91c1c", marginBottom: "30px", fontWeight: "bold" }}>Chúc Mừng Năm Mới - Phát Tài Phát Lộc</p>
           <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-            {/* THÊM TÙY CHỌN CHỌN CA LÀM VIỆC */}
             <select value={shift} onChange={e => setShift(e.target.value)} style={{ padding: "14px", borderRadius: "10px", border: "1px solid #f97316", outline: "none", fontWeight: "bold", color: "#9a3412", backgroundColor: "#fffbeb" }}>
               <option value="Ca Sáng">🌅 Ca Sáng (06:00 - 14:00)</option>
               <option value="Ca Chiều">🌇 Ca Chiều (14:00 - 22:00)</option>
               <option value="Ca Tối">🌙 Ca Tối (22:00 - 06:00)</option>
             </select>
-
             <input placeholder="Tên đăng nhập (admin / nhanvien)" value={authUsername} onChange={e => setAuthUsername(e.target.value)} style={{ padding: "14px", borderRadius: "10px", border: "1px solid #f97316", outline: "none" }} />
             <input type="password" placeholder="Mật khẩu" value={authPassword} onChange={e => setAuthPassword(e.target.value)} style={{ padding: "14px", borderRadius: "10px", border: "1px solid #f97316", outline: "none" }} />
             <button type="submit" style={{ padding: "14px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "bold", cursor: "pointer" }}>MỞ CỬA BÁN HÀNG 🧧</button>
@@ -647,7 +655,6 @@ export default function App() {
                 {role === 'admin' && (
                   <button onClick={() => setShowStatsModal(true)} style={{ padding: "4px 8px", background: "#eff6ff", color: "#3b82f6", border: "1px solid #bfdbfe", borderRadius: "6px", fontSize: "11px", fontWeight: "bold", cursor: "pointer" }}>📊 THỐNG KÊ</button>
                 )}
-                {/* NÚT SỔ NỢ GIỜ ĐƯỢC HIỂN THỊ CẢ CHO THU NGÂN */}
                 <button onClick={() => setShowDebtModal(true)} style={{ padding: "4px 8px", background: "#fef2f2", color: "#ef4444", border: "1px solid #fecaca", borderRadius: "6px", fontSize: "11px", fontWeight: "bold", cursor: "pointer" }}>📓 SỔ NỢ</button>
               </div>
             </div>
@@ -682,15 +689,18 @@ export default function App() {
                   style={{ flex: 1, padding: "8px 12px", borderRadius: "6px", border: "2px solid #ef4444", fontSize: "14px", fontWeight: "bold", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb", color: "#b91c1c" }} 
                 />
                 
+                {/* 3 NÚT NHẬP HÀNG SIÊU ĐẲNG */}
                 {role === 'admin' && (
                   <div style={{ display: "flex", gap: "6px" }}>
                     <div onClick={() => setShowInputForm(!showInputForm)} style={{ padding: "8px 12px", borderRadius: "6px", fontWeight: "bold", color: "#b91c1c", cursor: "pointer", border: "1px dashed #ef4444", fontSize: "12px", display: "flex", alignItems: "center", backgroundColor: "#fef2f2" }}>
                       {showInputForm ? "➖ ĐÓNG" : "➕ NHẬP LẺ"}
                     </div>
+                    
                     <label style={{ cursor: "pointer", padding: "8px 12px", borderRadius: "6px", fontWeight: "bold", color: "#059669", border: "1px dashed #10b981", fontSize: "12px", display: "flex", alignItems: "center", backgroundColor: "#ecfdf5" }} title="Nhập hàng loạt từ file CSV">
                       📁 NHẬP TỪ FILE
                       <input type="file" accept=".csv" onChange={handleFileUpload} style={{ display: "none" }} />
                     </label>
+
                     <button onClick={downloadSampleCSV} style={{ padding: "8px 12px", borderRadius: "6px", fontWeight: "bold", color: "#3b82f6", cursor: "pointer", border: "1px dashed #3b82f6", fontSize: "12px", display: "flex", alignItems: "center", backgroundColor: "#eff6ff" }} title="Tải file Excel mẫu">
                       📥 TẢI FILE MẪU
                     </button>
