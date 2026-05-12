@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 // @ts-ignore
 import { supabase } from "./supabaseClient";
 
 export default function App() {
   const SYS_USER = "admin";
   const SYS_PASS = "haile88";
-  const VAT_RATE = 0.1; 
+  const VAT_RATE = 0.1; // Mặc định 10% VAT
 
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem("mart_logged_in") === "true");
   const [authUsername, setAuthUsername] = useState("");
@@ -210,10 +210,43 @@ export default function App() {
 
   const totalValue = products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0);
 
+  // TỐI ƯU HÓA HIỆU NĂNG CHO NHẬT KÝ (Giải quyết triệt để lỗi giật lag)
+  const groupedHistory = useMemo(() => {
+    return history.reduce((groups: any, log: any) => {
+      const date = new Date(Math.floor(log.id)).toLocaleDateString('vi-VN'); 
+      if (!groups[date]) groups[date] = [];
+      groups[date].push({ ...log, t: new Date(Math.floor(log.id)).toLocaleTimeString('vi-VN') });
+      return groups;
+    }, {});
+  }, [history]);
+
+  // TỐI ƯU HÓA SẮP XẾP SẢN PHẨM: ĐẨY HÀNG CẬN ĐÁT <= 45 NGÀY LÊN ĐẦU
+  const sortedAndFilteredProducts = useMemo(() => {
+    const todayTime = new Date().getTime();
+    return products
+      .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(searchTerm.toLowerCase())))
+      .sort((a, b) => {
+        const daysA = a.expiry_date ? (new Date(a.expiry_date).getTime() - todayTime) / 86400000 : Infinity;
+        const daysB = b.expiry_date ? (new Date(b.expiry_date).getTime() - todayTime) / 86400000 : Infinity;
+        
+        const aIsUrgent = daysA <= 45;
+        const bIsUrgent = daysB <= 45;
+        
+        if (aIsUrgent && !bIsUrgent) return -1;
+        if (!aIsUrgent && bIsUrgent) return 1;
+        if (aIsUrgent && bIsUrgent) return daysA - daysB; // Cùng hết hạn thì cái nào sát hơn lên trước
+        return 0;
+      });
+  }, [products, searchTerm]);
+
+  const toggleDateGroup = (dateStr: string) => {
+    setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
+  };
+
   const styles = `
     @keyframes float { 0% { transform: translateY(0); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0); } }
     .spring-bg { position: fixed; width: 400px; height: 400px; border-radius: 50%; filter: blur(100px); z-index: -1; opacity: 0.3; animation: float 10s infinite ease-in-out; }
-    .glass { background: rgba(255, 255, 255, 0.95); border: 1px solid #fed7aa; border-radius: 16px; box-shadow: 0 10px 25px rgba(251, 146, 60, 0.1); }
+    .glass { background: rgba(255, 255, 255, 0.98); border: 1px solid #fed7aa; border-radius: 16px; box-shadow: 0 10px 25px rgba(251, 146, 60, 0.1); }
     body { background-color: #fff7ed; margin: 0; font-family: 'Inter', sans-serif; color: #431407; }
     .stat-box { background: #fff; padding: 8px 15px; border-radius: 20px; font-size: 13px; font-weight: 700; border: 1px solid #fdba74; display: flex; align-items: center; gap: 8px; color: #9a3412; }
     .print-only { display: none; }
@@ -242,13 +275,6 @@ export default function App() {
       </div>
     );
   }
-
-  const groupedHistory = history.reduce((groups: any, log: any) => {
-    const date = new Date(Math.floor(log.id)).toLocaleDateString('vi-VN'); 
-    if (!groups[date]) groups[date] = [];
-    groups[date].push({ ...log, t: new Date(Math.floor(log.id)).toLocaleTimeString('vi-VN') });
-    return groups;
-  }, {});
 
   return (
     <div>
@@ -311,8 +337,8 @@ export default function App() {
                   </div>
                 )}
                 <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
-                  <button onClick={() => setIsCheckoutOpen(false)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "#e2e8f0", fontWeight: "bold" }}>Hủy</button>
-                  <button onClick={handleNextToQR} style={{ flex: 2, padding: "10px", backgroundColor: "#ef4444", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none" }}>TIẾP TỤC 👉</button>
+                  <button onClick={() => setIsCheckoutOpen(false)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "#e2e8f0", fontWeight: "bold", cursor: "pointer" }}>Hủy</button>
+                  <button onClick={handleNextToQR} style={{ flex: 2, padding: "10px", backgroundColor: "#ef4444", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>TIẾP TỤC 👉</button>
                 </div>
               </div>
             )}
@@ -322,8 +348,8 @@ export default function App() {
                 <div style={{ color: "#ef4444", fontSize: "28px", fontWeight: "900", margin: "10px 0" }}>{(cart.reduce((s,i)=>s+i.total,0) - (useWallet ? Math.min(customers[custPhone]?.wallet||0, cart.reduce((s,i)=>s+i.total,0)) : 0)).toLocaleString()}đ</div>
                 <img src={`https://img.vietqr.io/image/970422-0680124181004-compact2.png?amount=${(cart.reduce((s,i)=>s+i.total,0) - (useWallet ? Math.min(customers[custPhone]?.wallet||0, cart.reduce((s,i)=>s+i.total,0)) : 0))}&addInfo=Thanh toan&accountName=LE%20HONG%20HAI`} style={{ width: "200px", margin: "0 auto 15px auto", border: "2px solid #ef4444", borderRadius: "10px" }} />
                 <div style={{ display: "flex", gap: "10px" }}>
-                  <button onClick={() => setCheckoutStep(1)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "#e2e8f0" }}>Quay lại</button>
-                  <button onClick={confirmCheckout} disabled={loading} style={{ flex: 2, padding: "10px", backgroundColor: "#10b981", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none" }}>✔️ NHẬN TIỀN</button>
+                  <button onClick={() => setCheckoutStep(1)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "#e2e8f0", cursor: "pointer" }}>Quay lại</button>
+                  <button onClick={confirmCheckout} disabled={loading} style={{ flex: 2, padding: "10px", backgroundColor: "#10b981", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>✔️ NHẬN TIỀN</button>
                 </div>
               </div>
             )}
@@ -331,8 +357,8 @@ export default function App() {
               <div className="glass" style={{ padding: "30px", width: "350px", textAlign: "center" }}>
                 <div style={{ fontSize: "40px" }}>🌸</div><h3 style={{ color: "#10b981", margin: "10px 0" }}>Thanh toán thành công!</h3>
                 <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
-                  <button onClick={() => window.print()} style={{ flex: 1, padding: "12px", backgroundColor: "#ef4444", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none" }}>🖨️ In Hóa Đơn</button>
-                  <button onClick={closeCheckout} style={{ flex: 1, padding: "12px", backgroundColor: "#e2e8f0", borderRadius: "8px", fontWeight: "bold", border: "none" }}>Đóng</button>
+                  <button onClick={() => window.print()} style={{ flex: 1, padding: "12px", backgroundColor: "#ef4444", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>🖨️ In Hóa Đơn</button>
+                  <button onClick={closeCheckout} style={{ flex: 1, padding: "12px", backgroundColor: "#e2e8f0", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>Đóng</button>
                 </div>
               </div>
             )}
@@ -353,15 +379,8 @@ export default function App() {
           <div style={{ display: "grid", gridTemplateColumns: "3fr 1fr", gap: "15px" }}>
             <div className="glass" style={{ padding: "15px" }}>
               
-              {/* TỐI ƯU CỰC ĐỘ: Ô BẮN MÃ VẠCH */}
               <div style={{ display: "flex", gap: "10px", marginBottom: "15px" }}>
-                <input 
-                  placeholder="👉 QUẸT MÃ VẠCH VÀO ĐÂY ĐỂ XUẤT HÀNG (Hoặc gõ tìm kiếm)..." 
-                  value={barcodeInput} 
-                  onChange={e => setBarcodeInput(e.target.value)} 
-                  onKeyDown={handleBarcodeSubmit} 
-                  style={{ flex: 1, padding: "8px 12px", borderRadius: "6px", border: "2px solid #ef4444", fontSize: "14px", fontWeight: "bold", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb", color: "#b91c1c", boxShadow: "inset 0 1px 3px rgba(0,0,0,0.1)" }} 
-                />
+                <input placeholder="👉 QUẸT MÃ VẠCH VÀO ĐÂY ĐỂ XUẤT HÀNG (Hoặc gõ tìm kiếm)..." value={barcodeInput} onChange={e => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeSubmit} style={{ flex: 1, padding: "8px 12px", borderRadius: "6px", border: "2px solid #ef4444", fontSize: "14px", fontWeight: "bold", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb", color: "#b91c1c", boxShadow: "inset 0 1px 3px rgba(0,0,0,0.1)" }} />
                 <div onClick={() => setShowInputForm(!showInputForm)} style={{ padding: "8px 12px", borderRadius: "6px", fontWeight: "bold", color: "#b91c1c", cursor: "pointer", border: "1px dashed #ef4444", fontSize: "13px", display: "flex", alignItems: "center", whiteSpace: "nowrap", backgroundColor: "#fef2f2" }}>
                   {showInputForm ? "➖ ĐÓNG" : "➕ NHẬP KHO / KHUYẾN MÃI"}
                 </div>
@@ -380,7 +399,7 @@ export default function App() {
                     <input type="date" value={newExpiry} onChange={e => setNewExpiry(e.target.value)} style={{ padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", outline: "none" }} />
                     <input type="text" placeholder="Quà tặng" value={newGiftInfo} onChange={e => setNewGiftInfo(e.target.value)} style={{ padding: "8px", borderRadius: "6px", border: "1px solid #10b981", outline: "none" }} />
                     <input type="number" placeholder="SL..." value={newStock} onChange={e => setNewStock(e.target.value)} style={{ padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", outline: "none" }} />
-                    <button type="submit" disabled={loading} style={{ padding: "8px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold" }}>LƯU</button>
+                    <button type="submit" disabled={loading} style={{ padding: "8px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>LƯU</button>
                   </div>
                 </form>
               )}
@@ -398,25 +417,35 @@ export default function App() {
                       <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa" }}>TỒN</th>
                       <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa" }}>GIÁ VỐN</th>
                       <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa" }}>GIÁ BÁN (CHƯA VAT)</th>
-                      {/* BẺ DÒNG CỘT HSD / LƯU KHO */}
                       <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa", lineHeight: "1.2" }}>HẠN SỬ DỤNG<br/><span style={{fontSize: "9px", color: "#64748b", fontWeight: "normal"}}>THỜI GIAN LƯU KHO</span></th>
                       <th style={{ textAlign: "right", padding: "6px 4px", borderBottom: "2px solid #fed7aa" }}></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(searchTerm.toLowerCase()))).map(p => {
-                      const isP = p.promo_price > 0; const d = Math.floor(Math.abs(new Date().getTime() - new Date(p.created_at).getTime()) / 86400000);
+                    {/* DÙNG DANH SÁCH ĐÃ ĐƯỢC SẮP XẾP SẴN THÔNG MINH */}
+                    {sortedAndFilteredProducts.map(p => {
+                      const isP = p.promo_price > 0; 
+                      const d = Math.floor(Math.abs(new Date().getTime() - new Date(p.created_at).getTime()) / 86400000);
+                      const isNearExpiry = p.expiry_date && (new Date(p.expiry_date).getTime() - new Date().getTime()) / 86400000 <= 45;
+
                       return (
-                        <tr key={p.id} style={{ borderBottom: "1px solid #fed7aa" }}>
-                          <td style={{ padding: "8px 4px" }}><div style={{fontSize: "14px", fontWeight: "bold"}}>{p.name}</div><div style={{fontSize: "10px", color: "#94a3b8"}}>{p.product_code}</div>{p.gift_info ? <div style={{ fontSize: "10px", color: "#059669", fontWeight: "bold" }}>🎁 Tặng: {p.gift_info}</div> : <div style={{ fontSize: "9px", color: "#cbd5e1", cursor: "pointer" }} onClick={()=>handleEdit(p.id, 'gift_info', '', true)}>+ Thêm quà</div>}</td>
+                        <tr key={p.id} style={{ borderBottom: "1px solid #fed7aa", backgroundColor: isNearExpiry ? "#fef2f2" : "transparent" }}>
+                          <td style={{ padding: "8px 4px" }}>
+                            <div style={{fontSize: "14px", fontWeight: "bold"}}>{p.name} {isNearExpiry && <span style={{color: "#ef4444", fontSize: "10px", border: "1px solid #ef4444", padding: "1px 4px", borderRadius: "4px"}}>⚠️ Sắp hết hạn</span>}</div>
+                            <div style={{fontSize: "10px", color: "#94a3b8"}}>{p.product_code}</div>
+                            {p.gift_info ? <div style={{ fontSize: "10px", color: "#059669", fontWeight: "bold" }}>🎁 Tặng: {p.gift_info}</div> : <div style={{ fontSize: "9px", color: "#cbd5e1", cursor: "pointer" }} onClick={()=>handleEdit(p.id, 'gift_info', '', true)}>+ Thêm quà</div>}
+                          </td>
                           <td style={{ textAlign: "center", fontWeight: "bold" }}>{p.stock}</td>
                           <td style={{ textAlign: "center", color: "#64748b", fontSize: "12px" }}>{p.import_price?.toLocaleString()}đ</td>
                           <td style={{ textAlign: "center" }}>
                             <div style={{ color: isP ? "#94a3b8" : "#16a34a", textDecoration: isP ? "line-through" : "none", fontSize: isP ? "11px" : "14px", fontWeight: "bold", cursor: "pointer" }} onClick={()=>handleEdit(p.id, 'sale_price', p.sale_price)}>{p.sale_price.toLocaleString()}đ</div>
                             {isP && <div style={{ color: "#ef4444", fontWeight: "900", fontSize: "14px", cursor: "pointer" }} onClick={()=>handleEdit(p.id, 'promo_price', p.promo_price)}>🔥 {p.promo_price.toLocaleString()}đ</div>}
                           </td>
-                          <td style={{ textAlign: "center", fontSize: "10px" }}><div style={{color: "#b91c1c", fontWeight: "bold", cursor: "pointer"}} onClick={()=>handleEdit(p.id,'expiry_date',p.expiry_date,true)}>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : "---"}</div><div>{d} ngày</div></td>
-                          <td style={{ textAlign: "right", padding: "8px 4px" }}><div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}><button onClick={() => addToCart(p)} style={{ padding: "6px 10px", backgroundColor: "#fbbf24", color: "#78350f", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>+ GIỎ</button><button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "14px" }}>🗑️</button></div></td>
+                          <td style={{ textAlign: "center", fontSize: "10px" }}>
+                            <div style={{color: isNearExpiry ? "#ef4444" : "#b91c1c", fontWeight: "bold", cursor: "pointer"}} onClick={()=>handleEdit(p.id,'expiry_date',p.expiry_date,true)}>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : "---"}</div>
+                            <div>{d} ngày</div>
+                          </td>
+                          <td style={{ textAlign: "right" }}><div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}><button onClick={() => addToCart(p)} style={{ padding: "6px 10px", backgroundColor: "#fbbf24", color: "#78350f", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>+ GIỎ</button><button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "14px" }}>🗑️</button></div></td>
                         </tr>
                       )
                     })}
@@ -444,18 +473,19 @@ export default function App() {
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
                   <h3 style={{ margin: 0, fontSize: "14px" }}>📋 NHẬT KÝ</h3>
                   <div style={{ display: "flex", gap: "4px" }}>
-                    <button onClick={exportToCSV} style={{ fontSize: "9px", padding: "4px 6px", background: "#10b981", color: "#fff", border: "none", borderRadius: "4px" }}>EXCEL</button>
-                    <button onClick={handleSendEmailReport} style={{ fontSize: "9px", padding: "4px 6px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "4px" }}>✉ CHỐT</button>
+                    <button onClick={exportToCSV} style={{ fontSize: "9px", padding: "4px 6px", background: "#10b981", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}>EXCEL</button>
+                    <button onClick={handleSendEmailReport} style={{ fontSize: "9px", padding: "4px 6px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}>✉ CHỐT</button>
                   </div>
                 </div>
                 <div style={{ flex: 1, overflowY: "auto", paddingRight: "4px" }}>
-                  {Object.keys(history.reduce((g:any, l:any)=>{const d=new Date(Math.floor(l.id)).toLocaleDateString('vi-VN');if(!g[d])g[d]=[];g[d].push({...l,t:new Date(Math.floor(l.id)).toLocaleTimeString('vi-VN')});return g;},{})).map((dateStr) => {
-                    const group = history.reduce((g:any, l:any)=>{const d=new Date(Math.floor(l.id)).toLocaleDateString('vi-VN');if(!g[d])g[d]=[];g[d].push({...l,t:new Date(Math.floor(l.id)).toLocaleTimeString('vi-VN')});return g;},{})[dateStr];
+                  {Object.keys(groupedHistory).length === 0 && <div style={{textAlign: "center", color: "#94a3b8", fontSize: "11px", marginTop: "10px"}}>Chưa có dữ liệu</div>}
+                  {Object.keys(groupedHistory).map((dateStr) => {
+                    const group = groupedHistory[dateStr];
                     const isEx = expandedDates[dateStr] ?? true;
                     return (
                       <div key={dateStr} style={{ marginBottom: "8px", backgroundColor: "#fff7ed", borderRadius: "6px", overflow: "hidden", border: "1px solid #fed7aa" }}>
-                        <div onClick={() => setExpandedDates({...expandedDates, [dateStr]: !isEx})} style={{ backgroundColor: "#ffedd5", padding: "8px 10px", fontSize: "11px", fontWeight: "bold", cursor: "pointer", display: "flex", justifyContent: "space-between" }}><span>📅 {dateStr}</span><span>{isEx ? "▼" : "▶"}</span></div>
-                        {isEx && <div style={{ padding: "0 10px" }}>{group.map((log: any) => (<div key={log.id} style={{ padding: "6px 0", borderBottom: "1px dashed #fed7aa", fontSize: "10px" }}><div style={{ display: "flex", justifyContent: "space-between" }}><span><b>[{log.type}]</b> {log.name} x{log.qty}</span>{log.type === "BÁN" && <span style={{color:"#b91c1c", fontWeight:"bold"}}>+{log.total?.toLocaleString()}</span>}</div><div style={{ display: "flex", justifyContent: "space-between", color: "#94a3b8" }}><span>{log.customer}</span><span>{log.t}</span></div></div>))}</div>}
+                        <div onClick={() => toggleDateGroup(dateStr)} style={{ backgroundColor: "#ffedd5", padding: "8px 10px", fontSize: "11px", fontWeight: "bold", cursor: "pointer", display: "flex", justifyContent: "space-between" }}><span>📅 {dateStr}</span><span>{isEx ? "▼" : "▶"}</span></div>
+                        {isEx && <div style={{ padding: "0 10px" }}>{group.map((log: any) => (<div key={log.id} style={{ padding: "6px 0", borderBottom: "1px dashed #fed7aa", fontSize: "10px" }}><div style={{ display: "flex", justifyContent: "space-between" }}><span><b>[{log.type}]</b> {log.name} <span style={{color:"#64748b"}}>x{log.qty}</span></span>{log.type === "BÁN" && <span style={{color:"#b91c1c", fontWeight:"bold"}}>+{log.total?.toLocaleString()}</span>}</div><div style={{ display: "flex", justifyContent: "space-between", color: "#94a3b8" }}><span>{log.customer}</span><span>{log.t}</span></div></div>))}</div>}
                       </div>
                     );
                   })}
