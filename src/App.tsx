@@ -262,7 +262,7 @@ export default function App() {
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const code = e.target.value; setNewCode(code);
     const p = products.find((x: any) => x.product_code === code);
-    if (p) { setNewName(p.name); setNewCategory(p.category || "Đồ uống"); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewGiftInfo(p.gift_info || ""); setNewExpiry(p.expiry_date || ""); }
+    if (p) { setNewName(p.name); setNewCategory(p.category || "Khác"); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewGiftInfo(p.gift_info || ""); setNewExpiry(p.expiry_date || ""); }
   };
 
   const handleAddProduct = async (e: React.FormEvent) => {
@@ -271,16 +271,98 @@ export default function App() {
     const added = parseInt(newStock || "0"); const impPrice = parseInt(newImportPrice);
     let fImp = impPrice;
     if (exist && exist.stock > 0) fImp = Math.round((exist.stock * (exist.import_price || 0) + added * impPrice) / (exist.stock + added));
-    const data = { name: newName, category: newCategory, import_price: fImp, sale_price: parseInt(newPrice), promo_price: parseInt(newPromoPrice) || 0, gift_info: newGiftInfo || null, stock: exist ? exist.stock + added : added, expiry_date: newExpiry || null };
+    
+    const data = { product_code: newCode, name: newName, category: newCategory || "Khác", import_price: fImp, sale_price: parseInt(newPrice), promo_price: parseInt(newPromoPrice) || 0, gift_info: newGiftInfo || null, stock: exist ? exist.stock + added : added, expiry_date: newExpiry || null };
     if (exist) await supabase.from("products").update(data).eq("id", exist.id); else await supabase.from("products").insert([data]);
     if (added > 0) setHistory(prev => [{ id: Date.now(), type: "NHẬP", name: newName, qty: added, total: 0 }, ...prev]);
-    setNewCode(""); setNewName(""); setNewImportPrice(""); setNewPrice(""); setNewPromoPrice(""); setNewGiftInfo(""); setNewStock(""); setNewExpiry("");
+    
+    setNewCode(""); setNewName(""); setNewCategory("Đồ uống"); setNewImportPrice(""); setNewPrice(""); setNewPromoPrice(""); setNewGiftInfo(""); setNewStock(""); setNewExpiry("");
     fetchProducts(); setLoading(false); setShowInputForm(false);
   };
 
+  // --- HỆ THỐNG XỬ LÝ FILE CSV NHẬP KHO HÀNG LOẠT ---
+  const downloadSampleCSV = () => {
+    const csv = "\uFEFFMã SP,Tên SP,Danh Mục,Giá Nhập,Giá Bán,Giá KM,Quà Tặng,Số Lượng,Hạn Sử Dụng (YYYY-MM-DD)\nSP001,Mì Hảo Hảo,Đồ ăn liền,3000,5000,0,,100,2026-12-31\nSP002,Nước suối TH,Đồ uống,4000,6000,0,,50,2025-06-15";
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Mau_Nhap_Kho_Hai_Le_Mart.csv`;
+    link.click();
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      setLoading(true);
+      try {
+        const text = event.target?.result as string;
+        const lines = text.split('\n').filter(line => line.trim() !== '');
+        if (lines.length <= 1) {
+           alert("File rỗng hoặc không đúng định dạng!");
+           setLoading(false); return;
+        }
+
+        let successCount = 0;
+        let importLogs: any[] = [];
+
+        // Chạy vòng lặp qua từng dòng (bỏ qua dòng 0 là tiêu đề)
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''));
+          if (cols.length < 5) continue; 
+
+          const pCode = cols[0];
+          const pName = cols[1];
+          const pCategory = cols[2] || "Khác";
+          const pImpPrice = parseInt(cols[3]) || 0;
+          const pSalePrice = parseInt(cols[4]) || 0;
+          const pPromoPrice = parseInt(cols[5]) || 0;
+          const pGift = cols[6] || null;
+          const pStock = parseInt(cols[7]) || 0;
+          const pExpiry = cols[8] || null;
+
+          if (!pCode || !pName || pSalePrice <= 0) continue;
+
+          // Cập nhật Database trực tiếp
+          const { data: existingData } = await supabase.from("products").select("*").eq("product_code", pCode);
+          const exist = existingData && existingData.length > 0 ? existingData[0] : null;
+
+          let fImp = pImpPrice;
+          if (exist && exist.stock > 0) {
+            fImp = Math.round((exist.stock * (exist.import_price || 0) + pStock * pImpPrice) / (exist.stock + pStock));
+          }
+
+          const data = {
+            product_code: pCode, name: pName, category: pCategory, import_price: fImp,
+            sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift,
+            stock: exist ? exist.stock + pStock : pStock, expiry_date: pExpiry
+          };
+
+          if (exist) await supabase.from("products").update(data).eq("id", exist.id);
+          else await supabase.from("products").insert([data]);
+
+          if (pStock > 0) importLogs.push({ id: Date.now() + Math.random(), type: "NHẬP", name: pName, qty: pStock, total: 0 });
+          successCount++;
+        }
+
+        if (importLogs.length > 0) setHistory(prev => [...importLogs, ...prev]);
+        alert(`Đã nhập thành công ${successCount} sản phẩm từ file!`);
+        fetchProducts();
+      } catch (err) {
+        alert("Có lỗi xảy ra khi xử lý file CSV. Xin kiểm tra lại định dạng.");
+      }
+      setLoading(false);
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Reset input để có thể chọn lại cùng 1 file
+  };
+  // --------------------------------------------------------
+
   const handleDelete = async (id: any, name: any) => { if (window.confirm(`Xóa vĩnh viễn ${name}?`)) { await supabase.from("products").delete().eq("id", id); fetchProducts(); } };
   const handleEdit = async (id: any, field: string, old: any, isText: boolean = false) => {
-    const val = window.prompt(`Sửa ${field}:`, old || "");
+    const val = window.prompt(`Sửa ${field === 'category' ? 'Danh mục' : field}:`, old || "");
     if (val !== null) { await supabase.from("products").update({ [field]: isText ? val : (parseInt(val) || 0) }).eq("id", id); fetchProducts(); }
   };
 
@@ -300,7 +382,7 @@ export default function App() {
   const sortedAndFilteredProducts = useMemo(() => {
     const todayTime = new Date().getTime();
     return products
-      .filter(p => (selectedCategory === "Tất cả" || p.category === selectedCategory))
+      .filter(p => (selectedCategory === "Tất cả" || (p.category || "Khác") === selectedCategory))
       .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(searchTerm.toLowerCase())))
       .sort((a, b) => {
         const daysA = a.expiry_date ? (new Date(a.expiry_date).getTime() - todayTime) / 86400000 : Infinity;
@@ -529,9 +611,22 @@ export default function App() {
                   value={barcodeInput} onChange={e => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeSubmit} 
                   style={{ flex: 1, padding: "8px 12px", borderRadius: "6px", border: "2px solid #ef4444", fontSize: "14px", fontWeight: "bold", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb", color: "#b91c1c" }} 
                 />
+                
+                {/* 3 NÚT NHẬP HÀNG SIÊU ĐẲNG */}
                 {role === 'admin' && (
-                  <div onClick={() => setShowInputForm(!showInputForm)} style={{ padding: "8px 12px", borderRadius: "6px", fontWeight: "bold", color: "#b91c1c", cursor: "pointer", border: "1px dashed #ef4444", fontSize: "12px", display: "flex", alignItems: "center", backgroundColor: "#fef2f2" }}>
-                    {showInputForm ? "➖ ĐÓNG" : "➕ NHẬP KHO"}
+                  <div style={{ display: "flex", gap: "6px" }}>
+                    <div onClick={() => setShowInputForm(!showInputForm)} style={{ padding: "8px 12px", borderRadius: "6px", fontWeight: "bold", color: "#b91c1c", cursor: "pointer", border: "1px dashed #ef4444", fontSize: "12px", display: "flex", alignItems: "center", backgroundColor: "#fef2f2" }}>
+                      {showInputForm ? "➖ ĐÓNG" : "➕ NHẬP LẺ"}
+                    </div>
+                    
+                    <label style={{ cursor: "pointer", padding: "8px 12px", borderRadius: "6px", fontWeight: "bold", color: "#059669", border: "1px dashed #10b981", fontSize: "12px", display: "flex", alignItems: "center", backgroundColor: "#ecfdf5" }} title="Nhập hàng loạt từ file CSV">
+                      📁 NHẬP TỪ FILE
+                      <input type="file" accept=".csv" onChange={handleFileUpload} style={{ display: "none" }} />
+                    </label>
+
+                    <button onClick={downloadSampleCSV} style={{ padding: "8px 12px", borderRadius: "6px", fontWeight: "bold", color: "#3b82f6", cursor: "pointer", border: "1px dashed #3b82f6", fontSize: "12px", display: "flex", alignItems: "center", backgroundColor: "#eff6ff" }} title="Tải file Excel mẫu">
+                      📥 TẢI FILE MẪU
+                    </button>
                   </div>
                 )}
               </div>
@@ -575,13 +670,14 @@ export default function App() {
                       <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa" }}>TỒN</th>
                       {role === 'admin' && <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa" }}>GIÁ VỐN</th>}
                       <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa" }}>GIÁ BÁN</th>
-                      <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa", lineHeight: "1.2" }}>HẠN SỬ DỤNG</th>
+                      <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa", lineHeight: "1.2" }}>HẠN SỬ DỤNG / LƯU KHO</th>
                       <th style={{ textAlign: "right", padding: "6px 4px", borderBottom: "2px solid #fed7aa" }}></th>
                     </tr>
                   </thead>
                   <tbody>
                     {sortedAndFilteredProducts.map(p => {
                       const isP = p.promo_price > 0; 
+                      const d = Math.floor(Math.abs(new Date().getTime() - new Date(p.created_at).getTime()) / 86400000);
                       const isNearExpiry = p.expiry_date && (new Date(p.expiry_date).getTime() - new Date().getTime()) / 86400000 <= 45;
                       const isLowStock = p.stock < 10;
 
@@ -589,7 +685,10 @@ export default function App() {
                         <tr key={p.id} style={{ borderBottom: "1px solid #fed7aa", backgroundColor: isNearExpiry ? "#fef2f2" : "transparent" }}>
                           <td style={{ padding: "8px 4px" }}>
                             <div style={{fontSize: "13px", fontWeight: "bold"}}>{p.name} {isNearExpiry && <span style={{color: "#ef4444", fontSize: "9px", border: "1px solid #ef4444", padding: "1px 2px", borderRadius: "2px"}}>⚠️</span>}</div>
-                            <div style={{fontSize: "9px", color: "#94a3b8"}}>{p.product_code} • {p.category}</div>
+                            {/* NÚT SỬA DANH MỤC THẦN THÁNH */}
+                            <div style={{fontSize: "9px", color: "#94a3b8"}}>
+                              {p.product_code} • <span style={{cursor: role==='admin' ? 'pointer' : 'default', textDecoration: role==='admin' ? 'underline' : 'none'}} onClick={() => role==='admin' && handleEdit(p.id, 'category', p.category || "Khác", true)} title="Bấm vào để sửa Phân Loại">{p.category || "Khác"}</span>
+                            </div>
                             {p.gift_info ? <div style={{ fontSize: "9px", color: "#059669", fontWeight: "bold" }}>🎁 Tặng: {p.gift_info}</div> : (role === 'admin' && <div style={{ fontSize: "9px", color: "#cbd5e1", cursor: "pointer" }} onClick={()=>handleEdit(p.id, 'gift_info', '', true)}>+ Thêm quà</div>)}
                           </td>
                           <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "13px", color: isLowStock ? "#ef4444" : "#1e293b" }}>
@@ -602,6 +701,7 @@ export default function App() {
                           </td>
                           <td style={{ textAlign: "center", fontSize: "10px" }}>
                             <div style={{color: isNearExpiry ? "#ef4444" : "#b91c1c", fontWeight: "bold", cursor: role==='admin'?"pointer":"default"}} onClick={()=> role==='admin' && handleEdit(p.id,'expiry_date',p.expiry_date,true)}>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : "---"}</div>
+                            <div style={{color: "#64748b"}}>{d} ngày lưu kho</div>
                           </td>
                           <td style={{ textAlign: "right", padding: "8px 4px" }}><div style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}><button onClick={() => addToCart(p)} style={{ padding: "4px 8px", backgroundColor: "#fbbf24", color: "#78350f", border: "none", borderRadius: "4px", fontWeight: "bold", cursor: "pointer", fontSize: "10px" }}>+ GIỎ</button>{role === 'admin' && <button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "12px" }}>🗑️</button>}</div></td>
                         </tr>
