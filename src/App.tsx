@@ -3,7 +3,6 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 export default function App() {
-  // BẠN CÓ THỂ TỰ ĐỔI TÊN ĐĂNG NHẬP VÀ MẬT KHẨU Ở 2 DÒNG DƯỚI ĐÂY:
   const SYS_USER = "admin";
   const SYS_PASS = "haile88";
 
@@ -40,7 +39,6 @@ export default function App() {
   const [custName, setCustName] = useState("");
   const [useWallet, setUseWallet] = useState(false);
   
-  // STATE LƯU THÔNG TIN HÓA ĐƠN ĐỂ IN
   const [lastOrder, setLastOrder] = useState<any>(null);
 
   const [history, setHistory] = useState<any[]>(() => {
@@ -55,6 +53,9 @@ export default function App() {
     const saved = localStorage.getItem("mart_profit");
     return saved ? Number(saved) : 0;
   });
+
+  // STATE ĐÓNG/MỞ NHẬT KÝ THEO NGÀY
+  const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     localStorage.setItem("mart_history", JSON.stringify(history));
@@ -93,6 +94,47 @@ export default function App() {
     link.setAttribute("href", url);
     link.setAttribute("download", `Bao_Cao_Hai_Le_Mart.csv`);
     link.click();
+  };
+
+  // --- TÍNH NĂNG MỚI: CHỐT CA GỬI EMAIL ---
+  const handleSendEmailReport = () => {
+    const todayStr = new Date().toLocaleDateString('vi-VN');
+    const todaysLogs = history.filter(log => log.date === todayStr);
+    
+    if (todaysLogs.length === 0) {
+      return alert("Hôm nay chưa có giao dịch nào để chốt ca!");
+    }
+
+    let todayRev = 0;
+    let todayProf = 0;
+    let soldCount = 0;
+    let importCount = 0;
+
+    todaysLogs.forEach(log => {
+      if (log.type === 'BÁN') {
+        todayRev += log.total;
+        todayProf += log.profit || 0;
+        soldCount += log.qty;
+      } else if (log.type === 'NHẬP') {
+        importCount += log.qty;
+      }
+    });
+
+    const subject = encodeURIComponent(`Báo Cáo Chốt Ca Hải Lê Mart - Ngày ${todayStr}`);
+    const body = encodeURIComponent(
+      `Xin chào Quản lý,\n\n` +
+      `Đây là báo cáo tổng kết hoạt động kinh doanh ngày ${todayStr}:\n` +
+      `--------------------------------------\n` +
+      `- Tổng số món đã bán: ${soldCount} món\n` +
+      `- Tổng số món nhập kho: ${importCount} món\n` +
+      `- DOANH THU TRONG NGÀY: ${todayRev.toLocaleString()} VNĐ\n` +
+      `- LỢI NHUẬN ƯỚC TÍNH: ${todayProf.toLocaleString()} VNĐ\n` +
+      `--------------------------------------\n\n` +
+      `Chi tiết từng giao dịch vui lòng kiểm tra file Excel xuất từ phần mềm POS.\n` +
+      `Trân trọng,\nHệ thống Hải Lê Mart Pro.`
+    );
+    
+    window.location.href = `mailto:lehonghaikt6@gmail.com?subject=${subject}&body=${body}`;
   };
 
   const handleLogin = (e: React.FormEvent) => {
@@ -346,6 +388,13 @@ export default function App() {
     groups[date].push(log);
     return groups;
   }, {});
+
+  const toggleDateGroup = (dateStr: string) => {
+    setExpandedDates(prev => ({
+      ...prev,
+      [dateStr]: !prev[dateStr] // Đảo ngược trạng thái mở/đóng
+    }));
+  };
 
   return (
     <>
@@ -612,29 +661,54 @@ export default function App() {
                 )}
               </div>
 
-              <div className="glass-card" style={{ padding: "20px", flex: 1 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "15px" }}>
+              <div className="glass-card" style={{ padding: "20px", flex: 1, display: "flex", flexDirection: "column" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "15px", alignItems: "center" }}>
                   <h3 style={{ margin: 0, fontSize: "16px" }}>📋 NHẬT KÝ</h3>
-                  <button onClick={exportToCSV} style={{ fontSize: "10px", padding: "5px 10px", background: "#3b82f6", color: "#fff", border: "none", borderRadius: "5px", cursor: "pointer" }}>EXCEL</button>
+                  <div style={{ display: "flex", gap: "5px" }}>
+                    <button onClick={exportToCSV} style={{ fontSize: "10px", padding: "5px 10px", background: "#10b981", color: "#fff", border: "none", borderRadius: "5px", cursor: "pointer" }}>EXCEL</button>
+                    <button onClick={handleSendEmailReport} style={{ fontSize: "10px", padding: "5px 10px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "5px", cursor: "pointer" }}>✉️ CHỐT CA</button>
+                  </div>
                 </div>
                 
-                <div style={{ maxHeight: "400px", overflowY: "auto" }}>
-                  {history.length === 0 ? <p style={{ color: "#94a3b8", textAlign: "center", fontSize: "13px" }}>Chưa có biến động</p> : 
-                    Object.keys(groupedHistory).map((dateStr) => (
-                      <div key={dateStr} style={{ marginBottom: "15px" }}>
-                        <div style={{ backgroundColor: "#e2e8f0", color: "#475569", padding: "5px", fontSize: "11px", fontWeight: "bold", borderRadius: "6px", textAlign: "center", marginBottom: "8px" }}>
-                          📅 Ngày {dateStr}
-                        </div>
-                        {groupedHistory[dateStr].map((log: any) => (
-                          <div key={log.id} style={{ padding: "8px 0", borderBottom: "1px dashed #f1f5f9", fontSize: "11px" }}>
-                            <b>[{log.type}]</b> {log.name} x{log.qty} 
-                            {log.type === "BÁN" && <span style={{float:"right", color:"#059669", fontWeight: "bold"}}>+{log.total?.toLocaleString()}đ</span>}
-                            <div style={{color:"#64748b", marginTop: "4px"}}>{log.customer && `👤 ${log.customer}`}</div>
-                            <div style={{color:"#94a3b8", marginTop: "2px"}}>{log.time.split(' ')[0]}</div>
+                {/* GIAO DIỆN NHẬT KÝ GOM NHÓM ĐÓNG MỞ (ACCORDION) */}
+                <div style={{ flex: 1, overflowY: "auto", paddingRight: "5px" }}>
+                  {history.length === 0 ? <p style={{ color: "#94a3b8", textAlign: "center", fontSize: "13px", marginTop: "20px" }}>Chưa có biến động</p> : 
+                    Object.keys(groupedHistory).map((dateStr) => {
+                      const isExpanded = expandedDates[dateStr] ?? true; // Mặc định mở
+                      
+                      return (
+                        <div key={dateStr} style={{ marginBottom: "10px", backgroundColor: "#f8fafc", borderRadius: "8px", overflow: "hidden", border: "1px solid #e2e8f0" }}>
+                          
+                          {/* THANH TIÊU ĐỀ NGÀY CÓ NÚT BẤM ĐÓNG MỞ */}
+                          <div 
+                            onClick={() => toggleDateGroup(dateStr)}
+                            style={{ backgroundColor: "#f1f5f9", padding: "10px 15px", fontSize: "12px", fontWeight: "bold", color: "#334155", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                          >
+                            <span>📅 Ngày {dateStr}</span>
+                            <span style={{ fontSize: "10px", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▶</span>
                           </div>
-                        ))}
-                      </div>
-                    ))
+
+                          {/* NỘI DUNG NHẬT KÝ BÊN TRONG (ẨN/HIỆN DỰA THEO STATE) */}
+                          {isExpanded && (
+                            <div style={{ padding: "0 15px" }}>
+                              {groupedHistory[dateStr].map((log: any) => (
+                                <div key={log.id} style={{ padding: "10px 0", borderBottom: "1px dashed #e2e8f0", fontSize: "11px", display: "flex", flexDirection: "column", gap: "3px" }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                    <span><b>[{log.type}]</b> {log.name} <span style={{color:"#64748b"}}>x{log.qty}</span></span>
+                                    {log.type === "BÁN" && <span style={{color:"#059669", fontWeight: "bold"}}>+{log.total?.toLocaleString()}đ</span>}
+                                  </div>
+                                  <div style={{ display: "flex", justifyContent: "space-between", color: "#94a3b8" }}>
+                                    <span>{log.customer && `👤 ${log.customer}`}</span>
+                                    <span>{log.time.split(' ')[0]}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                        </div>
+                      );
+                    })
                   }
                 </div>
               </div>
