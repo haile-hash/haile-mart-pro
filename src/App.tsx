@@ -404,7 +404,6 @@ export default function App() {
               </thead>
               <tbody>
                 {products.filter((p: any) => p.name.toLowerCase().includes(searchTerm.toLowerCase())).map((p: any) => {
-                  // Tính số ngày lưu kho
                   const today = new Date();
                   const createdDate = new Date(p.created_at);
                   const diffTime = Math.abs(today.getTime() - createdDate.getTime());
@@ -431,8 +430,9 @@ export default function App() {
                         <span onClick={() => handleEdit(p.id, 'sale_price', p.sale_price)} style={{ cursor: "pointer" }}>{p.sale_price.toLocaleString()}đ</span>
                       </td>
                       <td style={{ textAlign: "center" }}>
-                        <button onClick={() => addToCart(p)} style={{ padding: "5px 10px", backgroundColor: "#f59e0b", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "11px" }}>+ VÀO GIỎ</button>
-                        <button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#cbd5e1", cursor: "pointer", marginLeft: "5px" }}>🗑️</button>
+                        {/* NÚT THÊM VÀO GIỎ HÀNG ĐÃ ĐƯỢC CHỈNH SỬA Ở ĐÂY */}
+                        <button onClick={() => addToCart(p)} style={{ padding: "6px 12px", backgroundColor: "#f59e0b", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "12px" }}>+ THÊM VÀO GIỎ HÀNG</button>
+                        <button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#cbd5e1", cursor: "pointer", marginLeft: "8px" }}>🗑️</button>
                       </td>
                     </tr>
                   )
