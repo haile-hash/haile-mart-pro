@@ -3,11 +3,12 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 export default function App() {
+  // BẠN CÓ THỂ TỰ ĐỔI TÊN ĐĂNG NHẬP VÀ MẬT KHẨU Ở 2 DÒNG DƯỚI ĐÂY:
+  const SYS_USER = "admin";
+  const SYS_PASS = "haile88";
+
   // --- HỆ THỐNG BẢO MẬT ---
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [savedUser, setSavedUser] = useState(() => localStorage.getItem("mart_admin_user"));
-  const [savedPass, setSavedPass] = useState(() => localStorage.getItem("mart_admin_pass"));
-  
+  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem("mart_logged_in") === "true");
   const [authUsername, setAuthUsername] = useState("");
   const [authPassword, setAuthPassword] = useState("");
 
@@ -94,24 +95,22 @@ export default function App() {
     link.click();
   };
 
-  const handleRegister = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!authUsername || !authPassword) return alert("Vui lòng nhập đủ!");
-    localStorage.setItem("mart_admin_user", authUsername);
-    localStorage.setItem("mart_admin_pass", authPassword);
-    setSavedUser(authUsername);
-    setSavedPass(authPassword);
-    setIsLoggedIn(true);
-  };
-
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (authUsername === savedUser && authPassword === savedPass) setIsLoggedIn(true);
-    else alert("Sai mật khẩu!");
+    if (authUsername === SYS_USER && authPassword === SYS_PASS) {
+      setIsLoggedIn(true);
+      localStorage.setItem("mart_logged_in", "true");
+    }
+    else alert("Sai tài khoản hoặc mật khẩu!");
   };
 
   const handleLogout = () => {
-    if (window.confirm("Khóa máy tính tiền?")) setIsLoggedIn(false);
+    if (window.confirm("Khóa máy tính tiền?")) {
+      setIsLoggedIn(false);
+      localStorage.removeItem("mart_logged_in");
+      setAuthUsername("");
+      setAuthPassword("");
+    }
   };
 
   const handleBarcodeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -184,6 +183,10 @@ export default function App() {
     const finalAmount = Math.max(0, cartTotalAmount - discount);
     const earnedWallet = Math.floor(finalAmount * 0.02);
 
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('vi-VN');
+    const timeStr = now.toLocaleTimeString('vi-VN');
+
     for (const item of cart) {
       await supabase.from("products").update({ stock: item.product.stock - item.qty }).eq("id", item.product.id);
       rev += item.total; 
@@ -196,7 +199,8 @@ export default function App() {
         total: item.total, 
         profit: item.profit, 
         customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ",
-        time: new Date().toLocaleString('vi-VN') 
+        date: dateStr,
+        time: `${timeStr} ${dateStr}` 
       });
     }
 
@@ -217,7 +221,6 @@ export default function App() {
     setProfit(prof); 
     setHistory(prev => [...logs, ...prev]);
 
-    // LƯU LẠI DỮ LIỆU ĐỂ IN BILL CHUYÊN NGHIỆP
     const orderId = "HD" + Date.now().toString().slice(-6); 
     setLastOrder({
       orderId: orderId,
@@ -228,7 +231,7 @@ export default function App() {
       earnedWallet: custPhone ? earnedWallet : 0,
       custName: custPhone ? custName : null,
       custPhone: custPhone ? custPhone : null,
-      time: new Date().toLocaleString('vi-VN')
+      time: `${timeStr} ${dateStr}`
     });
     
     setCheckoutStep(3);
@@ -257,9 +260,23 @@ export default function App() {
         finalImp = Math.round((existing.stock * (existing.import_price || 0) + addedStock * inputImp) / (existing.stock + addedStock));
     }
     const data = { name: newName, import_price: finalImp, sale_price: parseInt(newPrice), stock: existing ? existing.stock + addedStock : addedStock, expiry_date: newExpiry || null };
+    
     if (existing) await supabase.from("products").update(data).eq("id", existing.id);
     else await supabase.from("products").insert([data]);
-    if (addedStock > 0) setHistory(prev => [{ id: Date.now(), type: "NHẬP", name: newName, qty: addedStock, total: 0, time: new Date().toLocaleString('vi-VN') }, ...prev]);
+    
+    if (addedStock > 0) {
+      const now = new Date();
+      setHistory(prev => [{ 
+        id: Date.now(), 
+        type: "NHẬP", 
+        name: newName, 
+        qty: addedStock, 
+        total: 0, 
+        date: now.toLocaleDateString('vi-VN'),
+        time: `${now.toLocaleTimeString('vi-VN')} ${now.toLocaleDateString('vi-VN')}`
+      }, ...prev]);
+    }
+    
     setNewCode(""); setNewName(""); setNewImportPrice(""); setNewPrice(""); setNewStock(""); setNewExpiry("");
     fetchProducts(); setLoading(false);
   };
@@ -275,7 +292,7 @@ export default function App() {
 
   const totalValue = products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0);
 
-  // CSS GIAO DIỆN & IN ẤN (PRINT)
+  // CSS GIAO DIỆN & IN ẤN
   const styles = `
     @keyframes float { 0% { transform: translate(0, 0); } 50% { transform: translate(30px, 50px); } 100% { transform: translate(0, 0); } }
     .bg-blob { position: fixed; width: 500px; height: 500px; border-radius: 50%; filter: blur(80px); z-index: -1; opacity: 0.4; animation: float 15s infinite ease-in-out; }
@@ -283,7 +300,6 @@ export default function App() {
     body { background-color: #0f172a; margin: 0; }
     .print-only { display: none; }
     
-    /* CẤU HÌNH IN HÓA ĐƠN CHUYÊN NGHIỆP */
     @media print {
       body { background-color: white !important; margin: 0; padding: 0; }
       .no-print { display: none !important; }
@@ -307,11 +323,11 @@ export default function App() {
         <div className="bg-blob" style={{ background: "#10b981", bottom: "-10%", right: "-10%", animationDelay: "-5s" }}></div>
         <div className="glass-card" style={{ padding: "40px", width: "100%", maxWidth: "400px", textAlign: "center", boxShadow: "0 20px 50px rgba(0,0,0,0.3)" }}>
           <h1 style={{ color: "#1e293b", fontSize: "28px", marginBottom: "10px" }}>🏪 HẢI LÊ MART PRO</h1>
-          <p style={{ color: "#64748b", marginBottom: "30px" }}>Quản lý cửa hàng thông minh</p>
-          <form onSubmit={!savedUser ? handleRegister : handleLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+          <p style={{ color: "#64748b", marginBottom: "30px" }}>Hệ thống quản lý đa máy tính</p>
+          <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
             <input placeholder="Tài khoản" value={authUsername} onChange={e => setAuthUsername(e.target.value)} style={{ padding: "12px", borderRadius: "10px", border: "1px solid #cbd5e1", outline: "none" }} />
             <input type="password" placeholder="Mật khẩu" value={authPassword} onChange={e => setAuthPassword(e.target.value)} style={{ padding: "12px", borderRadius: "10px", border: "1px solid #cbd5e1", outline: "none" }} />
-            <button type="submit" style={{ padding: "14px", backgroundColor: "#3b82f6", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "bold", cursor: "pointer" }}>{!savedUser ? "BẮT ĐẦU NGAY" : "VÀO HỆ THỐNG"}</button>
+            <button type="submit" style={{ padding: "14px", backgroundColor: "#3b82f6", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "bold", cursor: "pointer" }}>VÀO HỆ THỐNG</button>
           </form>
         </div>
       </div>
@@ -323,11 +339,19 @@ export default function App() {
   const activeFinalAmount = Math.max(0, cartTotalAmount - activeDiscount);
   const activeEarned = Math.floor(activeFinalAmount * 0.02);
 
+  // GOM NHÓM NHẬT KÝ THEO NGÀY
+  const groupedHistory = history.reduce((groups: any, log: any) => {
+    const date = log.date || (log.time ? log.time.split(' ')[1] : "Khác"); 
+    if (!groups[date]) groups[date] = [];
+    groups[date].push(log);
+    return groups;
+  }, {});
+
   return (
     <>
       <style>{styles + " button[title*='Sandbox'], .sp-preview-actions { display: none !important; } "}</style>
       
-      {/* 🖨️ KHU VỰC IN HÓA ĐƠN CHUYÊN NGHIỆP (CHỈ HIỆN KHI BẤM CTRL+P HOẶC IN BILL) */}
+      {/* 🖨️ KHU VỰC IN HÓA ĐƠN CHUYÊN NGHIỆP */}
       {lastOrder && (
         <div className="print-only">
           <div style={{ textAlign: "center", marginBottom: "10px" }}>
@@ -335,7 +359,7 @@ export default function App() {
             <div style={{ fontSize: "12px", lineHeight: "1.4" }}>
               Đ/c: Tòa Nhà ATS, 252 Hoàng Quốc Việt,<br/>
               P. Nghĩa Đô. Tp. Hà Nội<br/>
-              Hotline: 098x.xxx.xxx<br/>
+              Hotline: 0902613899<br/>
               Wifi: HaiLeMart - Pass: 88888888
             </div>
           </div>
@@ -366,9 +390,7 @@ export default function App() {
             <tbody>
               {lastOrder.cart.map((item: any, idx: number) => (
                 <React.Fragment key={idx}>
-                  <tr>
-                    <td colSpan={3} style={{ paddingTop: "5px", fontWeight: "bold" }}>{item.product.name}</td>
-                  </tr>
+                  <tr><td colSpan={3} style={{ paddingTop: "5px", fontWeight: "bold" }}>{item.product.name}</td></tr>
                   <tr>
                     <td style={{ color: "#555" }}>{item.product.sale_price.toLocaleString()}</td>
                     <td style={{ textAlign: "center" }}>{item.qty}</td>
@@ -382,19 +404,12 @@ export default function App() {
           <div style={{ borderTop: "1px solid #000", margin: "10px 0" }}></div>
 
           <div style={{ fontSize: "13px", lineHeight: "1.6" }}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span>Tổng tiền hàng:</span>
-              <span>{lastOrder.totalAmount.toLocaleString()}đ</span>
-            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}><span>Tổng tiền hàng:</span><span>{lastOrder.totalAmount.toLocaleString()}đ</span></div>
             {lastOrder.discount > 0 && (
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span>Chiết khấu (Ví điểm):</span>
-                <span>-{lastOrder.discount.toLocaleString()}đ</span>
-              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Chiết khấu (Ví điểm):</span><span>-{lastOrder.discount.toLocaleString()}đ</span></div>
             )}
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "18px", fontWeight: "900", marginTop: "5px", paddingTop: "5px", borderTop: "1px dashed #000" }}>
-              <span>THANH TOÁN:</span>
-              <span>{lastOrder.finalAmount.toLocaleString()}đ</span>
+              <span>THANH TOÁN:</span><span>{lastOrder.finalAmount.toLocaleString()}đ</span>
             </div>
           </div>
 
@@ -403,10 +418,7 @@ export default function App() {
               <div style={{ borderTop: "1px dashed #000", margin: "10px 0" }}></div>
               <div style={{ fontSize: "12px", lineHeight: "1.5" }}>
                 <div><b>Khách hàng:</b> {lastOrder.custName} ({lastOrder.custPhone?.slice(0, -3) + "***"})</div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>Điểm tích lũy đơn này:</span>
-                  <b>+{lastOrder.earnedWallet.toLocaleString()}đ</b>
-                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Điểm tích lũy đơn này:</span><b>+{lastOrder.earnedWallet.toLocaleString()}đ</b></div>
               </div>
             </>
           )}
@@ -415,28 +427,21 @@ export default function App() {
 
           <div style={{ textAlign: "center", fontSize: "12px", marginTop: "15px" }}>
             <div style={{ fontWeight: "bold" }}>CẢM ƠN QUÝ KHÁCH & HẸN GẶP LẠI!</div>
-            <div style={{ fontSize: "10px", marginTop: "5px" }}>(Vui lòng kiểm tra lại tiền và hàng hóa)</div>
-            
-            <div style={{ margin: "15px 0 5px 0", fontSize: "20px", letterSpacing: "2px", fontWeight: "bold", fontFamily: "monospace" }}>
-              |||| || ||| | || |||| | |
-            </div>
+            <div style={{ margin: "15px 0 5px 0", fontSize: "20px", letterSpacing: "2px", fontWeight: "bold", fontFamily: "monospace" }}>|||| || ||| | || |||| | |</div>
             <div style={{ fontSize: "10px" }}>{lastOrder.orderId}</div>
           </div>
         </div>
       )}
 
-      {/* KHU VỰC ỨNG DỤNG CHÍNH (SẼ ẨN ĐI KHI BẤM IN) */}
+      {/* KHU VỰC ỨNG DỤNG CHÍNH */}
       <div className="no-print" style={{ padding: "30px", position: "relative", minHeight: "100vh", fontFamily: "sans-serif", overflowX: "hidden" }}>
         
-        {/* CÁC KHỐI MÀU NỀN */}
         <div className="bg-blob" style={{ background: "#1e40af", top: "10%", left: "5%" }}></div>
         <div className="bg-blob" style={{ background: "#065f46", bottom: "10%", right: "5%", animationDelay: "-7s" }}></div>
         <div className="bg-blob" style={{ background: "#581c87", top: "50%", left: "40%", width: "300px", height: "300px", animationDelay: "-3s" }}></div>
 
-        {/* POPUP THANH TOÁN */}
         {isCheckoutOpen && (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.7)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
-            
             {checkoutStep === 1 && (
               <div className="glass-card" style={{ padding: "30px", width: "400px", boxShadow: "0 20px 50px rgba(0,0,0,0.4)" }}>
                 <h3 style={{ color: "#1e3a8a", margin: "0 0 5px 0", fontSize: "22px", textAlign: "center" }}>🎁 CHĂM SÓC KHÁCH HÀNG</h3>
@@ -444,7 +449,7 @@ export default function App() {
                 <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
                   <div>
                     <label style={{ fontSize: "12px", fontWeight: "bold", color: "#475569" }}>Số điện thoại khách (Bỏ trống nếu khách lẻ):</label>
-                    <input type="text" placeholder="098..." value={custPhone} onChange={handlePhoneChange} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px solid #3b82f6", marginTop: "5px", outline: "none", boxSizing: "border-box", fontSize: "16px" }} />
+                    <input type="text" placeholder="090..." value={custPhone} onChange={handlePhoneChange} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px solid #3b82f6", marginTop: "5px", outline: "none", boxSizing: "border-box", fontSize: "16px" }} />
                   </div>
                   {custPhone && (
                     <div style={{ padding: "15px", backgroundColor: customers[custPhone] ? "#f0fdf4" : "#f8fafc", borderRadius: "10px", border: customers[custPhone] ? "1px solid #10b981" : "1px dashed #cbd5e1" }}>
@@ -471,25 +476,10 @@ export default function App() {
                     </div>
                   )}
                   <div style={{ backgroundColor: "#1e293b", color: "#fff", padding: "15px", borderRadius: "10px", marginTop: "10px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px" }}>
-                      <span>Tổng hóa đơn:</span>
-                      <span style={{ fontWeight: "bold" }}>{cartTotalAmount.toLocaleString()}đ</span>
-                    </div>
-                    {useWallet && (
-                      <div style={{ display: "flex", justifyContent: "space-between", color: "#fca5a5", marginBottom: "5px" }}>
-                        <span>Trừ ví:</span>
-                        <span style={{ fontWeight: "bold" }}>-{activeDiscount.toLocaleString()}đ</span>
-                      </div>
-                    )}
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "18px", borderTop: "1px solid #334155", paddingTop: "10px", marginTop: "5px" }}>
-                      <span>Khách cần trả:</span>
-                      <span style={{ fontWeight: "bold", color: "#34d399" }}>{activeFinalAmount.toLocaleString()}đ</span>
-                    </div>
-                    {custPhone && (
-                       <div style={{ textAlign: "right", color: "#fcd34d", fontSize: "12px", marginTop: "5px" }}>
-                         + Sẽ được hoàn {activeEarned.toLocaleString()}đ vào ví
-                       </div>
-                    )}
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px" }}><span>Tổng hóa đơn:</span><span style={{ fontWeight: "bold" }}>{cartTotalAmount.toLocaleString()}đ</span></div>
+                    {useWallet && <div style={{ display: "flex", justifyContent: "space-between", color: "#fca5a5", marginBottom: "5px" }}><span>Trừ ví:</span><span style={{ fontWeight: "bold" }}>-{activeDiscount.toLocaleString()}đ</span></div>}
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "18px", borderTop: "1px solid #334155", paddingTop: "10px", marginTop: "5px" }}><span>Khách cần trả:</span><span style={{ fontWeight: "bold", color: "#34d399" }}>{activeFinalAmount.toLocaleString()}đ</span></div>
+                    {custPhone && <div style={{ textAlign: "right", color: "#fcd34d", fontSize: "12px", marginTop: "5px" }}>+ Sẽ được hoàn {activeEarned.toLocaleString()}đ vào ví</div>}
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
@@ -517,7 +507,6 @@ export default function App() {
               </div>
             )}
 
-            {/* BƯỚC 3: IN HÓA ĐƠN THÀNH CÔNG */}
             {checkoutStep === 3 && lastOrder && (
               <div className="glass-card" style={{ padding: "30px", width: "400px", textAlign: "center" }}>
                 <div style={{ fontSize: "50px", marginBottom: "10px" }}>🎉</div>
@@ -533,12 +522,10 @@ export default function App() {
                 </div>
               </div>
             )}
-
           </div>
         )}
 
         <div style={{ maxWidth: "1350px", margin: "0 auto" }}>
-          {/* STATS */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "20px", marginBottom: "30px" }}>
             {[
               { label: "GIÁ TRỊ KHO (VỐN)", val: totalValue, color: "#8b5cf6" },
@@ -553,7 +540,6 @@ export default function App() {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "2.8fr 1fr", gap: "25px" }}>
-            {/* MAIN */}
             <div className="glass-card" style={{ padding: "25px", boxShadow: "0 10px 30px rgba(0,0,0,0.2)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
                 <h2 style={{ color: "#1e3a8a", margin: 0 }}>🏪 HẢI LÊ MART PRO</h2>
@@ -593,7 +579,7 @@ export default function App() {
                         <td style={{ textAlign: "center", color: "#64748b", cursor:"pointer" }} onClick={()=>handleEdit(p.id,'import_price',p.import_price)}>{p.import_price?.toLocaleString()}đ</td>
                         <td style={{ textAlign: "center", color: "#059669", fontWeight: "bold", cursor:"pointer" }} onClick={()=>handleEdit(p.id,'sale_price',p.sale_price)}>{p.sale_price.toLocaleString()}đ</td>
                         <td style={{ textAlign: "center", fontSize: "11px" }}>
-                          <div style={{color: "#b91c1c", cursor:"pointer"}} onClick={()=>handleEdit(p.id,'expiry_date',p.expiry_date,true)}>{p.expiry_date || "Chưa có HSD"}</div>
+                          <div style={{color: "#b91c1c", cursor:"pointer"}} onClick={()=>handleEdit(p.id,'expiry_date',p.expiry_date,true)}>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : "Chưa có HSD"}</div>
                           <div style={{color: days > 30 ? "#ea580c" : "#16a34a"}}>{days} ngày trong kho</div>
                         </td>
                         <td style={{ textAlign: "right" }}>
@@ -631,15 +617,25 @@ export default function App() {
                   <h3 style={{ margin: 0, fontSize: "16px" }}>📋 NHẬT KÝ</h3>
                   <button onClick={exportToCSV} style={{ fontSize: "10px", padding: "5px 10px", background: "#3b82f6", color: "#fff", border: "none", borderRadius: "5px", cursor: "pointer" }}>EXCEL</button>
                 </div>
-                <div style={{ maxHeight: "400px", overflowY: "auto", fontSize: "11px" }}>
-                  {history.map(log => (
-                    <div key={log.id} style={{ padding: "10px 0", borderBottom: "1px solid #f1f5f9" }}>
-                      <b>[{log.type}]</b> {log.name} x{log.qty} 
-                      {log.type === "BÁN" && <span style={{float:"right", color:"#059669", fontWeight: "bold"}}>+{log.total?.toLocaleString()}đ</span>}
-                      <div style={{color:"#64748b", marginTop: "2px"}}>{log.customer && `👤 ${log.customer}`}</div>
-                      <div style={{color:"#94a3b8", marginTop: "2px"}}>{log.time}</div>
-                    </div>
-                  ))}
+                
+                <div style={{ maxHeight: "400px", overflowY: "auto" }}>
+                  {history.length === 0 ? <p style={{ color: "#94a3b8", textAlign: "center", fontSize: "13px" }}>Chưa có biến động</p> : 
+                    Object.keys(groupedHistory).map((dateStr) => (
+                      <div key={dateStr} style={{ marginBottom: "15px" }}>
+                        <div style={{ backgroundColor: "#e2e8f0", color: "#475569", padding: "5px", fontSize: "11px", fontWeight: "bold", borderRadius: "6px", textAlign: "center", marginBottom: "8px" }}>
+                          📅 Ngày {dateStr}
+                        </div>
+                        {groupedHistory[dateStr].map((log: any) => (
+                          <div key={log.id} style={{ padding: "8px 0", borderBottom: "1px dashed #f1f5f9", fontSize: "11px" }}>
+                            <b>[{log.type}]</b> {log.name} x{log.qty} 
+                            {log.type === "BÁN" && <span style={{float:"right", color:"#059669", fontWeight: "bold"}}>+{log.total?.toLocaleString()}đ</span>}
+                            <div style={{color:"#64748b", marginTop: "4px"}}>{log.customer && `👤 ${log.customer}`}</div>
+                            <div style={{color:"#94a3b8", marginTop: "2px"}}>{log.time.split(' ')[0]}</div>
+                          </div>
+                        ))}
+                      </div>
+                    ))
+                  }
                 </div>
               </div>
             </div>
