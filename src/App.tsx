@@ -24,7 +24,7 @@ export default function App() {
   // --- STATES GIỎ HÀNG & MÃ VẠCH ---
   const [cart, setCart] = useState<any[]>([]);
   const [showCheckout, setShowCheckout] = useState(false);
-  const [barcodeInput, setBarcodeInput] = useState(""); // Lưu mã vạch khi quét
+  const [barcodeInput, setBarcodeInput] = useState(""); // Ô quét bán hàng
 
   const [history, setHistory] = useState<any[]>(() => {
     const saved = localStorage.getItem("mart_history");
@@ -103,20 +103,18 @@ export default function App() {
     }
   };
 
-  // --- QUÉT MÃ VẠCH (TỰ ĐỘNG THÊM 1 VÀO GIỎ) ---
+  // --- QUÉT MÃ VẠCH (TỰ ĐỘNG THÊM 1 VÀO GIỎ BÁN HÀNG) ---
   const handleBarcodeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       if (!barcodeInput.trim()) return;
       
-      // Tìm sản phẩm bằng mã vừa quét
       const foundProduct = products.find(p => p.product_code === barcodeInput.trim());
       
       if (foundProduct) {
         if (foundProduct.stock <= 0) {
           alert(`Sản phẩm ${foundProduct.name} đã hết hàng!`);
         } else {
-          // Kiểm tra xem trong giỏ đã có chưa
           const existingItem = cart.find(item => item.product.id === foundProduct.id);
           const currentCartQty = existingItem ? existingItem.qty : 0;
           
@@ -133,12 +131,11 @@ export default function App() {
       } else {
         alert("❌ Mã sản phẩm không tồn tại trong hệ thống!");
       }
-      // Quét xong xóa trắng ô đi để chờ quét mã tiếp theo
       setBarcodeInput(""); 
     }
   };
 
-  // --- THÊM BẰNG TAY VÀO GIỎ (Vẫn giữ phòng khi mất mạng/hỏng máy quét) ---
+  // --- THÊM BẰNG TAY VÀO GIỎ ---
   const addToCart = (p: any) => {
     if (p.stock <= 0) return alert("Hết hàng!");
     const qty = window.prompt(`Thêm ${p.name} vào giỏ. Nhập số lượng:`, "1");
@@ -188,6 +185,7 @@ export default function App() {
     setLoading(false);
   };
 
+  // --- XỬ LÝ QUÉT MÃ KHI NHẬP KHO THÔNG MINH ---
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const code = e.target.value;
     setNewCode(code);
@@ -195,6 +193,22 @@ export default function App() {
     if (existingProduct) {
       setNewName(existingProduct.name);
       setNewPrice(existingProduct.sale_price.toString());
+    }
+  };
+
+  // Bắt sự kiện phím Enter của máy quét vạch ở ô Nhập Hàng
+  const handleCodeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault(); // Chặn việc gửi form ngay lập tức
+      const code = e.currentTarget.value.trim();
+      const existingProduct = products.find((p: any) => p.product_code === code);
+      if (existingProduct) {
+        // Có mã rồi -> nhảy sang ô Số Lượng
+        document.getElementById("stockInput")?.focus();
+      } else {
+        // Mã mới toanh -> nhảy sang ô Tên SP
+        document.getElementById("nameInput")?.focus();
+      }
     }
   };
 
@@ -219,6 +233,11 @@ export default function App() {
     setNewCode(""); setNewName(""); setNewPrice(""); setNewStock("");
     fetchProducts();
     setLoading(false);
+    
+    // Nhập thành công -> Tự động quay lại ô Mã để tít món tiếp theo
+    setTimeout(() => {
+      document.getElementById("codeInput")?.focus();
+    }, 100);
   };
 
   const handleDelete = async (id: any, name: any) => {
@@ -339,27 +358,31 @@ export default function App() {
               <button onClick={handleLogout} style={{ padding: "8px 12px", backgroundColor: "#fee2e2", color: "#ef4444", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>Đăng xuất 🔒</button>
             </div>
             
-            {/* SIÊU Ô QUÉT MÃ VẠCH (Tự động thêm vào giỏ) */}
+            {/* SIÊU Ô QUÉT MÃ BÁN HÀNG */}
             <div style={{ marginBottom: "20px" }}>
+              <div style={{ fontSize: "12px", fontWeight: "bold", color: "#3b82f6", marginBottom: "5px" }}>🛒 QUÉT MÃ BÁN HÀNG (Tự động thêm vào giỏ)</div>
               <input 
-                autoFocus
-                placeholder="📷 TÍT MÃ VẠCH VÀO ĐÂY (hoặc gõ mã rồi ấn Enter)..." 
+                placeholder="📷 TÍT MÃ VÀO ĐÂY..." 
                 value={barcodeInput} 
                 onChange={e => setBarcodeInput(e.target.value)} 
                 onKeyDown={handleBarcodeSubmit}
-                style={{ width: "100%", padding: "15px", borderRadius: "10px", border: "2px solid #3b82f6", backgroundColor: "#eff6ff", fontSize: "16px", fontWeight: "bold", outline: "none", color: "#1e3a8a" }} 
+                style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px solid #3b82f6", backgroundColor: "#eff6ff", fontSize: "16px", fontWeight: "bold", outline: "none", color: "#1e3a8a" }} 
               />
             </div>
 
+            {/* FORM NHẬP KHO THÔNG MINH */}
+            <div style={{ fontSize: "12px", fontWeight: "bold", color: "#64748b", marginBottom: "5px", borderTop: "2px dashed #e2e8f0", paddingTop: "15px" }}>📦 FORM NHẬP KHO CHUYÊN NGHIỆP</div>
             <form onSubmit={handleAddProduct} style={{ display: "flex", gap: "5px", marginBottom: "20px", padding: "15px", backgroundColor: "#f8fafc", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
-              <input placeholder="Mã hàng mới" value={newCode} onChange={handleCodeChange} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
-              <input placeholder="Tên SP" value={newName} onChange={e => setNewName(e.target.value)} style={{ flex: 2, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+              {/* Thêm id="codeInput" và onKeyDown để bẫy Enter */}
+              <input id="codeInput" placeholder="Mã" value={newCode} onChange={handleCodeChange} onKeyDown={handleCodeKeyDown} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+              <input id="nameInput" placeholder="Tên SP" value={newName} onChange={e => setNewName(e.target.value)} style={{ flex: 2, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
               <input type="number" placeholder="Giá" value={newPrice} onChange={e => setNewPrice(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
-              <input type="number" placeholder="SL Nhập" value={newStock} onChange={e => setNewStock(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
-              <button type="submit" disabled={loading} style={{ padding: "10px 15px", backgroundColor: "#1e3a8a", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>NHẬP HÀNG</button>
+              {/* Thêm id="stockInput" để tự động nhảy trỏ chuột tới đây */}
+              <input id="stockInput" type="number" placeholder="SL Nhập" value={newStock} onChange={e => setNewStock(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+              <button type="submit" disabled={loading} style={{ padding: "10px 15px", backgroundColor: "#1e3a8a", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>NHẬP</button>
             </form>
 
-            <input placeholder="🔍 Tìm bằng tên hàng..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: "10px", border: "1px solid #e2e8f0", marginBottom: "15px" }} />
+            <input placeholder="🔍 Tìm tên hoặc mã..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: "10px", border: "1px solid #e2e8f0", marginBottom: "15px" }} />
 
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
@@ -396,7 +419,6 @@ export default function App() {
           {/* CỘT PHẢI: GIỎ HÀNG & LỊCH SỬ */}
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
             
-            {/* GIỎ HÀNG NẰM TRÊN */}
             <div style={{ backgroundColor: "#fff", padding: "20px", borderRadius: "16px", boxShadow: "0 4px 6px rgba(0,0,0,0.05)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #f1f5f9", paddingBottom: "10px", marginBottom: "10px" }}>
                 <h3 style={{ margin: 0, fontSize: "15px", color: "#d97706" }}>🛒 GIỎ HÀNG ({cart.length})</h3>
@@ -431,7 +453,6 @@ export default function App() {
               )}
             </div>
 
-            {/* LỊCH SỬ NẰM DƯỚI */}
             <div style={{ backgroundColor: "#fff", padding: "20px", borderRadius: "16px", boxShadow: "0 4px 6px rgba(0,0,0,0.05)", flex: 1 }}>
               <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #f1f5f9", paddingBottom: "10px", marginBottom: "10px" }}>
                 <h3 style={{ margin: 0, fontSize: "15px", color: "#1e3a8a" }}>📋 LỊCH SỬ</h3>
