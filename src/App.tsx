@@ -141,6 +141,17 @@ export default function App() {
     }
   };
 
+  const removeFromCart = (productId: any) => setCart(cart.filter(item => item.product.id !== productId));
+  const cartTotalAmount = cart.reduce((sum, item) => sum + item.total, 0);
+
+  // HÀM KHÔI PHỤC LẠI: XỬ LÝ NHẬP SĐT
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const phone = e.target.value; 
+    setCustPhone(phone);
+    if (customers[phone]) setCustName(customers[phone].name);
+    else { setCustName(""); setUseWallet(false); }
+  };
+
   const handleNextToQR = () => {
     if (custPhone && !customers[custPhone] && !custName) return alert("Nhập Tên khách hàng!");
     setCheckoutStep(2);
@@ -191,6 +202,14 @@ export default function App() {
     setNewCode(""); setNewName(""); setNewImportPrice(""); setNewPrice(""); setNewPromoPrice(""); setNewGiftInfo(""); setNewStock(""); setNewExpiry("");
     fetchProducts(); setLoading(false); setShowInputForm(false);
   };
+
+  const handleDelete = async (id: any, name: any) => { if (window.confirm(`Xóa vĩnh viễn ${name}?`)) { await supabase.from("products").delete().eq("id", id); fetchProducts(); } };
+  const handleEdit = async (id: any, field: string, old: any, isText: boolean = false) => {
+    const val = window.prompt(`Sửa ${field === 'promo_price' ? 'Giá KM (0 để hủy)' : field === 'gift_info' ? 'Quà Tặng (Trống để hủy)' : field}:`, old || "");
+    if (val !== null) { await supabase.from("products").update({ [field]: isText ? val : (parseInt(val) || 0) }).eq("id", id); fetchProducts(); }
+  };
+
+  const totalValue = products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0);
 
   const styles = `
     @keyframes float { 0% { transform: translateY(0); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0); } }
@@ -358,11 +377,18 @@ export default function App() {
                 </form>
               )}
 
+              {/* NÂNG CẤP Ô TÌM KIẾM ĐỂ LỌC ĐƯỢC CẢ MÃ SẢN PHẨM VÀ TÊN SẢN PHẨM */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", paddingBottom: "10px", borderBottom: "1px solid #fed7aa" }}>
+                <div style={{ fontSize: "13px", fontWeight: "bold", color: "#9a3412" }}>📋 DANH SÁCH SẢN PHẨM</div>
+                <input placeholder="🔍 Lọc theo Tên hoặc Mã SP..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ padding: "6px 12px", borderRadius: "15px", border: "1px solid #fdba74", outline: "none", width: "200px", fontSize: "12px" }} />
+              </div>
+
               <div style={{ maxHeight: "calc(100vh - 220px)", overflowY: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead><tr style={{ color: "#9a3412", fontSize: "11px", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}><th style={{ textAlign: "left", padding: "10px" }}>SẢN PHẨM</th><th style={{ textAlign: "center" }}>TỒN</th><th style={{ textAlign: "center" }}>GIÁ VỐN</th><th style={{ textAlign: "center" }}>GIÁ BÁN (CHƯA VAT)</th><th style={{ textAlign: "center" }}>HSD/KHO</th><th style={{ textAlign: "right" }}></th></tr></thead>
                   <tbody>
-                    {products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase())).map(p => {
+                    {/* ĐÂY LÀ ĐOẠN ĐÃ NÂNG CẤP TÌM KIẾM CẢ TÊN LẪN MÃ SẢN PHẨM */}
+                    {products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(searchTerm.toLowerCase()))).map(p => {
                       const isP = p.promo_price > 0; const d = Math.floor(Math.abs(new Date().getTime() - new Date(p.created_at).getTime()) / 86400000);
                       return (
                         <tr key={p.id} style={{ borderBottom: "1px solid #fed7aa" }}>
@@ -390,6 +416,7 @@ export default function App() {
                   {cart.map((item, idx) => (
                     <div key={idx} style={{ padding: "6px 0", borderBottom: "1px dashed #fed7aa", fontSize: "12px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between" }}><b>{item.product.name} x{item.qty}</b><button onClick={()=>removeFromCart(item.product.id)} style={{border:"none",background:"none",color:"#ef4444", cursor:"pointer"}}>×</button></div>
+                      {item.product.gift_info && <div style={{ color: "#10b981", fontSize: "11px", fontStyle: "italic" }}>+ 🎁 Tặng {item.qty} {item.product.gift_info.replace('Tặng ', '')}</div>}
                       <div style={{ color: "#ef4444", fontWeight: "bold", textAlign: "right" }}>{item.total.toLocaleString()}đ <small>(VAT)</small></div>
                     </div>
                   ))}
@@ -406,8 +433,9 @@ export default function App() {
                   </div>
                 </div>
                 <div style={{ flex: 1, overflowY: "auto" }}>
-                  {Object.keys(groupedHistory).map((dateStr) => {
-                    const group = groupedHistory[dateStr]; const isEx = expandedDates[dateStr] ?? true;
+                  {Object.keys(history.reduce((g:any, l:any)=>{const d=new Date(Math.floor(l.id)).toLocaleDateString('vi-VN');if(!g[d])g[d]=[];g[d].push({...l,t:new Date(Math.floor(l.id)).toLocaleTimeString('vi-VN')});return g;},{})).map((dateStr) => {
+                    const group = history.reduce((g:any, l:any)=>{const d=new Date(Math.floor(l.id)).toLocaleDateString('vi-VN');if(!g[d])g[d]=[];g[d].push({...l,t:new Date(Math.floor(l.id)).toLocaleTimeString('vi-VN')});return g;},{})[dateStr];
+                    const isEx = expandedDates[dateStr] ?? true;
                     return (
                       <div key={dateStr} style={{ marginBottom: "8px", backgroundColor: "#fff7ed", borderRadius: "6px", overflow: "hidden", border: "1px solid #fed7aa" }}>
                         <div onClick={() => setExpandedDates({...expandedDates, [dateStr]: !isEx})} style={{ backgroundColor: "#ffedd5", padding: "8px 10px", fontSize: "11px", fontWeight: "bold", cursor: "pointer", display: "flex", justifyContent: "space-between" }}><span>📅 {dateStr}</span><span>{isEx ? "▼" : "▶"}</span></div>
