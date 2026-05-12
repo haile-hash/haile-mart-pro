@@ -245,6 +245,7 @@ export default function App() {
     alert("Hoàn trả thành công! Hàng đã nhập lại kho, tiền đã trừ.");
   };
 
+  // NHÂN VIÊN THU NGÂN ĐÃ CÓ QUYỀN THU NỢ
   const handlePayDebt = (phone: string) => {
     const currentDebt = customers[phone]?.debt || 0;
     const payAmt = window.prompt(`Khách ${customers[phone].name} đang nợ ${currentDebt.toLocaleString()}đ. Nhập số tiền khách trả:`, currentDebt.toString());
@@ -253,7 +254,7 @@ export default function App() {
       setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], debt: Math.max(0, (prev[phone]?.debt || 0) - amt) } }));
       setRevenue(prev => prev + amt);
       setHistory(prev => [{ id: Date.now(), type: "THU NỢ", name: "Thanh toán công nợ", qty: 1, total: amt, profit: 0, customer: `${customers[phone].name} (${phone})` }, ...prev]);
-      alert("Đã thu nợ thành công!");
+      alert("Đã thu nợ thành công! Tiền nợ thu được đã cộng vào doanh thu ca này.");
     }
   };
 
@@ -280,9 +281,8 @@ export default function App() {
     fetchProducts(); setLoading(false); setShowInputForm(false);
   };
 
-  // --- HỆ THỐNG XỬ LÝ FILE CSV NHẬP KHO HÀNG LOẠT ---
   const downloadSampleCSV = () => {
-    const csv = "\uFEFFMã SP,Tên SP,Danh Mục,Giá Nhập,Giá Bán,Giá KM,Quà Tặng,Số Lượng,Hạn Sử Dụng (YYYY-MM-DD)\nSP001,Mì Hảo Hảo,Đồ ăn liền,3000,5000,0,,100,2026-12-31\nSP002,Nước suối TH,Đồ uống,4000,6000,0,,50,2025-06-15";
+    const csv = "\uFEFFMã SP,Tên SP,Danh Mục,Giá Nhập,Giá Bán,Giá KM,Quà Tặng,Số Lượng,Hạn Sử Dụng (YYYY-MM-DD)\nSP001,Mì Hảo Hảo,Đồ ăn liền,3000,5000,0,,100,2026-12-31\nSP002,Nước suối TH,Đồ uống,4000,6000,0,,50,2026-06-15";
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -308,7 +308,6 @@ export default function App() {
         let successCount = 0;
         let importLogs: any[] = [];
 
-        // Chạy vòng lặp qua từng dòng (bỏ qua dòng 0 là tiêu đề)
         for (let i = 1; i < lines.length; i++) {
           const cols = lines[i].split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''));
           if (cols.length < 5) continue; 
@@ -325,7 +324,6 @@ export default function App() {
 
           if (!pCode || !pName || pSalePrice <= 0) continue;
 
-          // Cập nhật Database trực tiếp
           const { data: existingData } = await supabase.from("products").select("*").eq("product_code", pCode);
           const exist = existingData && existingData.length > 0 ? existingData[0] : null;
 
@@ -356,9 +354,8 @@ export default function App() {
       setLoading(false);
     };
     reader.readAsText(file);
-    e.target.value = ''; // Reset input để có thể chọn lại cùng 1 file
+    e.target.value = '';
   };
-  // --------------------------------------------------------
 
   const handleDelete = async (id: any, name: any) => { if (window.confirm(`Xóa vĩnh viễn ${name}?`)) { await supabase.from("products").delete().eq("id", id); fetchProducts(); } };
   const handleEdit = async (id: any, field: string, old: any, isText: boolean = false) => {
@@ -525,9 +522,7 @@ export default function App() {
       )}
 
       <div className="no-print" style={{ padding: "10px", position: "relative", minHeight: "100vh" }}>
-        <div className="spring-bg" style={{ background: "#ef4444", top: "10%", left: "5%" }}></div>
-        <div className="spring-bg" style={{ background: "#f59e0b", bottom: "10%", right: "5%" }}></div>
-
+        
         {/* POPUP THANH TOÁN */}
         {isCheckoutOpen && (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
@@ -540,7 +535,7 @@ export default function App() {
                     {customers[custPhone] ? (
                       <div><div style={{ color: "#b91c1c", fontWeight: "bold" }}>⭐ {customers[custPhone].name}</div>
                         <div>Ví điểm: <b>{Math.round(customers[custPhone].wallet || 0).toLocaleString()}đ</b> | Nợ: <b style={{color:"#ef4444"}}>{(customers[custPhone].debt || 0).toLocaleString()}đ</b></div>
-                        {(customers[custPhone].wallet || 0) > 0 && <label style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "10px", cursor: "pointer", color: "#ea580c", fontWeight: "bold" }}><input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} /> Dùng điểm lì xì!</label>}
+                        {(customers[custPhone].wallet || 0) > 0 && <label style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "10px", cursor: "pointer", color: "#ea580c", fontWeight: "bold" }}><input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} /> Dùng lì xì!</label>}
                       </div>
                     ) : <input type="text" placeholder="Tên khách mới..." value={custName} onChange={e => setCustName(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: "8px", outline: "none", border: "1px solid #fdba74", boxSizing: "border-box" }} />}
                   </div>
@@ -556,10 +551,10 @@ export default function App() {
                 <h3 style={{ color: "#ef4444", margin: "0" }}>📱 QUÉT MÃ QR HOẶC GHI NỢ</h3>
                 <div style={{ color: "#ef4444", fontSize: "28px", fontWeight: "900", margin: "10px 0" }}>{Math.round(Math.max(0, cartTotalAmount - (useWallet ? Math.min(customers[custPhone]?.wallet||0, cartTotalAmount) : 0))).toLocaleString()}đ</div>
                 <img src={`https://img.vietqr.io/image/970422-0680124181004-compact2.png?amount=${Math.round(Math.max(0, cartTotalAmount - (useWallet ? Math.min(customers[custPhone]?.wallet||0, cartTotalAmount) : 0)))}&addInfo=Thanh toan&accountName=LE%20HONG%20HAI`} style={{ width: "180px", margin: "0 auto 15px auto", border: "2px solid #ef4444", borderRadius: "10px" }} />
-                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                  <button onClick={() => setCheckoutStep(1)} style={{ flex: "1 1 100%", padding: "8px", borderRadius: "8px", border: "none", background: "#e2e8f0", cursor: "pointer" }}>Quay lại</button>
-                  <button onClick={() => confirmCheckout(true)} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#f59e0b", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>📝 GHI NỢ</button>
-                  <button onClick={() => confirmCheckout(false)} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#10b981", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>✔️ ĐÃ NHẬN</button>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button onClick={() => setCheckoutStep(1)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "#e2e8f0", cursor: "pointer" }}>Quay lại</button>
+                  <button onClick={() => confirmCheckout(true)} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#f59e0b", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>GHI NỢ</button>
+                  <button onClick={() => confirmCheckout(false)} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#10b981", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>NHẬN TIỀN</button>
                 </div>
               </div>
             )}
@@ -580,12 +575,12 @@ export default function App() {
           <div className="glass" style={{ padding: "8px 15px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", borderBottom: "4px solid #ef4444" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
               <h2 style={{ color: "#ef4444", margin: 0, fontSize: "18px" }}>🏪 HẢI LÊ MART</h2>
-              {role === 'admin' && (
-                <div style={{ display: "flex", gap: "5px" }}>
+              <div style={{ display: "flex", gap: "5px" }}>
+                {role === 'admin' && (
                   <button onClick={() => setShowStatsModal(true)} style={{ padding: "4px 8px", background: "#eff6ff", color: "#3b82f6", border: "1px solid #bfdbfe", borderRadius: "6px", fontSize: "11px", fontWeight: "bold", cursor: "pointer" }}>📊 THỐNG KÊ</button>
-                  <button onClick={() => setShowDebtModal(true)} style={{ padding: "4px 8px", background: "#fef2f2", color: "#ef4444", border: "1px solid #fecaca", borderRadius: "6px", fontSize: "11px", fontWeight: "bold", cursor: "pointer" }}>📓 SỔ NỢ</button>
-                </div>
-              )}
+                )}
+                <button onClick={() => setShowDebtModal(true)} style={{ padding: "4px 8px", background: "#fef2f2", color: "#ef4444", border: "1px solid #fecaca", borderRadius: "6px", fontSize: "11px", fontWeight: "bold", cursor: "pointer" }}>📓 SỔ NỢ</button>
+              </div>
             </div>
             <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
               <span style={{ fontSize: "12px", fontWeight: "bold", color: "#64748b" }}>Ca: {role === 'admin' ? "Quản lý" : "Thu ngân"}</span>
