@@ -96,10 +96,16 @@ export default function App() {
     link.click();
   };
 
-  // --- TÍNH NĂNG MỚI: CHỐT CA GỬI EMAIL ---
+  // --- CHỐT CA GỬI EMAIL ---
   const handleSendEmailReport = () => {
     const todayStr = new Date().toLocaleDateString('vi-VN');
-    const todaysLogs = history.filter(log => log.date === todayStr);
+    
+    // Lọc lịch sử ngày hôm nay (Dùng Regex để tìm đúng ngày)
+    const todaysLogs = history.filter(log => {
+      const dateMatch = log.time?.match(/\d{1,2}\/\d{1,2}\/\d{4}/);
+      const logDate = log.date || (dateMatch ? dateMatch[0] : "");
+      return logDate === todayStr;
+    });
     
     if (todaysLogs.length === 0) {
       return alert("Hôm nay chưa có giao dịch nào để chốt ca!");
@@ -381,19 +387,24 @@ export default function App() {
   const activeFinalAmount = Math.max(0, cartTotalAmount - activeDiscount);
   const activeEarned = Math.floor(activeFinalAmount * 0.02);
 
-  // GOM NHÓM NHẬT KÝ THEO NGÀY
+  // VÁ LỖI GOM NHÓM: DÙNG REGEX TÌM NGÀY THÁNG ĐỂ KHÔNG BỊ BẮT NHẦM GIỜ
   const groupedHistory = history.reduce((groups: any, log: any) => {
-    const date = log.date || (log.time ? log.time.split(' ')[1] : "Khác"); 
-    if (!groups[date]) groups[date] = [];
-    groups[date].push(log);
+    let dateKey = "Giao dịch cũ";
+    if (log.date) {
+      dateKey = log.date;
+    } else if (log.time) {
+      // Thợ săn ngày tháng: Tìm chuỗi có dạng XX/XX/XXXX
+      const match = log.time.match(/\d{1,2}\/\d{1,2}\/\d{4}/);
+      if (match) dateKey = match[0];
+    }
+    
+    if (!groups[dateKey]) groups[dateKey] = [];
+    groups[dateKey].push(log);
     return groups;
   }, {});
 
   const toggleDateGroup = (dateStr: string) => {
-    setExpandedDates(prev => ({
-      ...prev,
-      [dateStr]: !prev[dateStr] // Đảo ngược trạng thái mở/đóng
-    }));
+    setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
   };
 
   return (
@@ -418,7 +429,7 @@ export default function App() {
           <div style={{ fontSize: "12px", lineHeight: "1.5", display: "flex", justifyContent: "space-between" }}>
             <div>
               <div><b>Số HĐ:</b> {lastOrder.orderId}</div>
-              <div><b>Ngày:</b> {lastOrder.time.split(' ')[1]}</div>
+              <div><b>Ngày:</b> {lastOrder.time.split(' ')[1] || lastOrder.time}</div>
             </div>
             <div style={{ textAlign: "right" }}>
               <div><b>Thu ngân:</b> Admin</div>
@@ -670,16 +681,12 @@ export default function App() {
                   </div>
                 </div>
                 
-                {/* GIAO DIỆN NHẬT KÝ GOM NHÓM ĐÓNG MỞ (ACCORDION) */}
                 <div style={{ flex: 1, overflowY: "auto", paddingRight: "5px" }}>
                   {history.length === 0 ? <p style={{ color: "#94a3b8", textAlign: "center", fontSize: "13px", marginTop: "20px" }}>Chưa có biến động</p> : 
                     Object.keys(groupedHistory).map((dateStr) => {
-                      const isExpanded = expandedDates[dateStr] ?? true; // Mặc định mở
-                      
+                      const isExpanded = expandedDates[dateStr] ?? true; 
                       return (
                         <div key={dateStr} style={{ marginBottom: "10px", backgroundColor: "#f8fafc", borderRadius: "8px", overflow: "hidden", border: "1px solid #e2e8f0" }}>
-                          
-                          {/* THANH TIÊU ĐỀ NGÀY CÓ NÚT BẤM ĐÓNG MỞ */}
                           <div 
                             onClick={() => toggleDateGroup(dateStr)}
                             style={{ backgroundColor: "#f1f5f9", padding: "10px 15px", fontSize: "12px", fontWeight: "bold", color: "#334155", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
@@ -687,8 +694,6 @@ export default function App() {
                             <span>📅 Ngày {dateStr}</span>
                             <span style={{ fontSize: "10px", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▶</span>
                           </div>
-
-                          {/* NỘI DUNG NHẬT KÝ BÊN TRONG (ẨN/HIỆN DỰA THEO STATE) */}
                           {isExpanded && (
                             <div style={{ padding: "0 15px" }}>
                               {groupedHistory[dateStr].map((log: any) => (
@@ -699,13 +704,13 @@ export default function App() {
                                   </div>
                                   <div style={{ display: "flex", justifyContent: "space-between", color: "#94a3b8" }}>
                                     <span>{log.customer && `👤 ${log.customer}`}</span>
-                                    <span>{log.time.split(' ')[0]}</span>
+                                    {/* HIỂN THỊ CHUẨN THỜI GIAN LÚC GIAO DỊCH */}
+                                    <span>{log.time}</span>
                                   </div>
                                 </div>
                               ))}
                             </div>
                           )}
-
                         </div>
                       );
                     })
