@@ -3,17 +3,24 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 export default function App() {
+  // --- HỆ THỐNG BẢO MẬT & ĐĂNG NHẬP ---
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [savedUser, setSavedUser] = useState(() => localStorage.getItem("mart_admin_user"));
+  const [savedPass, setSavedPass] = useState(() => localStorage.getItem("mart_admin_pass"));
+  
+  const [authUsername, setAuthUsername] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+
+  // --- STATES CỦA CỬA HÀNG ---
   const [products, setProducts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Form states
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newStock, setNewStock] = useState("");
 
-  // BẬT BỘ NHỚ TRÌNH DUYỆT (Lưu nhật ký và doanh thu vĩnh viễn)
   const [history, setHistory] = useState<any[]>(() => {
     const saved = localStorage.getItem("mart_history");
     return saved ? JSON.parse(saved) : [];
@@ -28,24 +35,53 @@ export default function App() {
     localStorage.setItem("mart_revenue", revenue.toString());
   }, [history, revenue]);
 
-  // 1. TẢI DỮ LIỆU TỪ KHO
   useEffect(() => {
-    fetchProducts();
-    const channel = supabase
-      .channel("db_changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
-        fetchProducts();
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, []);
+    if (isLoggedIn) {
+      fetchProducts();
+      const channel = supabase
+        .channel("db_changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
+          fetchProducts();
+        })
+        .subscribe();
+      return () => { supabase.removeChannel(channel); };
+    }
+  }, [isLoggedIn]);
 
   const fetchProducts = async () => {
     const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false });
     if (data) setProducts(data);
   };
 
-  // 2. XỬ LÝ BÁN HÀNG
+  // --- HÀM XỬ LÝ ĐĂNG NHẬP / TẠO TÀI KHOẢN ---
+  const handleRegister = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!authUsername || !authPassword) return alert("Vui lòng nhập đủ thông tin!");
+    localStorage.setItem("mart_admin_user", authUsername);
+    localStorage.setItem("mart_admin_pass", authPassword);
+    setSavedUser(authUsername);
+    setSavedPass(authPassword);
+    setIsLoggedIn(true);
+  };
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (authUsername === savedUser && authPassword === savedPass) {
+      setIsLoggedIn(true);
+    } else {
+      alert("Sai tài khoản hoặc mật khẩu! Vui lòng thử lại.");
+    }
+  };
+
+  const handleLogout = () => {
+    if (window.confirm("Bạn có muốn khóa máy tính tiền không?")) {
+      setIsLoggedIn(false);
+      setAuthUsername("");
+      setAuthPassword("");
+    }
+  };
+
+  // --- CÁC HÀM XỬ LÝ HÀNG HÓA ---
   const handleSell = async (p: any) => {
     if (p.stock <= 0) return alert("Hết hàng!");
     const qty = window.prompt(`Bán ${p.name}. Nhập số lượng:`, "1");
@@ -60,21 +96,16 @@ export default function App() {
     } else if (qty) alert("Không đủ hàng trong kho!");
   };
 
-  // 3. TÍNH NĂNG MỚI: TỰ ĐỘNG ĐIỀN THÔNG TIN KHI NHẬP MÃ ĐÃ CÓ
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const code = e.target.value;
     setNewCode(code);
-    
-    // Tìm xem mã này đã có trong kho chưa
     const existingProduct = products.find((p: any) => p.product_code === code);
     if (existingProduct) {
       setNewName(existingProduct.name);
       setNewPrice(existingProduct.sale_price.toString());
-      // Không tự động điền số lượng để bạn tự nhập lô hàng mới
     }
   };
 
-  // 4. NHẬP HÀNG THÔNG MINH (CỘNG DỒN HOẶC TẠO MỚI)
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCode || !newName || !newPrice) return alert("Vui lòng điền đủ thông tin!");
@@ -84,28 +115,15 @@ export default function App() {
     const addedStock = parseInt(newStock || "0");
 
     if (existingProduct) {
-      // Nếu mã đã tồn tại -> Cập nhật cộng dồn số lượng & lưu thay đổi Tên/Giá (nếu có sửa tay)
-      await supabase.from("products").update({ 
-        name: newName, 
-        sale_price: parseInt(newPrice), 
-        stock: existingProduct.stock + addedStock 
-      }).eq("id", existingProduct.id);
+      await supabase.from("products").update({ name: newName, sale_price: parseInt(newPrice), stock: existingProduct.stock + addedStock }).eq("id", existingProduct.id);
     } else {
-      // Nếu mã mới tinh -> Tạo sản phẩm mới
-      await supabase.from("products").insert([{ 
-        product_code: newCode, 
-        name: newName, 
-        sale_price: parseInt(newPrice), 
-        stock: addedStock 
-      }]);
+      await supabase.from("products").insert([{ product_code: newCode, name: newName, sale_price: parseInt(newPrice), stock: addedStock }]);
     }
-
     setNewCode(""); setNewName(""); setNewPrice(""); setNewStock("");
     fetchProducts();
     setLoading(false);
   };
 
-  // 5. XÓA & SỬA
   const handleDelete = async (id: any, name: any) => {
     if (window.confirm(`Xóa vĩnh viễn ${name}?`)) {
       await supabase.from("products").delete().eq("id", id);
@@ -131,13 +149,54 @@ export default function App() {
   const totalItems = products.reduce((sum, p: any) => sum + (Number(p.stock) || 0), 0);
   const totalValue = products.reduce((sum, p: any) => sum + ((Number(p.sale_price) || 0) * (Number(p.stock) || 0)), 0);
 
+
+  // ==========================================
+  // 1. MÀN HÌNH TẠO TÀI KHOẢN (Chỉ hiện lần đầu)
+  // ==========================================
+  if (!savedUser || !savedPass) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", backgroundColor: "#f0f4f8", fontFamily: "'Segoe UI', sans-serif" }}>
+        <style>{` button[title*="Sandbox"] { display: none !important; } `}</style>
+        <div style={{ backgroundColor: "#fff", padding: "40px", borderRadius: "16px", boxShadow: "0 10px 25px rgba(0,0,0,0.1)", width: "100%", maxWidth: "400px", textAlign: "center" }}>
+          <h1 style={{ color: "#1e3a8a", margin: "0 0 10px 0", fontSize: "24px" }}>🏪 HẢI LÊ MART PRO</h1>
+          <p style={{ color: "#64748b", marginBottom: "30px", fontSize: "14px" }}>Khởi tạo tài khoản Quản trị viên</p>
+          <form onSubmit={handleRegister} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+            <input type="text" placeholder="Tạo Tên đăng nhập" value={authUsername} onChange={e => setAuthUsername(e.target.value)} style={{ padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", fontSize: "15px" }} />
+            <input type="password" placeholder="Tạo Mật khẩu" value={authPassword} onChange={e => setAuthPassword(e.target.value)} style={{ padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", fontSize: "15px" }} />
+            <button type="submit" style={{ padding: "14px", backgroundColor: "#10b981", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", fontSize: "16px", cursor: "pointer", marginTop: "10px" }}>TẠO TÀI KHOẢN</button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // 2. MÀN HÌNH ĐĂNG NHẬP
+  // ==========================================
+  if (!isLoggedIn) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", backgroundColor: "#f0f4f8", fontFamily: "'Segoe UI', sans-serif" }}>
+        <style>{` button[title*="Sandbox"] { display: none !important; } `}</style>
+        <div style={{ backgroundColor: "#fff", padding: "40px", borderRadius: "16px", boxShadow: "0 10px 25px rgba(0,0,0,0.1)", width: "100%", maxWidth: "400px", textAlign: "center" }}>
+          <div style={{ fontSize: "50px", marginBottom: "10px" }}>🔐</div>
+          <h1 style={{ color: "#1e3a8a", margin: "0 0 10px 0", fontSize: "24px" }}>HẢI LÊ MART PRO</h1>
+          <p style={{ color: "#64748b", marginBottom: "30px", fontSize: "14px" }}>Vui lòng đăng nhập để vào hệ thống</p>
+          <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+            <input type="text" placeholder="Tên đăng nhập" value={authUsername} onChange={e => setAuthUsername(e.target.value)} style={{ padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", fontSize: "15px" }} />
+            <input type="password" placeholder="Mật khẩu" value={authPassword} onChange={e => setAuthPassword(e.target.value)} style={{ padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", fontSize: "15px" }} />
+            <button type="submit" style={{ padding: "14px", backgroundColor: "#1e3a8a", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", fontSize: "16px", cursor: "pointer", marginTop: "10px" }}>ĐĂNG NHẬP</button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // 3. MÀN HÌNH LÀM VIỆC CHÍNH (Đã đăng nhập)
+  // ==========================================
   return (
     <div style={{ padding: "20px", fontFamily: "'Segoe UI', sans-serif", backgroundColor: "#f0f4f8", minHeight: "100vh" }}>
-      <style>{`
-        button[title*="Sandbox"], .sp-preview-actions, #csb-embed-actions, [class*="SandboxBadge"] { 
-          display: none !important; opacity: 0 !important; visibility: hidden !important; pointer-events: none !important;
-        }
-      `}</style>
+      <style>{` button[title*="Sandbox"], .sp-preview-actions, #csb-embed-actions, [class*="SandboxBadge"] { display: none !important; opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; } `}</style>
 
       <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "15px", marginBottom: "20px" }}>
@@ -157,10 +216,14 @@ export default function App() {
 
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "20px" }}>
           <div style={{ backgroundColor: "#fff", padding: "25px", borderRadius: "16px", boxShadow: "0 10px 15px rgba(0,0,0,0.05)" }}>
-            <h2 style={{ color: "#1e3a8a", marginTop: 0, marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}>🏪 HẢI LÊ MART PRO</h2>
+            
+            {/* Thanh tiêu đề có thêm NÚT ĐĂNG XUẤT */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+              <h2 style={{ color: "#1e3a8a", margin: 0, display: "flex", alignItems: "center", gap: "10px" }}>🏪 HẢI LÊ MART PRO</h2>
+              <button onClick={handleLogout} style={{ padding: "8px 15px", backgroundColor: "#fee2e2", color: "#ef4444", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>Đăng xuất 🔒</button>
+            </div>
             
             <form onSubmit={handleAddProduct} style={{ display: "flex", gap: "5px", marginBottom: "25px", padding: "15px", backgroundColor: "#f8fafc", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
-              {/* Đã thay đổi sự kiện onChange ở ô Nhập Mã */}
               <input placeholder="Mã" value={newCode} onChange={handleCodeChange} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
               <input placeholder="Tên SP" value={newName} onChange={e => setNewName(e.target.value)} style={{ flex: 2, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
               <input type="number" placeholder="Giá" value={newPrice} onChange={e => setNewPrice(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
