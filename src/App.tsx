@@ -16,14 +16,17 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Form nhập hàng có thêm Giá KM và Quà tặng
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
   const [newImportPrice, setNewImportPrice] = useState(""); 
   const [newPrice, setNewPrice] = useState(""); 
+  const [newPromoPrice, setNewPromoPrice] = useState(""); 
+  const [newGiftInfo, setNewGiftInfo] = useState(""); 
   const [newStock, setNewStock] = useState("");
   const [newExpiry, setNewExpiry] = useState(""); 
 
-  // --- STATES GIỎ HÀNG & CRM KHÁCH QUEN ---
+  // --- STATES GIỎ HÀNG & CRM ---
   const [cart, setCart] = useState<any[]>([]);
   const [barcodeInput, setBarcodeInput] = useState("");
 
@@ -32,7 +35,6 @@ export default function App() {
     return saved ? JSON.parse(saved) : {}; 
   });
 
-  // STATES CHO POPUP THANH TOÁN & IN BILL
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState(1); 
   const [custPhone, setCustPhone] = useState("");
@@ -54,7 +56,6 @@ export default function App() {
     return saved ? Number(saved) : 0;
   });
 
-  // STATE ĐÓNG/MỞ NHẬT KÝ THEO NGÀY
   const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -86,7 +87,6 @@ export default function App() {
     if (history.length === 0) return alert("Chưa có lịch sử để xuất!");
     let csvContent = "\uFEFFThời gian,Loại,Khách hàng,Sản phẩm,Số lượng,Thành tiền (VNĐ),Lợi nhuận (VNĐ)\n";
     history.forEach(log => {
-      // Ép chuẩn ngày giờ từ ID xuất ra Excel
       const exactTime = new Date(Math.floor(log.id)).toLocaleString('vi-VN');
       csvContent += `${exactTime},${log.type},${log.customer || "Khách lẻ"},${log.name},${log.qty},${log.total},${log.profit || 0}\n`;
     });
@@ -98,83 +98,68 @@ export default function App() {
     link.click();
   };
 
-  // --- CHỐT CA GỬI EMAIL ---
   const handleSendEmailReport = () => {
     const todayStr = new Date().toLocaleDateString('vi-VN');
-    
-    // Lọc lịch sử ngày hôm nay bằng cách giải mã ID
     const todaysLogs = history.filter(log => {
       const logDate = new Date(Math.floor(log.id)).toLocaleDateString('vi-VN');
       return logDate === todayStr;
     });
     
-    if (todaysLogs.length === 0) {
-      return alert("Hôm nay chưa có giao dịch nào để chốt ca!");
-    }
+    if (todaysLogs.length === 0) return alert("Hôm nay chưa có giao dịch nào để chốt ca!");
 
-    let todayRev = 0;
-    let todayProf = 0;
-    let soldCount = 0;
-    let importCount = 0;
-
+    let todayRev = 0, todayProf = 0, soldCount = 0, importCount = 0;
     todaysLogs.forEach(log => {
-      if (log.type === 'BÁN') {
-        todayRev += log.total;
-        todayProf += log.profit || 0;
-        soldCount += log.qty;
-      } else if (log.type === 'NHẬP') {
-        importCount += log.qty;
-      }
+      if (log.type === 'BÁN') { todayRev += log.total; todayProf += log.profit || 0; soldCount += log.qty; } 
+      else if (log.type === 'NHẬP') { importCount += log.qty; }
     });
 
-    const subject = encodeURIComponent(`Báo Cáo Chốt Ca Hải Lê Mart - Ngày ${todayStr}`);
+    const subject = encodeURIComponent(`Báo Cáo Chốt Ca - Ngày ${todayStr}`);
     const body = encodeURIComponent(
-      `Xin chào Quản lý,\n\n` +
-      `Đây là báo cáo tổng kết hoạt động kinh doanh ngày ${todayStr}:\n` +
+      `Xin chào Quản lý,\n\nĐây là báo cáo hoạt động kinh doanh ngày ${todayStr}:\n` +
       `--------------------------------------\n` +
-      `- Tổng số món đã bán: ${soldCount} món\n` +
-      `- Tổng số món nhập kho: ${importCount} món\n` +
-      `- DOANH THU TRONG NGÀY: ${todayRev.toLocaleString()} VNĐ\n` +
-      `- LỢI NHUẬN ƯỚC TÍNH: ${todayProf.toLocaleString()} VNĐ\n` +
-      `--------------------------------------\n\n` +
-      `Chi tiết từng giao dịch vui lòng kiểm tra file Excel xuất từ phần mềm POS.\n` +
+      `- Số món đã bán: ${soldCount} món\n` +
+      `- Số món nhập kho: ${importCount} món\n` +
+      `- DOANH THU: ${todayRev.toLocaleString()} VNĐ\n` +
+      `- LỢI NHUẬN: ${todayProf.toLocaleString()} VNĐ\n` +
+      `--------------------------------------\n` +
       `Trân trọng,\nHệ thống Hải Lê Mart Pro.`
     );
-    
     window.location.href = `mailto:lehonghaikt6@gmail.com?subject=${subject}&body=${body}`;
   };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (authUsername === SYS_USER && authPassword === SYS_PASS) {
-      setIsLoggedIn(true);
-      localStorage.setItem("mart_logged_in", "true");
-    }
-    else alert("Sai tài khoản hoặc mật khẩu!");
+      setIsLoggedIn(true); localStorage.setItem("mart_logged_in", "true");
+    } else alert("Sai tài khoản hoặc mật khẩu!");
   };
 
   const handleLogout = () => {
     if (window.confirm("Khóa máy tính tiền?")) {
-      setIsLoggedIn(false);
-      localStorage.removeItem("mart_logged_in");
-      setAuthUsername("");
-      setAuthPassword("");
+      setIsLoggedIn(false); localStorage.removeItem("mart_logged_in");
+      setAuthUsername(""); setAuthPassword("");
     }
+  };
+
+  // Hàm tính giá trị thực tế (Lấy giá KM nếu có, không thì lấy Giá bán)
+  const getActualPrice = (p: any) => {
+    return (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price;
   };
 
   const handleBarcodeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       if (!barcodeInput.trim()) return;
-      const foundProduct = products.find(p => p.product_code === barcodeInput.trim());
-      if (foundProduct) {
-        if (foundProduct.stock <= 0) alert("Hết hàng!");
+      const p = products.find(prod => prod.product_code === barcodeInput.trim());
+      if (p) {
+        if (p.stock <= 0) alert("Hết hàng!");
         else {
-          const existingItem = cart.find(item => item.product.id === foundProduct.id);
+          const actualPrice = getActualPrice(p);
+          const existingItem = cart.find(item => item.product.id === p.id);
           if (existingItem) {
-            setCart(cart.map(item => item.product.id === foundProduct.id ? { ...item, qty: item.qty + 1, total: (item.qty + 1) * foundProduct.sale_price, profit: (item.qty + 1) * (foundProduct.sale_price - foundProduct.import_price) } : item));
+            setCart(cart.map(item => item.product.id === p.id ? { ...item, qty: item.qty + 1, total: (item.qty + 1) * actualPrice, profit: (item.qty + 1) * (actualPrice - (p.import_price || 0)) } : item));
           } else {
-            setCart([...cart, { product: foundProduct, qty: 1, total: foundProduct.sale_price, profit: foundProduct.sale_price - foundProduct.import_price }]);
+            setCart([...cart, { product: p, qty: 1, total: actualPrice, profit: actualPrice - (p.import_price || 0) }]);
           }
         }
       } else alert("Mã sai!");
@@ -186,12 +171,13 @@ export default function App() {
     const qty = window.prompt(`Số lượng ${p.name}:`, "1");
     if (qty && parseInt(qty) > 0) {
       const addQty = parseInt(qty);
-      const profitVal = (p.sale_price - (p.import_price || 0)) * addQty;
+      const actualPrice = getActualPrice(p);
+      const profitVal = (actualPrice - (p.import_price || 0)) * addQty;
       const existingItem = cart.find(item => item.product.id === p.id);
       if (existingItem) {
-        setCart(cart.map(item => item.product.id === p.id ? { ...item, qty: item.qty + addQty, total: (item.qty + addQty) * p.sale_price, profit: item.profit + profitVal } : item));
+        setCart(cart.map(item => item.product.id === p.id ? { ...item, qty: item.qty + addQty, total: (item.qty + addQty) * actualPrice, profit: item.profit + profitVal } : item));
       } else {
-        setCart([...cart, { product: p, qty: addQty, total: addQty * p.sale_price, profit: profitVal }]);
+        setCart([...cart, { product: p, qty: addQty, total: addQty * actualPrice, profit: profitVal }]);
       }
     }
   };
@@ -205,91 +191,70 @@ export default function App() {
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const phone = e.target.value;
     setCustPhone(phone);
-    if (customers[phone]) {
-      setCustName(customers[phone].name);
-    } else {
-      setCustName("");
-      setUseWallet(false);
-    }
-  };
-
-  const handleNextToQR = () => {
-    if (custPhone && !customers[custPhone] && !custName) {
-      alert("Khách hàng mới! Vui lòng nhập Tên khách hàng.");
-      return;
-    }
-    setCheckoutStep(2);
+    if (customers[phone]) setCustName(customers[phone].name);
+    else { setCustName(""); setUseWallet(false); }
   };
 
   const confirmCheckout = async () => {
     setLoading(true);
-    let rev = revenue;
-    let prof = profit;
-    let logs: any[] = [];
+    let rev = revenue; let prof = profit; let logs: any[] = [];
     
     const currentWallet = customers[custPhone]?.wallet || 0;
     const discount = useWallet ? Math.min(currentWallet, cartTotalAmount) : 0;
     const finalAmount = Math.max(0, cartTotalAmount - discount);
     const earnedWallet = Math.floor(finalAmount * 0.02);
 
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('vi-VN');
+    const timeStr = now.toLocaleTimeString('vi-VN');
+
     for (const item of cart) {
       await supabase.from("products").update({ stock: item.product.stock - item.qty }).eq("id", item.product.id);
-      rev += item.total; 
-      prof += item.profit;
+      rev += item.total; prof += item.profit;
       logs.push({ 
-        id: Date.now() + Math.random(), 
-        type: "BÁN", 
-        name: item.product.name, 
-        qty: item.qty, 
-        total: item.total, 
-        profit: item.profit, 
+        id: Date.now() + Math.random(), type: "BÁN", 
+        name: item.product.name, qty: item.qty, total: item.total, profit: item.profit, 
         customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ",
+        date: dateStr, time: `${timeStr} ${dateStr}` 
       });
     }
 
-    rev -= discount;
-    prof -= discount;
+    rev -= discount; prof -= discount;
 
     if (custPhone) {
       setCustomers((prev: any) => ({
         ...prev,
-        [custPhone]: {
-          name: custName,
-          wallet: (prev[custPhone]?.wallet || 0) - discount + earnedWallet
-        }
+        [custPhone]: { name: custName, wallet: (prev[custPhone]?.wallet || 0) - discount + earnedWallet }
       }));
     }
 
-    setRevenue(rev); 
-    setProfit(prof); 
-    setHistory(prev => [...logs, ...prev]);
+    setRevenue(rev); setProfit(prof); setHistory(prev => [...logs, ...prev]);
 
     const orderId = "HD" + Date.now().toString().slice(-6); 
     setLastOrder({
-      orderId: orderId,
-      cart: [...cart],
-      totalAmount: cartTotalAmount,
-      discount: discount,
-      finalAmount: finalAmount,
-      earnedWallet: custPhone ? earnedWallet : 0,
-      custName: custPhone ? custName : null,
-      custPhone: custPhone ? custPhone : null,
-      time: new Date().toLocaleString('vi-VN')
+      orderId: orderId, cart: [...cart], totalAmount: cartTotalAmount, discount: discount,
+      finalAmount: finalAmount, earnedWallet: custPhone ? earnedWallet : 0,
+      custName: custPhone ? custName : null, custPhone: custPhone ? custPhone : null, time: `${timeStr} ${dateStr}`
     });
     
-    setCheckoutStep(3);
-    fetchProducts(); 
-    setLoading(false);
+    setCheckoutStep(3); fetchProducts(); setLoading(false);
   };
 
   const closeCheckout = () => {
-    setCart([]); 
-    setIsCheckoutOpen(false); 
-    setCheckoutStep(1);
-    setCustPhone("");
-    setCustName("");
-    setUseWallet(false);
-    setLastOrder(null);
+    setCart([]); setIsCheckoutOpen(false); setCheckoutStep(1);
+    setCustPhone(""); setCustName(""); setUseWallet(false); setLastOrder(null);
+  };
+
+  // KHI TÍT MÃ ĐỂ NHẬP KHO, LẤY CẢ GIÁ KM VÀ QUÀ TẶNG CŨ NẾU CÓ
+  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const code = e.target.value;
+    setNewCode(code);
+    const p = products.find((x: any) => x.product_code === code);
+    if (p) {
+      setNewName(p.name); setNewImportPrice(p.import_price?.toString() || "");
+      setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || "");
+      setNewGiftInfo(p.gift_info || ""); setNewExpiry(p.expiry_date || "");
+    }
   };
 
   const handleAddProduct = async (e: React.FormEvent) => {
@@ -302,22 +267,29 @@ export default function App() {
     if (existing && existing.stock > 0) {
         finalImp = Math.round((existing.stock * (existing.import_price || 0) + addedStock * inputImp) / (existing.stock + addedStock));
     }
-    const data = { name: newName, import_price: finalImp, sale_price: parseInt(newPrice), stock: existing ? existing.stock + addedStock : addedStock, expiry_date: newExpiry || null };
+    const data = { 
+      name: newName, 
+      import_price: finalImp, 
+      sale_price: parseInt(newPrice), 
+      promo_price: parseInt(newPromoPrice) || 0, // Lưu Giá KM
+      gift_info: newGiftInfo || null,            // Lưu Quà tặng
+      stock: existing ? existing.stock + addedStock : addedStock, 
+      expiry_date: newExpiry || null 
+    };
     
     if (existing) await supabase.from("products").update(data).eq("id", existing.id);
     else await supabase.from("products").insert([data]);
     
     if (addedStock > 0) {
+      const now = new Date();
       setHistory(prev => [{ 
-        id: Date.now(), 
-        type: "NHẬP", 
-        name: newName, 
-        qty: addedStock, 
-        total: 0, 
+        id: Date.now(), type: "NHẬP", name: newName, qty: addedStock, total: 0, 
+        date: now.toLocaleDateString('vi-VN'), time: `${now.toLocaleTimeString('vi-VN')} ${now.toLocaleDateString('vi-VN')}`
       }, ...prev]);
     }
     
-    setNewCode(""); setNewName(""); setNewImportPrice(""); setNewPrice(""); setNewStock(""); setNewExpiry("");
+    setNewCode(""); setNewName(""); setNewImportPrice(""); setNewPrice(""); 
+    setNewPromoPrice(""); setNewGiftInfo(""); setNewStock(""); setNewExpiry("");
     fetchProducts(); setLoading(false);
   };
 
@@ -325,9 +297,12 @@ export default function App() {
     if (window.confirm(`Xóa ${name}?`)) { await supabase.from("products").delete().eq("id", id); fetchProducts(); }
   };
 
-  const handleEdit = async (id: any, field: string, old: any, isD: boolean = false) => {
-    const val = window.prompt(`Sửa ${field}:`, old || "");
-    if (val) { await supabase.from("products").update({ [field]: isD ? val : parseInt(val) }).eq("id", id); fetchProducts(); }
+  const handleEdit = async (id: any, field: string, old: any, isText: boolean = false) => {
+    const val = window.prompt(`Sửa ${field === 'promo_price' ? 'Giá KM (Nhập 0 để hủy KM)' : field === 'gift_info' ? 'Quà Tặng (Bỏ trống để hủy)' : field}:`, old || "");
+    if (val !== null) { 
+      const finalVal = isText ? val : (parseInt(val) || 0);
+      await supabase.from("products").update({ [field]: finalVal }).eq("id", id); fetchProducts(); 
+    }
   };
 
   const totalValue = products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0);
@@ -344,12 +319,9 @@ export default function App() {
       body { background-color: white !important; margin: 0; padding: 0; }
       .no-print { display: none !important; }
       .print-only { 
-        display: block !important; 
-        color: #000; 
+        display: block !important; color: #000; 
         font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-        width: 80mm; 
-        margin: 0 auto;
-        padding: 5mm;
+        width: 80mm; margin: 0 auto; padding: 5mm;
       }
       @page { margin: 0; }
     }
@@ -360,42 +332,25 @@ export default function App() {
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", position: "relative", overflow: "hidden", fontFamily: "sans-serif" }}>
         <style>{styles}</style>
         <div className="bg-blob" style={{ background: "#3b82f6", top: "-10%", left: "-10%" }}></div>
-        <div className="bg-blob" style={{ background: "#10b981", bottom: "-10%", right: "-10%", animationDelay: "-5s" }}></div>
-        <div className="glass-card" style={{ padding: "40px", width: "100%", maxWidth: "400px", textAlign: "center", boxShadow: "0 20px 50px rgba(0,0,0,0.3)" }}>
-          <h1 style={{ color: "#1e293b", fontSize: "28px", marginBottom: "10px" }}>🏪 HẢI LÊ MART PRO</h1>
-          <p style={{ color: "#64748b", marginBottom: "30px" }}>Hệ thống quản lý đa máy tính</p>
-          <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-            <input placeholder="Tài khoản" value={authUsername} onChange={e => setAuthUsername(e.target.value)} style={{ padding: "12px", borderRadius: "10px", border: "1px solid #cbd5e1", outline: "none" }} />
-            <input type="password" placeholder="Mật khẩu" value={authPassword} onChange={e => setAuthPassword(e.target.value)} style={{ padding: "12px", borderRadius: "10px", border: "1px solid #cbd5e1", outline: "none" }} />
-            <button type="submit" style={{ padding: "14px", backgroundColor: "#3b82f6", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "bold", cursor: "pointer" }}>VÀO HỆ THỐNG</button>
+        <div className="glass-card" style={{ padding: "40px", width: "100%", maxWidth: "400px", textAlign: "center" }}>
+          <h1 style={{ color: "#1e293b", fontSize: "28px" }}>🏪 HẢI LÊ MART PRO</h1>
+          <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "15px", marginTop: "20px" }}>
+            <input placeholder="Tài khoản" value={authUsername} onChange={e => setAuthUsername(e.target.value)} style={{ padding: "12px", borderRadius: "10px" }} />
+            <input type="password" placeholder="Mật khẩu" value={authPassword} onChange={e => setAuthPassword(e.target.value)} style={{ padding: "12px", borderRadius: "10px" }} />
+            <button type="submit" style={{ padding: "14px", backgroundColor: "#3b82f6", color: "#fff", borderRadius: "10px", fontWeight: "bold" }}>VÀO HỆ THỐNG</button>
           </form>
         </div>
       </div>
     );
   }
 
-  const activeWallet = customers[custPhone]?.wallet || 0;
-  const activeDiscount = useWallet ? Math.min(activeWallet, cartTotalAmount) : 0;
-  const activeFinalAmount = Math.max(0, cartTotalAmount - activeDiscount);
-  const activeEarned = Math.floor(activeFinalAmount * 0.02);
-
-  // VÁ LỖI GOM NHÓM: GIẢI MÃ CHUẨN XÁC TỪ ID ẨN
   const groupedHistory = history.reduce((groups: any, log: any) => {
-    // Ép kiểu Date từ mili-giây log.id
     const exactDateObj = new Date(Math.floor(log.id));
     const dateStr = exactDateObj.toLocaleDateString('vi-VN'); 
-    
     if (!groups[dateStr]) groups[dateStr] = [];
-    groups[dateStr].push({
-        ...log,
-        displayTime: exactDateObj.toLocaleTimeString('vi-VN') // Tính luôn giờ phút chuẩn
-    });
+    groups[dateStr].push({ ...log, displayTime: exactDateObj.toLocaleTimeString('vi-VN') });
     return groups;
   }, {});
-
-  const toggleDateGroup = (dateStr: string) => {
-    setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
-  };
 
   return (
     <>
@@ -405,28 +360,16 @@ export default function App() {
       {lastOrder && (
         <div className="print-only">
           <div style={{ textAlign: "center", marginBottom: "10px" }}>
-            <h2 style={{ margin: "0 0 5px 0", fontSize: "22px", textTransform: "uppercase", fontWeight: "900", letterSpacing: "1px" }}>HẢI LÊ MART PRO</h2>
+            <h2 style={{ margin: "0 0 5px 0", fontSize: "22px", textTransform: "uppercase", fontWeight: "900" }}>HẢI LÊ MART PRO</h2>
             <div style={{ fontSize: "12px", lineHeight: "1.4" }}>
-              Đ/c: Tòa Nhà ATS, 252 Hoàng Quốc Việt,<br/>
-              P. Nghĩa Đô. Tp. Hà Nội<br/>
-              Hotline: 0902613899<br/>
-              Wifi: HaiLeMart - Pass: 88888888
+              Tòa Nhà ATS, 252 Hoàng Quốc Việt, HN<br/> Hotline: 0902613899
             </div>
           </div>
-          
           <div style={{ borderTop: "1px dashed #000", margin: "10px 0" }}></div>
-          
-          <div style={{ fontSize: "12px", lineHeight: "1.5", display: "flex", justifyContent: "space-between" }}>
-            <div>
-              <div><b>Số HĐ:</b> {lastOrder.orderId}</div>
-              <div><b>Ngày:</b> {lastOrder.time.split(' ')[1]}</div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div><b>Thu ngân:</b> Admin</div>
-              <div><b>Giờ:</b> {lastOrder.time.split(' ')[0]}</div>
-            </div>
+          <div style={{ fontSize: "12px", display: "flex", justifyContent: "space-between" }}>
+            <div><b>Số HĐ:</b> {lastOrder.orderId}<br/><b>Ngày:</b> {lastOrder.time.split(' ')[1]}</div>
+            <div style={{ textAlign: "right" }}><b>Thu ngân:</b> Admin<br/><b>Giờ:</b> {lastOrder.time.split(' ')[0]}</div>
           </div>
-
           <div style={{ borderTop: "1px dashed #000", margin: "10px 0" }}></div>
 
           <table style={{ width: "100%", fontSize: "12px", borderCollapse: "collapse" }}>
@@ -438,203 +381,179 @@ export default function App() {
               </tr>
             </thead>
             <tbody>
-              {lastOrder.cart.map((item: any, idx: number) => (
-                <React.Fragment key={idx}>
-                  <tr><td colSpan={3} style={{ paddingTop: "5px", fontWeight: "bold" }}>{item.product.name}</td></tr>
-                  <tr>
-                    <td style={{ color: "#555" }}>{item.product.sale_price.toLocaleString()}</td>
-                    <td style={{ textAlign: "center" }}>{item.qty}</td>
-                    <td style={{ textAlign: "right" }}>{item.total.toLocaleString()}đ</td>
-                  </tr>
-                </React.Fragment>
-              ))}
+              {lastOrder.cart.map((item: any, idx: number) => {
+                const isPromo = item.product.promo_price > 0;
+                return (
+                  <React.Fragment key={idx}>
+                    <tr><td colSpan={3} style={{ paddingTop: "5px", fontWeight: "bold" }}>{item.product.name}</td></tr>
+                    {/* NẾU CÓ QUÀ TẶNG, IN QUÀ TẶNG LÊN HÓA ĐƠN */}
+                    {item.product.gift_info && <tr><td colSpan={3} style={{ fontSize: "10px", fontStyle: "italic", color: "#555" }}>+ 🎁 Tặng: {item.product.gift_info} (x{item.qty})</td></tr>}
+                    <tr>
+                      <td style={{ color: "#555" }}>
+                        {isPromo ? <><del style={{fontSize:"10px", opacity:0.6}}>{item.product.sale_price.toLocaleString()}</del> {(item.product.promo_price).toLocaleString()}</> : item.product.sale_price.toLocaleString()}
+                      </td>
+                      <td style={{ textAlign: "center" }}>{item.qty}</td>
+                      <td style={{ textAlign: "right" }}>{item.total.toLocaleString()}đ</td>
+                    </tr>
+                  </React.Fragment>
+                )
+              })}
             </tbody>
           </table>
 
           <div style={{ borderTop: "1px solid #000", margin: "10px 0" }}></div>
-
           <div style={{ fontSize: "13px", lineHeight: "1.6" }}>
             <div style={{ display: "flex", justifyContent: "space-between" }}><span>Tổng tiền hàng:</span><span>{lastOrder.totalAmount.toLocaleString()}đ</span></div>
-            {lastOrder.discount > 0 && (
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Chiết khấu (Ví điểm):</span><span>-{lastOrder.discount.toLocaleString()}đ</span></div>
-            )}
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "18px", fontWeight: "900", marginTop: "5px", paddingTop: "5px", borderTop: "1px dashed #000" }}>
+            {lastOrder.discount > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>Chiết khấu (Ví):</span><span>-{lastOrder.discount.toLocaleString()}đ</span></div>}
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "18px", fontWeight: "900", borderTop: "1px dashed #000" }}>
               <span>THANH TOÁN:</span><span>{lastOrder.finalAmount.toLocaleString()}đ</span>
             </div>
           </div>
-
           {lastOrder.custName && (
-            <>
-              <div style={{ borderTop: "1px dashed #000", margin: "10px 0" }}></div>
-              <div style={{ fontSize: "12px", lineHeight: "1.5" }}>
-                <div><b>Khách hàng:</b> {lastOrder.custName} ({lastOrder.custPhone?.slice(0, -3) + "***"})</div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Điểm tích lũy đơn này:</span><b>+{lastOrder.earnedWallet.toLocaleString()}đ</b></div>
-              </div>
-            </>
+            <div style={{ fontSize: "12px", borderTop: "1px dashed #000", marginTop: "10px", paddingTop: "5px" }}>
+              <div><b>Khách hàng:</b> {lastOrder.custName}</div>
+              <div>Điểm tích lũy thêm: <b>+{lastOrder.earnedWallet.toLocaleString()}đ</b></div>
+            </div>
           )}
-
           <div style={{ borderTop: "1px dashed #000", margin: "10px 0" }}></div>
-
-          <div style={{ textAlign: "center", fontSize: "12px", marginTop: "15px" }}>
-            <div style={{ fontWeight: "bold" }}>CẢM ƠN QUÝ KHÁCH & HẸN GẶP LẠI!</div>
-            <div style={{ margin: "15px 0 5px 0", fontSize: "20px", letterSpacing: "2px", fontWeight: "bold", fontFamily: "monospace" }}>|||| || ||| | || |||| | |</div>
+          <div style={{ textAlign: "center", fontSize: "12px" }}>
+            <b>CẢM ƠN QUÝ KHÁCH!</b><br/>
+            <div style={{ margin: "10px 0", fontSize: "20px", fontFamily: "monospace" }}>|||| || ||| | || ||</div>
             <div style={{ fontSize: "10px" }}>{lastOrder.orderId}</div>
           </div>
         </div>
       )}
 
       {/* KHU VỰC ỨNG DỤNG CHÍNH */}
-      <div className="no-print" style={{ padding: "30px", position: "relative", minHeight: "100vh", fontFamily: "sans-serif", overflowX: "hidden" }}>
-        
+      <div className="no-print" style={{ padding: "20px", position: "relative", minHeight: "100vh", fontFamily: "sans-serif", overflowX: "hidden" }}>
         <div className="bg-blob" style={{ background: "#1e40af", top: "10%", left: "5%" }}></div>
         <div className="bg-blob" style={{ background: "#065f46", bottom: "10%", right: "5%", animationDelay: "-7s" }}></div>
-        <div className="bg-blob" style={{ background: "#581c87", top: "50%", left: "40%", width: "300px", height: "300px", animationDelay: "-3s" }}></div>
 
         {isCheckoutOpen && (
-          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.7)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
             {checkoutStep === 1 && (
-              <div className="glass-card" style={{ padding: "30px", width: "400px", boxShadow: "0 20px 50px rgba(0,0,0,0.4)" }}>
-                <h3 style={{ color: "#1e3a8a", margin: "0 0 5px 0", fontSize: "22px", textAlign: "center" }}>🎁 CHĂM SÓC KHÁCH HÀNG</h3>
-                <p style={{ color: "#64748b", textAlign: "center", marginBottom: "25px", fontSize: "14px" }}>Tích lũy 2% cho mọi đơn hàng</p>
-                <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-                  <div>
-                    <label style={{ fontSize: "12px", fontWeight: "bold", color: "#475569" }}>Số điện thoại khách (Bỏ trống nếu khách lẻ):</label>
-                    <input type="text" placeholder="090..." value={custPhone} onChange={handlePhoneChange} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px solid #3b82f6", marginTop: "5px", outline: "none", boxSizing: "border-box", fontSize: "16px" }} />
+              <div className="glass-card" style={{ padding: "30px", width: "400px" }}>
+                <h3 style={{ color: "#1e3a8a", margin: "0 0 5px 0", textAlign: "center" }}>🎁 KHÁCH HÀNG</h3>
+                <input type="text" placeholder="Nhập SĐT..." value={custPhone} onChange={handlePhoneChange} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px solid #3b82f6", marginTop: "15px", boxSizing: "border-box" }} />
+                {custPhone && (
+                  <div style={{ marginTop: "15px", padding: "15px", backgroundColor: "#f8fafc", borderRadius: "10px" }}>
+                    {customers[custPhone] ? (
+                      <>
+                        <div style={{ color: "#16a34a", fontWeight: "bold" }}>⭐ {customers[custPhone].name}</div>
+                        <div>Ví: <b>{customers[custPhone].wallet.toLocaleString()}đ</b></div>
+                        <label style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "10px", cursor: "pointer", color: "#ea580c", fontWeight: "bold" }}>
+                          <input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} /> Dùng ví giảm giá!
+                        </label>
+                      </>
+                    ) : (
+                      <input type="text" placeholder="Tên khách mới" value={custName} onChange={e => setCustName(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1" }} />
+                    )}
                   </div>
-                  {custPhone && (
-                    <div style={{ padding: "15px", backgroundColor: customers[custPhone] ? "#f0fdf4" : "#f8fafc", borderRadius: "10px", border: customers[custPhone] ? "1px solid #10b981" : "1px dashed #cbd5e1" }}>
-                      {customers[custPhone] ? (
-                        <>
-                          <div style={{ color: "#16a34a", fontWeight: "bold", marginBottom: "10px" }}>⭐ Khách quen: {customers[custPhone].name}</div>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "#fff", padding: "10px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
-                            <span style={{ fontSize: "13px", color: "#64748b" }}>Ví hoàn tiền:</span>
-                            <span style={{ fontWeight: "bold", color: "#ea580c", fontSize: "16px" }}>{customers[custPhone].wallet.toLocaleString()}đ</span>
-                          </div>
-                          {customers[custPhone].wallet > 0 && (
-                            <label style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "15px", cursor: "pointer" }}>
-                              <input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} style={{ width: "18px", height: "18px", accentColor: "#f59e0b" }} />
-                              <span style={{ fontWeight: "bold", color: "#d97706", fontSize: "14px" }}>Dùng ví giảm ngay giá đơn này!</span>
-                            </label>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <div style={{ color: "#3b82f6", fontWeight: "bold", marginBottom: "5px" }}>✨ Đăng ký Khách Hàng Mới</div>
-                          <input type="text" placeholder="Nhập tên khách hàng" value={custName} onChange={e => setCustName(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", boxSizing: "border-box" }} />
-                        </>
-                      )}
-                    </div>
-                  )}
-                  <div style={{ backgroundColor: "#1e293b", color: "#fff", padding: "15px", borderRadius: "10px", marginTop: "10px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px" }}><span>Tổng hóa đơn:</span><span style={{ fontWeight: "bold" }}>{cartTotalAmount.toLocaleString()}đ</span></div>
-                    {useWallet && <div style={{ display: "flex", justifyContent: "space-between", color: "#fca5a5", marginBottom: "5px" }}><span>Trừ ví:</span><span style={{ fontWeight: "bold" }}>-{activeDiscount.toLocaleString()}đ</span></div>}
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "18px", borderTop: "1px solid #334155", paddingTop: "10px", marginTop: "5px" }}><span>Khách cần trả:</span><span style={{ fontWeight: "bold", color: "#34d399" }}>{activeFinalAmount.toLocaleString()}đ</span></div>
-                    {custPhone && <div style={{ textAlign: "right", color: "#fcd34d", fontSize: "12px", marginTop: "5px" }}>+ Sẽ được hoàn {activeEarned.toLocaleString()}đ vào ví</div>}
-                  </div>
-                </div>
+                )}
                 <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
-                  <button onClick={() => setIsCheckoutOpen(false)} style={{ flex: 1, padding: "12px", border: "none", borderRadius: "10px", cursor: "pointer", background: "#e2e8f0", fontWeight: "bold" }}>Hủy</button>
-                  <button onClick={handleNextToQR} style={{ flex: 2, padding: "12px", backgroundColor: "#3b82f6", color: "#fff", borderRadius: "10px", fontWeight: "bold", cursor: "pointer" }}>TIẾP TỤC QUÉT MÃ 👉</button>
+                  <button onClick={() => setIsCheckoutOpen(false)} style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "none" }}>Hủy</button>
+                  <button onClick={handleNextToQR} style={{ flex: 2, padding: "12px", backgroundColor: "#3b82f6", color: "#fff", borderRadius: "10px", fontWeight: "bold", border: "none" }}>TIẾP TỤC 👉</button>
                 </div>
               </div>
             )}
-
             {checkoutStep === 2 && (
               <div className="glass-card" style={{ padding: "30px", width: "400px", textAlign: "center" }}>
-                <h3 style={{ color: "#1e3a8a", margin: "0 0 5px 0" }}>📱 Mã Thanh Toán Tự Động</h3>
-                <p style={{ margin: "0 0 15px 0", color: "#64748b", fontSize: "14px" }}>LE HONG HAI - MB BANK</p>
-                <div style={{ backgroundColor: "#f8fafc", padding: "15px", borderRadius: "15px", marginBottom: "20px", border: "2px solid #10b981" }}>
-                  {custName && <div style={{ fontSize: "12px", fontWeight: "bold", color: "#10b981", marginBottom: "5px" }}>Khách hàng: {custName}</div>}
-                  <div style={{ color: "#ef4444", fontSize: "32px", fontWeight: "900" }}>{activeFinalAmount.toLocaleString()}đ</div>
+                <h3 style={{ color: "#1e3a8a", margin: "0 0 15px 0" }}>📱 QUÉT MÃ QR</h3>
+                <div style={{ color: "#ef4444", fontSize: "32px", fontWeight: "900", marginBottom: "15px" }}>
+                  {Math.max(0, cartTotalAmount - (useWallet ? customers[custPhone]?.wallet || 0 : 0)).toLocaleString()}đ
                 </div>
-                <div style={{ background: "#fff", padding: "10px", borderRadius: "16px", border: "2px dashed #cbd5e1", display: "inline-block", marginBottom: "20px" }}>
-                  <img src={`https://img.vietqr.io/image/970422-0680124181004-compact2.png?amount=${activeFinalAmount}&addInfo=Thanh toan&accountName=LE%20HONG%20HAI`} style={{ width: "220px", height: "220px", display: "block" }} />
-                </div>
+                <img src={`https://img.vietqr.io/image/970422-0680124181004-compact2.png?amount=${Math.max(0, cartTotalAmount - (useWallet ? customers[custPhone]?.wallet || 0 : 0))}&addInfo=Thanh toan&accountName=LE%20HONG%20HAI`} style={{ width: "220px", display: "block", margin: "0 auto 20px auto" }} />
                 <div style={{ display: "flex", gap: "10px" }}>
-                  <button onClick={() => setCheckoutStep(1)} disabled={loading} style={{ flex: 1, padding: "12px", border: "none", borderRadius: "10px", cursor: "pointer", background: "#e2e8f0", fontWeight: "bold" }}>👈 Quay lại</button>
-                  <button onClick={confirmCheckout} disabled={loading} style={{ flex: 2, padding: "12px", backgroundColor: "#10b981", color: "#fff", borderRadius: "10px", fontWeight: "bold", cursor: "pointer" }}>{loading ? "Đang xử lý..." : "✔️ ĐÃ NHẬN TIỀN"}</button>
+                  <button onClick={() => setCheckoutStep(1)} style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "none" }}>Quay lại</button>
+                  <button onClick={confirmCheckout} style={{ flex: 2, padding: "12px", backgroundColor: "#10b981", color: "#fff", borderRadius: "10px", fontWeight: "bold", border: "none" }}>✔️ ĐÃ NHẬN TIỀN</button>
                 </div>
               </div>
             )}
-
             {checkoutStep === 3 && lastOrder && (
               <div className="glass-card" style={{ padding: "30px", width: "400px", textAlign: "center" }}>
-                <div style={{ fontSize: "50px", marginBottom: "10px" }}>🎉</div>
-                <h3 style={{ color: "#16a34a", margin: "0 0 10px 0", fontSize: "24px" }}>Thanh toán thành công!</h3>
-                <p style={{ color: "#64748b", marginBottom: "20px", fontSize: "14px" }}>Đơn hàng đã được lưu vào hệ thống.</p>
-                <div style={{ backgroundColor: "#f8fafc", padding: "15px", borderRadius: "10px", marginBottom: "20px" }}>
-                  <div style={{ fontSize: "16px", fontWeight: "bold", color: "#1e293b" }}>Tổng thu: <span style={{ color: "#ef4444" }}>{lastOrder.finalAmount.toLocaleString()}đ</span></div>
-                  {lastOrder.custName && <div style={{ fontSize: "13px", color: "#10b981", marginTop: "5px" }}>+ Đã hoàn {lastOrder.earnedWallet.toLocaleString()}đ vào ví khách</div>}
-                </div>
-                <div style={{ display: "flex", gap: "10px" }}>
-                  <button onClick={() => window.print()} style={{ flex: 1, padding: "14px", backgroundColor: "#3b82f6", color: "#fff", borderRadius: "10px", fontWeight: "bold", cursor: "pointer", fontSize: "16px" }}>🖨️ In Hóa Đơn</button>
-                  <button onClick={closeCheckout} style={{ flex: 1, padding: "14px", backgroundColor: "#e2e8f0", color: "#475569", borderRadius: "10px", fontWeight: "bold", cursor: "pointer", fontSize: "16px" }}>Đóng</button>
+                <div style={{ fontSize: "50px" }}>🎉</div>
+                <h3 style={{ color: "#16a34a", margin: "10px 0" }}>Thành công!</h3>
+                <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+                  <button onClick={() => window.print()} style={{ flex: 1, padding: "14px", backgroundColor: "#3b82f6", color: "#fff", borderRadius: "10px", fontWeight: "bold", border: "none" }}>🖨️ In Hóa Đơn</button>
+                  <button onClick={closeCheckout} style={{ flex: 1, padding: "14px", backgroundColor: "#e2e8f0", borderRadius: "10px", fontWeight: "bold", border: "none" }}>Đóng</button>
                 </div>
               </div>
             )}
           </div>
         )}
 
-        <div style={{ maxWidth: "1350px", margin: "0 auto" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "20px", marginBottom: "30px" }}>
-            {[
-              { label: "GIÁ TRỊ KHO (VỐN)", val: totalValue, color: "#8b5cf6" },
-              { label: "DOANH THU HÔM NAY", val: revenue, color: "#3b82f6" },
-              { label: "LỢI NHUẬN ƯỚC TÍNH", val: profit, color: "#10b981" }
-            ].map((s, i) => (
-              <div key={i} className="glass-card" style={{ padding: "20px", borderLeft: `8px solid ${s.color}`, boxShadow: "0 10px 20px rgba(0,0,0,0.1)" }}>
-                <div style={{ color: "#64748b", fontSize: "12px", fontWeight: "bold", marginBottom: "5px" }}>{s.label}</div>
-                <div style={{ fontSize: "24px", fontWeight: "bold", color: "#1e293b" }}>{s.val.toLocaleString()}đ</div>
+        <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
+          {/* STATS */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "15px", marginBottom: "20px" }}>
+            {[ { label: "GIÁ TRỊ KHO", val: totalValue, c: "#8b5cf6" }, { label: "DOANH THU", val: revenue, c: "#3b82f6" }, { label: "LỢI NHUẬN", val: profit, c: "#10b981" } ].map((s, i) => (
+              <div key={i} className="glass-card" style={{ padding: "20px", borderLeft: `8px solid ${s.c}` }}>
+                <div style={{ color: "#64748b", fontSize: "12px", fontWeight: "bold" }}>{s.label}</div>
+                <div style={{ fontSize: "22px", fontWeight: "bold" }}>{s.val.toLocaleString()}đ</div>
               </div>
             ))}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "2.8fr 1fr", gap: "25px" }}>
-            <div className="glass-card" style={{ padding: "25px", boxShadow: "0 10px 30px rgba(0,0,0,0.2)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
-                <h2 style={{ color: "#1e3a8a", margin: 0 }}>🏪 HẢI LÊ MART PRO</h2>
-                <button onClick={handleLogout} style={{ padding: "8px 15px", backgroundColor: "#fee2e2", color: "#ef4444", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" }}>Đăng xuất 🔒</button>
+          <div style={{ display: "grid", gridTemplateColumns: "3fr 1fr", gap: "20px" }}>
+            {/* MAIN KHO */}
+            <div className="glass-card" style={{ padding: "25px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "15px" }}>
+                <h2 style={{ color: "#1e3a8a", margin: 0 }}>🏪 HẢI LÊ MART</h2>
+                <button onClick={handleLogout} style={{ padding: "8px 15px", backgroundColor: "#fee2e2", color: "#ef4444", border: "none", borderRadius: "8px", fontWeight: "bold" }}>Khóa 🔒</button>
               </div>
 
-              <input placeholder="🔍 BẮN MÃ VẠCH ĐỂ BÁN HÀNG NHANH..." value={barcodeInput} onChange={e => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeSubmit} style={{ width: "100%", padding: "15px", borderRadius: "15px", border: "2px solid #3b82f6", marginBottom: "20px", fontSize: "18px", fontWeight: "bold", background: "#eff6ff", outline: "none" }} />
+              <input placeholder="🔍 TÍT MÃ BÁN HÀNG..." value={barcodeInput} onChange={e => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeSubmit} style={{ width: "100%", padding: "15px", borderRadius: "12px", border: "2px solid #3b82f6", marginBottom: "15px", fontWeight: "bold", outline: "none", background: "#eff6ff" }} />
 
-              <form onSubmit={handleAddProduct} style={{ display: "flex", gap: "10px", marginBottom: "25px", padding: "15px", background: "rgba(0,0,0,0.03)", borderRadius: "15px", flexWrap: "wrap" }}>
-                <input placeholder="Mã" value={newCode} onChange={e => {setNewCode(e.target.value); const p=products.find(x=>x.product_code===e.target.value); if(p){setNewName(p.name); setNewPrice(p.sale_price.toString()); setNewImportPrice(p.import_price?.toString()||""); setNewExpiry(p.expiry_date||"");}}} style={{ flex: "1", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1" }} />
-                <input placeholder="Tên hàng" value={newName} onChange={e => setNewName(e.target.value)} style={{ flex: "2", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1" }} />
-                <input placeholder="G.Nhập" type="number" value={newImportPrice} onChange={e => setNewImportPrice(e.target.value)} style={{ flex: "1", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1" }} />
-                <input placeholder="G.Bán" type="number" value={newPrice} onChange={e => setNewPrice(e.target.value)} style={{ flex: "1", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1" }} />
-                <input type="date" title="Hạn sử dụng" value={newExpiry} onChange={e => setNewExpiry(e.target.value)} style={{ flex: "1.5", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", color: "#475569" }} />
-                <input placeholder="SL" type="number" value={newStock} onChange={e => setNewStock(e.target.value)} style={{ flex: "0.8", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1" }} />
-                <button type="submit" disabled={loading} style={{ padding: "10px 20px", backgroundColor: "#1e3a8a", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" }}>NHẬP KHO</button>
+              <div style={{ fontSize: "12px", fontWeight: "bold", color: "#64748b", marginBottom: "5px" }}>📦 NHẬP KHO & CÀI ĐẶT KHUYẾN MÃI</div>
+              <form onSubmit={handleAddProduct} style={{ display: "flex", gap: "8px", marginBottom: "20px", padding: "15px", background: "rgba(0,0,0,0.03)", borderRadius: "12px", flexWrap: "wrap" }}>
+                <input placeholder="Mã hàng" value={newCode} onChange={handleCodeChange} style={{ flex: "1 1 100px", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+                <input placeholder="Tên SP" value={newName} onChange={e => setNewName(e.target.value)} style={{ flex: "2 1 150px", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+                <input type="number" placeholder="G.Nhập" value={newImportPrice} onChange={e => setNewImportPrice(e.target.value)} style={{ flex: "1 1 80px", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+                <input type="number" placeholder="G.Bán" value={newPrice} onChange={e => setNewPrice(e.target.value)} style={{ flex: "1 1 80px", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+                
+                {/* 2 Ô MỚI: GIÁ KM & QUÀ TẶNG */}
+                <input type="number" placeholder="Giá KM (Bỏ trống nếu ko KM)" value={newPromoPrice} onChange={e => setNewPromoPrice(e.target.value)} style={{ flex: "1 1 120px", padding: "8px", borderRadius: "6px", border: "1px solid #f59e0b", background: "#fffbeb" }} title="Giá Khuyến Mãi" />
+                <input type="text" placeholder="Quà tặng kèm (VD: Tặng 1 cốc)" value={newGiftInfo} onChange={e => setNewGiftInfo(e.target.value)} style={{ flex: "1.5 1 150px", padding: "8px", borderRadius: "6px", border: "1px solid #10b981", background: "#f0fdf4" }} title="Quà Tặng" />
+                
+                <input type="number" placeholder="SL" value={newStock} onChange={e => setNewStock(e.target.value)} style={{ flex: "0.5 1 60px", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+                <button type="submit" disabled={loading} style={{ padding: "8px 15px", backgroundColor: "#1e3a8a", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold" }}>LƯU</button>
               </form>
 
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
-                  <tr style={{ borderBottom: "2px solid #e2e8f0", color: "#64748b", fontSize: "12px" }}>
-                    <th style={{ textAlign: "left", padding: "12px" }}>SẢN PHẨM</th>
+                  <tr style={{ borderBottom: "2px solid #e2e8f0", color: "#64748b", fontSize: "11px" }}>
+                    <th style={{ textAlign: "left", padding: "10px" }}>SẢN PHẨM</th>
                     <th style={{ textAlign: "center" }}>TỒN</th>
-                    <th style={{ textAlign: "center" }}>GIÁ VỐN</th>
-                    <th style={{ textAlign: "center" }}>GIÁ BÁN</th>
-                    <th style={{ textAlign: "center" }}>HSD & LƯU KHO</th>
+                    <th style={{ textAlign: "center" }}>GIÁ BÁN & KHUYẾN MÃI</th>
                     <th style={{ textAlign: "right" }}>QUẢN LÝ</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase())).map(p => {
-                    const days = Math.floor(Math.abs(new Date().getTime() - new Date(p.created_at).getTime()) / 86400000);
+                  {products.map(p => {
+                    const isPromo = p.promo_price > 0;
                     return (
                       <tr key={p.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                        <td style={{ padding: "12px" }}><b>{p.name}</b><br/><small style={{color: "#94a3b8"}}>{p.product_code}</small></td>
-                        <td style={{ textAlign: "center" }}><b>{p.stock}</b></td>
-                        <td style={{ textAlign: "center", color: "#64748b", cursor:"pointer" }} onClick={()=>handleEdit(p.id,'import_price',p.import_price)}>{p.import_price?.toLocaleString()}đ</td>
-                        <td style={{ textAlign: "center", color: "#059669", fontWeight: "bold", cursor:"pointer" }} onClick={()=>handleEdit(p.id,'sale_price',p.sale_price)}>{p.sale_price.toLocaleString()}đ</td>
-                        <td style={{ textAlign: "center", fontSize: "11px" }}>
-                          <div style={{color: "#b91c1c", cursor:"pointer"}} onClick={()=>handleEdit(p.id,'expiry_date',p.expiry_date,true)}>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : "Chưa có HSD"}</div>
-                          <div style={{color: days > 30 ? "#ea580c" : "#16a34a"}}>{days} ngày trong kho</div>
+                        <td style={{ padding: "10px" }}>
+                          <b style={{fontSize: "14px"}}>{p.name}</b><br/>
+                          <small style={{color: "#94a3b8"}}>{p.product_code}</small>
+                          {/* HIỂN THỊ QUÀ TẶNG NẾU CÓ */}
+                          {p.gift_info && <div style={{ fontSize: "11px", color: "#10b981", fontWeight: "bold", marginTop: "3px", cursor: "pointer" }} onClick={()=>handleEdit(p.id, 'gift_info', p.gift_info, true)}>🎁 Tặng: {p.gift_info}</div>}
+                          {!p.gift_info && <div style={{ fontSize: "10px", color: "#cbd5e1", cursor: "pointer" }} onClick={()=>handleEdit(p.id, 'gift_info', '', true)}>+ Thêm quà tặng</div>}
+                        </td>
+                        <td style={{ textAlign: "center", fontSize: "14px" }}><b>{p.stock}</b></td>
+                        <td style={{ textAlign: "center" }}>
+                          {/* HIỂN THỊ GIÁ CŨ VÀ GIÁ KHUYẾN MÃI CHUYÊN NGHIỆP */}
+                          <div style={{ color: isPromo ? "#94a3b8" : "#059669", textDecoration: isPromo ? "line-through" : "none", fontWeight: isPromo ? "normal" : "bold", fontSize: isPromo ? "12px" : "14px", cursor: "pointer" }} onClick={()=>handleEdit(p.id, 'sale_price', p.sale_price)}>
+                            {p.sale_price.toLocaleString()}đ
+                          </div>
+                          {isPromo && (
+                            <div style={{ color: "#ef4444", fontWeight: "900", fontSize: "15px", cursor: "pointer" }} onClick={()=>handleEdit(p.id, 'promo_price', p.promo_price)}>
+                              🔥 {p.promo_price.toLocaleString()}đ
+                            </div>
+                          )}
+                          {!isPromo && <div style={{ fontSize: "10px", color: "#cbd5e1", cursor: "pointer" }} onClick={()=>handleEdit(p.id, 'promo_price', 0)}>+ Setup Giá KM</div>}
                         </td>
                         <td style={{ textAlign: "right" }}>
-                          <button onClick={() => addToCart(p)} style={{ padding: "6px 12px", backgroundColor: "#f59e0b", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", marginRight: "10px", cursor: "pointer" }}>+ GIỎ HÀNG</button>
-                          <button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer" }}>🗑️</button>
+                          <button onClick={() => addToCart(p)} style={{ padding: "8px 12px", backgroundColor: "#f59e0b", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" }}>+ GIỎ HÀNG</button>
                         </td>
                       </tr>
                     )
@@ -643,20 +562,25 @@ export default function App() {
               </table>
             </div>
 
-            {/* SIDEBAR */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "25px" }}>
-              <div className="glass-card" style={{ padding: "20px", boxShadow: "0 10px 20px rgba(0,0,0,0.1)" }}>
-                <h3 style={{ margin: "0 0 15px 0", color: "#d97706" }}>🛒 GIỎ HÀNG ({cart.length})</h3>
-                <div style={{ maxHeight: "250px", overflowY: "auto", marginBottom: "15px" }}>
+            {/* SIDEBAR BÊN PHẢI */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              <div className="glass-card" style={{ padding: "20px" }}>
+                <h3 style={{ margin: "0 0 15px 0", color: "#d97706" }}>🛒 GIỎ HÀNG</h3>
+                <div style={{ maxHeight: "300px", overflowY: "auto", marginBottom: "15px" }}>
                   {cart.map((item, idx) => (
-                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px dashed #e2e8f0", fontSize: "13px" }}>
-                      <span>{item.product.name} x{item.qty}</span>
-                      <button onClick={()=>removeFromCart(item.product.id)} style={{border:"none",background:"none",color:"#ef4444", cursor: "pointer"}}>x</button>
+                    <div key={idx} style={{ padding: "8px 0", borderBottom: "1px dashed #e2e8f0", fontSize: "13px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ fontWeight: "bold" }}>{item.product.name} x{item.qty}</span>
+                        <button onClick={()=>removeFromCart(item.product.id)} style={{border:"none",background:"none",color:"#ef4444", cursor: "pointer"}}>x</button>
+                      </div>
+                      {/* BÁO QUÀ TẶNG TRONG GIỎ HÀNG LUÔN */}
+                      {item.product.gift_info && <div style={{ color: "#10b981", fontSize: "11px", fontStyle: "italic" }}>+ 🎁 Tặng {item.qty} {item.product.gift_info.replace('Tặng ', '')}</div>}
+                      <div style={{ color: "#ef4444", fontWeight: "bold", textAlign: "right" }}>{item.total.toLocaleString()}đ</div>
                     </div>
                   ))}
                 </div>
                 {cart.length > 0 && (
-                  <button onClick={() => { setIsCheckoutOpen(true); setCheckoutStep(1); }} style={{ width: "100%", padding: "15px", backgroundColor: "#10b981", color: "#fff", border: "none", borderRadius: "12px", fontWeight: "bold", fontSize: "16px", cursor: "pointer" }}>
+                  <button onClick={() => { setIsCheckoutOpen(true); setCheckoutStep(1); }} style={{ width: "100%", padding: "15px", backgroundColor: "#10b981", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "bold", fontSize: "16px", cursor: "pointer" }}>
                     {cart.reduce((s,i)=>s+i.total,0).toLocaleString()}đ - THANH TOÁN
                   </button>
                 )}
@@ -664,47 +588,29 @@ export default function App() {
 
               <div className="glass-card" style={{ padding: "20px", flex: 1, display: "flex", flexDirection: "column" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "15px", alignItems: "center" }}>
-                  <h3 style={{ margin: 0, fontSize: "16px" }}>📋 NHẬT KÝ</h3>
+                  <h3 style={{ margin: 0, fontSize: "14px" }}>📋 NHẬT KÝ</h3>
                   <div style={{ display: "flex", gap: "5px" }}>
-                    <button onClick={exportToCSV} style={{ fontSize: "10px", padding: "5px 10px", background: "#10b981", color: "#fff", border: "none", borderRadius: "5px", cursor: "pointer" }}>EXCEL</button>
-                    <button onClick={handleSendEmailReport} style={{ fontSize: "10px", padding: "5px 10px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "5px", cursor: "pointer" }}>✉️ CHỐT CA</button>
+                    <button onClick={exportToCSV} style={{ fontSize: "10px", padding: "5px", background: "#10b981", color: "#fff", border: "none", borderRadius: "4px" }}>EXCEL</button>
+                    <button onClick={handleSendEmailReport} style={{ fontSize: "10px", padding: "5px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "4px" }}>✉️ CHỐT CA</button>
                   </div>
                 </div>
-                
-                <div style={{ flex: 1, overflowY: "auto", paddingRight: "5px" }}>
-                  {history.length === 0 ? <p style={{ color: "#94a3b8", textAlign: "center", fontSize: "13px", marginTop: "20px" }}>Chưa có biến động</p> : 
-                    Object.keys(groupedHistory).map((dateStr) => {
-                      const isExpanded = expandedDates[dateStr] ?? true; 
-                      return (
-                        <div key={dateStr} style={{ marginBottom: "10px", backgroundColor: "#f8fafc", borderRadius: "8px", overflow: "hidden", border: "1px solid #e2e8f0" }}>
-                          <div 
-                            onClick={() => toggleDateGroup(dateStr)}
-                            style={{ backgroundColor: "#f1f5f9", padding: "10px 15px", fontSize: "12px", fontWeight: "bold", color: "#334155", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
-                          >
-                            <span>📅 Ngày {dateStr}</span>
-                            <span style={{ fontSize: "10px", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▶</span>
-                          </div>
-                          {isExpanded && (
-                            <div style={{ padding: "0 15px" }}>
-                              {groupedHistory[dateStr].map((log: any) => (
-                                <div key={log.id} style={{ padding: "10px 0", borderBottom: "1px dashed #e2e8f0", fontSize: "11px", display: "flex", flexDirection: "column", gap: "3px" }}>
-                                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                    <span><b>[{log.type}]</b> {log.name} <span style={{color:"#64748b"}}>x{log.qty}</span></span>
-                                    {log.type === "BÁN" && <span style={{color:"#059669", fontWeight: "bold"}}>+{log.total?.toLocaleString()}đ</span>}
-                                  </div>
-                                  <div style={{ display: "flex", justifyContent: "space-between", color: "#94a3b8" }}>
-                                    <span>{log.customer && `👤 ${log.customer}`}</span>
-                                    {/* HIỂN THỊ CHUẨN GIỜ TỪ HÀM GIẢI MÃ */}
-                                    <span>{log.displayTime}</span>
-                                  </div>
-                                </div>
-                              ))}
+                <div style={{ flex: 1, overflowY: "auto" }}>
+                  {Object.keys(history.reduce((g:any, l:any)=>{const d=new Date(Math.floor(l.id)).toLocaleDateString('vi-VN');if(!g[d])g[d]=[];g[d].push({...l,t:new Date(Math.floor(l.id)).toLocaleTimeString('vi-VN')});return g;},{})).map((dateStr) => {
+                    const group = history.reduce((g:any, l:any)=>{const d=new Date(Math.floor(l.id)).toLocaleDateString('vi-VN');if(!g[d])g[d]=[];g[d].push({...l,t:new Date(Math.floor(l.id)).toLocaleTimeString('vi-VN')});return g;},{})[dateStr];
+                    return (
+                      <div key={dateStr} style={{ marginBottom: "10px", backgroundColor: "#f8fafc", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                        <div style={{ backgroundColor: "#f1f5f9", padding: "8px", fontSize: "12px", fontWeight: "bold" }}>📅 {dateStr}</div>
+                        <div style={{ padding: "0 10px" }}>
+                          {group.map((log: any) => (
+                            <div key={log.id} style={{ padding: "8px 0", borderBottom: "1px dashed #e2e8f0", fontSize: "11px" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between" }}><span><b>[{log.type}]</b> {log.name} x{log.qty}</span>{log.type === "BÁN" && <span style={{color:"#059669"}}>+{log.total?.toLocaleString()}</span>}</div>
+                              <div style={{ display: "flex", justifyContent: "space-between", color: "#94a3b8" }}><span>{log.customer}</span><span>{log.t}</span></div>
                             </div>
-                          )}
+                          ))}
                         </div>
-                      );
-                    })
-                  }
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
