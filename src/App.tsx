@@ -110,7 +110,7 @@ export default function App() {
     } else alert("Sai tài khoản!");
   };
 
-  const handleLogout = () => { if (window.confirm("Bạn có chắc chắn muốn đăng xuất?")) { setIsLoggedIn(false); localStorage.removeItem("mart_logged_in"); } };
+  const handleLogout = () => { if (window.confirm("Khóa máy?")) { setIsLoggedIn(false); localStorage.removeItem("mart_logged_in"); } };
 
   const getActualPrice = (p: any) => (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price;
 
@@ -352,10 +352,13 @@ export default function App() {
 
           <div style={{ display: "grid", gridTemplateColumns: "3fr 1fr", gap: "15px" }}>
             <div className="glass" style={{ padding: "15px" }}>
-              <input placeholder="🔍 BẮN MÃ VẠCH / TÌM KIẾM SẢN PHẨM..." value={barcodeInput} onChange={e => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeSubmit} style={{ width: "100%", padding: "12px 15px", borderRadius: "10px", border: "3px solid #ef4444", marginBottom: "10px", fontSize: "16px", fontWeight: "bold", outline: "none", background: "#fff", boxSizing: "border-box" }} />
-
-              <div onClick={() => setShowInputForm(!showInputForm)} style={{ backgroundColor: "#fef2f2", padding: "10px", borderRadius: "8px", fontWeight: "bold", color: "#b91c1c", cursor: "pointer", textAlign: "center", marginBottom: "15px", border: "1px dashed #ef4444", fontSize: "13px" }}>
-                {showInputForm ? "➖ THU GỌN NHẬP KHO" : "➕ NHẬP KHO & CÀI KHUYẾN MÃI"}
+              
+              {/* TỐI ƯU CỰC ĐỘ: GỘP Ô TÌM KIẾM VÀ NÚT NHẬP KHO CHUNG 1 DÒNG */}
+              <div style={{ display: "flex", gap: "10px", marginBottom: "15px" }}>
+                <input placeholder="🔍 BẮN MÃ VẠCH / TÌM KIẾM..." value={barcodeInput} onChange={e => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeSubmit} style={{ flex: 1, padding: "10px 15px", borderRadius: "8px", border: "2px solid #ef4444", fontSize: "14px", fontWeight: "bold", outline: "none", boxSizing: "border-box" }} />
+                <div onClick={() => setShowInputForm(!showInputForm)} style={{ padding: "10px 15px", borderRadius: "8px", fontWeight: "bold", color: "#b91c1c", cursor: "pointer", border: "1px dashed #ef4444", fontSize: "13px", display: "flex", alignItems: "center", whiteSpace: "nowrap", backgroundColor: "#fef2f2" }}>
+                  {showInputForm ? "➖ ĐÓNG" : "➕ NHẬP KHO / KHUYẾN MÃI"}
+                </div>
               </div>
 
               {showInputForm && (
@@ -381,7 +384,7 @@ export default function App() {
                 <input placeholder="🔍 Lọc theo Tên hoặc Mã SP..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ padding: "6px 12px", borderRadius: "15px", border: "1px solid #fdba74", outline: "none", width: "200px", fontSize: "12px" }} />
               </div>
 
-              <div style={{ maxHeight: "calc(100vh - 220px)", overflowY: "auto" }}>
+              <div style={{ maxHeight: "calc(100vh - 200px)", overflowY: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead><tr style={{ color: "#16a34a", fontSize: "11px", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}><th style={{ textAlign: "left", padding: "10px" }}>SẢN PHẨM</th><th style={{ textAlign: "center" }}>TỒN</th><th style={{ textAlign: "center" }}>GIÁ VỐN</th><th style={{ textAlign: "center" }}>GIÁ BÁN (CHƯA VAT)</th><th style={{ textAlign: "center" }}>HSD/KHO</th><th style={{ textAlign: "right" }}></th></tr></thead>
                   <tbody>
@@ -430,8 +433,9 @@ export default function App() {
                   </div>
                 </div>
                 <div style={{ flex: 1, overflowY: "auto" }}>
-                  {Object.keys(groupedHistory).map((dateStr) => {
-                    const group = groupedHistory[dateStr]; const isEx = expandedDates[dateStr] ?? true;
+                  {Object.keys(history.reduce((g:any, l:any)=>{const d=new Date(Math.floor(l.id)).toLocaleDateString('vi-VN');if(!g[d])g[d]=[];g[d].push({...l,t:new Date(Math.floor(l.id)).toLocaleTimeString('vi-VN')});return g;},{})).map((dateStr) => {
+                    const group = history.reduce((g:any, l:any)=>{const d=new Date(Math.floor(l.id)).toLocaleDateString('vi-VN');if(!g[d])g[d]=[];g[d].push({...l,t:new Date(Math.floor(l.id)).toLocaleTimeString('vi-VN')});return g;},{})[dateStr];
+                    const isEx = expandedDates[dateStr] ?? true;
                     return (
                       <div key={dateStr} style={{ marginBottom: "8px", backgroundColor: "#fff7ed", borderRadius: "6px", overflow: "hidden", border: "1px solid #fed7aa" }}>
                         <div onClick={() => setExpandedDates({...expandedDates, [dateStr]: !isEx})} style={{ backgroundColor: "#ffedd5", padding: "8px 10px", fontSize: "11px", fontWeight: "bold", cursor: "pointer", display: "flex", justifyContent: "space-between" }}><span>📅 {dateStr}</span><span>{isEx ? "▼" : "▶"}</span></div>
