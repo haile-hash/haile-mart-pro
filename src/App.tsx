@@ -21,6 +21,7 @@ export default function App() {
   const [newPrice, setNewPrice] = useState("");
   const [newStock, setNewStock] = useState("");
 
+  // BẬT BỘ NHỚ TRÌNH DUYỆT (Lưu nhật ký Nhập/Xuất và doanh thu)
   const [history, setHistory] = useState<any[]>(() => {
     const saved = localStorage.getItem("mart_history");
     return saved ? JSON.parse(saved) : [];
@@ -90,7 +91,8 @@ export default function App() {
       const { error } = await supabase.from("products").update({ stock: p.stock - sellQty }).eq("id", p.id);
       if (!error) {
         setRevenue(prev => prev + (p.sale_price * sellQty));
-        setHistory(prev => [{ id: Date.now(), name: p.name, qty: sellQty, total: p.sale_price * sellQty, time: new Date().toLocaleTimeString() }, ...prev]);
+        // LƯU LỊCH SỬ XUẤT (BÁN)
+        setHistory(prev => [{ id: Date.now(), type: "BÁN", name: p.name, qty: sellQty, total: p.sale_price * sellQty, time: new Date().toLocaleTimeString() }, ...prev]);
         fetchProducts();
       }
     } else if (qty) alert("Không đủ hàng trong kho!");
@@ -119,6 +121,12 @@ export default function App() {
     } else {
       await supabase.from("products").insert([{ product_code: newCode, name: newName, sale_price: parseInt(newPrice), stock: addedStock }]);
     }
+    
+    // LƯU LỊCH SỬ NHẬP
+    if (addedStock > 0) {
+      setHistory(prev => [{ id: Date.now(), type: "NHẬP", name: newName, qty: addedStock, total: 0, time: new Date().toLocaleTimeString() }, ...prev]);
+    }
+
     setNewCode(""); setNewName(""); setNewPrice(""); setNewStock("");
     fetchProducts();
     setLoading(false);
@@ -140,7 +148,7 @@ export default function App() {
   };
 
   const handleClearHistory = () => {
-    if (window.confirm("Bạn có chắc muốn xóa sạch doanh thu và lịch sử bán hàng?")) {
+    if (window.confirm("Bạn có chắc muốn xóa sạch lịch sử nhập xuất và doanh thu?")) {
       setHistory([]);
       setRevenue(0);
     }
@@ -149,9 +157,8 @@ export default function App() {
   const totalItems = products.reduce((sum, p: any) => sum + (Number(p.stock) || 0), 0);
   const totalValue = products.reduce((sum, p: any) => sum + ((Number(p.sale_price) || 0) * (Number(p.stock) || 0)), 0);
 
-
   // ==========================================
-  // 1. MÀN HÌNH TẠO TÀI KHOẢN (Chỉ hiện lần đầu)
+  // 1. MÀN HÌNH TẠO TÀI KHOẢN
   // ==========================================
   if (!savedUser || !savedPass) {
     return (
@@ -192,7 +199,7 @@ export default function App() {
   }
 
   // ==========================================
-  // 3. MÀN HÌNH LÀM VIỆC CHÍNH (Đã đăng nhập)
+  // 3. MÀN HÌNH CHÍNH
   // ==========================================
   return (
     <div style={{ padding: "20px", fontFamily: "'Segoe UI', sans-serif", backgroundColor: "#f0f4f8", minHeight: "100vh" }}>
@@ -217,7 +224,6 @@ export default function App() {
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "20px" }}>
           <div style={{ backgroundColor: "#fff", padding: "25px", borderRadius: "16px", boxShadow: "0 10px 15px rgba(0,0,0,0.05)" }}>
             
-            {/* Thanh tiêu đề có thêm NÚT ĐĂNG XUẤT */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
               <h2 style={{ color: "#1e3a8a", margin: 0, display: "flex", alignItems: "center", gap: "10px" }}>🏪 HẢI LÊ MART PRO</h2>
               <button onClick={handleLogout} style={{ padding: "8px 15px", backgroundColor: "#fee2e2", color: "#ef4444", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>Đăng xuất 🔒</button>
@@ -227,7 +233,7 @@ export default function App() {
               <input placeholder="Mã" value={newCode} onChange={handleCodeChange} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
               <input placeholder="Tên SP" value={newName} onChange={e => setNewName(e.target.value)} style={{ flex: 2, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
               <input type="number" placeholder="Giá" value={newPrice} onChange={e => setNewPrice(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
-              <input type="number" placeholder="SL Mới" value={newStock} onChange={e => setNewStock(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+              <input type="number" placeholder="SL Nhập" value={newStock} onChange={e => setNewStock(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
               <button type="submit" disabled={loading} style={{ padding: "10px 15px", backgroundColor: "#1e3a8a", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>NHẬP</button>
             </form>
 
@@ -268,14 +274,21 @@ export default function App() {
           </div>
 
           <div style={{ backgroundColor: "#fff", padding: "20px", borderRadius: "16px", boxShadow: "0 4px 6px rgba(0,0,0,0.05)", height: "fit-content" }}>
-            <h3 style={{ marginTop: 0, fontSize: "16px", color: "#1e3a8a", borderBottom: "2px solid #f1f5f9", paddingBottom: "10px" }}>📋 NHẬT KÝ GIAO DỊCH</h3>
+            <h3 style={{ marginTop: 0, fontSize: "16px", color: "#1e3a8a", borderBottom: "2px solid #f1f5f9", paddingBottom: "10px" }}>📋 LỊCH SỬ NHẬP XUẤT</h3>
             <div style={{ maxHeight: "450px", overflowY: "auto" }}>
-              {history.length === 0 ? <p style={{ color: "#94a3b8", textAlign: "center", marginTop: "20px" }}>Chưa có đơn hàng mới</p> : 
+              {history.length === 0 ? <p style={{ color: "#94a3b8", textAlign: "center", marginTop: "20px" }}>Chưa có biến động kho</p> : 
                 history.map((log: any) => (
                   <div key={log.id} style={{ padding: "12px 0", borderBottom: "1px dashed #e2e8f0" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
-                      <span style={{ fontWeight: "bold", fontSize: "14px" }}>{log.name} <small style={{color: "#64748b"}}>x{log.qty}</small></span>
-                      <span style={{ color: "#10b981", fontWeight: "bold" }}>+{log.total.toLocaleString()}đ</span>
+                      <span style={{ fontWeight: "bold", fontSize: "14px", color: log.type === "NHẬP" ? "#2563eb" : "#334155" }}>
+                        [{log.type}] {log.name} <small style={{color: "#64748b"}}>x{log.qty}</small>
+                      </span>
+                      {log.type === "BÁN" && (
+                        <span style={{ color: "#10b981", fontWeight: "bold" }}>+{log.total.toLocaleString()}đ</span>
+                      )}
+                      {log.type === "NHẬP" && (
+                        <span style={{ color: "#2563eb", fontWeight: "bold" }}>Đã vào kho</span>
+                      )}
                     </div>
                     <small style={{ color: "#94a3b8" }}>Thời gian: {log.time}</small>
                   </div>
@@ -283,7 +296,7 @@ export default function App() {
               }
             </div>
             {history.length > 0 && (
-              <button onClick={handleClearHistory} style={{ width: "100%", marginTop: "15px", padding: "8px", background: "#fee2e2", border: "none", borderRadius: "6px", color: "#ef4444", fontWeight: "bold", cursor: "pointer", fontSize: "12px" }}>Xóa sạch dữ liệu bán hàng</button>
+              <button onClick={handleClearHistory} style={{ width: "100%", marginTop: "15px", padding: "8px", background: "#fee2e2", border: "none", borderRadius: "6px", color: "#ef4444", fontWeight: "bold", cursor: "pointer", fontSize: "12px" }}>Xóa lịch sử</button>
             )}
           </div>
         </div>
