@@ -7,6 +7,7 @@ export default function App() {
 
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem("mart_logged_in") === "true");
   const [role, setRole] = useState(() => localStorage.getItem("mart_role") || "staff");
+  const [shift, setShift] = useState(() => localStorage.getItem("mart_shift") || "Ca Sáng");
   const [authUsername, setAuthUsername] = useState("");
   const [authPassword, setAuthPassword] = useState("");
 
@@ -18,6 +19,7 @@ export default function App() {
   
   const [showDebtModal, setShowDebtModal] = useState(false);
   const [showStatsModal, setShowStatsModal] = useState(false);
+  const [showHandoverModal, setShowHandoverModal] = useState(false); // Modal chốt ca
 
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
@@ -48,6 +50,8 @@ export default function App() {
     const saved = localStorage.getItem("mart_history");
     return saved ? JSON.parse(saved) : [];
   });
+  
+  // REVENUE và PROFIT giờ sẽ đóng vai trò là DOANH THU CA
   const [revenue, setRevenue] = useState<number>(() => {
     const saved = localStorage.getItem("mart_revenue");
     return saved ? Number(saved) : 0;
@@ -84,10 +88,10 @@ export default function App() {
 
   const exportToCSV = () => {
     if (history.length === 0) return alert("Chưa có lịch sử!");
-    let csv = "\uFEFFGiờ,Loại,Khách,Sản phẩm,SL,Tổng(VAT),Lợi nhuận\n";
+    let csv = "\uFEFFGiờ,Ca Làm Việc,Loại,Khách,Sản phẩm,SL,Tổng(VAT),Lợi nhuận\n";
     history.forEach(log => {
       const time = new Date(Math.floor(log.id)).toLocaleString('vi-VN');
-      csv += `${time},${log.type},${log.customer || "Khách lẻ"},${log.name},${log.qty},${Math.round(log.total)},${Math.round(log.profit || 0)}\n`;
+      csv += `${time},${log.shift || "Không rõ"},${log.type},${log.customer || "Khách lẻ"},${log.name},${log.qty},${Math.round(log.total)},${Math.round(log.profit || 0)}\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
@@ -103,22 +107,36 @@ export default function App() {
     let rev = 0, prof = 0, sold = 0;
     logs.forEach(l => { if(l.type==='BÁN'){ rev += l.total; prof += (l.profit||0); sold += l.qty; } });
     const sub = encodeURIComponent(`Báo Cáo Hải Lê Mart - Ngày ${todayStr}`);
-    const body = encodeURIComponent(`Báo cáo ngày ${todayStr}:\n- Đã bán: ${sold} món\n- Doanh thu (có VAT): ${Math.round(rev).toLocaleString()}đ\n- Lợi nhuận: ${Math.round(prof).toLocaleString()}đ`);
+    const body = encodeURIComponent(`Báo cáo TỔNG NGÀY ${todayStr}:\n- Đã bán: ${sold} món\n- Doanh thu (có VAT): ${Math.round(rev).toLocaleString()}đ\n- Lợi nhuận: ${Math.round(prof).toLocaleString()}đ`);
     window.location.href = `mailto:lehonghaikt6@gmail.com?subject=${sub}&body=${body}`;
   };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (authUsername === "admin" && authPassword === "haile88") {
-      setIsLoggedIn(true); setRole("admin");
+      setIsLoggedIn(true); setRole("admin"); localStorage.setItem("mart_shift", shift);
       localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "admin");
     } else if (authUsername === "nhanvien" && authPassword === "123") {
-      setIsLoggedIn(true); setRole("staff");
+      setIsLoggedIn(true); setRole("staff"); localStorage.setItem("mart_shift", shift);
       localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "staff");
     } else alert("Sai tài khoản hoặc mật khẩu!");
   };
 
-  const handleLogout = () => { if (window.confirm("Bàn giao ca / Khóa máy?")) { setIsLoggedIn(false); localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role"); } };
+  // NÚT ĐĂNG XUẤT HIỆN BẢNG CHỐT CA
+  const handleLogoutClick = () => {
+    setShowHandoverModal(true);
+  };
+
+  const confirmHandover = () => {
+    // Reset tiền ca về 0 cho ca sau
+    setRevenue(0);
+    setProfit(0);
+    // Thoát
+    setIsLoggedIn(false);
+    setShowHandoverModal(false);
+    localStorage.removeItem("mart_logged_in");
+    localStorage.removeItem("mart_role");
+  };
 
   const getActualPrice = (p: any) => (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price;
 
@@ -197,7 +215,7 @@ export default function App() {
 
     for (const item of cart) {
       await supabase.from("products").update({ stock: item.product.stock - item.qty }).eq("id", item.product.id);
-      logs.push({ id: Date.now() + Math.random(), type: isDebt ? "GHI NỢ" : "BÁN", name: item.product.name, qty: item.qty, total: Math.round(item.total), profit: Math.round(item.profit), customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id });
+      logs.push({ id: Date.now() + Math.random(), shift: shift, type: isDebt ? "GHI NỢ" : "BÁN", name: item.product.name, qty: item.qty, total: Math.round(item.total), profit: Math.round(item.profit), customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id });
     }
     
     if (custPhone) {
@@ -217,7 +235,7 @@ export default function App() {
     }
     setHistory(prev => [...logs, ...prev]);
 
-    setLastOrder({ orderId: "HD" + Date.now().toString().slice(-6), cart: [...cart], subTotal, vatTotal, finalTotal: isDebt ? 0 : finalPaid, debtAmount: isDebt ? finalTotal : 0, discount, earnedWallet: custPhone ? earned : 0, custName: custPhone ? custName : null, custPhone: custPhone ? custPhone : null, time: new Date().toLocaleString('vi-VN') });
+    setLastOrder({ orderId: "HD" + Date.now().toString().slice(-6), shift: shift, cart: [...cart], subTotal, vatTotal, finalTotal: isDebt ? 0 : finalPaid, debtAmount: isDebt ? finalTotal : 0, discount, earnedWallet: custPhone ? earned : 0, custName: custPhone ? custName : null, custPhone: custPhone ? custPhone : null, time: new Date().toLocaleString('vi-VN') });
     setCheckoutStep(3); fetchProducts(); setLoading(false);
   };
 
@@ -238,14 +256,13 @@ export default function App() {
     
     const updatedHistory = [...history];
     updatedHistory[logIndex].type = 'ĐÃ HOÀN TRẢ';
-    updatedHistory.unshift({ id: Date.now(), type: "TRẢ HÀNG", name: log.name, qty: log.qty, total: -log.total, profit: -log.profit, customer: log.customer });
+    updatedHistory.unshift({ id: Date.now(), shift: shift, type: "TRẢ HÀNG", name: log.name, qty: log.qty, total: -log.total, profit: -log.profit, customer: log.customer });
     
     setHistory(updatedHistory);
     fetchProducts();
-    alert("Hoàn trả thành công! Hàng đã nhập lại kho, tiền đã trừ.");
+    alert("Hoàn trả thành công! Hàng đã nhập lại kho, tiền đã trừ khỏi doanh thu ca.");
   };
 
-  // NHÂN VIÊN THU NGÂN ĐÃ CÓ QUYỀN THU NỢ
   const handlePayDebt = (phone: string) => {
     const currentDebt = customers[phone]?.debt || 0;
     const payAmt = window.prompt(`Khách ${customers[phone].name} đang nợ ${currentDebt.toLocaleString()}đ. Nhập số tiền khách trả:`, currentDebt.toString());
@@ -253,7 +270,7 @@ export default function App() {
       const amt = parseInt(payAmt);
       setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], debt: Math.max(0, (prev[phone]?.debt || 0) - amt) } }));
       setRevenue(prev => prev + amt);
-      setHistory(prev => [{ id: Date.now(), type: "THU NỢ", name: "Thanh toán công nợ", qty: 1, total: amt, profit: 0, customer: `${customers[phone].name} (${phone})` }, ...prev]);
+      setHistory(prev => [{ id: Date.now(), shift: shift, type: "THU NỢ", name: "Thanh toán công nợ", qty: 1, total: amt, profit: 0, customer: `${customers[phone].name} (${phone})` }, ...prev]);
       alert("Đã thu nợ thành công! Tiền nợ thu được đã cộng vào doanh thu ca này.");
     }
   };
@@ -275,7 +292,7 @@ export default function App() {
     
     const data = { product_code: newCode, name: newName, category: newCategory || "Khác", import_price: fImp, sale_price: parseInt(newPrice), promo_price: parseInt(newPromoPrice) || 0, gift_info: newGiftInfo || null, stock: exist ? exist.stock + added : added, expiry_date: newExpiry || null };
     if (exist) await supabase.from("products").update(data).eq("id", exist.id); else await supabase.from("products").insert([data]);
-    if (added > 0) setHistory(prev => [{ id: Date.now(), type: "NHẬP", name: newName, qty: added, total: 0 }, ...prev]);
+    if (added > 0) setHistory(prev => [{ id: Date.now(), shift: shift, type: "NHẬP", name: newName, qty: added, total: 0 }, ...prev]);
     
     setNewCode(""); setNewName(""); setNewCategory("Đồ uống"); setNewImportPrice(""); setNewPrice(""); setNewPromoPrice(""); setNewGiftInfo(""); setNewStock(""); setNewExpiry("");
     fetchProducts(); setLoading(false); setShowInputForm(false);
@@ -341,7 +358,7 @@ export default function App() {
           if (exist) await supabase.from("products").update(data).eq("id", exist.id);
           else await supabase.from("products").insert([data]);
 
-          if (pStock > 0) importLogs.push({ id: Date.now() + Math.random(), type: "NHẬP", name: pName, qty: pStock, total: 0 });
+          if (pStock > 0) importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "NHẬP", name: pName, qty: pStock, total: 0 });
           successCount++;
         }
 
@@ -394,6 +411,15 @@ export default function App() {
 
   const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
 
+  // THỐNG KÊ TỔNG TRONG NGÀY (Dành cho Admin xem khi đang trong ca)
+  const todayStats = useMemo(() => {
+    const todayStr = new Date().toLocaleDateString('vi-VN');
+    const todayHistory = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStr);
+    const totalRev = todayHistory.reduce((s, h) => s + ((h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') ? h.total : 0), 0);
+    const totalProf = todayHistory.reduce((s, h) => s + (h.profit || 0), 0);
+    return { rev: totalRev, prof: totalProf };
+  }, [history]);
+
   const topSelling = useMemo(() => {
     const sales: Record<string, number> = {};
     history.forEach(log => { if(log.type === 'BÁN') sales[log.name] = (sales[log.name]||0) + log.qty; });
@@ -423,6 +449,13 @@ export default function App() {
           <h1 style={{ color: "#ef4444", fontSize: "28px", margin: 0 }}>🧨 HẢI LÊ MART 🌸</h1>
           <p style={{ color: "#b91c1c", marginBottom: "30px", fontWeight: "bold" }}>Chúc Mừng Năm Mới - Phát Tài Phát Lộc</p>
           <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+            {/* THÊM TÙY CHỌN CHỌN CA LÀM VIỆC */}
+            <select value={shift} onChange={e => setShift(e.target.value)} style={{ padding: "14px", borderRadius: "10px", border: "1px solid #f97316", outline: "none", fontWeight: "bold", color: "#9a3412", backgroundColor: "#fffbeb" }}>
+              <option value="Ca Sáng">🌅 Ca Sáng (06:00 - 14:00)</option>
+              <option value="Ca Chiều">🌇 Ca Chiều (14:00 - 22:00)</option>
+              <option value="Ca Tối">🌙 Ca Tối (22:00 - 06:00)</option>
+            </select>
+
             <input placeholder="Tên đăng nhập (admin / nhanvien)" value={authUsername} onChange={e => setAuthUsername(e.target.value)} style={{ padding: "14px", borderRadius: "10px", border: "1px solid #f97316", outline: "none" }} />
             <input type="password" placeholder="Mật khẩu" value={authPassword} onChange={e => setAuthPassword(e.target.value)} style={{ padding: "14px", borderRadius: "10px", border: "1px solid #f97316", outline: "none" }} />
             <button type="submit" style={{ padding: "14px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "bold", cursor: "pointer" }}>MỞ CỬA BÁN HÀNG 🧧</button>
@@ -436,7 +469,7 @@ export default function App() {
     <div>
       <style>{styles}</style>
       
-      {/* 🖨️ BIÊN LAI */}
+      {/* 🖨️ BIÊN LAI BÁN HÀNG */}
       {lastOrder && (
         <div className="print-only">
           <div style={{ textAlign: "center", marginBottom: "10px" }}>
@@ -446,7 +479,7 @@ export default function App() {
           <div style={{ borderTop: "1px dashed #000", margin: "5px 0" }}></div>
           <div style={{ fontSize: "11px", display: "flex", justifyContent: "space-between" }}>
             <div>HĐ: {lastOrder.orderId}<br/>Ngày: {lastOrder.time.split(' ')[1]}</div>
-            <div style={{ textAlign: "right" }}>TN: {role}<br/>Giờ: {lastOrder.time.split(' ')[0]}</div>
+            <div style={{ textAlign: "right" }}>TN: {role} ({shift})<br/>Giờ: {lastOrder.time.split(' ')[0]}</div>
           </div>
           <div style={{ borderTop: "1px dashed #000", margin: "5px 0" }}></div>
           <table style={{ width: "100%", fontSize: "11px", borderCollapse: "collapse" }}>
@@ -469,6 +502,27 @@ export default function App() {
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", fontWeight: "bold", borderTop: "1px dashed #000", marginTop: "5px" }}><span>{lastOrder.debtAmount > 0 ? "KHÁCH GHI NỢ:" : "THANH TOÁN:"}</span><span>{Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</span></div>
           </div>
           <div style={{ borderTop: "1px dashed #000", margin: "10px 0", textAlign: "center", fontSize: "11px" }}><b>CẢM ƠN QUÝ KHÁCH!</b><br/>{lastOrder.orderId}</div>
+        </div>
+      )}
+
+      {/* MODAL BÀN GIAO CA (CHỐT CA) */}
+      {showHandoverModal && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div className="glass" style={{ padding: "30px", width: "350px", textAlign: "center" }}>
+            <h2 style={{ margin: "0 0 15px 0", color: "#ef4444", fontSize: "22px" }}>📋 BIÊN BẢN CHỐT CA</h2>
+            <div style={{ backgroundColor: "#fff7ed", padding: "15px", borderRadius: "10px", border: "1px dashed #fdba74", textAlign: "left", fontSize: "14px", lineHeight: "1.8" }}>
+              <div>👤 Người trực: <b>{role === 'admin' ? "Quản lý" : "Thu ngân"}</b></div>
+              <div>⏰ Ca làm việc: <b style={{color: "#b91c1c"}}>{shift}</b></div>
+              <div style={{ borderTop: "1px solid #fed7aa", margin: "10px 0" }}></div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span>💵 Tổng thu ca này:</span><b style={{color: "#059669", fontSize: "16px"}}>{revenue.toLocaleString()}đ</b></div>
+              {role === 'admin' && <div style={{ display: "flex", justifyContent: "space-between" }}><span>📈 Lợi nhuận ca này:</span><b style={{color: "#3b82f6"}}>{profit.toLocaleString()}đ</b></div>}
+              <div style={{ fontSize: "11px", color: "#64748b", marginTop: "10px", fontStyle: "italic", textAlign: "center" }}>*Khi xác nhận, doanh thu ca này sẽ được lưu vào lịch sử và reset về 0 để bàn giao cho ca tiếp theo.</div>
+            </div>
+            <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+              <button onClick={() => setShowHandoverModal(false)} style={{ flex: 1, padding: "12px", borderRadius: "8px", border: "none", background: "#e2e8f0", fontWeight: "bold", cursor: "pointer" }}>Hủy</button>
+              <button onClick={confirmHandover} style={{ flex: 2, padding: "12px", backgroundColor: "#ef4444", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>✔️ CHỐT & BÀN GIAO</button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -497,7 +551,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL THỐNG KÊ */}
+      {/* MODAL THỐNG KÊ (CHỈ DÀNH CHO ADMIN) */}
       {showStatsModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "400px" }}>
@@ -505,6 +559,18 @@ export default function App() {
               <h2 style={{ margin: 0, color: "#3b82f6" }}>📊 BÁO CÁO NHANH</h2>
               <button onClick={() => setShowStatsModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
             </div>
+            
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "20px" }}>
+              <div style={{ backgroundColor: "#eff6ff", padding: "10px", borderRadius: "8px", border: "1px solid #bfdbfe", textAlign: "center" }}>
+                <div style={{ fontSize: "11px", color: "#3b82f6", fontWeight: "bold" }}>TỔNG THU HÔM NAY</div>
+                <div style={{ fontSize: "16px", fontWeight: "bold", color: "#1e3a8a" }}>{todayStats.rev.toLocaleString()}đ</div>
+              </div>
+              <div style={{ backgroundColor: "#f0fdf4", padding: "10px", borderRadius: "8px", border: "1px solid #bbf7d0", textAlign: "center" }}>
+                <div style={{ fontSize: "11px", color: "#16a34a", fontWeight: "bold" }}>TỔNG LÃI HÔM NAY</div>
+                <div style={{ fontSize: "16px", fontWeight: "bold", color: "#14532d" }}>{todayStats.prof.toLocaleString()}đ</div>
+              </div>
+            </div>
+
             <h3 style={{ fontSize: "14px", color: "#1e293b", marginTop: 0 }}>🏆 Top 5 Bán Chạy Nhất</h3>
             {topSelling.map((item, idx) => (
               <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px dashed #e2e8f0", fontSize: "13px" }}>
@@ -522,8 +588,10 @@ export default function App() {
       )}
 
       <div className="no-print" style={{ padding: "10px", position: "relative", minHeight: "100vh" }}>
-        
-        {/* POPUP THANH TOÁN */}
+        <div className="spring-bg" style={{ background: "#ef4444", top: "10%", left: "5%" }}></div>
+        <div className="spring-bg" style={{ background: "#f59e0b", bottom: "10%", right: "5%" }}></div>
+
+        {/* POPUP THANH TOÁN QUÉT MÃ QR */}
         {isCheckoutOpen && (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
             {checkoutStep === 1 && (
@@ -535,7 +603,7 @@ export default function App() {
                     {customers[custPhone] ? (
                       <div><div style={{ color: "#b91c1c", fontWeight: "bold" }}>⭐ {customers[custPhone].name}</div>
                         <div>Ví điểm: <b>{Math.round(customers[custPhone].wallet || 0).toLocaleString()}đ</b> | Nợ: <b style={{color:"#ef4444"}}>{(customers[custPhone].debt || 0).toLocaleString()}đ</b></div>
-                        {(customers[custPhone].wallet || 0) > 0 && <label style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "10px", cursor: "pointer", color: "#ea580c", fontWeight: "bold" }}><input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} /> Dùng lì xì!</label>}
+                        {(customers[custPhone].wallet || 0) > 0 && <label style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "10px", cursor: "pointer", color: "#ea580c", fontWeight: "bold" }}><input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} /> Dùng điểm lì xì!</label>}
                       </div>
                     ) : <input type="text" placeholder="Tên khách mới..." value={custName} onChange={e => setCustName(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: "8px", outline: "none", border: "1px solid #fdba74", boxSizing: "border-box" }} />}
                   </div>
@@ -551,10 +619,10 @@ export default function App() {
                 <h3 style={{ color: "#ef4444", margin: "0" }}>📱 QUÉT MÃ QR HOẶC GHI NỢ</h3>
                 <div style={{ color: "#ef4444", fontSize: "28px", fontWeight: "900", margin: "10px 0" }}>{Math.round(Math.max(0, cartTotalAmount - (useWallet ? Math.min(customers[custPhone]?.wallet||0, cartTotalAmount) : 0))).toLocaleString()}đ</div>
                 <img src={`https://img.vietqr.io/image/970422-0680124181004-compact2.png?amount=${Math.round(Math.max(0, cartTotalAmount - (useWallet ? Math.min(customers[custPhone]?.wallet||0, cartTotalAmount) : 0)))}&addInfo=Thanh toan&accountName=LE%20HONG%20HAI`} style={{ width: "180px", margin: "0 auto 15px auto", border: "2px solid #ef4444", borderRadius: "10px" }} />
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <button onClick={() => setCheckoutStep(1)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "#e2e8f0", cursor: "pointer" }}>Quay lại</button>
-                  <button onClick={() => confirmCheckout(true)} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#f59e0b", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>GHI NỢ</button>
-                  <button onClick={() => confirmCheckout(false)} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#10b981", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>NHẬN TIỀN</button>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <button onClick={() => setCheckoutStep(1)} style={{ flex: "1 1 100%", padding: "8px", borderRadius: "8px", border: "none", background: "#e2e8f0", cursor: "pointer" }}>Quay lại</button>
+                  <button onClick={() => confirmCheckout(true)} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#f59e0b", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>📝 GHI NỢ</button>
+                  <button onClick={() => confirmCheckout(false)} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#10b981", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>✔️ ĐÃ NHẬN</button>
                 </div>
               </div>
             )}
@@ -579,19 +647,26 @@ export default function App() {
                 {role === 'admin' && (
                   <button onClick={() => setShowStatsModal(true)} style={{ padding: "4px 8px", background: "#eff6ff", color: "#3b82f6", border: "1px solid #bfdbfe", borderRadius: "6px", fontSize: "11px", fontWeight: "bold", cursor: "pointer" }}>📊 THỐNG KÊ</button>
                 )}
+                {/* NÚT SỔ NỢ GIỜ ĐƯỢC HIỂN THỊ CẢ CHO THU NGÂN */}
                 <button onClick={() => setShowDebtModal(true)} style={{ padding: "4px 8px", background: "#fef2f2", color: "#ef4444", border: "1px solid #fecaca", borderRadius: "6px", fontSize: "11px", fontWeight: "bold", cursor: "pointer" }}>📓 SỔ NỢ</button>
               </div>
             </div>
             <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-              <span style={{ fontSize: "12px", fontWeight: "bold", color: "#64748b" }}>Ca: {role === 'admin' ? "Quản lý" : "Thu ngân"}</span>
+              <span style={{ fontSize: "12px", fontWeight: "bold", color: "#64748b" }} title="Ca làm việc hiện tại">{shift} • {role === 'admin' ? "Quản lý" : "Thu ngân"}</span>
+              
+              {/* DOANH THU & LỢI NHUẬN CỦA CA NÀY */}
               {role === 'admin' && (
-                <>
+                <div style={{ display: "flex", gap: "8px" }}>
                   <div className="stat-box">🧧 Vốn: {totalValue.toLocaleString()}</div>
-                  <div className="stat-box" style={{background: "#fee2e2"}}>💰 Thu: {revenue.toLocaleString()}</div>
-                  <div className="stat-box" style={{background: "#f0fdf4"}}>📈 Lãi: {profit.toLocaleString()}</div>
-                </>
+                  <div className="stat-box" style={{background: "#fee2e2"}}>💰 Thu ca: {revenue.toLocaleString()}</div>
+                  <div className="stat-box" style={{background: "#f0fdf4"}}>📈 Lãi ca: {profit.toLocaleString()}</div>
+                </div>
               )}
-              <button onClick={handleLogout} style={{ padding: "6px 10px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "bold", cursor: "pointer", fontSize: "11px" }}>Đăng xuất</button>
+              {role === 'staff' && (
+                <div className="stat-box" style={{background: "#fee2e2"}}>💰 Thu ca: {revenue.toLocaleString()}</div>
+              )}
+              
+              <button onClick={handleLogoutClick} style={{ padding: "6px 10px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "bold", cursor: "pointer", fontSize: "11px" }}>Đăng xuất / Bàn giao 🔒</button>
             </div>
           </div>
 
@@ -607,18 +682,15 @@ export default function App() {
                   style={{ flex: 1, padding: "8px 12px", borderRadius: "6px", border: "2px solid #ef4444", fontSize: "14px", fontWeight: "bold", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb", color: "#b91c1c" }} 
                 />
                 
-                {/* 3 NÚT NHẬP HÀNG SIÊU ĐẲNG */}
                 {role === 'admin' && (
                   <div style={{ display: "flex", gap: "6px" }}>
                     <div onClick={() => setShowInputForm(!showInputForm)} style={{ padding: "8px 12px", borderRadius: "6px", fontWeight: "bold", color: "#b91c1c", cursor: "pointer", border: "1px dashed #ef4444", fontSize: "12px", display: "flex", alignItems: "center", backgroundColor: "#fef2f2" }}>
                       {showInputForm ? "➖ ĐÓNG" : "➕ NHẬP LẺ"}
                     </div>
-                    
                     <label style={{ cursor: "pointer", padding: "8px 12px", borderRadius: "6px", fontWeight: "bold", color: "#059669", border: "1px dashed #10b981", fontSize: "12px", display: "flex", alignItems: "center", backgroundColor: "#ecfdf5" }} title="Nhập hàng loạt từ file CSV">
                       📁 NHẬP TỪ FILE
                       <input type="file" accept=".csv" onChange={handleFileUpload} style={{ display: "none" }} />
                     </label>
-
                     <button onClick={downloadSampleCSV} style={{ padding: "8px 12px", borderRadius: "6px", fontWeight: "bold", color: "#3b82f6", cursor: "pointer", border: "1px dashed #3b82f6", fontSize: "12px", display: "flex", alignItems: "center", backgroundColor: "#eff6ff" }} title="Tải file Excel mẫu">
                       📥 TẢI FILE MẪU
                     </button>
@@ -740,11 +812,11 @@ export default function App() {
 
               <div className="glass" style={{ padding: "12px", flex: 1, display: "flex", flexDirection: "column", maxHeight: "calc(60vh - 50px)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", alignItems: "center" }}>
-                  <h3 style={{ margin: 0, fontSize: "13px", color: "#b91c1c" }}>📋 NHẬT KÝ</h3>
+                  <h3 style={{ margin: 0, fontSize: "13px", color: "#b91c1c" }}>📋 NHẬT KÝ CA NÀY</h3>
                   {role === 'admin' && (
                     <div style={{ display: "flex", gap: "2px" }}>
-                      <button onClick={exportToCSV} style={{ fontSize: "8px", padding: "2px 4px", background: "#10b981", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}>EXCEL</button>
-                      <button onClick={handleSendEmailReport} style={{ fontSize: "8px", padding: "2px 4px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}>✉ CHỐT</button>
+                      <button onClick={exportToCSV} style={{ fontSize: "8px", padding: "2px 4px", background: "#10b981", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}>EXCEL TỔNG</button>
+                      <button onClick={handleSendEmailReport} style={{ fontSize: "8px", padding: "2px 4px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}>✉ CHỐT TỔNG</button>
                     </div>
                   )}
                 </div>
