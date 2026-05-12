@@ -110,7 +110,7 @@ export default function App() {
     } else alert("Sai tài khoản!");
   };
 
-  const handleLogout = () => { if (window.confirm("Khóa máy?")) { setIsLoggedIn(false); localStorage.removeItem("mart_logged_in"); } };
+  const handleLogout = () => { if (window.confirm("Bạn có chắc chắn muốn đăng xuất?")) { setIsLoggedIn(false); localStorage.removeItem("mart_logged_in"); } };
 
   const getActualPrice = (p: any) => (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price;
 
@@ -144,7 +144,6 @@ export default function App() {
   const removeFromCart = (productId: any) => setCart(cart.filter(item => item.product.id !== productId));
   const cartTotalAmount = cart.reduce((sum, item) => sum + item.total, 0);
 
-  // HÀM KHÔI PHỤC LẠI: XỬ LÝ NHẬP SĐT
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const phone = e.target.value; 
     setCustPhone(phone);
@@ -347,13 +346,13 @@ export default function App() {
               <div className="stat-box">🧧 Vốn: {totalValue.toLocaleString()}đ</div>
               <div className="stat-box" style={{background: "#fee2e2"}}>💰 Doanh thu: {revenue.toLocaleString()}đ</div>
               <div className="stat-box" style={{background: "#f0fdf4"}}>📈 Lợi nhuận: {profit.toLocaleString()}đ</div>
-              <button onClick={handleLogout} style={{ padding: "6px 12px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "20px", fontWeight: "bold", cursor: "pointer", fontSize: "12px" }}>Khóa 🔒</button>
+              <button onClick={handleLogout} style={{ padding: "6px 12px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "20px", fontWeight: "bold", cursor: "pointer", fontSize: "12px" }}>Đăng xuất 🔒</button>
             </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "3fr 1fr", gap: "15px" }}>
             <div className="glass" style={{ padding: "15px" }}>
-              <input placeholder="🔍 BẮN MÃ VẠCH / TÌM KIẾM..." value={barcodeInput} onChange={e => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeSubmit} style={{ width: "100%", padding: "12px 15px", borderRadius: "10px", border: "3px solid #ef4444", marginBottom: "10px", fontSize: "16px", fontWeight: "bold", outline: "none", background: "#fff", boxSizing: "border-box" }} />
+              <input placeholder="🔍 BẮN MÃ VẠCH / TÌM KIẾM SẢN PHẨM..." value={barcodeInput} onChange={e => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeSubmit} style={{ width: "100%", padding: "12px 15px", borderRadius: "10px", border: "3px solid #ef4444", marginBottom: "10px", fontSize: "16px", fontWeight: "bold", outline: "none", background: "#fff", boxSizing: "border-box" }} />
 
               <div onClick={() => setShowInputForm(!showInputForm)} style={{ backgroundColor: "#fef2f2", padding: "10px", borderRadius: "8px", fontWeight: "bold", color: "#b91c1c", cursor: "pointer", textAlign: "center", marginBottom: "15px", border: "1px dashed #ef4444", fontSize: "13px" }}>
                 {showInputForm ? "➖ THU GỌN NHẬP KHO" : "➕ NHẬP KHO & CÀI KHUYẾN MÃI"}
@@ -377,29 +376,27 @@ export default function App() {
                 </form>
               )}
 
-              {/* NÂNG CẤP Ô TÌM KIẾM ĐỂ LỌC ĐƯỢC CẢ MÃ SẢN PHẨM VÀ TÊN SẢN PHẨM */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", paddingBottom: "10px", borderBottom: "1px solid #fed7aa" }}>
-                <div style={{ fontSize: "13px", fontWeight: "bold", color: "#9a3412" }}>📋 DANH SÁCH SẢN PHẨM</div>
+                <div style={{ fontSize: "13px", fontWeight: "bold", color: "#16a34a" }}>📋 DANH SÁCH SẢN PHẨM</div>
                 <input placeholder="🔍 Lọc theo Tên hoặc Mã SP..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ padding: "6px 12px", borderRadius: "15px", border: "1px solid #fdba74", outline: "none", width: "200px", fontSize: "12px" }} />
               </div>
 
               <div style={{ maxHeight: "calc(100vh - 220px)", overflowY: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead><tr style={{ color: "#9a3412", fontSize: "11px", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}><th style={{ textAlign: "left", padding: "10px" }}>SẢN PHẨM</th><th style={{ textAlign: "center" }}>TỒN</th><th style={{ textAlign: "center" }}>GIÁ VỐN</th><th style={{ textAlign: "center" }}>GIÁ BÁN (CHƯA VAT)</th><th style={{ textAlign: "center" }}>HSD/KHO</th><th style={{ textAlign: "right" }}></th></tr></thead>
+                  <thead><tr style={{ color: "#16a34a", fontSize: "11px", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}><th style={{ textAlign: "left", padding: "10px" }}>SẢN PHẨM</th><th style={{ textAlign: "center" }}>TỒN</th><th style={{ textAlign: "center" }}>GIÁ VỐN</th><th style={{ textAlign: "center" }}>GIÁ BÁN (CHƯA VAT)</th><th style={{ textAlign: "center" }}>HSD/KHO</th><th style={{ textAlign: "right" }}></th></tr></thead>
                   <tbody>
-                    {/* ĐÂY LÀ ĐOẠN ĐÃ NÂNG CẤP TÌM KIẾM CẢ TÊN LẪN MÃ SẢN PHẨM */}
                     {products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(searchTerm.toLowerCase()))).map(p => {
                       const isP = p.promo_price > 0; const d = Math.floor(Math.abs(new Date().getTime() - new Date(p.created_at).getTime()) / 86400000);
                       return (
                         <tr key={p.id} style={{ borderBottom: "1px solid #fed7aa" }}>
-                          <td style={{ padding: "10px 5px" }}><div style={{fontSize: "14px", fontWeight: "bold"}}>{p.name}</div><div style={{fontSize: "10px", color: "#94a3b8"}}>{p.product_code}</div>{p.gift_info ? <div style={{ fontSize: "10px", color: "#059669", fontWeight: "bold" }}>🎁 Tặng: {p.gift_info}</div> : <div style={{ fontSize: "9px", color: "#cbd5e1" }} onClick={()=>handleEdit(p.id, 'gift_info', '', true)}>+ Thêm quà</div>}</td>
+                          <td style={{ padding: "10px 5px" }}><div style={{fontSize: "14px", fontWeight: "bold"}}>{p.name}</div><div style={{fontSize: "10px", color: "#94a3b8"}}>{p.product_code}</div>{p.gift_info ? <div style={{ fontSize: "10px", color: "#059669", fontWeight: "bold" }}>🎁 Tặng: {p.gift_info}</div> : <div style={{ fontSize: "9px", color: "#cbd5e1", cursor: "pointer" }} onClick={()=>handleEdit(p.id, 'gift_info', '', true)}>+ Thêm quà</div>}</td>
                           <td style={{ textAlign: "center", fontWeight: "bold" }}>{p.stock}</td>
                           <td style={{ textAlign: "center", color: "#64748b", fontSize: "12px" }}>{p.import_price?.toLocaleString()}đ</td>
                           <td style={{ textAlign: "center" }}>
-                            <div style={{ color: isP ? "#94a3b8" : "#b91c1c", textDecoration: isP ? "line-through" : "none", fontSize: isP ? "11px" : "14px", fontWeight: "bold" }} onClick={()=>handleEdit(p.id, 'sale_price', p.sale_price)}>{p.sale_price.toLocaleString()}đ</div>
-                            {isP && <div style={{ color: "#ef4444", fontWeight: "900", fontSize: "14px" }} onClick={()=>handleEdit(p.id, 'promo_price', p.promo_price)}>🔥 {p.promo_price.toLocaleString()}đ</div>}
+                            <div style={{ color: isP ? "#94a3b8" : "#16a34a", textDecoration: isP ? "line-through" : "none", fontSize: isP ? "11px" : "14px", fontWeight: "bold", cursor: "pointer" }} onClick={()=>handleEdit(p.id, 'sale_price', p.sale_price)}>{p.sale_price.toLocaleString()}đ</div>
+                            {isP && <div style={{ color: "#ef4444", fontWeight: "900", fontSize: "14px", cursor: "pointer" }} onClick={()=>handleEdit(p.id, 'promo_price', p.promo_price)}>🔥 {p.promo_price.toLocaleString()}đ</div>}
                           </td>
-                          <td style={{ textAlign: "center", fontSize: "10px" }}><div style={{color: "#b91c1c", fontWeight: "bold"}} onClick={()=>handleEdit(p.id,'expiry_date',p.expiry_date,true)}>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : "---"}</div><div>{d} ngày</div></td>
+                          <td style={{ textAlign: "center", fontSize: "10px" }}><div style={{color: "#b91c1c", fontWeight: "bold", cursor: "pointer"}} onClick={()=>handleEdit(p.id,'expiry_date',p.expiry_date,true)}>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : "---"}</div><div>{d} ngày</div></td>
                           <td style={{ textAlign: "right" }}><div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}><button onClick={() => addToCart(p)} style={{ padding: "6px 10px", backgroundColor: "#fbbf24", color: "#78350f", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>+ GIỎ</button><button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "14px" }}>🗑️</button></div></td>
                         </tr>
                       )
@@ -433,9 +430,8 @@ export default function App() {
                   </div>
                 </div>
                 <div style={{ flex: 1, overflowY: "auto" }}>
-                  {Object.keys(history.reduce((g:any, l:any)=>{const d=new Date(Math.floor(l.id)).toLocaleDateString('vi-VN');if(!g[d])g[d]=[];g[d].push({...l,t:new Date(Math.floor(l.id)).toLocaleTimeString('vi-VN')});return g;},{})).map((dateStr) => {
-                    const group = history.reduce((g:any, l:any)=>{const d=new Date(Math.floor(l.id)).toLocaleDateString('vi-VN');if(!g[d])g[d]=[];g[d].push({...l,t:new Date(Math.floor(l.id)).toLocaleTimeString('vi-VN')});return g;},{})[dateStr];
-                    const isEx = expandedDates[dateStr] ?? true;
+                  {Object.keys(groupedHistory).map((dateStr) => {
+                    const group = groupedHistory[dateStr]; const isEx = expandedDates[dateStr] ?? true;
                     return (
                       <div key={dateStr} style={{ marginBottom: "8px", backgroundColor: "#fff7ed", borderRadius: "6px", overflow: "hidden", border: "1px solid #fed7aa" }}>
                         <div onClick={() => setExpandedDates({...expandedDates, [dateStr]: !isEx})} style={{ backgroundColor: "#ffedd5", padding: "8px 10px", fontSize: "11px", fontWeight: "bold", cursor: "pointer", display: "flex", justifyContent: "space-between" }}><span>📅 {dateStr}</span><span>{isEx ? "▼" : "▶"}</span></div>
