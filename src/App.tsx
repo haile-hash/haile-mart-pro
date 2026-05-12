@@ -21,9 +21,10 @@ export default function App() {
   const [newPrice, setNewPrice] = useState("");
   const [newStock, setNewStock] = useState("");
 
-  // --- STATES GIỎ HÀNG & THANH TOÁN ---
+  // --- STATES GIỎ HÀNG & MÃ VẠCH ---
   const [cart, setCart] = useState<any[]>([]);
   const [showCheckout, setShowCheckout] = useState(false);
+  const [barcodeInput, setBarcodeInput] = useState(""); // Lưu mã vạch khi quét
 
   const [history, setHistory] = useState<any[]>(() => {
     const saved = localStorage.getItem("mart_history");
@@ -102,20 +103,51 @@ export default function App() {
     }
   };
 
-  // --- QUY TRÌNH GIỎ HÀNG & THANH TOÁN (MỚI) ---
+  // --- QUÉT MÃ VẠCH (TỰ ĐỘNG THÊM 1 VÀO GIỎ) ---
+  const handleBarcodeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (!barcodeInput.trim()) return;
+      
+      // Tìm sản phẩm bằng mã vừa quét
+      const foundProduct = products.find(p => p.product_code === barcodeInput.trim());
+      
+      if (foundProduct) {
+        if (foundProduct.stock <= 0) {
+          alert(`Sản phẩm ${foundProduct.name} đã hết hàng!`);
+        } else {
+          // Kiểm tra xem trong giỏ đã có chưa
+          const existingItem = cart.find(item => item.product.id === foundProduct.id);
+          const currentCartQty = existingItem ? existingItem.qty : 0;
+          
+          if (currentCartQty + 1 > foundProduct.stock) {
+            alert(`Kho chỉ còn ${foundProduct.stock} ${foundProduct.name}!`);
+          } else {
+            if (existingItem) {
+              setCart(cart.map(item => item.product.id === foundProduct.id ? { ...item, qty: item.qty + 1, total: (item.qty + 1) * foundProduct.sale_price } : item));
+            } else {
+              setCart([...cart, { product: foundProduct, qty: 1, total: foundProduct.sale_price }]);
+            }
+          }
+        }
+      } else {
+        alert("❌ Mã sản phẩm không tồn tại trong hệ thống!");
+      }
+      // Quét xong xóa trắng ô đi để chờ quét mã tiếp theo
+      setBarcodeInput(""); 
+    }
+  };
+
+  // --- THÊM BẰNG TAY VÀO GIỎ (Vẫn giữ phòng khi mất mạng/hỏng máy quét) ---
   const addToCart = (p: any) => {
     if (p.stock <= 0) return alert("Hết hàng!");
     const qty = window.prompt(`Thêm ${p.name} vào giỏ. Nhập số lượng:`, "1");
     if (qty && parseInt(qty) > 0) {
       const addQty = parseInt(qty);
-      
-      // Kiểm tra xem hàng trong giỏ + hàng mới thêm có vượt kho không
       const existingItem = cart.find(item => item.product.id === p.id);
       const currentCartQty = existingItem ? existingItem.qty : 0;
       
-      if (currentCartQty + addQty > p.stock) {
-        return alert(`Kho chỉ còn ${p.stock} sản phẩm. Bạn đã có ${currentCartQty} trong giỏ!`);
-      }
+      if (currentCartQty + addQty > p.stock) return alert(`Kho chỉ còn ${p.stock} sản phẩm!`);
 
       if (existingItem) {
         setCart(cart.map(item => item.product.id === p.id ? { ...item, qty: item.qty + addQty, total: (item.qty + addQty) * p.sale_price } : item));
@@ -141,19 +173,17 @@ export default function App() {
     let currentRevenue = revenue;
     let newHistoryLogs: any[] = [];
 
-    // Duyệt qua từng món trong giỏ hàng để trừ kho và lưu lịch sử
     for (const item of cart) {
       const { product: p, qty, total } = item;
       await supabase.from("products").update({ stock: p.stock - qty }).eq("id", p.id);
       currentRevenue += total;
-      // Dùng hàm random mồi thêm vào ID để tránh trùng lặp thời gian khi mua nhiều món
       newHistoryLogs.push({ id: Date.now() + Math.random(), type: "BÁN", name: p.name, qty: qty, total: total, time: new Date().toLocaleString() });
     }
 
     setRevenue(currentRevenue);
     setHistory(prev => [...newHistoryLogs, ...prev]);
-    setCart([]); // Xóa giỏ hàng
-    setShowCheckout(false); // Đóng popup
+    setCart([]); 
+    setShowCheckout(false); 
     fetchProducts();
     setLoading(false);
   };
@@ -253,7 +283,7 @@ export default function App() {
     <div style={{ padding: "20px", fontFamily: "'Segoe UI', sans-serif", backgroundColor: "#f0f4f8", minHeight: "100vh" }}>
       <style>{` button[title*="Sandbox"], .sp-preview-actions, #csb-embed-actions, [class*="SandboxBadge"] { display: none !important; opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; } `}</style>
 
-      {/* POPUP THANH TOÁN QR CHO GIỎ HÀNG */}
+      {/* POPUP THANH TOÁN QR */}
       {showCheckout && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div style={{ backgroundColor: "#fff", padding: "30px", borderRadius: "20px", width: "380px", textAlign: "center", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)" }}>
@@ -302,22 +332,34 @@ export default function App() {
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "2.2fr 1fr", gap: "20px" }}>
-          {/* CỘT TRÁI: DANH SÁCH HÀNG & NHẬP HÀNG */}
+          {/* CỘT TRÁI */}
           <div style={{ backgroundColor: "#fff", padding: "25px", borderRadius: "16px", boxShadow: "0 10px 15px rgba(0,0,0,0.05)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
               <h2 style={{ color: "#1e3a8a", margin: 0 }}>🏪 HẢI LÊ MART PRO</h2>
               <button onClick={handleLogout} style={{ padding: "8px 12px", backgroundColor: "#fee2e2", color: "#ef4444", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>Đăng xuất 🔒</button>
             </div>
             
+            {/* SIÊU Ô QUÉT MÃ VẠCH (Tự động thêm vào giỏ) */}
+            <div style={{ marginBottom: "20px" }}>
+              <input 
+                autoFocus
+                placeholder="📷 TÍT MÃ VẠCH VÀO ĐÂY (hoặc gõ mã rồi ấn Enter)..." 
+                value={barcodeInput} 
+                onChange={e => setBarcodeInput(e.target.value)} 
+                onKeyDown={handleBarcodeSubmit}
+                style={{ width: "100%", padding: "15px", borderRadius: "10px", border: "2px solid #3b82f6", backgroundColor: "#eff6ff", fontSize: "16px", fontWeight: "bold", outline: "none", color: "#1e3a8a" }} 
+              />
+            </div>
+
             <form onSubmit={handleAddProduct} style={{ display: "flex", gap: "5px", marginBottom: "20px", padding: "15px", backgroundColor: "#f8fafc", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
-              <input placeholder="Mã" value={newCode} onChange={handleCodeChange} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+              <input placeholder="Mã hàng mới" value={newCode} onChange={handleCodeChange} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
               <input placeholder="Tên SP" value={newName} onChange={e => setNewName(e.target.value)} style={{ flex: 2, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
               <input type="number" placeholder="Giá" value={newPrice} onChange={e => setNewPrice(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
               <input type="number" placeholder="SL Nhập" value={newStock} onChange={e => setNewStock(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
-              <button type="submit" disabled={loading} style={{ padding: "10px 15px", backgroundColor: "#1e3a8a", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>NHẬP</button>
+              <button type="submit" disabled={loading} style={{ padding: "10px 15px", backgroundColor: "#1e3a8a", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>NHẬP HÀNG</button>
             </form>
 
-            <input placeholder="🔍 Tìm tên hoặc mã..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: "10px", border: "1px solid #e2e8f0", marginBottom: "15px" }} />
+            <input placeholder="🔍 Tìm bằng tên hàng..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: "10px", border: "1px solid #e2e8f0", marginBottom: "15px" }} />
 
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
