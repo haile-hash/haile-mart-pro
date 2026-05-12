@@ -21,6 +21,9 @@ export default function App() {
   const [newPrice, setNewPrice] = useState("");
   const [newStock, setNewStock] = useState("");
 
+  // STATE THANH TOÁN QR
+  const [checkoutOrder, setCheckoutOrder] = useState<any>(null);
+
   const [history, setHistory] = useState<any[]>(() => {
     const saved = localStorage.getItem("mart_history");
     return saved ? JSON.parse(saved) : [];
@@ -53,19 +56,12 @@ export default function App() {
     if (data) setProducts(data);
   };
 
-  // --- TÍNH NĂNG MỚI: XUẤT GOOGLE SHEETS (CSV) ---
   const exportToCSV = () => {
     if (history.length === 0) return alert("Chưa có lịch sử để xuất!");
-    
-    // Thêm mã BOM \uFEFF để Excel/Google Sheets nhận diện đúng font tiếng Việt
-    let csvContent = "\uFEFF"; 
-    csvContent += "Thời gian,Loại,Sản phẩm,Số lượng,Thành tiền (VNĐ)\n";
-    
+    let csvContent = "\uFEFFThời gian,Loại,Sản phẩm,Số lượng,Thành tiền (VNĐ)\n";
     history.forEach(log => {
-      const row = `${log.time},${log.type},${log.name},${log.qty},${log.total}\n`;
-      csvContent += row;
+      csvContent += `${log.time},${log.type},${log.name},${log.qty},${log.total}\n`;
     });
-
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -77,7 +73,7 @@ export default function App() {
     document.body.removeChild(link);
   };
 
-  // --- CÁC HÀM XỬ LÝ ---
+  // --- CÁC HÀM XỬ LÝ AUTH ---
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
     if (!authUsername || !authPassword) return alert("Vui lòng nhập đủ thông tin!");
@@ -105,18 +101,33 @@ export default function App() {
     }
   };
 
-  const handleSell = async (p: any) => {
+  // --- QUY TRÌNH THANH TOÁN MỚI ---
+  const handleSellClick = (p: any) => {
     if (p.stock <= 0) return alert("Hết hàng!");
     const qty = window.prompt(`Bán ${p.name}. Nhập số lượng:`, "1");
-    if (qty && parseInt(qty) <= p.stock) {
+    if (qty && parseInt(qty) > 0 && parseInt(qty) <= p.stock) {
       const sellQty = parseInt(qty);
-      const { error } = await supabase.from("products").update({ stock: p.stock - sellQty }).eq("id", p.id);
-      if (!error) {
-        setRevenue(prev => prev + (p.sale_price * sellQty));
-        setHistory(prev => [{ id: Date.now(), type: "BÁN", name: p.name, qty: sellQty, total: p.sale_price * sellQty, time: new Date().toLocaleString() }, ...prev]);
-        fetchProducts();
-      }
-    } else if (qty) alert("Không đủ hàng!");
+      const total = p.sale_price * sellQty;
+      // Kích hoạt Popup Thanh Toán QR thay vì trừ kho luôn
+      setCheckoutOrder({ product: p, qty: sellQty, total: total });
+    } else if (qty) {
+      alert("Số lượng không hợp lệ hoặc vượt quá kho!");
+    }
+  };
+
+  const confirmCheckout = async () => {
+    if (!checkoutOrder) return;
+    setLoading(true);
+    const { product: p, qty: sellQty, total } = checkoutOrder;
+    
+    const { error } = await supabase.from("products").update({ stock: p.stock - sellQty }).eq("id", p.id);
+    if (!error) {
+      setRevenue(prev => prev + total);
+      setHistory(prev => [{ id: Date.now(), type: "BÁN", name: p.name, qty: sellQty, total: total, time: new Date().toLocaleString() }, ...prev]);
+      fetchProducts();
+    }
+    setCheckoutOrder(null);
+    setLoading(false);
   };
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -214,6 +225,38 @@ export default function App() {
     <div style={{ padding: "20px", fontFamily: "'Segoe UI', sans-serif", backgroundColor: "#f0f4f8", minHeight: "100vh" }}>
       <style>{` button[title*="Sandbox"], .sp-preview-actions, #csb-embed-actions, [class*="SandboxBadge"] { display: none !important; opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; } `}</style>
 
+      {/* POPUP THANH TOÁN QR */}
+      {checkoutOrder && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div style={{ backgroundColor: "#fff", padding: "30px", borderRadius: "20px", width: "350px", textAlign: "center", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)" }}>
+            <div style={{ fontSize: "40px", marginBottom: "10px" }}>📱</div>
+            <h3 style={{ margin: "0 0 5px 0", color: "#1e3a8a", fontSize: "20px" }}>Quét Mã Thanh Toán</h3>
+            <p style={{ margin: "0 0 15px 0", color: "#64748b", fontSize: "14px" }}>LE HONG HAI - MB BANK</p>
+            
+            <div style={{ padding: "15px", backgroundColor: "#f8fafc", borderRadius: "12px", marginBottom: "20px" }}>
+              <div style={{ fontWeight: "bold", color: "#334155", fontSize: "16px", marginBottom: "5px" }}>{checkoutOrder.product.name} <span style={{color: "#94a3b8"}}>x{checkoutOrder.qty}</span></div>
+              <div style={{ color: "#ef4444", fontSize: "26px", fontWeight: "900" }}>{checkoutOrder.total.toLocaleString()}đ</div>
+            </div>
+            
+            {/* API TẠO MÃ QR ĐỘNG CỦA VIETQR (MB BANK: 970422) */}
+            <div style={{ background: "#fff", padding: "10px", borderRadius: "16px", border: "2px dashed #cbd5e1", display: "inline-block", marginBottom: "20px" }}>
+              <img 
+                src={`https://img.vietqr.io/image/970422-0680124181004-compact2.png?amount=${checkoutOrder.total}&addInfo=Thanh toan don hang&accountName=LE%20HONG%20HAI`} 
+                alt="QR Thanh toán" 
+                style={{ width: "220px", height: "220px", display: "block" }} 
+              />
+            </div>
+            
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button onClick={() => setCheckoutOrder(null)} disabled={loading} style={{ flex: 1, padding: "14px", backgroundColor: "#f1f5f9", border: "none", borderRadius: "10px", fontWeight: "bold", color: "#64748b", cursor: "pointer" }}>Hủy</button>
+              <button onClick={confirmCheckout} disabled={loading} style={{ flex: 2, padding: "14px", backgroundColor: "#10b981", border: "none", borderRadius: "10px", fontWeight: "bold", color: "#fff", cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center", gap: "5px" }}>
+                {loading ? "Đang xử lý..." : "✔️ Đã nhận tiền"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "15px", marginBottom: "20px" }}>
           <div style={{ padding: "20px", backgroundColor: "#fff", borderRadius: "12px", borderLeft: "6px solid #3b82f6" }}>
@@ -270,8 +313,8 @@ export default function App() {
                       <span onClick={() => handleEdit(p.id, 'sale_price', p.sale_price)} style={{ cursor: "pointer" }}>{p.sale_price.toLocaleString()}đ</span>
                     </td>
                     <td style={{ textAlign: "center" }}>
-                      <button onClick={() => handleSell(p)} style={{ padding: "5px 10px", backgroundColor: "#10b981", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>BÁN</button>
-                      <button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#cbd5e1", cursor: "pointer", marginLeft: "5px" }}>🗑️</button>
+                      <button onClick={() => handleSellClick(p)} style={{ padding: "5px 15px", backgroundColor: "#10b981", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>BÁN & QUÉT MÃ</button>
+                      <button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#cbd5e1", cursor: "pointer", marginLeft: "10px" }}>🗑️</button>
                     </td>
                   </tr>
                 ))}
