@@ -352,6 +352,10 @@ export default function App() {
     return groups;
   }, {});
 
+  const toggleDateGroup = (dateStr: string) => {
+    setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
+  };
+
   return (
     <>
       <style>{styles + " button[title*='Sandbox'], .sp-preview-actions { display: none !important; } "}</style>
@@ -503,6 +507,7 @@ export default function App() {
 
               <input placeholder="🔍 TÍT MÃ BÁN HÀNG..." value={barcodeInput} onChange={e => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeSubmit} style={{ width: "100%", padding: "15px", borderRadius: "12px", border: "2px solid #3b82f6", marginBottom: "15px", fontWeight: "bold", outline: "none", background: "#eff6ff" }} />
 
+              {/* Ô NHẬP LIỆU CÓ KHUYẾN MÃI VÀ QUÀ TẶNG */}
               <div style={{ fontSize: "12px", fontWeight: "bold", color: "#64748b", marginBottom: "5px" }}>📦 NHẬP KHO & CÀI ĐẶT KHUYẾN MÃI</div>
               <form onSubmit={handleAddProduct} style={{ display: "flex", gap: "8px", marginBottom: "20px", padding: "15px", background: "rgba(0,0,0,0.03)", borderRadius: "12px", flexWrap: "wrap" }}>
                 <input placeholder="Mã hàng" value={newCode} onChange={handleCodeChange} style={{ flex: "1 1 100px", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
@@ -510,7 +515,6 @@ export default function App() {
                 <input type="number" placeholder="G.Nhập" value={newImportPrice} onChange={e => setNewImportPrice(e.target.value)} style={{ flex: "1 1 80px", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
                 <input type="number" placeholder="G.Bán" value={newPrice} onChange={e => setNewPrice(e.target.value)} style={{ flex: "1 1 80px", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
                 
-                {/* 2 Ô MỚI: GIÁ KM & QUÀ TẶNG */}
                 <input type="number" placeholder="Giá KM (Bỏ trống nếu ko KM)" value={newPromoPrice} onChange={e => setNewPromoPrice(e.target.value)} style={{ flex: "1 1 120px", padding: "8px", borderRadius: "6px", border: "1px solid #f59e0b", background: "#fffbeb" }} title="Giá Khuyến Mãi" />
                 <input type="text" placeholder="Quà tặng kèm (VD: Tặng 1 cốc)" value={newGiftInfo} onChange={e => setNewGiftInfo(e.target.value)} style={{ flex: "1.5 1 150px", padding: "8px", borderRadius: "6px", border: "1px solid #10b981", background: "#f0fdf4" }} title="Quà Tặng" />
                 
@@ -535,13 +539,11 @@ export default function App() {
                         <td style={{ padding: "10px" }}>
                           <b style={{fontSize: "14px"}}>{p.name}</b><br/>
                           <small style={{color: "#94a3b8"}}>{p.product_code}</small>
-                          {/* HIỂN THỊ QUÀ TẶNG NẾU CÓ */}
                           {p.gift_info && <div style={{ fontSize: "11px", color: "#10b981", fontWeight: "bold", marginTop: "3px", cursor: "pointer" }} onClick={()=>handleEdit(p.id, 'gift_info', p.gift_info, true)}>🎁 Tặng: {p.gift_info}</div>}
                           {!p.gift_info && <div style={{ fontSize: "10px", color: "#cbd5e1", cursor: "pointer" }} onClick={()=>handleEdit(p.id, 'gift_info', '', true)}>+ Thêm quà tặng</div>}
                         </td>
                         <td style={{ textAlign: "center", fontSize: "14px" }}><b>{p.stock}</b></td>
                         <td style={{ textAlign: "center" }}>
-                          {/* HIỂN THỊ GIÁ CŨ VÀ GIÁ KHUYẾN MÃI CHUYÊN NGHIỆP */}
                           <div style={{ color: isPromo ? "#94a3b8" : "#059669", textDecoration: isPromo ? "line-through" : "none", fontWeight: isPromo ? "normal" : "bold", fontSize: isPromo ? "12px" : "14px", cursor: "pointer" }} onClick={()=>handleEdit(p.id, 'sale_price', p.sale_price)}>
                             {p.sale_price.toLocaleString()}đ
                           </div>
@@ -573,7 +575,6 @@ export default function App() {
                         <span style={{ fontWeight: "bold" }}>{item.product.name} x{item.qty}</span>
                         <button onClick={()=>removeFromCart(item.product.id)} style={{border:"none",background:"none",color:"#ef4444", cursor: "pointer"}}>x</button>
                       </div>
-                      {/* BÁO QUÀ TẶNG TRONG GIỎ HÀNG LUÔN */}
                       {item.product.gift_info && <div style={{ color: "#10b981", fontSize: "11px", fontStyle: "italic" }}>+ 🎁 Tặng {item.qty} {item.product.gift_info.replace('Tặng ', '')}</div>}
                       <div style={{ color: "#ef4444", fontWeight: "bold", textAlign: "right" }}>{item.total.toLocaleString()}đ</div>
                     </div>
@@ -597,17 +598,32 @@ export default function App() {
                 <div style={{ flex: 1, overflowY: "auto" }}>
                   {Object.keys(history.reduce((g:any, l:any)=>{const d=new Date(Math.floor(l.id)).toLocaleDateString('vi-VN');if(!g[d])g[d]=[];g[d].push({...l,t:new Date(Math.floor(l.id)).toLocaleTimeString('vi-VN')});return g;},{})).map((dateStr) => {
                     const group = history.reduce((g:any, l:any)=>{const d=new Date(Math.floor(l.id)).toLocaleDateString('vi-VN');if(!g[d])g[d]=[];g[d].push({...l,t:new Date(Math.floor(l.id)).toLocaleTimeString('vi-VN')});return g;},{})[dateStr];
+                    const isExpanded = expandedDates[dateStr] ?? true; 
                     return (
-                      <div key={dateStr} style={{ marginBottom: "10px", backgroundColor: "#f8fafc", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
-                        <div style={{ backgroundColor: "#f1f5f9", padding: "8px", fontSize: "12px", fontWeight: "bold" }}>📅 {dateStr}</div>
-                        <div style={{ padding: "0 10px" }}>
-                          {group.map((log: any) => (
-                            <div key={log.id} style={{ padding: "8px 0", borderBottom: "1px dashed #e2e8f0", fontSize: "11px" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between" }}><span><b>[{log.type}]</b> {log.name} x{log.qty}</span>{log.type === "BÁN" && <span style={{color:"#059669"}}>+{log.total?.toLocaleString()}</span>}</div>
-                              <div style={{ display: "flex", justifyContent: "space-between", color: "#94a3b8" }}><span>{log.customer}</span><span>{log.t}</span></div>
-                            </div>
-                          ))}
+                      <div key={dateStr} style={{ marginBottom: "10px", backgroundColor: "#f8fafc", borderRadius: "8px", overflow: "hidden", border: "1px solid #e2e8f0" }}>
+                        <div 
+                          onClick={() => toggleDateGroup(dateStr)}
+                          style={{ backgroundColor: "#f1f5f9", padding: "10px 15px", fontSize: "12px", fontWeight: "bold", color: "#334155", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                        >
+                          <span>📅 Ngày {dateStr}</span>
+                          <span style={{ fontSize: "10px", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▶</span>
                         </div>
+                        {isExpanded && (
+                          <div style={{ padding: "0 15px" }}>
+                            {group.map((log: any) => (
+                              <div key={log.id} style={{ padding: "10px 0", borderBottom: "1px dashed #e2e8f0", fontSize: "11px", display: "flex", flexDirection: "column", gap: "3px" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                  <span><b>[{log.type}]</b> {log.name} <span style={{color:"#64748b"}}>x{log.qty}</span></span>
+                                  {log.type === "BÁN" && <span style={{color:"#059669", fontWeight: "bold"}}>+{log.total?.toLocaleString()}đ</span>}
+                                </div>
+                                <div style={{ display: "flex", justifyContent: "space-between", color: "#94a3b8" }}>
+                                  <span>{log.customer && `👤 ${log.customer}`}</span>
+                                  <span>{log.t}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
