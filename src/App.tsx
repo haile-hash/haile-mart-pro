@@ -4,9 +4,7 @@ import { supabase } from "./supabaseClient";
 
 export default function App() {
   const [products, setProducts] = useState<any[]>([]);
-  const [history, setHistory] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [revenue, setRevenue] = useState(0);
   const [loading, setLoading] = useState(false);
 
   // Form states
@@ -15,7 +13,22 @@ export default function App() {
   const [newPrice, setNewPrice] = useState("");
   const [newStock, setNewStock] = useState("");
 
-  // 1. TẢI DỮ LIỆU & THEO DÕI BIẾN ĐỘNG THỜI GIAN THỰC
+  // BẬT BỘ NHỚ TRÌNH DUYỆT (Lưu nhật ký và doanh thu vĩnh viễn)
+  const [history, setHistory] = useState<any[]>(() => {
+    const saved = localStorage.getItem("mart_history");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [revenue, setRevenue] = useState<number>(() => {
+    const saved = localStorage.getItem("mart_revenue");
+    return saved ? Number(saved) : 0;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("mart_history", JSON.stringify(history));
+    localStorage.setItem("mart_revenue", revenue.toString());
+  }, [history, revenue]);
+
+  // 1. TẢI DỮ LIỆU TỪ KHO
   useEffect(() => {
     fetchProducts();
     const channel = supabase
@@ -32,7 +45,7 @@ export default function App() {
     if (data) setProducts(data);
   };
 
-  // 2. XỬ LÝ BÁN HÀNG
+  // 2. XỬ LÝ BÁN HÀNG (Đã thêm lệnh tải lại kho ngay lập tức)
   const handleSell = async (p: any) => {
     if (p.stock <= 0) return alert("Hết hàng!");
     const qty = window.prompt(`Bán ${p.name}. Nhập số lượng:`, "1");
@@ -42,6 +55,7 @@ export default function App() {
       if (!error) {
         setRevenue(prev => prev + (p.sale_price * sellQty));
         setHistory(prev => [{ id: Date.now(), name: p.name, qty: sellQty, total: p.sale_price * sellQty, time: new Date().toLocaleTimeString() }, ...prev]);
+        fetchProducts(); // Cập nhật số liệu trên màn hình lập tức
       }
     } else if (qty) alert("Không đủ hàng trong kho!");
   };
@@ -53,6 +67,7 @@ export default function App() {
     setLoading(true);
     await supabase.from("products").insert([{ product_code: newCode, name: newName, sale_price: parseInt(newPrice), stock: parseInt(newStock || "0") }]);
     setNewCode(""); setNewName(""); setNewPrice(""); setNewStock("");
+    fetchProducts(); // Cập nhật số liệu trên màn hình lập tức
     setLoading(false);
   };
 
@@ -60,6 +75,7 @@ export default function App() {
   const handleDelete = async (id: any, name: any) => {
     if (window.confirm(`Xóa vĩnh viễn ${name}?`)) {
       await supabase.from("products").delete().eq("id", id);
+      fetchProducts(); // Cập nhật số liệu trên màn hình lập tức
     }
   };
 
@@ -67,6 +83,15 @@ export default function App() {
     const newVal = window.prompt(`Nhập giá trị mới cho ${field}:`, oldVal);
     if (newVal !== null) {
       await supabase.from("products").update({ [field]: parseInt(newVal) }).eq("id", id);
+      fetchProducts(); // Cập nhật số liệu trên màn hình lập tức
+    }
+  };
+
+  // Xóa toàn bộ lịch sử
+  const handleClearHistory = () => {
+    if (window.confirm("Bạn có chắc muốn xóa sạch doanh thu và lịch sử bán hàng?")) {
+      setHistory([]);
+      setRevenue(0);
     }
   };
 
@@ -75,7 +100,6 @@ export default function App() {
 
   return (
     <div style={{ padding: "20px", fontFamily: "'Segoe UI', sans-serif", backgroundColor: "#f0f4f8", minHeight: "100vh" }}>
-      {/* ĐOẠN MÃ TÀNG HÌNH: ẨN NÚT OPEN SANDBOX */}
       <style>{`
         button[title*="Sandbox"], .sp-preview-actions, #csb-embed-actions, [class*="SandboxBadge"] { 
           display: none !important; opacity: 0 !important; visibility: hidden !important; pointer-events: none !important;
@@ -83,7 +107,6 @@ export default function App() {
       `}</style>
 
       <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
-        {/* DASHBOARD THỐNG KÊ */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "15px", marginBottom: "20px" }}>
           <div style={{ padding: "20px", backgroundColor: "#fff", borderRadius: "12px", borderLeft: "6px solid #3b82f6", boxShadow: "0 4px 6px rgba(0,0,0,0.05)" }}>
             <div style={{ color: "#64748b", fontSize: "13px", fontWeight: "bold" }}>TỔNG TỒN KHO</div>
@@ -94,17 +117,15 @@ export default function App() {
             <div style={{ fontSize: "24px", fontWeight: "bold", color: "#10b981" }}>{totalValue.toLocaleString()}đ</div>
           </div>
           <div style={{ padding: "20px", backgroundColor: "#1e3a8a", borderRadius: "12px", color: "#fff", boxShadow: "0 4px 6px rgba(0,0,0,0.1)" }}>
-            <div style={{ color: "#bfdbfe", fontSize: "13px", fontWeight: "bold" }}>DOANH THU PHIÊN NÀY</div>
+            <div style={{ color: "#bfdbfe", fontSize: "13px", fontWeight: "bold" }}>DOANH THU</div>
             <div style={{ fontSize: "24px", fontWeight: "bold" }}>+{revenue.toLocaleString()}đ</div>
           </div>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "20px" }}>
-          {/* CỘT TRÁI: BẢNG ĐIỀU KHIỂN CHÍNH */}
           <div style={{ backgroundColor: "#fff", padding: "25px", borderRadius: "16px", boxShadow: "0 10px 15px rgba(0,0,0,0.05)" }}>
             <h2 style={{ color: "#1e3a8a", marginTop: 0, marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}>🏪 HẢI LÊ MART PRO</h2>
             
-            {/* FORM NHẬP HÀNG NHANH */}
             <form onSubmit={handleAddProduct} style={{ display: "flex", gap: "5px", marginBottom: "25px", padding: "15px", backgroundColor: "#f8fafc", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
               <input placeholder="Mã" value={newCode} onChange={e => setNewCode(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
               <input placeholder="Tên SP" value={newName} onChange={e => setNewName(e.target.value)} style={{ flex: 2, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
@@ -149,7 +170,6 @@ export default function App() {
             </table>
           </div>
 
-          {/* CỘT PHẢI: NHẬT KÝ BÁN HÀNG */}
           <div style={{ backgroundColor: "#fff", padding: "20px", borderRadius: "16px", boxShadow: "0 4px 6px rgba(0,0,0,0.05)", height: "fit-content" }}>
             <h3 style={{ marginTop: 0, fontSize: "16px", color: "#1e3a8a", borderBottom: "2px solid #f1f5f9", paddingBottom: "10px" }}>📋 NHẬT KÝ GIAO DỊCH</h3>
             <div style={{ maxHeight: "450px", overflowY: "auto" }}>
@@ -166,7 +186,7 @@ export default function App() {
               }
             </div>
             {history.length > 0 && (
-              <button onClick={() => setHistory([])} style={{ width: "100%", marginTop: "15px", padding: "8px", background: "none", border: "1px solid #e2e8f0", borderRadius: "6px", color: "#64748b", cursor: "pointer", fontSize: "12px" }}>Xóa lịch sử phiên</button>
+              <button onClick={handleClearHistory} style={{ width: "100%", marginTop: "15px", padding: "8px", background: "#fee2e2", border: "none", borderRadius: "6px", color: "#ef4444", fontWeight: "bold", cursor: "pointer", fontSize: "12px" }}>Xóa sạch dữ liệu bán hàng</button>
             )}
           </div>
         </div>
