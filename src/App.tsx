@@ -16,7 +16,6 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [showInputForm, setShowInputForm] = useState(false);
   
-  // Modals
   const [showDebtModal, setShowDebtModal] = useState(false);
   const [showStatsModal, setShowStatsModal] = useState(false);
 
@@ -82,6 +81,33 @@ export default function App() {
     const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false });
     if (data) setProducts(data);
   };
+
+  // --- HÀM XUẤT EXCEL & GỬI EMAIL (ĐÃ ĐƯỢC KHÔI PHỤC LẠI) ---
+  const exportToCSV = () => {
+    if (history.length === 0) return alert("Chưa có lịch sử!");
+    let csv = "\uFEFFGiờ,Loại,Khách,Sản phẩm,SL,Tổng(VAT),Lợi nhuận\n";
+    history.forEach(log => {
+      const time = new Date(Math.floor(log.id)).toLocaleString('vi-VN');
+      csv += `${time},${log.type},${log.customer || "Khách lẻ"},${log.name},${log.qty},${Math.round(log.total)},${Math.round(log.profit || 0)}\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Bao_Cao_Hai_Le_Mart.csv`;
+    link.click();
+  };
+
+  const handleSendEmailReport = () => {
+    const todayStr = new Date().toLocaleDateString('vi-VN');
+    const logs = history.filter(log => new Date(Math.floor(log.id)).toLocaleDateString('vi-VN') === todayStr);
+    if (logs.length === 0) return alert("Chưa có giao dịch!");
+    let rev = 0, prof = 0, sold = 0;
+    logs.forEach(l => { if(l.type==='BÁN'){ rev += l.total; prof += (l.profit||0); sold += l.qty; } });
+    const sub = encodeURIComponent(`Báo Cáo Hải Lê Mart - Ngày ${todayStr}`);
+    const body = encodeURIComponent(`Báo cáo ngày ${todayStr}:\n- Đã bán: ${sold} món\n- Doanh thu (có VAT): ${Math.round(rev).toLocaleString()}đ\n- Lợi nhuận: ${Math.round(prof).toLocaleString()}đ`);
+    window.location.href = `mailto:lehonghaikt6@gmail.com?subject=${sub}&body=${body}`;
+  };
+  // -----------------------------------------------------------
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -197,7 +223,6 @@ export default function App() {
     setCheckoutStep(3); fetchProducts(); setLoading(false);
   };
 
-  // TÍNH NĂNG TRẢ HÀNG
   const handleRefund = async (logId: any) => {
     if(role !== 'admin') return alert("Chỉ quản lý mới được hoàn trả!");
     if(!window.confirm("Xác nhận khách trả lại món này?")) return;
@@ -222,13 +247,12 @@ export default function App() {
     alert("Hoàn trả thành công! Hàng đã nhập lại kho, tiền đã trừ.");
   };
 
-  // TÍNH NĂNG TRẢ NỢ
   const handlePayDebt = (phone: string) => {
     const payAmt = window.prompt(`Khách ${customers[phone].name} đang nợ ${customers[phone].debt.toLocaleString()}đ. Nhập số tiền khách trả:`, customers[phone].debt.toString());
     if (payAmt && parseInt(payAmt) > 0) {
       const amt = parseInt(payAmt);
       setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], debt: Math.max(0, prev[phone].debt - amt) } }));
-      setRevenue(prev => prev + amt); // Trả nợ thì cộng vào doanh thu
+      setRevenue(prev => prev + amt);
       setHistory(prev => [{ id: Date.now(), type: "THU NỢ", name: "Thanh toán công nợ", qty: 1, total: amt, profit: 0, customer: `${customers[phone].name} (${phone})` }, ...prev]);
       alert("Đã thu nợ thành công!");
     }
@@ -292,7 +316,6 @@ export default function App() {
 
   const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
 
-  // DASHBOARD DATA
   const topSelling = useMemo(() => {
     const sales: Record<string, number> = {};
     history.forEach(log => { if(log.type === 'BÁN') sales[log.name] = (sales[log.name]||0) + log.qty; });
