@@ -83,7 +83,7 @@ export default function App() {
     let csv = "\uFEFFGiờ,Loại,Khách,Sản phẩm,SL,Tổng(VAT),Lợi nhuận\n";
     history.forEach(log => {
       const time = new Date(Math.floor(log.id)).toLocaleString('vi-VN');
-      csv += `${time},${log.type},${log.customer || "Khách lẻ"},${log.name},${log.qty},${log.total},${log.profit || 0}\n`;
+      csv += `${time},${log.type},${log.customer || "Khách lẻ"},${log.name},${log.qty},${Math.round(log.total)},${Math.round(log.profit || 0)}\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
@@ -99,7 +99,7 @@ export default function App() {
     let rev = 0, prof = 0, sold = 0;
     logs.forEach(l => { if(l.type==='BÁN'){ rev += l.total; prof += (l.profit||0); sold += l.qty; } });
     const sub = encodeURIComponent(`Báo Cáo Hải Lê Mart - Ngày ${todayStr}`);
-    const body = encodeURIComponent(`Báo cáo ngày ${todayStr}:\n- Đã bán: ${sold} món\n- Doanh thu (có VAT): ${rev.toLocaleString()}đ\n- Lợi nhuận: ${prof.toLocaleString()}đ`);
+    const body = encodeURIComponent(`Báo cáo ngày ${todayStr}:\n- Đã bán: ${sold} món\n- Doanh thu (có VAT): ${Math.round(rev).toLocaleString()}đ\n- Lợi nhuận: ${Math.round(prof).toLocaleString()}đ`);
     window.location.href = `mailto:lehonghaikt6@gmail.com?subject=${sub}&body=${body}`;
   };
 
@@ -114,6 +114,7 @@ export default function App() {
 
   const getActualPrice = (p: any) => (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price;
 
+  // LÀM TRÒN TIỀN TRONG LÚC TÍT MÃ
   const handleBarcodeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -123,22 +124,46 @@ export default function App() {
         else {
           const price = getActualPrice(p);
           const exist = cart.find(item => item.product.id === p.id);
-          if (exist) setCart(cart.map(i => i.product.id === p.id ? { ...i, qty: i.qty + 1, total: (i.qty+1)*price*(1+VAT_RATE), profit: (i.qty+1)*(price - (p.import_price||0)) } : i));
-          else setCart([...cart, { product: p, qty: 1, total: price*(1+VAT_RATE), profit: price - (p.import_price||0) }]);
+          if (exist) {
+            const newQty = exist.qty + 1;
+            setCart(cart.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i));
+          } else {
+            setCart([...cart, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }]);
+          }
         }
       } else alert("Mã sai!");
       setBarcodeInput(""); 
     }
   };
 
+  // LÀM TRÒN TIỀN TRONG LÚC BẤM NÚT "+ GIỎ"
   const addToCart = (p: any) => {
     const q = window.prompt(`Số lượng ${p.name}:`, "1");
     if (q && parseInt(q) > 0) {
       const qty = parseInt(q); const pr = getActualPrice(p);
       const exist = cart.find(item => item.product.id === p.id);
-      if (exist) setCart(cart.map(i => i.product.id === p.id ? { ...i, qty: i.qty + qty, total: (i.qty+qty)*pr*(1+VAT_RATE), profit: (i.qty+qty)*(pr - (p.import_price||0)) } : i));
-      else setCart([...cart, { product: p, qty, total: qty*pr*(1+VAT_RATE), profit: qty*(pr - (p.import_price||0)) }]);
+      if (exist) {
+        const newQty = exist.qty + qty;
+        setCart(cart.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*pr*(1+VAT_RATE)), profit: Math.round(newQty*(pr - (p.import_price||0))) } : i));
+      } else {
+        setCart([...cart, { product: p, qty, total: Math.round(qty*pr*(1+VAT_RATE)), profit: Math.round(qty*(pr - (p.import_price||0))) }]);
+      }
     }
+  };
+
+  // HÀM MỚI: TĂNG GIẢM SỐ LƯỢNG NHANH TRONG GIỎ HÀNG
+  const adjustCartQty = (productId: any, delta: number) => {
+    setCart(prev => {
+      const updated = prev.map(item => {
+        if (item.product.id === productId) {
+          const newQty = item.qty + delta;
+          const price = getActualPrice(item.product);
+          return { ...item, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (item.product.import_price||0))) };
+        }
+        return item;
+      });
+      return updated.filter(item => item.qty > 0);
+    });
   };
 
   const removeFromCart = (productId: any) => setCart(cart.filter(item => item.product.id !== productId));
@@ -159,22 +184,23 @@ export default function App() {
   const confirmCheckout = async () => {
     setLoading(true);
     let rev = revenue, prof = profit, logs: any[] = [];
-    const subTotal = cart.reduce((s, i) => s + (i.qty * getActualPrice(i.product)), 0);
-    const vatTotal = subTotal * VAT_RATE;
+    const subTotal = Math.round(cart.reduce((s, i) => s + (i.qty * getActualPrice(i.product)), 0));
+    const vatTotal = Math.round(subTotal * VAT_RATE);
     const finalTotal = subTotal + vatTotal;
     
     const wallet = customers[custPhone]?.wallet || 0;
-    const discount = useWallet ? Math.min(wallet, finalTotal) : 0;
+    const discount = useWallet ? Math.round(Math.min(wallet, finalTotal)) : 0;
     const finalPaid = Math.max(0, finalTotal - discount);
-    const earned = Math.floor(finalPaid * 0.02);
+    const earned = Math.round(finalPaid * 0.02);
 
     for (const item of cart) {
       await supabase.from("products").update({ stock: item.product.stock - item.qty }).eq("id", item.product.id);
-      logs.push({ id: Date.now() + Math.random(), type: "BÁN", name: item.product.name, qty: item.qty, total: item.total, profit: item.profit, customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ" });
+      logs.push({ id: Date.now() + Math.random(), type: "BÁN", name: item.product.name, qty: item.qty, total: Math.round(item.total), profit: Math.round(item.profit), customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ" });
     }
     
-    if (custPhone) setCustomers((prev: any) => ({ ...prev, [custPhone]: { name: custName, wallet: (prev[custPhone]?.wallet || 0) - discount + earned } }));
-    setRevenue(rev + finalPaid); setProfit(prof + (subTotal - cart.reduce((s,i)=>s+(i.qty*(i.product.import_price||0)),0)) - discount); 
+    if (custPhone) setCustomers((prev: any) => ({ ...prev, [custPhone]: { name: custName, wallet: Math.round((prev[custPhone]?.wallet || 0) - discount + earned) } }));
+    setRevenue(Math.round(rev + finalPaid)); 
+    setProfit(Math.round(prof + (subTotal - cart.reduce((s,i)=>s+(i.qty*(i.product.import_price||0)),0)) - discount)); 
     setHistory(prev => [...logs, ...prev]);
 
     setLastOrder({ orderId: "HD" + Date.now().toString().slice(-6), cart: [...cart], subTotal, vatTotal, finalTotal: finalPaid, discount, earnedWallet: custPhone ? earned : 0, custName: custPhone ? custName : null, custPhone: custPhone ? custPhone : null, time: new Date().toLocaleString('vi-VN') });
@@ -208,9 +234,8 @@ export default function App() {
     if (val !== null) { await supabase.from("products").update({ [field]: isText ? val : (parseInt(val) || 0) }).eq("id", id); fetchProducts(); }
   };
 
-  const totalValue = products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0);
+  const totalValue = Math.round(products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
 
-  // TỐI ƯU HÓA HIỆU NĂNG CHO NHẬT KÝ (Giải quyết triệt để lỗi giật lag)
   const groupedHistory = useMemo(() => {
     return history.reduce((groups: any, log: any) => {
       const date = new Date(Math.floor(log.id)).toLocaleDateString('vi-VN'); 
@@ -220,7 +245,6 @@ export default function App() {
     }, {});
   }, [history]);
 
-  // TỐI ƯU HÓA SẮP XẾP SẢN PHẨM: ĐẨY HÀNG CẬN ĐÁT <= 45 NGÀY LÊN ĐẦU
   const sortedAndFilteredProducts = useMemo(() => {
     const todayTime = new Date().getTime();
     return products
@@ -228,13 +252,10 @@ export default function App() {
       .sort((a, b) => {
         const daysA = a.expiry_date ? (new Date(a.expiry_date).getTime() - todayTime) / 86400000 : Infinity;
         const daysB = b.expiry_date ? (new Date(b.expiry_date).getTime() - todayTime) / 86400000 : Infinity;
-        
-        const aIsUrgent = daysA <= 45;
-        const bIsUrgent = daysB <= 45;
-        
+        const aIsUrgent = daysA <= 45; const bIsUrgent = daysB <= 45;
         if (aIsUrgent && !bIsUrgent) return -1;
         if (!aIsUrgent && bIsUrgent) return 1;
-        if (aIsUrgent && bIsUrgent) return daysA - daysB; // Cùng hết hạn thì cái nào sát hơn lên trước
+        if (aIsUrgent && bIsUrgent) return daysA - daysB; 
         return 0;
       });
   }, [products, searchTerm]);
@@ -250,6 +271,8 @@ export default function App() {
     body { background-color: #fff7ed; margin: 0; font-family: 'Inter', sans-serif; color: #431407; }
     .stat-box { background: #fff; padding: 8px 15px; border-radius: 20px; font-size: 13px; font-weight: 700; border: 1px solid #fdba74; display: flex; align-items: center; gap: 8px; color: #9a3412; }
     .print-only { display: none; }
+    .qty-btn { padding: 2px 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: #f8fafc; cursor: pointer; font-weight: bold; }
+    .qty-btn:hover { background: #e2e8f0; }
     @media print {
       body { background: white !important; } .no-print { display: none !important; }
       .print-only { display: block !important; color: #000; font-family: monospace; width: 80mm; margin: 0 auto; padding: 5mm; }
@@ -300,17 +323,17 @@ export default function App() {
                 <React.Fragment key={idx}>
                   <tr><td colSpan={3} style={{ paddingTop: "4px", fontWeight: "bold" }}>{item.product.name}</td></tr>
                   {item.product.gift_info && <tr><td colSpan={3} style={{ fontSize: "9px", fontStyle: "italic" }}>+ 🎁 Tặng: {item.product.gift_info}</td></tr>}
-                  <tr><td style={{ color: "#444" }}>{getActualPrice(item.product).toLocaleString()}</td><td style={{ textAlign: "center" }}>{item.qty}</td><td style={{ textAlign: "right" }}>{(item.qty * getActualPrice(item.product)).toLocaleString()}</td></tr>
+                  <tr><td style={{ color: "#444" }}>{Math.round(getActualPrice(item.product)).toLocaleString()}</td><td style={{ textAlign: "center" }}>{item.qty}</td><td style={{ textAlign: "right" }}>{Math.round(item.qty * getActualPrice(item.product)).toLocaleString()}</td></tr>
                 </React.Fragment>
               ))}
             </tbody>
           </table>
           <div style={{ borderTop: "1px solid #000", margin: "8px 0" }}></div>
           <div style={{ fontSize: "12px", lineHeight: "1.5" }}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}><span>Cộng tiền hàng:</span><span>{lastOrder.subTotal.toLocaleString()}đ</span></div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}><span>Thuế GTGT ({VAT_RATE*100}%):</span><span>{lastOrder.vatTotal.toLocaleString()}đ</span></div>
-            {lastOrder.discount > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>Giảm giá/Ví:</span><span>-{lastOrder.discount.toLocaleString()}đ</span></div>}
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", fontWeight: "bold", borderTop: "1px dashed #000", marginTop: "5px" }}><span>THANH TOÁN:</span><span>{lastOrder.finalTotal.toLocaleString()}đ</span></div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}><span>Cộng tiền hàng:</span><span>{Math.round(lastOrder.subTotal).toLocaleString()}đ</span></div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}><span>Thuế GTGT ({VAT_RATE*100}%):</span><span>{Math.round(lastOrder.vatTotal).toLocaleString()}đ</span></div>
+            {lastOrder.discount > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>Giảm giá/Ví:</span><span>-{Math.round(lastOrder.discount).toLocaleString()}đ</span></div>}
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", fontWeight: "bold", borderTop: "1px dashed #000", marginTop: "5px" }}><span>THANH TOÁN:</span><span>{Math.round(lastOrder.finalTotal).toLocaleString()}đ</span></div>
           </div>
           <div style={{ borderTop: "1px dashed #000", margin: "10px 0", textAlign: "center", fontSize: "11px" }}><b>CẢM ƠN QUÝ KHÁCH!</b><br/>{lastOrder.orderId}</div>
         </div>
@@ -330,7 +353,7 @@ export default function App() {
                 {custPhone && (
                   <div style={{ marginTop: "10px", padding: "12px", backgroundColor: "#fff7ed", borderRadius: "8px", border: "1px dashed #f97316" }}>
                     {customers[custPhone] ? (
-                      <div><div style={{ color: "#b91c1c", fontWeight: "bold" }}>⭐ {customers[custPhone].name}</div><div>Ví điểm: <b>{customers[custPhone].wallet.toLocaleString()}đ</b></div>
+                      <div><div style={{ color: "#b91c1c", fontWeight: "bold" }}>⭐ {customers[custPhone].name}</div><div>Ví điểm: <b>{Math.round(customers[custPhone].wallet).toLocaleString()}đ</b></div>
                         {customers[custPhone].wallet > 0 && <label style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "10px", cursor: "pointer", color: "#ea580c", fontWeight: "bold" }}><input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} /> Dùng điểm lì xì!</label>}
                       </div>
                     ) : <input type="text" placeholder="Tên khách mới..." value={custName} onChange={e => setCustName(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: "8px", outline: "none", border: "1px solid #fdba74", boxSizing: "border-box" }} />}
@@ -345,8 +368,8 @@ export default function App() {
             {checkoutStep === 2 && (
               <div className="glass" style={{ padding: "25px", width: "350px", textAlign: "center" }}>
                 <h3 style={{ color: "#ef4444", margin: "0" }}>📱 QUÉT MÃ QR</h3>
-                <div style={{ color: "#ef4444", fontSize: "28px", fontWeight: "900", margin: "10px 0" }}>{(cart.reduce((s,i)=>s+i.total,0) - (useWallet ? Math.min(customers[custPhone]?.wallet||0, cart.reduce((s,i)=>s+i.total,0)) : 0)).toLocaleString()}đ</div>
-                <img src={`https://img.vietqr.io/image/970422-0680124181004-compact2.png?amount=${(cart.reduce((s,i)=>s+i.total,0) - (useWallet ? Math.min(customers[custPhone]?.wallet||0, cart.reduce((s,i)=>s+i.total,0)) : 0))}&addInfo=Thanh toan&accountName=LE%20HONG%20HAI`} style={{ width: "200px", margin: "0 auto 15px auto", border: "2px solid #ef4444", borderRadius: "10px" }} />
+                <div style={{ color: "#ef4444", fontSize: "28px", fontWeight: "900", margin: "10px 0" }}>{Math.round(Math.max(0, cartTotalAmount - (useWallet ? Math.min(customers[custPhone]?.wallet||0, cartTotalAmount) : 0))).toLocaleString()}đ</div>
+                <img src={`https://img.vietqr.io/image/970422-0680124181004-compact2.png?amount=${Math.round(Math.max(0, cartTotalAmount - (useWallet ? Math.min(customers[custPhone]?.wallet||0, cartTotalAmount) : 0)))}&addInfo=Thanh toan&accountName=LE%20HONG%20HAI`} style={{ width: "200px", margin: "0 auto 15px auto", border: "2px solid #ef4444", borderRadius: "10px" }} />
                 <div style={{ display: "flex", gap: "10px" }}>
                   <button onClick={() => setCheckoutStep(1)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "#e2e8f0", cursor: "pointer" }}>Quay lại</button>
                   <button onClick={confirmCheckout} disabled={loading} style={{ flex: 2, padding: "10px", backgroundColor: "#10b981", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>✔️ NHẬN TIỀN</button>
@@ -380,7 +403,13 @@ export default function App() {
             <div className="glass" style={{ padding: "15px" }}>
               
               <div style={{ display: "flex", gap: "10px", marginBottom: "15px" }}>
-                <input placeholder="👉 QUẸT MÃ VẠCH VÀO ĐÂY ĐỂ XUẤT HÀNG (Hoặc gõ tìm kiếm)..." value={barcodeInput} onChange={e => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeSubmit} style={{ flex: 1, padding: "8px 12px", borderRadius: "6px", border: "2px solid #ef4444", fontSize: "14px", fontWeight: "bold", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb", color: "#b91c1c", boxShadow: "inset 0 1px 3px rgba(0,0,0,0.1)" }} />
+                <input 
+                  placeholder="👉 QUẸT MÃ VẠCH VÀO ĐÂY ĐỂ XUẤT HÀNG (Hoặc gõ tìm kiếm)..." 
+                  value={barcodeInput} 
+                  onChange={e => setBarcodeInput(e.target.value)} 
+                  onKeyDown={handleBarcodeSubmit} 
+                  style={{ flex: 1, padding: "8px 12px", borderRadius: "6px", border: "2px solid #ef4444", fontSize: "14px", fontWeight: "bold", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb", color: "#b91c1c", boxShadow: "inset 0 1px 3px rgba(0,0,0,0.1)" }} 
+                />
                 <div onClick={() => setShowInputForm(!showInputForm)} style={{ padding: "8px 12px", borderRadius: "6px", fontWeight: "bold", color: "#b91c1c", cursor: "pointer", border: "1px dashed #ef4444", fontSize: "13px", display: "flex", alignItems: "center", whiteSpace: "nowrap", backgroundColor: "#fef2f2" }}>
                   {showInputForm ? "➖ ĐÓNG" : "➕ NHẬP KHO / KHUYẾN MÃI"}
                 </div>
@@ -399,7 +428,7 @@ export default function App() {
                     <input type="date" value={newExpiry} onChange={e => setNewExpiry(e.target.value)} style={{ padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", outline: "none" }} />
                     <input type="text" placeholder="Quà tặng" value={newGiftInfo} onChange={e => setNewGiftInfo(e.target.value)} style={{ padding: "8px", borderRadius: "6px", border: "1px solid #10b981", outline: "none" }} />
                     <input type="number" placeholder="SL..." value={newStock} onChange={e => setNewStock(e.target.value)} style={{ padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", outline: "none" }} />
-                    <button type="submit" disabled={loading} style={{ padding: "8px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>LƯU</button>
+                    <button type="submit" disabled={loading} style={{ padding: "8px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold" }}>LƯU</button>
                   </div>
                 </form>
               )}
@@ -422,11 +451,11 @@ export default function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {/* DÙNG DANH SÁCH ĐÃ ĐƯỢC SẮP XẾP SẴN THÔNG MINH */}
                     {sortedAndFilteredProducts.map(p => {
                       const isP = p.promo_price > 0; 
                       const d = Math.floor(Math.abs(new Date().getTime() - new Date(p.created_at).getTime()) / 86400000);
                       const isNearExpiry = p.expiry_date && (new Date(p.expiry_date).getTime() - new Date().getTime()) / 86400000 <= 45;
+                      const isLowStock = p.stock < 10; // HỆ THỐNG CẢNH BÁO TỒN KHO THÔNG MINH
 
                       return (
                         <tr key={p.id} style={{ borderBottom: "1px solid #fed7aa", backgroundColor: isNearExpiry ? "#fef2f2" : "transparent" }}>
@@ -435,7 +464,9 @@ export default function App() {
                             <div style={{fontSize: "10px", color: "#94a3b8"}}>{p.product_code}</div>
                             {p.gift_info ? <div style={{ fontSize: "10px", color: "#059669", fontWeight: "bold" }}>🎁 Tặng: {p.gift_info}</div> : <div style={{ fontSize: "9px", color: "#cbd5e1", cursor: "pointer" }} onClick={()=>handleEdit(p.id, 'gift_info', '', true)}>+ Thêm quà</div>}
                           </td>
-                          <td style={{ textAlign: "center", fontWeight: "bold" }}>{p.stock}</td>
+                          <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "14px", color: isLowStock ? "#ef4444" : "#1e293b" }}>
+                            {p.stock} {isLowStock && <span title="Sắp hết hàng" style={{fontSize:"12px"}}>📉</span>}
+                          </td>
                           <td style={{ textAlign: "center", color: "#64748b", fontSize: "12px" }}>{p.import_price?.toLocaleString()}đ</td>
                           <td style={{ textAlign: "center" }}>
                             <div style={{ color: isP ? "#94a3b8" : "#16a34a", textDecoration: isP ? "line-through" : "none", fontSize: isP ? "11px" : "14px", fontWeight: "bold", cursor: "pointer" }} onClick={()=>handleEdit(p.id, 'sale_price', p.sale_price)}>{p.sale_price.toLocaleString()}đ</div>
@@ -445,7 +476,7 @@ export default function App() {
                             <div style={{color: isNearExpiry ? "#ef4444" : "#b91c1c", fontWeight: "bold", cursor: "pointer"}} onClick={()=>handleEdit(p.id,'expiry_date',p.expiry_date,true)}>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : "---"}</div>
                             <div>{d} ngày</div>
                           </td>
-                          <td style={{ textAlign: "right" }}><div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}><button onClick={() => addToCart(p)} style={{ padding: "6px 10px", backgroundColor: "#fbbf24", color: "#78350f", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>+ GIỎ</button><button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "14px" }}>🗑️</button></div></td>
+                          <td style={{ textAlign: "right", padding: "8px 4px" }}><div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}><button onClick={() => addToCart(p)} style={{ padding: "6px 10px", backgroundColor: "#fbbf24", color: "#78350f", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>+ GIỎ</button><button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "14px" }}>🗑️</button></div></td>
                         </tr>
                       )
                     })}
@@ -456,13 +487,30 @@ export default function App() {
 
             <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
               <div className="glass" style={{ padding: "15px", maxHeight: "40vh", display: "flex", flexDirection: "column" }}>
-                <h3 style={{ margin: "0 0 10px 0", color: "#ef4444", fontSize: "15px" }}>🛒 GIỎ HÀNG ({cart.length})</h3>
-                <div style={{ flex: 1, overflowY: "auto", marginBottom: "10px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                  <h3 style={{ margin: 0, color: "#ef4444", fontSize: "15px" }}>🛒 GIỎ HÀNG ({cart.length})</h3>
+                  {/* NÚT XÓA TRẮNG GIỎ HÀNG MỚI BỔ SUNG */}
+                  {cart.length > 0 && <button onClick={() => { if(window.confirm("Hủy toàn bộ giỏ hàng?")) setCart([]) }} style={{ fontSize: "10px", padding: "4px 8px", background: "#fee2e2", color: "#ef4444", border: "1px solid #fca5a5", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>🗑️ HỦY HẾT</button>}
+                </div>
+                
+                <div style={{ flex: 1, overflowY: "auto", marginBottom: "10px", paddingRight: "5px" }}>
+                  {cart.length === 0 && <div style={{textAlign: "center", color: "#94a3b8", fontSize: "12px", marginTop: "10px"}}>Giỏ hàng trống</div>}
                   {cart.map((item, idx) => (
-                    <div key={idx} style={{ padding: "6px 0", borderBottom: "1px dashed #fed7aa", fontSize: "12px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}><b>{item.product.name} x{item.qty}</b><button onClick={()=>removeFromCart(item.product.id)} style={{border:"none",background:"none",color:"#ef4444", cursor:"pointer"}}>×</button></div>
-                      {item.product.gift_info && <div style={{ color: "#10b981", fontSize: "11px", fontStyle: "italic" }}>+ 🎁 Tặng {item.qty} {item.product.gift_info.replace('Tặng ', '')}</div>}
-                      <div style={{ color: "#ef4444", fontWeight: "bold", textAlign: "right" }}>{item.total.toLocaleString()}đ <small>(VAT)</small></div>
+                    <div key={idx} style={{ padding: "8px 0", borderBottom: "1px dashed #fed7aa", fontSize: "12px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontWeight: "bold", color: "#1e293b", flex: 1 }}>{item.product.name}</span>
+                        {/* 2 NÚT TĂNG GIẢM SỐ LƯỢNG MỚI BỔ SUNG */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                          <button className="qty-btn" onClick={() => adjustCartQty(item.product.id, -1)}>-</button>
+                          <span style={{ fontWeight: "bold", width: "16px", textAlign: "center", color: "#64748b" }}>{item.qty}</span>
+                          <button className="qty-btn" onClick={() => adjustCartQty(item.product.id, 1)}>+</button>
+                          <button onClick={()=>removeFromCart(item.product.id)} style={{border:"none",background:"none",color:"#ef4444", cursor:"pointer", fontSize: "16px", marginLeft: "2px"}}>×</button>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span>{item.product.gift_info ? <span style={{ color: "#10b981", fontSize: "10px", fontStyle: "italic" }}>+ 🎁 Tặng {item.qty} {item.product.gift_info.replace('Tặng ', '')}</span> : <span></span>}</span>
+                        <span style={{ color: "#ef4444", fontWeight: "bold", textAlign: "right" }}>{Math.round(item.total).toLocaleString()}đ <small>(VAT)</small></span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -471,7 +519,7 @@ export default function App() {
 
               <div className="glass" style={{ padding: "15px", flex: 1, display: "flex", flexDirection: "column", maxHeight: "calc(60vh - 60px)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
-                  <h3 style={{ margin: 0, fontSize: "14px" }}>📋 NHẬT KÝ</h3>
+                  <h3 style={{ margin: 0, fontSize: "14px", color: "#b91c1c" }}>📋 NHẬT KÝ</h3>
                   <div style={{ display: "flex", gap: "4px" }}>
                     <button onClick={exportToCSV} style={{ fontSize: "9px", padding: "4px 6px", background: "#10b981", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}>EXCEL</button>
                     <button onClick={handleSendEmailReport} style={{ fontSize: "9px", padding: "4px 6px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}>✉ CHỐT</button>
@@ -485,7 +533,7 @@ export default function App() {
                     return (
                       <div key={dateStr} style={{ marginBottom: "8px", backgroundColor: "#fff7ed", borderRadius: "6px", overflow: "hidden", border: "1px solid #fed7aa" }}>
                         <div onClick={() => toggleDateGroup(dateStr)} style={{ backgroundColor: "#ffedd5", padding: "8px 10px", fontSize: "11px", fontWeight: "bold", cursor: "pointer", display: "flex", justifyContent: "space-between" }}><span>📅 {dateStr}</span><span>{isEx ? "▼" : "▶"}</span></div>
-                        {isEx && <div style={{ padding: "0 10px" }}>{group.map((log: any) => (<div key={log.id} style={{ padding: "6px 0", borderBottom: "1px dashed #fed7aa", fontSize: "10px" }}><div style={{ display: "flex", justifyContent: "space-between" }}><span><b>[{log.type}]</b> {log.name} <span style={{color:"#64748b"}}>x{log.qty}</span></span>{log.type === "BÁN" && <span style={{color:"#b91c1c", fontWeight:"bold"}}>+{log.total?.toLocaleString()}</span>}</div><div style={{ display: "flex", justifyContent: "space-between", color: "#94a3b8" }}><span>{log.customer}</span><span>{log.t}</span></div></div>))}</div>}
+                        {isEx && <div style={{ padding: "0 10px" }}>{group.map((log: any) => (<div key={log.id} style={{ padding: "6px 0", borderBottom: "1px dashed #fed7aa", fontSize: "10px" }}><div style={{ display: "flex", justifyContent: "space-between" }}><span><b>[{log.type}]</b> {log.name} <span style={{color:"#64748b"}}>x{log.qty}</span></span>{log.type === "BÁN" && <span style={{color:"#b91c1c", fontWeight:"bold"}}>+{Math.round(log.total).toLocaleString()}đ</span>}</div><div style={{ display: "flex", justifyContent: "space-between", color: "#94a3b8" }}><span>{log.customer}</span><span>{log.t}</span></div></div>))}</div>}
                       </div>
                     );
                   })}
