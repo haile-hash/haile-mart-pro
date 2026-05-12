@@ -20,7 +20,7 @@ export default function App() {
   const [newName, setNewName] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newStock, setNewStock] = useState("");
-  const [newExpiry, setNewExpiry] = useState(""); // THÊM STATE HẠN SỬ DỤNG
+  const [newExpiry, setNewExpiry] = useState(""); 
 
   // --- STATES GIỎ HÀNG & MÃ VẠCH ---
   const [cart, setCart] = useState<any[]>([]);
@@ -194,7 +194,6 @@ export default function App() {
     if (existingProduct) {
       setNewName(existingProduct.name);
       setNewPrice(existingProduct.sale_price.toString());
-      // Tự động điền HSD cũ nếu có
       setNewExpiry(existingProduct.expiry_date || "");
     }
   };
@@ -226,7 +225,7 @@ export default function App() {
         name: newName, 
         sale_price: parseInt(newPrice), 
         stock: existingProduct.stock + addedStock,
-        expiry_date: expiryValue // Cập nhật HSD
+        expiry_date: expiryValue 
       }).eq("id", existingProduct.id);
     } else {
       await supabase.from("products").insert([{ 
@@ -234,7 +233,7 @@ export default function App() {
         name: newName, 
         sale_price: parseInt(newPrice), 
         stock: addedStock,
-        expiry_date: expiryValue // Thêm HSD
+        expiry_date: expiryValue 
       }]);
     }
     
@@ -256,10 +255,16 @@ export default function App() {
     }
   };
 
-  const handleEdit = async (id: any, field: any, oldVal: any) => {
-    const newVal = window.prompt(`Nhập giá trị mới cho ${field}:`, oldVal);
-    if (newVal !== null) {
-      await supabase.from("products").update({ [field]: parseInt(newVal) }).eq("id", id);
+  // NÂNG CẤP HÀM EDIT: Hỗ trợ sửa ngày HSD trực tiếp
+  const handleEdit = async (id: any, field: string, oldVal: any, isDate: boolean = false) => {
+    const promptText = isDate 
+      ? `Nhập Hạn Sử Dụng mới (Định dạng: Năm-Tháng-Ngày, ví dụ: 2026-12-31):` 
+      : `Nhập giá trị mới cho ${field}:`;
+      
+    const newVal = window.prompt(promptText, oldVal || "");
+    if (newVal !== null && newVal.trim() !== "") {
+      const updateVal = isDate ? newVal : parseInt(newVal);
+      await supabase.from("products").update({ [field]: updateVal }).eq("id", id);
       fetchProducts();
     }
   };
@@ -419,8 +424,13 @@ export default function App() {
                         <button onClick={() => handleEdit(p.id, 'stock', p.stock)} style={{ border: "none", background: p.stock < 5 ? "#fee2e2" : "#f1f5f9", color: p.stock < 5 ? "#ef4444" : "#475569", padding: "3px 8px", borderRadius: "5px", fontWeight: "bold", cursor: "pointer" }}>{p.stock}</button>
                       </td>
                       <td style={{ textAlign: "center", fontSize: "11px" }}>
-                        <div style={{ color: p.expiry_date ? "#b91c1c" : "#94a3b8", fontWeight: "bold", marginBottom: "2px" }}>
-                          HSD: {p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : "---"}
+                        {/* THÊM TÍNH NĂNG BẤM VÀO ĐỂ SỬA NHANH HSD */}
+                        <div 
+                          onClick={() => handleEdit(p.id, 'expiry_date', p.expiry_date, true)}
+                          style={{ color: p.expiry_date ? "#b91c1c" : "#94a3b8", fontWeight: "bold", marginBottom: "2px", cursor: "pointer" }}
+                          title="Bấm vào để sửa Hạn Sử Dụng"
+                        >
+                          HSD: {p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : "Bấm nhập HSD ✏️"}
                         </div>
                         <div style={{ color: diffDays > 30 ? "#ea580c" : "#16a34a" }}>
                           Kho: {diffDays === 0 ? "Mới nhập" : `${diffDays} ngày`}
@@ -430,7 +440,6 @@ export default function App() {
                         <span onClick={() => handleEdit(p.id, 'sale_price', p.sale_price)} style={{ cursor: "pointer" }}>{p.sale_price.toLocaleString()}đ</span>
                       </td>
                       <td style={{ textAlign: "center" }}>
-                        {/* NÚT THÊM VÀO GIỎ HÀNG ĐÃ ĐƯỢC CHỈNH SỬA Ở ĐÂY */}
                         <button onClick={() => addToCart(p)} style={{ padding: "6px 12px", backgroundColor: "#f59e0b", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "12px" }}>+ THÊM VÀO GIỎ HÀNG</button>
                         <button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#cbd5e1", cursor: "pointer", marginLeft: "8px" }}>🗑️</button>
                       </td>
