@@ -86,7 +86,9 @@ export default function App() {
     if (history.length === 0) return alert("Chưa có lịch sử để xuất!");
     let csvContent = "\uFEFFThời gian,Loại,Khách hàng,Sản phẩm,Số lượng,Thành tiền (VNĐ),Lợi nhuận (VNĐ)\n";
     history.forEach(log => {
-      csvContent += `${log.time},${log.type},${log.customer || "Khách lẻ"},${log.name},${log.qty},${log.total},${log.profit || 0}\n`;
+      // Ép chuẩn ngày giờ từ ID xuất ra Excel
+      const exactTime = new Date(Math.floor(log.id)).toLocaleString('vi-VN');
+      csvContent += `${exactTime},${log.type},${log.customer || "Khách lẻ"},${log.name},${log.qty},${log.total},${log.profit || 0}\n`;
     });
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -100,10 +102,9 @@ export default function App() {
   const handleSendEmailReport = () => {
     const todayStr = new Date().toLocaleDateString('vi-VN');
     
-    // Lọc lịch sử ngày hôm nay (Dùng Regex để tìm đúng ngày)
+    // Lọc lịch sử ngày hôm nay bằng cách giải mã ID
     const todaysLogs = history.filter(log => {
-      const dateMatch = log.time?.match(/\d{1,2}\/\d{1,2}\/\d{4}/);
-      const logDate = log.date || (dateMatch ? dateMatch[0] : "");
+      const logDate = new Date(Math.floor(log.id)).toLocaleDateString('vi-VN');
       return logDate === todayStr;
     });
     
@@ -231,10 +232,6 @@ export default function App() {
     const finalAmount = Math.max(0, cartTotalAmount - discount);
     const earnedWallet = Math.floor(finalAmount * 0.02);
 
-    const now = new Date();
-    const dateStr = now.toLocaleDateString('vi-VN');
-    const timeStr = now.toLocaleTimeString('vi-VN');
-
     for (const item of cart) {
       await supabase.from("products").update({ stock: item.product.stock - item.qty }).eq("id", item.product.id);
       rev += item.total; 
@@ -247,8 +244,6 @@ export default function App() {
         total: item.total, 
         profit: item.profit, 
         customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ",
-        date: dateStr,
-        time: `${timeStr} ${dateStr}` 
       });
     }
 
@@ -279,7 +274,7 @@ export default function App() {
       earnedWallet: custPhone ? earnedWallet : 0,
       custName: custPhone ? custName : null,
       custPhone: custPhone ? custPhone : null,
-      time: `${timeStr} ${dateStr}`
+      time: new Date().toLocaleString('vi-VN')
     });
     
     setCheckoutStep(3);
@@ -313,15 +308,12 @@ export default function App() {
     else await supabase.from("products").insert([data]);
     
     if (addedStock > 0) {
-      const now = new Date();
       setHistory(prev => [{ 
         id: Date.now(), 
         type: "NHẬP", 
         name: newName, 
         qty: addedStock, 
         total: 0, 
-        date: now.toLocaleDateString('vi-VN'),
-        time: `${now.toLocaleTimeString('vi-VN')} ${now.toLocaleDateString('vi-VN')}`
       }, ...prev]);
     }
     
@@ -387,19 +379,17 @@ export default function App() {
   const activeFinalAmount = Math.max(0, cartTotalAmount - activeDiscount);
   const activeEarned = Math.floor(activeFinalAmount * 0.02);
 
-  // VÁ LỖI GOM NHÓM: DÙNG REGEX TÌM NGÀY THÁNG ĐỂ KHÔNG BỊ BẮT NHẦM GIỜ
+  // VÁ LỖI GOM NHÓM: GIẢI MÃ CHUẨN XÁC TỪ ID ẨN
   const groupedHistory = history.reduce((groups: any, log: any) => {
-    let dateKey = "Giao dịch cũ";
-    if (log.date) {
-      dateKey = log.date;
-    } else if (log.time) {
-      // Thợ săn ngày tháng: Tìm chuỗi có dạng XX/XX/XXXX
-      const match = log.time.match(/\d{1,2}\/\d{1,2}\/\d{4}/);
-      if (match) dateKey = match[0];
-    }
+    // Ép kiểu Date từ mili-giây log.id
+    const exactDateObj = new Date(Math.floor(log.id));
+    const dateStr = exactDateObj.toLocaleDateString('vi-VN'); 
     
-    if (!groups[dateKey]) groups[dateKey] = [];
-    groups[dateKey].push(log);
+    if (!groups[dateStr]) groups[dateStr] = [];
+    groups[dateStr].push({
+        ...log,
+        displayTime: exactDateObj.toLocaleTimeString('vi-VN') // Tính luôn giờ phút chuẩn
+    });
     return groups;
   }, {});
 
@@ -429,7 +419,7 @@ export default function App() {
           <div style={{ fontSize: "12px", lineHeight: "1.5", display: "flex", justifyContent: "space-between" }}>
             <div>
               <div><b>Số HĐ:</b> {lastOrder.orderId}</div>
-              <div><b>Ngày:</b> {lastOrder.time.split(' ')[1] || lastOrder.time}</div>
+              <div><b>Ngày:</b> {lastOrder.time.split(' ')[1]}</div>
             </div>
             <div style={{ textAlign: "right" }}>
               <div><b>Thu ngân:</b> Admin</div>
@@ -704,8 +694,8 @@ export default function App() {
                                   </div>
                                   <div style={{ display: "flex", justifyContent: "space-between", color: "#94a3b8" }}>
                                     <span>{log.customer && `👤 ${log.customer}`}</span>
-                                    {/* HIỂN THỊ CHUẨN THỜI GIAN LÚC GIAO DỊCH */}
-                                    <span>{log.time}</span>
+                                    {/* HIỂN THỊ CHUẨN GIỜ TỪ HÀM GIẢI MÃ */}
+                                    <span>{log.displayTime}</span>
                                   </div>
                                 </div>
                               ))}
