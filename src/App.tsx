@@ -393,9 +393,24 @@ export default function App() {
   };
 
   const handleDelete = async (id: any, name: any) => { if (window.confirm(`Xóa vĩnh viễn ${name}?`)) { await supabase.from("products").delete().eq("id", id); fetchProducts(); } };
+  
+  // TỐI ƯU HÀM CHỈNH SỬA (CHO PHÉP XÓA QUÀ TẶNG)
   const handleEdit = async (id: any, field: string, old: any, isText: boolean = false) => {
-    const val = window.prompt(`Sửa ${field === 'category' ? 'Danh mục' : field}:`, old || "");
-    if (val !== null) { await supabase.from("products").update({ [field]: isText ? val : (parseInt(val) || 0) }).eq("id", id); fetchProducts(); }
+    let label = field;
+    if (field === 'category') label = 'Danh mục';
+    if (field === 'sale_price') label = 'Giá bán';
+    if (field === 'promo_price') label = 'Giá KM (Nhập 0 để hủy)';
+    if (field === 'gift_info') label = 'Quà tặng (Xóa trắng và ấn OK để hủy)';
+    if (field === 'expiry_date') label = 'HSD (YYYY-MM-DD)';
+
+    const val = window.prompt(`Sửa ${label}:`, old || "");
+    if (val !== null) { 
+      let updateData: any = isText ? val : (parseInt(val) || 0);
+      if (field === 'gift_info' && val.trim() === '') updateData = null; // Xóa quà nếu bỏ trống
+      
+      await supabase.from("products").update({ [field]: updateData }).eq("id", id); 
+      fetchProducts(); 
+    }
   };
 
   const totalValue = Math.round(products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
@@ -443,7 +458,6 @@ export default function App() {
     return Object.entries(sales).sort((a,b)=>b[1]-a[1]).slice(0,5);
   }, [history]);
 
-  // CSS ĐÃ ĐƯỢC TỐI ƯU HÓA HOÀN HẢO CHO MÁY IN HÓA ĐƠN POS K80/K58
   const styles = `
     @keyframes float { 0% { transform: translateY(0); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0); } }
     .spring-bg { position: fixed; width: 400px; height: 400px; border-radius: 50%; filter: blur(100px); z-index: -1; opacity: 0.3; animation: float 10s infinite ease-in-out; }
@@ -455,13 +469,12 @@ export default function App() {
     .tab-btn.active { background: #ef4444; color: #fff; border-color: #ef4444; }
     .print-only { display: none; }
     
-    /* CSS RIÊNG DÀNH CHO MÁY IN BILL CHUYÊN NGHIỆP */
     @media print { 
       body, html { background: white !important; margin: 0 !important; padding: 0 !important; color: #000; } 
       .no-print { display: none !important; } 
       .print-only { 
         display: block !important; 
-        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; /* Chữ hiện đại, không chân */
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
         width: 80mm; 
         margin: 0 auto; 
         padding: 5mm; 
@@ -537,7 +550,6 @@ export default function App() {
 
           <div className="print-divider"></div>
 
-          {/* DANH SÁCH MÓN HÀNG DÙNG FLEXBOX THAY CHO BẢNG */}
           <div style={{ width: "100%" }}>
             {lastOrder.cart.map((item: any, idx: number) => {
               const price = Math.round(getActualPrice(item.product));
@@ -848,11 +860,23 @@ export default function App() {
                         <tr key={p.id} style={{ borderBottom: "1px solid #fed7aa", backgroundColor: isNearExpiry ? "#fef2f2" : "transparent" }}>
                           <td style={{ padding: "8px 4px" }}>
                             <div style={{fontSize: "13px", fontWeight: "bold"}}>{p.name} {isNearExpiry && <span style={{color: "#ef4444", fontSize: "9px", border: "1px solid #ef4444", padding: "1px 2px", borderRadius: "2px"}}>⚠️</span>}</div>
-                            {/* NÚT SỬA DANH MỤC THẦN THÁNH */}
+                            
                             <div style={{fontSize: "9px", color: "#94a3b8"}}>
                               {p.product_code} • <span style={{cursor: role==='admin' ? 'pointer' : 'default', textDecoration: role==='admin' ? 'underline' : 'none'}} onClick={() => role==='admin' && handleEdit(p.id, 'category', p.category || "Khác", true)} title="Bấm vào để sửa Phân Loại">{p.category || "Khác"}</span>
                             </div>
-                            {p.gift_info ? <div style={{ fontSize: "9px", color: "#059669", fontWeight: "bold" }}>🎁 Tặng: {p.gift_info}</div> : (role === 'admin' && <div style={{ fontSize: "9px", color: "#cbd5e1", cursor: "pointer" }} onClick={()=>handleEdit(p.id, 'gift_info', '', true)}>+ Thêm quà</div>)}
+
+                            {/* CHO PHÉP ADMIN CLICK VÀO QUÀ TẶNG ĐỂ SỬA/XÓA */}
+                            {p.gift_info ? (
+                              <div 
+                                style={{ fontSize: "9px", color: "#059669", fontWeight: "bold", cursor: role==='admin' ? 'pointer' : 'default' }} 
+                                onClick={() => role==='admin' && handleEdit(p.id, 'gift_info', p.gift_info, true)} 
+                                title={role === 'admin' ? "Bấm để sửa hoặc xóa quà" : ""}
+                              >
+                                🎁 Tặng: {p.gift_info}
+                              </div>
+                            ) : (
+                              role === 'admin' && <div style={{ fontSize: "9px", color: "#cbd5e1", cursor: "pointer" }} onClick={()=>handleEdit(p.id, 'gift_info', '', true)}>+ Thêm quà</div>
+                            )}
                           </td>
                           <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "13px", color: isLowStock ? "#ef4444" : "#1e293b" }}>
                             {p.stock} {isLowStock && <span title="Sắp hết hàng" style={{fontSize:"10px"}}>📉</span>}
