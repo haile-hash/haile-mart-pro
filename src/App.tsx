@@ -418,7 +418,6 @@ export default function App() {
   const uniqueExpiries = useMemo(() => Array.from(new Set(products.map(p => p.expiry_date).filter(Boolean))).sort(), [products]);
   const categories = ["Tất cả", ...Array.from(new Set(products.map(p => p.category || "Khác")))];
 
-  // --- HÀM XỬ LÝ CLICK SẮP XẾP & BỘ LỌC ---
   const requestSort = (key: string, explicitDirection?: 'asc'|'desc') => {
     let direction: 'asc' | 'desc' = explicitDirection || 'asc';
     if (!explicitDirection && sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
@@ -438,7 +437,6 @@ export default function App() {
     });
   };
 
-  // Áp dụng bộ lọc & Sắp xếp vào danh sách
   const sortedAndFilteredProducts = useMemo(() => {
     const todayTime = new Date().getTime();
     let filtered = products
@@ -464,7 +462,6 @@ export default function App() {
         return 0;
       });
     } else {
-      // Mặc định sắp xếp thông minh: Hàng sắp hết hạn lên đầu
       filtered.sort((a, b) => {
         const daysA = a.expiry_date ? (new Date(a.expiry_date).getTime() - todayTime) / 86400000 : Infinity;
         const daysB = b.expiry_date ? (new Date(b.expiry_date).getTime() - todayTime) / 86400000 : Infinity;
@@ -477,6 +474,16 @@ export default function App() {
     }
     return filtered;
   }, [products, searchTerm, selectedCategory, sortConfig, filters]);
+
+  // --- HÀM KHÔI PHỤC LẠI GROUPED HISTORY ĐỂ HIỂN THỊ NHẬT KÝ ---
+  const groupedHistory = useMemo(() => {
+    return history.reduce((groups: any, log: any) => {
+      const date = new Date(Math.floor(log.id)).toLocaleDateString('vi-VN'); 
+      if (!groups[date]) groups[date] = [];
+      groups[date].push({ ...log, t: new Date(Math.floor(log.id)).toLocaleTimeString('vi-VN') });
+      return groups;
+    }, {});
+  }, [history]);
 
   const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
 
@@ -496,7 +503,6 @@ export default function App() {
 
   const totalValue = Math.round(products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
 
-  // --- COMPONENT GIAO DIỆN BỘ LỌC CHUẨN EXCEL ---
   const renderFilterPopup = (colKey: string, title: string, uniqueValues: any[], formatVal?: (v:any)=>string) => {
     if (openFilter !== colKey) return null;
     return (
@@ -586,7 +592,7 @@ export default function App() {
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); }}>
       <style>{styles}</style>
       
-      {/* 🖨️ BIÊN LAI BÁN HÀNG GIAO DIỆN MỚI */}
+      {/* 🖨️ BIÊN LAI BÁN HÀNG */}
       {lastOrder && (
         <div className="print-only">
           <div className="print-header">
@@ -654,7 +660,7 @@ export default function App() {
         </div>
       )}
 
-      {/* 🤝 MODAL QUẢN LÝ KHÁCH HÀNG CRM MỚI */}
+      {/* 🤝 MODAL QUẢN LÝ KHÁCH HÀNG CRM */}
       {showCustomerModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "500px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
@@ -715,7 +721,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL THỐNG KÊ (CHỈ DÀNH CHO ADMIN) */}
+      {/* MODAL THỐNG KÊ */}
       {showStatsModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "400px" }}>
@@ -869,7 +875,6 @@ export default function App() {
               
               <div style={{ display: "flex", gap: "8px", marginBottom: "10px", position: "relative" }}>
                 
-                {/* 🔍 TÍNH NĂNG AUTO-SUGGEST CHO THANH TÌM KIẾM */}
                 <div style={{ position: "relative", flex: 1 }}>
                   <input 
                     placeholder="👉 QUẸT MÃ VẠCH (Hoặc gõ Tên SP để chọn)..." 
@@ -927,13 +932,10 @@ export default function App() {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr 1fr 1fr", gap: "6px", marginBottom: "6px" }}>
                     <input placeholder="Mã..." value={newCode} onChange={handleCodeChange} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
                     <input placeholder="Tên hàng..." value={newName} onChange={e => setNewName(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
-                    
-                    {/* 📁 DATALIST CHO PHÂN LOẠI */}
                     <input list="category-list" placeholder="Phân loại..." value={newCategory} onChange={e => setNewCategory(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} title="Nhập hoặc chọn danh mục" />
                     <datalist id="category-list">
                       {categories.filter(c => c !== 'Tất cả').map(c => <option key={c} value={c} />)}
                     </datalist>
-
                     <input type="number" placeholder="Giá nhập" value={newImportPrice} onChange={e => setNewImportPrice(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
                     <input type="number" placeholder="Giá bán" value={newPrice} onChange={e => setNewPrice(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
                   </div>
