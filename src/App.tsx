@@ -17,9 +17,16 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [showInputForm, setShowInputForm] = useState(false);
   
-  // THÊM STATE ĐỂ QUẢN LÝ SẮP XẾP SẢN PHẨM
+  // STATE CHO TÍNH NĂNG SẮP XẾP & BỘ LỌC EXCEL
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
-  
+  const [filterStock, setFilterStock] = useState("all"); // all, low, out
+  const [filterExpiry, setFilterExpiry] = useState("all"); // all, near
+  const [showFilterStock, setShowFilterStock] = useState(false);
+  const [showFilterExpiry, setShowFilterExpiry] = useState(false);
+
+  // STATE CHO AUTO-SUGGEST THANH TÌM KIẾM
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
   const [showDebtModal, setShowDebtModal] = useState(false);
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false); 
@@ -136,23 +143,29 @@ export default function App() {
 
   const getActualPrice = (p: any) => (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price;
 
+  // HÀM XỬ LÝ CLICK TỪ DANH SÁCH GỢI Ý
+  const handleSelectSuggest = (p: any) => {
+    if (p.stock <= 0) return alert("Đã hết hàng trong kho!");
+    const price = getActualPrice(p);
+    const exist = cart.find(item => item.product.id === p.id);
+    if (exist) {
+      const newQty = exist.qty + 1;
+      if (newQty > p.stock) return alert(`Không đủ hàng! Trong kho chỉ còn ${p.stock}.`);
+      setCart(cart.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i));
+    } else {
+      setCart([...cart, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }]);
+    }
+    setBarcodeInput("");
+    setShowSuggestions(false);
+  };
+
   const handleBarcodeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const p = products.find(prod => prod.product_code === barcodeInput.trim());
       if (p) {
-        if (p.stock <= 0) return alert("Đã hết hàng trong kho!");
-        const price = getActualPrice(p);
-        const exist = cart.find(item => item.product.id === p.id);
-        if (exist) {
-          const newQty = exist.qty + 1;
-          if (newQty > p.stock) return alert(`Không đủ hàng! Trong kho chỉ còn ${p.stock}.`);
-          setCart(cart.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i));
-        } else {
-          setCart([...cart, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }]);
-        }
-      } else alert("Mã sai!");
-      setBarcodeInput(""); 
+        handleSelectSuggest(p);
+      } else alert("Mã sai hoặc không tìm thấy!");
     }
   };
 
@@ -411,9 +424,7 @@ export default function App() {
   // --- HÀM XỬ LÝ CLICK SẮP XẾP SẢN PHẨM Ở TIÊU ĐỀ CỘT ---
   const requestSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
     setSortConfig({ key, direction });
   };
 
@@ -421,7 +432,6 @@ export default function App() {
     if (!sortConfig || sortConfig.key !== key) return <span style={{opacity: 0.3, fontSize: "9px", marginLeft:"2px"}}>↕️</span>;
     return sortConfig.direction === 'asc' ? <span style={{fontSize: "11px", marginLeft:"2px"}}>🔼</span> : <span style={{fontSize: "11px", marginLeft:"2px"}}>🔽</span>;
   };
-  // -----------------------------------------------------
 
   const totalValue = Math.round(products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
 
@@ -436,19 +446,27 @@ export default function App() {
 
   const categories = ["Tất cả", ...Array.from(new Set(products.map(p => p.category || "Khác")))];
 
-  // --- CẬP NHẬT THUẬT TOÁN SẮP XẾP SẢN PHẨM ---
+  // --- ÁP DỤNG BỘ LỌC EXCEL VÀ SẮP XẾP VÀO DANH SÁCH SẢN PHẨM ---
   const sortedAndFilteredProducts = useMemo(() => {
     const todayTime = new Date().getTime();
     let filtered = products
       .filter(p => (selectedCategory === "Tất cả" || (p.category || "Khác") === selectedCategory))
       .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(searchTerm.toLowerCase())));
 
+    // Lọc theo Tồn Kho (Dropdown Excel)
+    if (filterStock === 'low') filtered = filtered.filter(p => p.stock > 0 && p.stock < 10);
+    if (filterStock === 'out') filtered = filtered.filter(p => p.stock <= 0);
+
+    // Lọc theo HSD (Dropdown Excel)
+    if (filterExpiry === 'near') {
+        filtered = filtered.filter(p => p.expiry_date && (new Date(p.expiry_date).getTime() - todayTime) / 86400000 <= 45);
+    }
+
     if (sortConfig !== null) {
       filtered.sort((a, b) => {
         let valA = a[sortConfig.key];
         let valB = b[sortConfig.key];
 
-        // Xử lý riêng cho cột Hạn sử dụng (so sánh Date)
         if (sortConfig.key === 'expiry_date') {
             valA = a.expiry_date ? new Date(a.expiry_date).getTime() : Infinity;
             valB = b.expiry_date ? new Date(b.expiry_date).getTime() : Infinity;
@@ -459,7 +477,6 @@ export default function App() {
         return 0;
       });
     } else {
-      // Nếu không bấm bộ lọc, dùng sắp xếp Thông minh mặc định (Hết hạn lên đầu)
       filtered.sort((a, b) => {
         const daysA = a.expiry_date ? (new Date(a.expiry_date).getTime() - todayTime) / 86400000 : Infinity;
         const daysB = b.expiry_date ? (new Date(b.expiry_date).getTime() - todayTime) / 86400000 : Infinity;
@@ -471,7 +488,7 @@ export default function App() {
       });
     }
     return filtered;
-  }, [products, searchTerm, selectedCategory, sortConfig]);
+  }, [products, searchTerm, selectedCategory, sortConfig, filterStock, filterExpiry]);
 
   const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
 
@@ -547,10 +564,10 @@ export default function App() {
   const finalToPay = Math.round(Math.max(0, cartTotalAmount - (Number(voucherAmount) || 0) - (useWallet ? Math.min(customers[custPhone]?.wallet||0, Math.max(0, cartTotalAmount - (Number(voucherAmount) || 0))) : 0)));
 
   return (
-    <div>
+    <div onClick={() => { setShowFilterStock(false); setShowFilterExpiry(false); setShowSuggestions(false); }}>
       <style>{styles}</style>
       
-      {/* 🖨️ BIÊN LAI BÁN HÀNG GIAO DIỆN MỚI */}
+      {/* 🖨️ BIÊN LAI BÁN HÀNG */}
       {lastOrder && (
         <div className="print-only">
           <div className="print-header">
@@ -745,14 +762,13 @@ export default function App() {
         <div className="spring-bg" style={{ background: "#ef4444", top: "10%", left: "5%" }}></div>
         <div className="spring-bg" style={{ background: "#f59e0b", bottom: "10%", right: "5%" }}></div>
 
-        {/* POPUP THANH TOÁN QUÉT MÃ QR */}
+        {/* POPUP THANH TOÁN */}
         {isCheckoutOpen && (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
             {checkoutStep === 1 && (
               <div className="glass" style={{ padding: "25px", width: "350px" }}>
                 <h3 style={{ color: "#ef4444", margin: "0", textAlign: "center" }}>🧧 THANH TOÁN</h3>
                 
-                {/* NHẬP VOUCHER GIẢM GIÁ */}
                 <input 
                   type="number" 
                   placeholder="Nhập số tiền Voucher giảm (đ)..." 
@@ -784,7 +800,6 @@ export default function App() {
                 <h3 style={{ color: "#ef4444", margin: "0" }}>📱 THANH TOÁN QUẦY</h3>
                 <div style={{ color: "#ef4444", fontSize: "28px", fontWeight: "900", margin: "10px 0" }}>{finalToPay.toLocaleString()}đ</div>
                 
-                {/* 🧮 SIÊU MÁY TÍNH TIỀN THỐI */}
                 <div style={{ marginBottom: "15px", textAlign: "left" }}>
                   <div style={{ fontSize: "12px", color: "#64748b", fontWeight: "bold", marginBottom: "5px" }}>Tiền khách đưa:</div>
                   <input type="number" placeholder="Nhập số tiền..." value={customerGiven} onChange={e => setCustomerGiven(Number(e.target.value) || "")} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", boxSizing: "border-box", fontSize: "14px", fontWeight: "bold" }} />
@@ -814,7 +829,7 @@ export default function App() {
                 <div style={{ fontSize: "40px" }}>🌸</div><h3 style={{ color: "#10b981", margin: "10px 0" }}>Thành công!</h3>
                 <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
                   <button onClick={() => window.print()} style={{ flex: 1, padding: "12px", backgroundColor: "#ef4444", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>🖨️ In Hóa Đơn</button>
-                  <button onClick={closeCheckout} style={{ flex: 1, padding: "12px", backgroundColor: "#e2e8f0", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>Đóng</button>
+                  <button onClick={closeCheckout} style={{ flex: 1, padding: "12px", backgroundColor: "#e2e8f0", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "cursor" }}>Đóng</button>
                 </div>
               </div>
             )}
@@ -839,7 +854,6 @@ export default function App() {
             <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
               <span style={{ fontSize: "12px", fontWeight: "bold", color: "#64748b" }} title="Ca làm việc hiện tại">{shift} • {role === 'admin' ? "Quản lý" : "Thu ngân"}</span>
               
-              {/* DOANH THU & LỢI NHUẬN CỦA CA NÀY (Real-time Sync) */}
               {role === 'admin' && (
                 <div style={{ display: "flex", gap: "8px" }}>
                   <div className="stat-box">🧧 Vốn: {totalValue.toLocaleString()}đ</div>
@@ -860,14 +874,43 @@ export default function App() {
             {/* CỘT TRÁI: SẢN PHẨM */}
             <div className="glass" style={{ padding: "12px" }}>
               
-              <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
-                <input 
-                  placeholder="👉 QUẸT MÃ VẠCH (Hoặc gõ tìm kiếm)..." 
-                  value={barcodeInput} onChange={e => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeSubmit} 
-                  style={{ flex: 1, padding: "8px 12px", borderRadius: "6px", border: "2px solid #ef4444", fontSize: "14px", fontWeight: "bold", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb", color: "#b91c1c" }} 
-                />
+              <div style={{ display: "flex", gap: "8px", marginBottom: "10px", position: "relative" }}>
                 
-                {/* 3 NÚT NHẬP HÀNG SIÊU ĐẲNG */}
+                {/* 🔍 TÍNH NĂNG AUTO-SUGGEST CHO THANH TÌM KIẾM */}
+                <div style={{ position: "relative", flex: 1 }}>
+                  <input 
+                    placeholder="👉 QUẸT MÃ VẠCH (Hoặc gõ Tên SP để chọn)..." 
+                    value={barcodeInput} 
+                    onChange={e => { setBarcodeInput(e.target.value); setShowSuggestions(true); }} 
+                    onKeyDown={handleBarcodeSubmit} 
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} 
+                    style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", border: "2px solid #ef4444", fontSize: "14px", fontWeight: "bold", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb", color: "#b91c1c" }} 
+                  />
+                  
+                  {showSuggestions && barcodeInput.trim() !== "" && (
+                    <div style={{ position: "absolute", top: "100%", left: 0, right: 0, backgroundColor: "#fff", border: "1px solid #ef4444", borderRadius: "6px", marginTop: "4px", zIndex: 100, maxHeight: "250px", overflowY: "auto", boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}>
+                      {products.filter(p => p.name.toLowerCase().includes(barcodeInput.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(barcodeInput.toLowerCase()))).slice(0, 10).map((p, idx) => (
+                        <div 
+                          key={idx} 
+                          onClick={() => handleSelectSuggest(p)}
+                          style={{ padding: "8px 12px", borderBottom: "1px solid #fed7aa", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fff7ed'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <div>
+                            <div style={{ fontWeight: "bold", color: "#1e293b", fontSize: "13px" }}>{p.name}</div>
+                            <div style={{ fontSize: "10px", color: "#64748b" }}>Tồn: <b style={{color: p.stock < 10 ? "#ef4444" : "#10b981"}}>{p.stock}</b></div>
+                          </div>
+                          <div style={{ fontWeight: "bold", color: "#ef4444", fontSize: "13px" }}>{getActualPrice(p).toLocaleString()}đ</div>
+                        </div>
+                      ))}
+                      {products.filter(p => p.name.toLowerCase().includes(barcodeInput.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(barcodeInput.toLowerCase()))).length === 0 && (
+                        <div style={{ padding: "10px", textAlign: "center", color: "#94a3b8", fontSize: "12px" }}>Không tìm thấy sản phẩm</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {role === 'admin' && (
                   <div style={{ display: "flex", gap: "6px" }}>
                     <div onClick={() => setShowInputForm(!showInputForm)} style={{ padding: "8px 12px", borderRadius: "6px", fontWeight: "bold", color: "#b91c1c", cursor: "pointer", border: "1px dashed #ef4444", fontSize: "12px", display: "flex", alignItems: "center", backgroundColor: "#fef2f2" }}>
@@ -891,7 +934,13 @@ export default function App() {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr 1fr 1fr", gap: "6px", marginBottom: "6px" }}>
                     <input placeholder="Mã..." value={newCode} onChange={handleCodeChange} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
                     <input placeholder="Tên hàng..." value={newName} onChange={e => setNewName(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
-                    <input placeholder="Phân loại..." value={newCategory} onChange={e => setNewCategory(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} title="Nhập danh mục (VD: Đồ uống, Bánh kẹo)" />
+                    
+                    {/* 📁 DATALIST CHO PHÂN LOẠI SỔ DANH SÁCH */}
+                    <input list="category-list" placeholder="Phân loại..." value={newCategory} onChange={e => setNewCategory(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} title="Nhập hoặc chọn danh mục" />
+                    <datalist id="category-list">
+                      {categories.filter(c => c !== 'Tất cả').map(c => <option key={c} value={c} />)}
+                    </datalist>
+
                     <input type="number" placeholder="Giá nhập" value={newImportPrice} onChange={e => setNewImportPrice(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
                     <input type="number" placeholder="Giá bán" value={newPrice} onChange={e => setNewPrice(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
                   </div>
@@ -920,24 +969,48 @@ export default function App() {
               <div style={{ maxHeight: "calc(100vh - 200px)", overflowY: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
-                    {/* HỆ THỐNG CLICK SẮP XẾP SẢN PHẨM Ở TIÊU ĐỀ */}
                     <tr style={{ color: "#16a34a", fontSize: "10px", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}>
                       <th style={{ textAlign: "left", padding: "6px 4px", borderBottom: "2px solid #fed7aa", cursor: "pointer" }} onClick={() => requestSort('name')}>
                         SẢN PHẨM {getSortIcon('name')}
                       </th>
-                      <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa", cursor: "pointer" }} onClick={() => requestSort('stock')}>
-                        TỒN {getSortIcon('stock')}
+                      
+                      {/* 📊 BỘ LỌC EXCEL DROPDOWN CHO CỘT TỒN */}
+                      <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa", position: "relative" }}>
+                        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "4px" }}>
+                          <span style={{ cursor: "pointer" }} onClick={() => requestSort('stock')}>TỒN {getSortIcon('stock')}</span>
+                          <span style={{ cursor: "pointer", color: filterStock !== 'all' ? '#ef4444' : '#94a3b8' }} onClick={(e) => { e.stopPropagation(); setShowFilterStock(!showFilterStock); setShowFilterExpiry(false); }}>🔽</span>
+                        </div>
+                        {showFilterStock && (
+                          <div style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)", backgroundColor: "#fff", border: "1px solid #cbd5e1", borderRadius: "6px", padding: "4px", zIndex: 50, boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)", minWidth: "100px", textAlign: "left" }}>
+                            <div onClick={() => { setFilterStock('all'); setShowFilterStock(false); }} style={{ padding: "6px", fontSize: "11px", cursor: "pointer", fontWeight: filterStock === 'all' ? 'bold' : 'normal', borderBottom: "1px solid #f1f5f9", color: "#1e293b" }}>Tất cả</div>
+                            <div onClick={() => { setFilterStock('low'); setShowFilterStock(false); }} style={{ padding: "6px", fontSize: "11px", cursor: "pointer", color: "#f59e0b", fontWeight: filterStock === 'low' ? 'bold' : 'normal', borderBottom: "1px solid #f1f5f9" }}>Sắp hết (&lt;10)</div>
+                            <div onClick={() => { setFilterStock('out'); setShowFilterStock(false); }} style={{ padding: "6px", fontSize: "11px", cursor: "pointer", color: "#ef4444", fontWeight: filterStock === 'out' ? 'bold' : 'normal' }}>Hết hàng (0)</div>
+                          </div>
+                        )}
                       </th>
+
                       {role === 'admin' && (
                         <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa", cursor: "pointer" }} onClick={() => requestSort('import_price')}>
                           GIÁ VỐN {getSortIcon('import_price')}
                         </th>
                       )}
+                      
                       <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa", cursor: "pointer" }} onClick={() => requestSort('sale_price')}>
                         GIÁ BÁN {getSortIcon('sale_price')}
                       </th>
-                      <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa", lineHeight: "1.2", cursor: "pointer" }} onClick={() => requestSort('expiry_date')}>
-                        HẠN SỬ DỤNG / LƯU KHO {getSortIcon('expiry_date')}
+                      
+                      {/* 📊 BỘ LỌC EXCEL DROPDOWN CHO CỘT HSD */}
+                      <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa", lineHeight: "1.2", position: "relative" }}>
+                        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "4px" }}>
+                          <span style={{ cursor: "pointer" }} onClick={() => requestSort('expiry_date')}>HẠN SỬ DỤNG / LƯU KHO {getSortIcon('expiry_date')}</span>
+                          <span style={{ cursor: "pointer", color: filterExpiry !== 'all' ? '#ef4444' : '#94a3b8' }} onClick={(e) => { e.stopPropagation(); setShowFilterExpiry(!showFilterExpiry); setShowFilterStock(false); }}>🔽</span>
+                        </div>
+                        {showFilterExpiry && (
+                          <div style={{ position: "absolute", top: "100%", right: "0", backgroundColor: "#fff", border: "1px solid #cbd5e1", borderRadius: "6px", padding: "4px", zIndex: 50, boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)", minWidth: "120px", textAlign: "left" }}>
+                            <div onClick={() => { setFilterExpiry('all'); setShowFilterExpiry(false); }} style={{ padding: "6px", fontSize: "11px", cursor: "pointer", fontWeight: filterExpiry === 'all' ? 'bold' : 'normal', borderBottom: "1px solid #f1f5f9", color: "#1e293b" }}>Tất cả</div>
+                            <div onClick={() => { setFilterExpiry('near'); setShowFilterExpiry(false); }} style={{ padding: "6px", fontSize: "11px", cursor: "pointer", color: "#ef4444", fontWeight: filterExpiry === 'near' ? 'bold' : 'normal' }}>⚠️ Sắp/Đã hết hạn</div>
+                          </div>
+                        )}
                       </th>
                       <th style={{ textAlign: "right", padding: "6px 4px", borderBottom: "2px solid #fed7aa" }}></th>
                     </tr>
