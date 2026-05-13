@@ -455,20 +455,32 @@ export default function App() {
     .tab-btn.active { background: #ef4444; color: #fff; border-color: #ef4444; }
     .print-only { display: none; }
     
+    /* CSS RIÊNG DÀNH CHO MÁY IN BILL CHUYÊN NGHIỆP */
     @media print { 
-      body, html { background: white !important; margin: 0 !important; padding: 0 !important; } 
+      body, html { background: white !important; margin: 0 !important; padding: 0 !important; color: #000; } 
       .no-print { display: none !important; } 
       .print-only { 
         display: block !important; 
-        color: #000; 
-        font-family: monospace; 
-        width: 100%; 
-        max-width: 80mm; 
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; /* Chữ hiện đại, không chân */
+        width: 80mm; 
         margin: 0 auto; 
-        padding: 4mm; 
+        padding: 5mm; 
         box-sizing: border-box; 
         font-size: 12px;
+        line-height: 1.4;
       } 
+      .print-header { text-align: center; margin-bottom: 10px; }
+      .print-header h2 { margin: 0; font-size: 22px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
+      .print-header p { margin: 2px 0; font-size: 11px; color: #333; }
+      .print-divider { border-top: 1px dashed #000; margin: 8px 0; }
+      .print-info { font-size: 11px; display: flex; justify-content: space-between; margin-bottom: 5px; }
+      .print-item-name { font-weight: bold; text-align: left; padding-top: 5px; padding-bottom: 2px; }
+      .print-item-details { display: flex; justify-content: space-between; font-size: 11px; color: #444; padding-bottom: 5px; }
+      .print-gift { font-size: 10px; font-style: italic; color: #555; padding-left: 10px; padding-bottom: 3px; }
+      .print-totals { margin-top: 10px; font-size: 12px; }
+      .print-totals-row { display: flex; justify-content: space-between; padding: 3px 0; }
+      .print-grand-total { display: flex; justify-content: space-between; font-size: 18px; font-weight: 900; border-top: 2px dashed #000; padding-top: 8px; margin-top: 5px; }
+      .print-footer { text-align: center; font-size: 11px; margin-top: 15px; }
       @page { margin: 0; } 
     }
   `;
@@ -501,39 +513,77 @@ export default function App() {
     <div>
       <style>{styles}</style>
       
-      {/* 🖨️ BIÊN LAI BÁN HÀNG */}
+      {/* 🖨️ BIÊN LAI BÁN HÀNG GIAO DIỆN MỚI */}
       {lastOrder && (
         <div className="print-only">
-          <div style={{ textAlign: "center", marginBottom: "10px" }}>
-            <h2 style={{ margin: "0", fontSize: "20px" }}>HẢI LÊ MART</h2>
-            <div style={{ fontSize: "11px" }}>Tòa Nhà ATS, 252 Hoàng Quốc Việt, HN<br/>Hotline: 0902613899</div>
+          <div className="print-header">
+            <h2>HẢI LÊ MART</h2>
+            <p>Tòa Nhà ATS, 252 Hoàng Quốc Việt, HN</p>
+            <p>Hotline: 0902 613 899</p>
           </div>
-          <div style={{ borderTop: "1px dashed #000", margin: "5px 0" }}></div>
-          <div style={{ fontSize: "11px", display: "flex", justifyContent: "space-between" }}>
-            <div>HĐ: {lastOrder.orderId}<br/>Ngày: {lastOrder.time.split(' ')[1]}</div>
-            <div style={{ textAlign: "right" }}>TN: {role} ({shift})<br/>Giờ: {lastOrder.time.split(' ')[0]}</div>
+
+          <div className="print-divider"></div>
+
+          <div className="print-info">
+            <div>
+              <div><b>HĐ:</b> {lastOrder.orderId}</div>
+              <div><b>Ngày:</b> {lastOrder.time.split(' ')[1]} {lastOrder.time.split(' ')[0]}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div><b>Ca:</b> {shift}</div>
+              <div><b>TN:</b> {role}</div>
+            </div>
           </div>
-          <div style={{ borderTop: "1px dashed #000", margin: "5px 0" }}></div>
-          <table style={{ width: "100%", fontSize: "11px", borderCollapse: "collapse" }}>
-            <thead><tr style={{ borderBottom: "1px solid #000" }}><th style={{ textAlign: "left" }}>TÊN</th><th style={{ textAlign: "center" }}>SL</th><th style={{ textAlign: "right" }}>TIỀN</th></tr></thead>
-            <tbody>
-              {lastOrder.cart.map((item: any, idx: number) => (
-                <React.Fragment key={idx}>
-                  <tr><td colSpan={3} style={{ paddingTop: "4px", fontWeight: "bold" }}>{item.product.name}</td></tr>
-                  {item.product.gift_info && <tr><td colSpan={3} style={{ fontSize: "9px", fontStyle: "italic" }}>+ 🎁 Tặng: {item.product.gift_info}</td></tr>}
-                  <tr><td style={{ color: "#444" }}>{Math.round(getActualPrice(item.product)).toLocaleString()}</td><td style={{ textAlign: "center" }}>{item.qty}</td><td style={{ textAlign: "right" }}>{Math.round(item.qty * getActualPrice(item.product)).toLocaleString()}</td></tr>
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
-          <div style={{ borderTop: "1px solid #000", margin: "8px 0" }}></div>
-          <div style={{ fontSize: "12px", lineHeight: "1.5" }}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}><span>Cộng tiền hàng:</span><span>{Math.round(lastOrder.subTotal).toLocaleString()}đ</span></div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}><span>Thuế GTGT ({VAT_RATE*100}%):</span><span>{Math.round(lastOrder.vatTotal).toLocaleString()}đ</span></div>
-            {lastOrder.discount > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>Giảm giá (Voucher/Ví):</span><span>-{Math.round(lastOrder.discount).toLocaleString()}đ</span></div>}
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", fontWeight: "bold", borderTop: "1px dashed #000", marginTop: "5px" }}><span>{lastOrder.debtAmount > 0 ? "KHÁCH GHI NỢ:" : "THANH TOÁN:"}</span><span>{Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</span></div>
+
+          <div className="print-divider"></div>
+
+          {/* DANH SÁCH MÓN HÀNG DÙNG FLEXBOX THAY CHO BẢNG */}
+          <div style={{ width: "100%" }}>
+            {lastOrder.cart.map((item: any, idx: number) => {
+              const price = Math.round(getActualPrice(item.product));
+              const itemTotal = Math.round(item.qty * price);
+              return (
+                <div key={idx} style={{ borderBottom: "1px dotted #ccc" }}>
+                  <div className="print-item-name">{item.product.name}</div>
+                  <div className="print-item-details">
+                    <span>{item.qty} x {price.toLocaleString()}</span>
+                    <span style={{ fontWeight: "bold" }}>{itemTotal.toLocaleString()}</span>
+                  </div>
+                  {item.product.gift_info && (
+                    <div className="print-gift">+ 🎁 Tặng: {item.product.gift_info}</div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-          <div style={{ borderTop: "1px dashed #000", margin: "10px 0", textAlign: "center", fontSize: "11px" }}><b>CẢM ƠN QUÝ KHÁCH!</b><br/>{lastOrder.orderId}</div>
+
+          <div className="print-divider"></div>
+
+          <div className="print-totals">
+            <div className="print-totals-row">
+              <span>Cộng tiền hàng:</span>
+              <span>{Math.round(lastOrder.subTotal).toLocaleString()}đ</span>
+            </div>
+            <div className="print-totals-row">
+              <span>Thuế GTGT ({VAT_RATE * 100}%):</span>
+              <span>{Math.round(lastOrder.vatTotal).toLocaleString()}đ</span>
+            </div>
+            {lastOrder.discount > 0 && (
+              <div className="print-totals-row">
+                <span>Giảm giá/Ví:</span>
+                <span>-{Math.round(lastOrder.discount).toLocaleString()}đ</span>
+              </div>
+            )}
+            <div className="print-grand-total">
+              <span>{lastOrder.debtAmount > 0 ? "KHÁCH NỢ:" : "TỔNG CỘNG:"}</span>
+              <span>{Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</span>
+            </div>
+          </div>
+
+          <div className="print-footer">
+            <div><b>CẢM ƠN QUÝ KHÁCH & HẸN GẶP LẠI!</b></div>
+            <div style={{ marginTop: "5px", fontSize: "10px", color: "#666" }}><i>Powered by Hải Lê POS</i></div>
+          </div>
         </div>
       )}
 
