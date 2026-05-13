@@ -17,7 +17,6 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [showInputForm, setShowInputForm] = useState(false);
   
-  // --- TÍNH NĂNG BỘ LỌC CHUẨN EXCEL ---
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
   const [openFilter, setOpenFilter] = useState<string | null>(null);
   const [filters, setFilters] = useState<Record<string, any[]>>({});
@@ -27,6 +26,15 @@ export default function App() {
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false); 
   const [showHandoverModal, setShowHandoverModal] = useState(false);
+  
+  // STATE CHO TÍNH NĂNG MỚI
+  const [showHoldModal, setShowHoldModal] = useState(false);
+  const [showBarcodeModal, setShowBarcodeModal] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [scannedCode, setScannedCode] = useState("");
+  const [printBarcodeProduct, setPrintBarcodeProduct] = useState<any>(null);
+  const [barcodeCount, setBarcodeCount] = useState<number>(30);
+  const [printMode, setPrintMode] = useState<'receipt' | 'barcode' | null>(null);
 
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
@@ -44,6 +52,11 @@ export default function App() {
   const [customers, setCustomers] = useState<any>(() => {
     const saved = localStorage.getItem("mart_customers");
     return saved ? JSON.parse(saved) : {}; 
+  });
+  
+  const [heldOrders, setHeldOrders] = useState<any[]>(() => {
+    const saved = localStorage.getItem("mart_held_orders");
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -65,7 +78,8 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("mart_history", JSON.stringify(history));
     localStorage.setItem("mart_customers", JSON.stringify(customers));
-  }, [history, customers]);
+    localStorage.setItem("mart_held_orders", JSON.stringify(heldOrders));
+  }, [history, customers, heldOrders]);
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -77,6 +91,48 @@ export default function App() {
       return () => { supabase.removeChannel(channel); };
     }
   }, [isLoggedIn]);
+
+  // HỆ THỐNG CAMERA SCANNER
+  useEffect(() => {
+    if (showScanner) {
+      let scanner: any;
+      const loadScanner = () => {
+        if ((window as any).Html5QrcodeScanner) {
+           scanner = new (window as any).Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: 250 });
+           scanner.render((text: string) => {
+               setScannedCode(text);
+               scanner.clear();
+               setShowScanner(false);
+           }, undefined);
+        }
+      };
+
+      if (!(window as any).Html5QrcodeScanner) {
+         const script = document.createElement("script");
+         script.src = "https://unpkg.com/html5-qrcode";
+         script.onload = loadScanner;
+         document.head.appendChild(script);
+      } else loadScanner();
+
+      return () => { if (scanner) scanner.clear().catch(()=>{}); };
+    }
+  }, [showScanner]);
+
+  useEffect(() => {
+    if (scannedCode) {
+      const p = products.find(prod => prod.product_code === scannedCode.trim());
+      if (p) handleSelectSuggest(p);
+      else alert(`Không tìm thấy mã vạch: ${scannedCode}`);
+      setScannedCode("");
+    }
+  }, [scannedCode, products]);
+
+  // LÀM SẠCH CHẾ ĐỘ IN SAU KHI IN XONG
+  useEffect(() => {
+    const handleAfterPrint = () => setPrintMode(null);
+    window.addEventListener("afterprint", handleAfterPrint);
+    return () => window.removeEventListener("afterprint", handleAfterPrint);
+  }, []);
 
   const fetchProducts = async () => {
     const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false });
@@ -138,6 +194,25 @@ export default function App() {
   };
 
   const getActualPrice = (p: any) => (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price;
+
+  // LƯU TẠM HÓA ĐƠN
+  const handleHoldOrder = () => {
+    if (cart.length === 0) return;
+    const newOrder = { id: Date.now(), time: new Date().toLocaleTimeString('vi-VN'), cart: [...cart] };
+    setHeldOrders(prev => [...prev, newOrder]);
+    setCart([]);
+  };
+
+  const restoreOrder = (order: any) => {
+    if (cart.length > 0) return alert("Vui lòng thanh toán hoặc hủy giỏ hàng hiện tại trước khi mở đơn lưu tạm!");
+    setCart(order.cart);
+    setHeldOrders(prev => prev.filter(o => o.id !== order.id));
+    setShowHoldModal(false);
+  };
+
+  const deleteHeldOrder = (id: any) => {
+    setHeldOrders(prev => prev.filter(o => o.id !== id));
+  };
 
   const handleSelectSuggest = (p: any) => {
     if (p.stock <= 0) return alert("Đã hết hàng trong kho!");
@@ -410,7 +485,17 @@ export default function App() {
     }
   };
 
-  // --- TRÍCH XUẤT DỮ LIỆU DUY NHẤT CHO BỘ LỌC CHUẨN EXCEL ---
+  // IN TEM MÃ VẠCH
+  const handlePrintBarcode = (p: any) => {
+    const q = window.prompt(`Nhập số lượng tem cần in cho: ${p.name}`, "30");
+    if (q && parseInt(q) > 0) {
+      setPrintBarcodeProduct(p);
+      setBarcodeCount(parseInt(q));
+      setPrintMode('barcode');
+      setTimeout(() => window.print(), 500);
+    }
+  };
+
   const uniqueNames = useMemo(() => Array.from(new Set(products.map(p => p.name))).sort(), [products]);
   const uniqueStocks = useMemo(() => Array.from(new Set(products.map(p => p.stock))).sort((a,b)=>a-b), [products]);
   const uniqueImportPrices = useMemo(() => Array.from(new Set(products.map(p => p.import_price || 0))).sort((a,b)=>a-b), [products]);
@@ -475,7 +560,6 @@ export default function App() {
     return filtered;
   }, [products, searchTerm, selectedCategory, sortConfig, filters]);
 
-  // --- HÀM KHÔI PHỤC LẠI GROUPED HISTORY ĐỂ HIỂN THỊ NHẬT KÝ ---
   const groupedHistory = useMemo(() => {
     return history.reduce((groups: any, log: any) => {
       const date = new Date(Math.floor(log.id)).toLocaleDateString('vi-VN'); 
@@ -545,7 +629,11 @@ export default function App() {
     @media print { 
       body, html { background: white !important; margin: 0 !important; padding: 0 !important; color: #000; } 
       .no-print { display: none !important; } 
-      .print-only { display: block !important; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; width: 80mm; margin: 0 auto; padding: 5mm; box-sizing: border-box; font-size: 12px; line-height: 1.4; } 
+      
+      .print-only.print-receipt { 
+        display: block !important; 
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; width: 80mm; margin: 0 auto; padding: 5mm; box-sizing: border-box; font-size: 12px; line-height: 1.4; 
+      }
       .print-header { text-align: center; margin-bottom: 10px; }
       .print-header h2 { margin: 0; font-size: 22px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
       .print-header p { margin: 2px 0; font-size: 11px; color: #333; }
@@ -558,6 +646,22 @@ export default function App() {
       .print-totals-row { display: flex; justify-content: space-between; padding: 3px 0; }
       .print-grand-total { display: flex; justify-content: space-between; font-size: 18px; font-weight: 900; border-top: 2px dashed #000; padding-top: 8px; margin-top: 5px; }
       .print-footer { text-align: center; font-size: 11px; margin-top: 15px; }
+      
+      .print-only.print-barcode-sheet {
+        display: flex !important;
+        flex-wrap: wrap;
+        gap: 15px;
+        justify-content: center;
+        padding: 10mm;
+      }
+      .barcode-sticker {
+        width: 30%;
+        text-align: center;
+        margin-bottom: 15px;
+        border: 1px dashed #ccc;
+        padding: 5px;
+      }
+
       @page { margin: 0; } 
     }
   `;
@@ -592,9 +696,9 @@ export default function App() {
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); }}>
       <style>{styles}</style>
       
-      {/* 🖨️ BIÊN LAI BÁN HÀNG */}
-      {lastOrder && (
-        <div className="print-only">
+      {/* 🖨️ BIÊN LAI BÁN HÀNG (Sẽ bị ẩn nếu đang ở chế độ in Tem) */}
+      {lastOrder && printMode !== 'barcode' && (
+        <div className="print-only print-receipt">
           <div className="print-header">
             <h2>HẢI LÊ MART</h2>
             <p>Tòa Nhà ATS, 252 Hoàng Quốc Việt, HN</p>
@@ -635,6 +739,47 @@ export default function App() {
           <div className="print-footer">
             <div><b>CẢM ƠN QUÝ KHÁCH & HẸN GẶP LẠI!</b></div>
             <div style={{ marginTop: "5px", fontSize: "10px", color: "#666" }}><i>Powered by Hải Lê POS</i></div>
+          </div>
+        </div>
+      )}
+
+      {/* 🖨️ TRANG IN TEM MÃ VẠCH (Chỉ hiện khi bấm In Tem) */}
+      {printMode === 'barcode' && printBarcodeProduct && (
+        <div className="print-only print-barcode-sheet">
+          {Array.from({length: barcodeCount}).map((_, i) => (
+            <div key={i} className="barcode-sticker">
+              <div style={{fontSize: "12px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"}}>{printBarcodeProduct.name}</div>
+              <img src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${printBarcodeProduct.product_code}&scale=2&height=10&includetext=true`} style={{maxWidth: "100%", height: "50px", marginTop: "5px"}} alt="barcode" />
+              <div style={{fontSize: "14px", fontWeight: "900", color: "#000", marginTop: "2px"}}>{getActualPrice(printBarcodeProduct).toLocaleString()}đ</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* MODAL MỞ ĐƠN LƯU TẠM */}
+      {showHoldModal && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div className="glass" style={{ padding: "25px", width: "400px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #fed7aa", paddingBottom: "10px", marginBottom: "10px" }}>
+              <h2 style={{ margin: 0, color: "#f59e0b" }}>📂 ĐƠN CHỜ THANH TOÁN</h2>
+              <button onClick={() => setShowHoldModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
+            </div>
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              {heldOrders.length === 0 && <div style={{textAlign: "center", color: "#94a3b8", marginTop: "20px"}}>Không có đơn hàng nào lưu tạm.</div>}
+              {heldOrders.map((order, idx) => (
+                <div key={order.id} style={{ padding: "10px", borderBottom: "1px dashed #cbd5e1", display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "#fffbeb", borderRadius: "8px", marginBottom: "8px" }}>
+                  <div>
+                    <div style={{ fontWeight: "bold", color: "#1e293b" }}>Đơn #{idx + 1}</div>
+                    <div style={{ fontSize: "11px", color: "#64748b" }}>⏰ Lưu lúc: {order.time}</div>
+                    <div style={{ fontSize: "11px", color: "#b91c1c", fontWeight: "bold" }}>Gồm {order.cart.reduce((s:any,i:any)=>s+i.qty,0)} sản phẩm</div>
+                  </div>
+                  <div style={{ display: "flex", gap: "4px" }}>
+                    <button onClick={() => restoreOrder(order)} style={{ padding: "6px 10px", background: "#10b981", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "11px" }}>MỞ LẠI</button>
+                    <button onClick={() => deleteHeldOrder(order.id)} style={{ padding: "6px", background: "#fee2e2", color: "#ef4444", border: "1px solid #fca5a5", borderRadius: "6px", cursor: "pointer", fontSize: "11px" }}>🗑️</button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -757,6 +902,17 @@ export default function App() {
         </div>
       )}
 
+      {/* 📷 CAMERA SCANNER OVERLAY */}
+      {showScanner && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.9)", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", zIndex: 10000 }}>
+          <div style={{ background: "#fff", padding: "10px", borderRadius: "12px", width: "90%", maxWidth: "400px" }}>
+            <h3 style={{ margin: "0 0 10px 0", textAlign: "center", color: "#b91c1c" }}>📷 Đưa mã vạch vào khung</h3>
+            <div id="qr-reader" style={{ width: "100%" }}></div>
+            <button onClick={() => setShowScanner(false)} style={{ width: "100%", padding: "12px", marginTop: "15px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" }}>ĐÓNG CAMERA</button>
+          </div>
+        </div>
+      )}
+
       <div className="no-print" style={{ padding: "10px", position: "relative", minHeight: "100vh" }}>
         <div className="spring-bg" style={{ background: "#ef4444", top: "10%", left: "5%" }}></div>
         <div className="spring-bg" style={{ background: "#f59e0b", bottom: "10%", right: "5%" }}></div>
@@ -827,7 +983,7 @@ export default function App() {
               <div className="glass" style={{ padding: "30px", width: "350px", textAlign: "center" }}>
                 <div style={{ fontSize: "40px" }}>🌸</div><h3 style={{ color: "#10b981", margin: "10px 0" }}>Thành công!</h3>
                 <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
-                  <button onClick={() => window.print()} style={{ flex: 1, padding: "12px", backgroundColor: "#ef4444", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>🖨️ In Hóa Đơn</button>
+                  <button onClick={() => { setPrintMode('receipt'); setTimeout(()=>window.print(), 300); }} style={{ flex: 1, padding: "12px", backgroundColor: "#ef4444", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>🖨️ In Hóa Đơn</button>
                   <button onClick={closeCheckout} style={{ flex: 1, padding: "12px", backgroundColor: "#e2e8f0", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>Đóng</button>
                 </div>
               </div>
@@ -875,15 +1031,17 @@ export default function App() {
               
               <div style={{ display: "flex", gap: "8px", marginBottom: "10px", position: "relative" }}>
                 
-                <div style={{ position: "relative", flex: 1 }}>
+                <div style={{ position: "relative", flex: 1, display: "flex" }}>
                   <input 
                     placeholder="👉 QUẸT MÃ VẠCH (Hoặc gõ Tên SP để chọn)..." 
                     value={barcodeInput} 
                     onChange={e => { setBarcodeInput(e.target.value); setShowSuggestions(true); }} 
                     onKeyDown={handleBarcodeSubmit} 
                     onClick={() => setShowSuggestions(true)}
-                    style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", border: "2px solid #ef4444", fontSize: "14px", fontWeight: "bold", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb", color: "#b91c1c" }} 
+                    style={{ flex: 1, padding: "8px 12px", borderRadius: "6px 0 0 6px", border: "2px solid #ef4444", fontSize: "14px", fontWeight: "bold", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb", color: "#b91c1c" }} 
                   />
+                  {/* 📷 NÚT BẬT CAMERA QUÉT MÃ VẠCH TRỰC TIẾP */}
+                  <button onClick={() => setShowScanner(true)} style={{ padding: "0 15px", backgroundColor: "#ef4444", border: "none", borderRadius: "0 6px 6px 0", cursor: "pointer", color: "white", fontSize: "18px" }} title="Quét mã bằng Camera">📷</button>
                   
                   {showSuggestions && barcodeInput.trim() !== "" && (
                     <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: 0, right: 0, backgroundColor: "#fff", border: "1px solid #ef4444", borderRadius: "6px", marginTop: "4px", zIndex: 100, maxHeight: "250px", overflowY: "auto", boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}>
@@ -949,7 +1107,6 @@ export default function App() {
                 </form>
               )}
 
-              {/* TABS PHÂN LOẠI DANH MỤC */}
               <div style={{ display: "flex", gap: "6px", marginBottom: "10px", overflowX: "auto", paddingBottom: "4px" }}>
                 {categories.map(cat => (
                   <button key={cat} onClick={() => setSelectedCategory(cat)} className={`tab-btn ${selectedCategory === cat ? 'active' : ''}`}>{cat}</button>
@@ -965,8 +1122,6 @@ export default function App() {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ color: "#16a34a", fontSize: "10px", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}>
-                      
-                      {/* BỘ LỌC CHUẨN EXCEL TẠI CÁC CỘT */}
                       <th style={{ textAlign: "left", padding: "6px 4px", borderBottom: "2px solid #fed7aa", position: "relative" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "4px", cursor: "pointer", width: "max-content" }} onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === 'name' ? null : 'name'); }}>
                            <span>SẢN PHẨM {getSortIcon('name')}</span>
@@ -1046,7 +1201,14 @@ export default function App() {
                             <div style={{color: isNearExpiry ? "#ef4444" : "#b91c1c", fontWeight: "bold", cursor: role==='admin'?"pointer":"default"}} onClick={()=> role==='admin' && handleEdit(p.id,'expiry_date',p.expiry_date,true)}>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : "---"}</div>
                             <div style={{color: "#64748b"}}>{d} ngày lưu kho</div>
                           </td>
-                          <td style={{ textAlign: "right", padding: "8px 4px" }}><div style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}><button onClick={() => addToCart(p)} style={{ padding: "4px 8px", backgroundColor: "#fbbf24", color: "#78350f", border: "none", borderRadius: "4px", fontWeight: "bold", cursor: "pointer", fontSize: "10px" }}>+ GIỎ</button>{role === 'admin' && <button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "12px" }}>🗑️</button>}</div></td>
+                          <td style={{ textAlign: "right", padding: "8px 4px" }}>
+                            <div style={{ display: "flex", justifyContent: "flex-end", gap: "4px" }}>
+                              <button onClick={() => addToCart(p)} style={{ padding: "4px 8px", backgroundColor: "#fbbf24", color: "#78350f", border: "none", borderRadius: "4px", fontWeight: "bold", cursor: "pointer", fontSize: "10px" }}>+ GIỎ</button>
+                              {/* 🖨️ NÚT IN TEM MÃ VẠCH CHO ADMIN */}
+                              {role === 'admin' && <button onClick={() => handlePrintBarcode(p)} style={{ padding: "4px 6px", backgroundColor: "#e2e8f0", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "10px" }} title="In tem mã vạch">🖨️ Tem</button>}
+                              {role === 'admin' && <button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "12px", padding: 0 }}>🗑️</button>}
+                            </div>
+                          </td>
                         </tr>
                       )
                     })}
@@ -1060,7 +1222,12 @@ export default function App() {
               <div className="glass" style={{ padding: "12px", maxHeight: "40vh", display: "flex", flexDirection: "column" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                   <h3 style={{ margin: 0, color: "#ef4444", fontSize: "13px" }}>🛒 GIỎ HÀNG ({cart.length})</h3>
-                  {cart.length > 0 && <button onClick={() => { if(window.confirm("Hủy toàn bộ giỏ?")) setCart([]) }} style={{ fontSize: "9px", padding: "2px 6px", background: "#fee2e2", color: "#ef4444", border: "1px solid #fca5a5", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>🗑️ HỦY HẾT</button>}
+                  <div style={{ display: "flex", gap: "4px" }}>
+                    {/* 📂 NÚT XEM ĐƠN LƯU TẠM & LƯU TẠM */}
+                    {heldOrders.length > 0 && <button onClick={() => setShowHoldModal(true)} style={{ fontSize: "9px", padding: "2px 6px", background: "#fef3c7", color: "#d97706", border: "1px solid #fde68a", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>📂 TẠM LƯU ({heldOrders.length})</button>}
+                    {cart.length > 0 && <button onClick={handleHoldOrder} style={{ fontSize: "9px", padding: "2px 6px", background: "#ffedd5", color: "#ea580c", border: "1px solid #fdba74", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>⏸️ LƯU TẠM</button>}
+                    {cart.length > 0 && <button onClick={() => { if(window.confirm("Hủy toàn bộ giỏ?")) setCart([]) }} style={{ fontSize: "9px", padding: "2px 6px", background: "#fee2e2", color: "#ef4444", border: "1px solid #fca5a5", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>🗑️ HỦY HẾT</button>}
+                  </div>
                 </div>
                 
                 <div style={{ flex: 1, overflowY: "auto", marginBottom: "8px", paddingRight: "4px" }}>
