@@ -26,7 +26,7 @@ export default function App() {
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false); 
   const [showHandoverModal, setShowHandoverModal] = useState(false);
-  const [showAuditModal, setShowAuditModal] = useState(false); // MODAL NHẬT KÝ THAO TÁC
+  const [showAuditModal, setShowAuditModal] = useState(false);
   
   const [showHoldModal, setShowHoldModal] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
@@ -58,7 +58,6 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // STATE NHẬT KÝ THAO TÁC CHỐNG GIAN LẬN
   const [auditLogs, setAuditLogs] = useState<any[]>(() => {
     const saved = localStorage.getItem("mart_audit");
     return saved ? JSON.parse(saved) : [];
@@ -98,7 +97,6 @@ export default function App() {
     }
   }, [isLoggedIn]);
 
-  // HỆ THỐNG CAMERA SCANNER
   useEffect(() => {
     if (showScanner) {
       let scanner: any;
@@ -137,7 +135,6 @@ export default function App() {
     return () => window.removeEventListener("afterprint", handleAfterPrint);
   }, []);
 
-  // 🎵 HỆ THỐNG ÂM THANH POS
   const playSound = (type: 'success' | 'error') => {
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -160,10 +157,9 @@ export default function App() {
     } catch(e) {}
   };
 
-  // 🕵️ HÀM GHI NHẬT KÝ KIỂM TOÁN
   const logAudit = (action: string, detail: string) => {
     const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user: role === 'admin' ? 'Quản lý' : 'Thu ngân', shift, action, detail };
-    setAuditLogs(prev => [newLog, ...prev].slice(0, 200)); // Lưu tối đa 200 hành động gần nhất
+    setAuditLogs(prev => [newLog, ...prev].slice(0, 200)); 
   };
 
   const fetchProducts = async () => {
@@ -195,20 +191,20 @@ export default function App() {
     } else alert("Sai tài khoản hoặc mật khẩu!");
   };
 
+  const handleLogoutClick = () => setShowHandoverModal(true);
+
   const confirmHandover = () => {
     logAudit("CHỐT CA", `Doanh thu bàn giao: ${currentShiftStats.rev.toLocaleString()}đ`);
     setIsLoggedIn(false); setShowHandoverModal(false);
     localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role");
   };
 
-  // 🌙 THUẬT TOÁN HAPPY HOUR & LẤY GIÁ
   const getActualPrice = (p: any) => {
     let price = (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price;
     const currentHour = new Date().getHours();
-    // Giảm 20% cho Đồ ăn liền & Bánh kẹo từ 20h tối đến 6h sáng
     if ((currentHour >= 20 || currentHour < 6) && (p.category === 'Đồ ăn liền' || p.category === 'Bánh Kẹo')) {
        price = price * 0.8;
-       p.isHappyHour = true; // Dán nhãn tạm để in bill
+       p.isHappyHour = true; 
     } else {
        p.isHappyHour = false;
     }
@@ -312,6 +308,24 @@ export default function App() {
 
   const cartTotalAmount = cart.reduce((sum, item) => sum + item.total, 0);
 
+  // === KHÔI PHỤC LẠI HÀM XỬ LÝ NHẬP SỐ ĐIỆN THOẠI QUAN TRỌNG ĐÃ BỊ THẤT LẠC ===
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const phone = e.target.value; 
+    setCustPhone(phone);
+    if (customers[phone]) {
+      setCustName(customers[phone].name);
+    } else { 
+      setCustName(""); 
+      setUseWallet(false); 
+    }
+  };
+  // ==============================================================================
+
+  const handleNextToQR = () => {
+    if (custPhone && !customers[custPhone] && !custName) return alert("Nhập Tên khách hàng!");
+    setCheckoutStep(2);
+  };
+
   const confirmCheckout = async (isDebt: boolean = false) => {
     if (isDebt && !custPhone) return alert("Ghi nợ bắt buộc phải nhập SĐT khách hàng!");
     setLoading(true);
@@ -369,8 +383,9 @@ export default function App() {
     updatedHistory[logIndex].type = 'ĐÃ HOÀN TRẢ';
     updatedHistory.unshift({ id: Date.now(), shift: shift, type: "TRẢ HÀNG", name: log.name, qty: log.qty, total: -log.total, profit: -log.profit, customer: log.customer });
     
+    setHistory(updatedHistory);
+    fetchProducts();
     logAudit("TRẢ HÀNG", `Hoàn trả ${log.name} trị giá ${log.total.toLocaleString()}đ`);
-    setHistory(updatedHistory); fetchProducts();
     alert("Hoàn trả thành công! Hàng đã nhập lại kho, tiền sẽ tự động trừ khỏi doanh thu ca.");
   };
 
@@ -471,6 +486,40 @@ export default function App() {
       setPrintBarcodeProduct(p); setBarcodeCount(parseInt(q)); setPrintMode('barcode');
       setTimeout(() => window.print(), 500);
     }
+  };
+
+  const downloadSampleCSV = () => {
+    const csv = "\uFEFFMã SP,Tên SP,Danh Mục,Giá Nhập,Giá Bán,Giá KM,Quà Tặng,Số Lượng,Hạn Sử Dụng (YYYY-MM-DD)\nSP001,Mì Hảo Hảo,Đồ ăn liền,3000,5000,0,,100,2026-12-31\nSP002,Nước suối TH,Đồ uống,4000,6000,0,,50,2026-06-15";
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Mau_Nhap_Kho_Hai_Le_Mart.csv`;
+    link.click();
+  };
+
+  const exportToCSV = () => {
+    if (history.length === 0) return alert("Chưa có lịch sử!");
+    let csv = "\uFEFFGiờ,Ca Làm Việc,Loại,Khách,Sản phẩm,SL,Tổng(VAT),Lợi nhuận\n";
+    history.forEach(log => {
+      const time = new Date(Math.floor(log.id)).toLocaleString('vi-VN');
+      csv += `${time},${log.shift || "Không rõ"},${log.type},${log.customer || "Khách lẻ"},${log.name},${log.qty},${Math.round(log.total)},${Math.round(log.profit || 0)}\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Bao_Cao_Hai_Le_Mart.csv`;
+    link.click();
+  };
+
+  const handleSendEmailReport = () => {
+    const todayStr = new Date().toLocaleDateString('vi-VN');
+    const logs = history.filter(log => new Date(Math.floor(log.id)).toLocaleDateString('vi-VN') === todayStr);
+    if (logs.length === 0) return alert("Chưa có giao dịch!");
+    let rev = 0, prof = 0, sold = 0;
+    logs.forEach(l => { if(l.type==='BÁN'){ rev += l.total; prof += (l.profit||0); sold += l.qty; } });
+    const sub = encodeURIComponent(`Báo Cáo Hải Lê Mart - Ngày ${todayStr}`);
+    const body = encodeURIComponent(`Báo cáo TỔNG NGÀY ${todayStr}:\n- Đã bán: ${sold} món\n- Doanh thu (có VAT): ${Math.round(rev).toLocaleString()}đ\n- Lợi nhuận: ${Math.round(prof).toLocaleString()}đ`);
+    window.location.href = `mailto:lehonghaikt6@gmail.com?subject=${sub}&body=${body}`;
   };
 
   const uniqueNames = useMemo(() => Array.from(new Set(products.map(p => p.name))).sort(), [products]);
@@ -599,7 +648,11 @@ export default function App() {
     @media print { 
       body, html { background: white !important; margin: 0 !important; padding: 0 !important; color: #000; } 
       .no-print { display: none !important; } 
-      .print-only.print-receipt { display: block !important; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; width: 80mm; margin: 0 auto; padding: 5mm; box-sizing: border-box; font-size: 12px; line-height: 1.4; }
+      
+      .print-only.print-receipt { 
+        display: block !important; 
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; width: 80mm; margin: 0 auto; padding: 5mm; box-sizing: border-box; font-size: 12px; line-height: 1.4; 
+      }
       .print-header { text-align: center; margin-bottom: 10px; }
       .print-header h2 { margin: 0; font-size: 22px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
       .print-header p { margin: 2px 0; font-size: 11px; color: #333; }
@@ -612,8 +665,22 @@ export default function App() {
       .print-totals-row { display: flex; justify-content: space-between; padding: 3px 0; }
       .print-grand-total { display: flex; justify-content: space-between; font-size: 18px; font-weight: 900; border-top: 2px dashed #000; padding-top: 8px; margin-top: 5px; }
       .print-footer { text-align: center; font-size: 11px; margin-top: 15px; }
-      .print-only.print-barcode-sheet { display: flex !important; flex-wrap: wrap; gap: 15px; justify-content: center; padding: 10mm; }
-      .barcode-sticker { width: 30%; text-align: center; margin-bottom: 15px; border: 1px dashed #ccc; padding: 5px; }
+      
+      .print-only.print-barcode-sheet {
+        display: flex !important;
+        flex-wrap: wrap;
+        gap: 15px;
+        justify-content: center;
+        padding: 10mm;
+      }
+      .barcode-sticker {
+        width: 30%;
+        text-align: center;
+        margin-bottom: 15px;
+        border: 1px dashed #ccc;
+        padding: 5px;
+      }
+
       @page { margin: 0; } 
     }
   `;
@@ -648,7 +715,7 @@ export default function App() {
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); }}>
       <style>{styles}</style>
       
-      {/* 🖨️ BIÊN LAI BÁN HÀNG */}
+      {/* 🖨️ BIÊN LAI BÁN HÀNG (Sẽ bị ẩn nếu đang ở chế độ in Tem) */}
       {lastOrder && printMode !== 'barcode' && (
         <div className="print-only print-receipt">
           <div className="print-header">
@@ -695,7 +762,7 @@ export default function App() {
         </div>
       )}
 
-      {/* 🖨️ TRANG IN TEM MÃ VẠCH */}
+      {/* 🖨️ TRANG IN TEM MÃ VẠCH (Chỉ hiện khi bấm In Tem) */}
       {printMode === 'barcode' && printBarcodeProduct && (
         <div className="print-only print-barcode-sheet">
           {Array.from({length: barcodeCount}).map((_, i) => (
@@ -903,9 +970,15 @@ export default function App() {
               <div className="glass" style={{ padding: "25px", width: "350px" }}>
                 <h3 style={{ color: "#ef4444", margin: "0", textAlign: "center" }}>🧧 THANH TOÁN</h3>
                 
-                <input type="number" placeholder="Nhập số tiền Voucher giảm (đ)..." value={voucherAmount} onChange={(e) => setVoucherAmount(parseInt(e.target.value) || "")} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px dashed #f59e0b", marginTop: "15px", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb" }} />
+                <input 
+                  type="number" 
+                  placeholder="Nhập số tiền Voucher giảm (đ)..." 
+                  value={voucherAmount} 
+                  onChange={(e) => setVoucherAmount(parseInt(e.target.value) || "")} 
+                  style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px dashed #f59e0b", marginTop: "15px", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb" }} 
+                />
+
                 <input type="text" placeholder="Số điện thoại khách (nếu có)..." value={custPhone} onChange={handlePhoneChange} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px solid #ef4444", marginTop: "10px", outline: "none", boxSizing: "border-box" }} />
-                
                 {custPhone && (
                   <div style={{ marginTop: "10px", padding: "12px", backgroundColor: "#fff7ed", borderRadius: "8px", border: "1px dashed #f97316" }}>
                     {customers[custPhone] ? (
@@ -1152,7 +1225,7 @@ export default function App() {
                       return (
                         <tr key={p.id} style={{ borderBottom: "1px solid #fed7aa", backgroundColor: isNearExpiry ? "#fef2f2" : "transparent" }}>
                           <td style={{ padding: "8px 4px" }}>
-                            <div style={{fontSize: "13px", fontWeight: "bold"}}>{p.name} {isNearExpiry && <span style={{color: "#ef4444", fontSize: "9px", border: "1px solid #ef4444", padding: "1px 2px", borderRadius: "2px"}}>⚠️</span>}</div>
+                            <div style={{fontSize: "13px", fontWeight: "bold"}}>{p.name} {isNearExpiry && <span style={{color: "#ef4444", fontSize: "9px", border: "1px solid #ef4444", padding: "1px 2px", borderRadius: "2px"}}>⚠️</span>} {p.isHappyHour && <span style={{color: "#ea580c", fontSize: "9px", fontStyle:"italic"}}>[Giờ Vàng]</span>}</div>
                             <div style={{fontSize: "9px", color: "#94a3b8"}}>
                               {p.product_code} • <span style={{cursor: role==='admin' ? 'pointer' : 'default', textDecoration: role==='admin' ? 'underline' : 'none'}} onClick={() => role==='admin' && handleEdit(p.id, 'category', p.category || "Khác", true)} title="Bấm vào để sửa Phân Loại">{p.category || "Khác"}</span>
                             </div>
