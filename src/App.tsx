@@ -44,6 +44,7 @@ export default function App() {
   const [custPhone, setCustPhone] = useState("");
   const [custName, setCustName] = useState("");
   const [useWallet, setUseWallet] = useState(false);
+  const [voucherAmount, setVoucherAmount] = useState<number | "">(""); // THÊM STATE VOUCHER
   const [lastOrder, setLastOrder] = useState<any>(null);
 
   const [history, setHistory] = useState<any[]>(() => {
@@ -130,7 +131,6 @@ export default function App() {
 
   const getActualPrice = (p: any) => (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price;
 
-  // CHẶN BÁN KHỐNG KHI QUẸT MÃ VẠCH
   const handleBarcodeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -151,7 +151,6 @@ export default function App() {
     }
   };
 
-  // CHẶN BÁN KHỐNG KHI BẤM NÚT "+ GIỎ" VÀ NHẬP SỐ LƯỢNG
   const addToCart = (p: any) => {
     if (p.stock <= 0) return alert("Đã hết hàng trong kho!");
     const q = window.prompt(`Số lượng ${p.name} (Tồn: ${p.stock}):`, "1");
@@ -169,7 +168,6 @@ export default function App() {
     }
   };
 
-  // CHẶN BÁN KHỐNG KHI BẤM DẤU CỘNG TRONG GIỎ HÀNG
   const adjustCartQty = (productId: any, delta: number) => {
     let exceedStock = false;
     let stockLimit = 0;
@@ -181,7 +179,7 @@ export default function App() {
           if (newQty > item.product.stock) {
             exceedStock = true;
             stockLimit = item.product.stock;
-            return item; // Trả về nguyên trạng, không tăng thêm
+            return item; 
           }
           const price = getActualPrice(item.product);
           return { ...item, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (item.product.import_price||0))) };
@@ -192,7 +190,6 @@ export default function App() {
     });
     
     if (exceedStock) {
-        // Dùng setTimeout để đảm bảo alert không bị block React state update
         setTimeout(() => alert(`Vượt quá tồn kho! Món này chỉ còn tối đa ${stockLimit} sản phẩm.`), 10);
     }
   };
@@ -211,18 +208,24 @@ export default function App() {
     setCheckoutStep(2);
   };
 
+  // CẬP NHẬT TÍNH TOÁN VOUCHER
   const confirmCheckout = async (isDebt: boolean = false) => {
     if (isDebt && !custPhone) return alert("Ghi nợ bắt buộc phải nhập SĐT khách hàng!");
     setLoading(true);
     let rev = revenue, prof = profit, logs: any[] = [];
     const subTotal = Math.round(cart.reduce((s, i) => s + (i.qty * getActualPrice(i.product)), 0));
     const vatTotal = Math.round(subTotal * VAT_RATE);
-    const finalTotal = subTotal + vatTotal;
+    const baseTotal = subTotal + vatTotal;
     
+    const vDiscount = Number(voucherAmount) || 0;
+    const totalAfterVoucher = Math.max(0, baseTotal - vDiscount); // Trừ voucher trước
+
     const wallet = customers[custPhone]?.wallet || 0;
-    const discount = useWallet && !isDebt ? Math.round(Math.min(wallet, finalTotal)) : 0;
-    const finalPaid = Math.max(0, finalTotal - discount);
-    const earned = isDebt ? 0 : Math.round(finalPaid * 0.02);
+    const walletDiscount = useWallet && !isDebt ? Math.round(Math.min(wallet, totalAfterVoucher)) : 0; // Trừ ví sau
+    
+    const finalTotal = totalAfterVoucher - walletDiscount;
+    const totalDiscount = vDiscount + walletDiscount; // Tổng tiền giảm để ghi bill
+    const earned = isDebt ? 0 : Math.round(finalTotal * 0.02);
 
     for (const item of cart) {
       await supabase.from("products").update({ stock: item.product.stock - item.qty }).eq("id", item.product.id);
@@ -234,19 +237,24 @@ export default function App() {
         ...prev, 
         [custPhone]: { 
           name: custName, 
-          wallet: isDebt ? (prev[custPhone]?.wallet || 0) : Math.round((prev[custPhone]?.wallet || 0) - discount + earned),
+          wallet: isDebt ? (prev[custPhone]?.wallet || 0) : Math.round((prev[custPhone]?.wallet || 0) - walletDiscount + earned),
           debt: (prev[custPhone]?.debt || 0) + (isDebt ? finalTotal : 0)
         } 
       }));
     }
 
     if (!isDebt) {
-      setRevenue(Math.round(rev + finalPaid)); 
-      setProfit(Math.round(prof + (subTotal - cart.reduce((s,i)=>s+(i.qty*(i.product.import_price||0)),0)) - discount)); 
+      setRevenue(Math.round(rev + finalTotal)); 
+      setProfit(Math.round(prof + (subTotal - cart.reduce((s,i)=>s+(i.qty*(i.product.import_price||0)),0)) - totalDiscount)); 
     }
     setHistory(prev => [...logs, ...prev]);
 
-    setLastOrder({ orderId: "HD" + Date.now().toString().slice(-6), shift: shift, cart: [...cart], subTotal, vatTotal, finalTotal: isDebt ? 0 : finalPaid, debtAmount: isDebt ? finalTotal : 0, discount, earnedWallet: custPhone ? earned : 0, custName: custPhone ? custName : null, custPhone: custPhone ? custPhone : null, time: new Date().toLocaleString('vi-VN') });
+    setLastOrder({ 
+      orderId: "HD" + Date.now().toString().slice(-6), shift: shift, cart: [...cart], 
+      subTotal, vatTotal, finalTotal: isDebt ? 0 : finalTotal, debtAmount: isDebt ? finalTotal : 0, 
+      discount: totalDiscount, earnedWallet: custPhone ? earned : 0, custName: custPhone ? custName : null, 
+      custPhone: custPhone ? custPhone : null, time: new Date().toLocaleString('vi-VN') 
+    });
     setCheckoutStep(3); fetchProducts(); setLoading(false);
   };
 
@@ -286,7 +294,7 @@ export default function App() {
     }
   };
 
-  const closeCheckout = () => { setCart([]); setIsCheckoutOpen(false); setCheckoutStep(1); setCustPhone(""); setCustName(""); setUseWallet(false); setLastOrder(null); };
+  const closeCheckout = () => { setCart([]); setIsCheckoutOpen(false); setCheckoutStep(1); setCustPhone(""); setCustName(""); setUseWallet(false); setVoucherAmount(""); setLastOrder(null); };
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const code = e.target.value; setNewCode(code);
@@ -506,7 +514,7 @@ export default function App() {
           <div style={{ fontSize: "12px", lineHeight: "1.5" }}>
             <div style={{ display: "flex", justifyContent: "space-between" }}><span>Cộng tiền hàng:</span><span>{Math.round(lastOrder.subTotal).toLocaleString()}đ</span></div>
             <div style={{ display: "flex", justifyContent: "space-between" }}><span>Thuế GTGT ({VAT_RATE*100}%):</span><span>{Math.round(lastOrder.vatTotal).toLocaleString()}đ</span></div>
-            {lastOrder.discount > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>Giảm giá/Ví:</span><span>-{Math.round(lastOrder.discount).toLocaleString()}đ</span></div>}
+            {lastOrder.discount > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>Giảm giá (Voucher/Ví):</span><span>-{Math.round(lastOrder.discount).toLocaleString()}đ</span></div>}
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", fontWeight: "bold", borderTop: "1px dashed #000", marginTop: "5px" }}><span>{lastOrder.debtAmount > 0 ? "KHÁCH GHI NỢ:" : "THANH TOÁN:"}</span><span>{Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</span></div>
           </div>
           <div style={{ borderTop: "1px dashed #000", margin: "10px 0", textAlign: "center", fontSize: "11px" }}><b>CẢM ƠN QUÝ KHÁCH!</b><br/>{lastOrder.orderId}</div>
@@ -604,8 +612,18 @@ export default function App() {
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
             {checkoutStep === 1 && (
               <div className="glass" style={{ padding: "25px", width: "350px" }}>
-                <h3 style={{ color: "#ef4444", margin: "0", textAlign: "center" }}>🧧 THÀNH VIÊN</h3>
-                <input type="text" placeholder="Số điện thoại khách..." value={custPhone} onChange={handlePhoneChange} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px solid #ef4444", marginTop: "15px", outline: "none", boxSizing: "border-box" }} />
+                <h3 style={{ color: "#ef4444", margin: "0", textAlign: "center" }}>🧧 THANH TOÁN</h3>
+                
+                {/* NHẬP VOUCHER GIẢM GIÁ */}
+                <input 
+                  type="number" 
+                  placeholder="Nhập số tiền Voucher giảm (đ)..." 
+                  value={voucherAmount} 
+                  onChange={(e) => setVoucherAmount(parseInt(e.target.value) || "")} 
+                  style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px dashed #f59e0b", marginTop: "15px", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb" }} 
+                />
+
+                <input type="text" placeholder="Số điện thoại khách (nếu có)..." value={custPhone} onChange={handlePhoneChange} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px solid #ef4444", marginTop: "10px", outline: "none", boxSizing: "border-box" }} />
                 {custPhone && (
                   <div style={{ marginTop: "10px", padding: "12px", backgroundColor: "#fff7ed", borderRadius: "8px", border: "1px dashed #f97316" }}>
                     {customers[custPhone] ? (
@@ -625,8 +643,10 @@ export default function App() {
             {checkoutStep === 2 && (
               <div className="glass" style={{ padding: "25px", width: "350px", textAlign: "center" }}>
                 <h3 style={{ color: "#ef4444", margin: "0" }}>📱 QUÉT MÃ QR HOẶC GHI NỢ</h3>
-                <div style={{ color: "#ef4444", fontSize: "28px", fontWeight: "900", margin: "10px 0" }}>{Math.round(Math.max(0, cartTotalAmount - (useWallet ? Math.min(customers[custPhone]?.wallet||0, cartTotalAmount) : 0))).toLocaleString()}đ</div>
-                <img src={`https://img.vietqr.io/image/970422-0680124181004-compact2.png?amount=${Math.round(Math.max(0, cartTotalAmount - (useWallet ? Math.min(customers[custPhone]?.wallet||0, cartTotalAmount) : 0)))}&addInfo=Thanh toan&accountName=LE%20HONG%20HAI`} style={{ width: "180px", margin: "0 auto 15px auto", border: "2px solid #ef4444", borderRadius: "10px" }} />
+                <div style={{ color: "#ef4444", fontSize: "28px", fontWeight: "900", margin: "10px 0" }}>
+                  {Math.round(Math.max(0, cartTotalAmount - (Number(voucherAmount) || 0) - (useWallet ? Math.min(customers[custPhone]?.wallet||0, Math.max(0, cartTotalAmount - (Number(voucherAmount) || 0))) : 0))).toLocaleString()}đ
+                </div>
+                <img src={`https://img.vietqr.io/image/970422-0680124181004-compact2.png?amount=${Math.round(Math.max(0, cartTotalAmount - (Number(voucherAmount) || 0) - (useWallet ? Math.min(customers[custPhone]?.wallet||0, Math.max(0, cartTotalAmount - (Number(voucherAmount) || 0))) : 0)))}&addInfo=Thanh toan&accountName=LE%20HONG%20HAI`} style={{ width: "180px", margin: "0 auto 15px auto", border: "2px solid #ef4444", borderRadius: "10px" }} />
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                   <button onClick={() => setCheckoutStep(1)} style={{ flex: "1 1 100%", padding: "8px", borderRadius: "8px", border: "none", background: "#e2e8f0", cursor: "pointer" }}>Quay lại</button>
                   <button onClick={() => confirmCheckout(true)} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#f59e0b", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>📝 GHI NỢ</button>
