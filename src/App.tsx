@@ -17,14 +17,10 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [showInputForm, setShowInputForm] = useState(false);
   
-  // STATE CHO TÍNH NĂNG SẮP XẾP & BỘ LỌC EXCEL
+  // --- TÍNH NĂNG BỘ LỌC CHUẨN EXCEL ---
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
-  const [filterStock, setFilterStock] = useState("all"); // all, low, out
-  const [filterExpiry, setFilterExpiry] = useState("all"); // all, near
-  const [showFilterStock, setShowFilterStock] = useState(false);
-  const [showFilterExpiry, setShowFilterExpiry] = useState(false);
-
-  // STATE CHO AUTO-SUGGEST THANH TÌM KIẾM
+  const [openFilter, setOpenFilter] = useState<string | null>(null);
+  const [filters, setFilters] = useState<Record<string, any[]>>({});
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   const [showDebtModal, setShowDebtModal] = useState(false);
@@ -143,7 +139,6 @@ export default function App() {
 
   const getActualPrice = (p: any) => (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price;
 
-  // HÀM XỬ LÝ CLICK TỪ DANH SÁCH GỢI Ý
   const handleSelectSuggest = (p: any) => {
     if (p.stock <= 0) return alert("Đã hết hàng trong kho!");
     const price = getActualPrice(p);
@@ -189,15 +184,12 @@ export default function App() {
   const adjustCartQty = (productId: any, delta: number) => {
     let exceedStock = false;
     let stockLimit = 0;
-    
     setCart(prev => {
       const updated = prev.map(item => {
         if (item.product.id === productId) {
           const newQty = item.qty + delta;
           if (newQty > item.product.stock) {
-            exceedStock = true;
-            stockLimit = item.product.stock;
-            return item; 
+            exceedStock = true; stockLimit = item.product.stock; return item; 
           }
           const price = getActualPrice(item.product);
           return { ...item, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (item.product.import_price||0))) };
@@ -206,10 +198,7 @@ export default function App() {
       });
       return updated.filter(item => item.qty > 0);
     });
-    
-    if (exceedStock) {
-        setTimeout(() => alert(`Vượt quá tồn kho! Món này chỉ còn tối đa ${stockLimit} sản phẩm.`), 10);
-    }
+    if (exceedStock) setTimeout(() => alert(`Vượt quá tồn kho! Món này chỉ còn tối đa ${stockLimit} sản phẩm.`), 10);
   };
 
   const removeFromCart = (productId: any) => setCart(cart.filter(item => item.product.id !== productId));
@@ -421,62 +410,61 @@ export default function App() {
     }
   };
 
-  // --- HÀM XỬ LÝ CLICK SẮP XẾP SẢN PHẨM Ở TIÊU ĐỀ CỘT ---
-  const requestSort = (key: string) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
+  // --- TRÍCH XUẤT DỮ LIỆU DUY NHẤT CHO BỘ LỌC CHUẨN EXCEL ---
+  const uniqueNames = useMemo(() => Array.from(new Set(products.map(p => p.name))).sort(), [products]);
+  const uniqueStocks = useMemo(() => Array.from(new Set(products.map(p => p.stock))).sort((a,b)=>a-b), [products]);
+  const uniqueImportPrices = useMemo(() => Array.from(new Set(products.map(p => p.import_price || 0))).sort((a,b)=>a-b), [products]);
+  const uniqueSalePrices = useMemo(() => Array.from(new Set(products.map(p => p.sale_price))).sort((a,b)=>a-b), [products]);
+  const uniqueExpiries = useMemo(() => Array.from(new Set(products.map(p => p.expiry_date).filter(Boolean))).sort(), [products]);
+  const categories = ["Tất cả", ...Array.from(new Set(products.map(p => p.category || "Khác")))];
+
+  // --- HÀM XỬ LÝ CLICK SẮP XẾP & BỘ LỌC ---
+  const requestSort = (key: string, explicitDirection?: 'asc'|'desc') => {
+    let direction: 'asc' | 'desc' = explicitDirection || 'asc';
+    if (!explicitDirection && sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
     setSortConfig({ key, direction });
   };
 
   const getSortIcon = (key: string) => {
     if (!sortConfig || sortConfig.key !== key) return <span style={{opacity: 0.3, fontSize: "9px", marginLeft:"2px"}}>↕️</span>;
-    return sortConfig.direction === 'asc' ? <span style={{fontSize: "11px", marginLeft:"2px"}}>🔼</span> : <span style={{fontSize: "11px", marginLeft:"2px"}}>🔽</span>;
+    return sortConfig.direction === 'asc' ? <span style={{fontSize: "11px", marginLeft:"2px", color: "#ef4444"}}>🔼</span> : <span style={{fontSize: "11px", marginLeft:"2px", color: "#ef4444"}}>🔽</span>;
   };
 
-  const totalValue = Math.round(products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
+  const handleFilterCheck = (col: string, val: any) => {
+    setFilters(prev => {
+        const cur = prev[col] || [];
+        if (cur.includes(val)) return { ...prev, [col]: cur.filter(v => v !== val) };
+        return { ...prev, [col]: [...cur, val] };
+    });
+  };
 
-  const groupedHistory = useMemo(() => {
-    return history.reduce((groups: any, log: any) => {
-      const date = new Date(Math.floor(log.id)).toLocaleDateString('vi-VN'); 
-      if (!groups[date]) groups[date] = [];
-      groups[date].push({ ...log, t: new Date(Math.floor(log.id)).toLocaleTimeString('vi-VN') });
-      return groups;
-    }, {});
-  }, [history]);
-
-  const categories = ["Tất cả", ...Array.from(new Set(products.map(p => p.category || "Khác")))];
-
-  // --- ÁP DỤNG BỘ LỌC EXCEL VÀ SẮP XẾP VÀO DANH SÁCH SẢN PHẨM ---
+  // Áp dụng bộ lọc & Sắp xếp vào danh sách
   const sortedAndFilteredProducts = useMemo(() => {
     const todayTime = new Date().getTime();
     let filtered = products
       .filter(p => (selectedCategory === "Tất cả" || (p.category || "Khác") === selectedCategory))
       .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(searchTerm.toLowerCase())));
 
-    // Lọc theo Tồn Kho (Dropdown Excel)
-    if (filterStock === 'low') filtered = filtered.filter(p => p.stock > 0 && p.stock < 10);
-    if (filterStock === 'out') filtered = filtered.filter(p => p.stock <= 0);
-
-    // Lọc theo HSD (Dropdown Excel)
-    if (filterExpiry === 'near') {
-        filtered = filtered.filter(p => p.expiry_date && (new Date(p.expiry_date).getTime() - todayTime) / 86400000 <= 45);
-    }
+    if (filters['name']?.length > 0) filtered = filtered.filter(p => filters['name'].includes(p.name));
+    if (filters['stock']?.length > 0) filtered = filtered.filter(p => filters['stock'].includes(p.stock));
+    if (filters['import_price']?.length > 0) filtered = filtered.filter(p => filters['import_price'].includes(p.import_price || 0));
+    if (filters['sale_price']?.length > 0) filtered = filtered.filter(p => filters['sale_price'].includes(p.sale_price));
+    if (filters['expiry_date']?.length > 0) filtered = filtered.filter(p => filters['expiry_date'].includes(p.expiry_date));
 
     if (sortConfig !== null) {
       filtered.sort((a, b) => {
         let valA = a[sortConfig.key];
         let valB = b[sortConfig.key];
-
         if (sortConfig.key === 'expiry_date') {
             valA = a.expiry_date ? new Date(a.expiry_date).getTime() : Infinity;
             valB = b.expiry_date ? new Date(b.expiry_date).getTime() : Infinity;
         }
-
         if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
         if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
       });
     } else {
+      // Mặc định sắp xếp thông minh: Hàng sắp hết hạn lên đầu
       filtered.sort((a, b) => {
         const daysA = a.expiry_date ? (new Date(a.expiry_date).getTime() - todayTime) / 86400000 : Infinity;
         const daysB = b.expiry_date ? (new Date(b.expiry_date).getTime() - todayTime) / 86400000 : Infinity;
@@ -488,7 +476,7 @@ export default function App() {
       });
     }
     return filtered;
-  }, [products, searchTerm, selectedCategory, sortConfig, filterStock, filterExpiry]);
+  }, [products, searchTerm, selectedCategory, sortConfig, filters]);
 
   const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
 
@@ -505,6 +493,37 @@ export default function App() {
     history.forEach(log => { if(log.type === 'BÁN') sales[log.name] = (sales[log.name]||0) + log.qty; });
     return Object.entries(sales).sort((a,b)=>b[1]-a[1]).slice(0,5);
   }, [history]);
+
+  const totalValue = Math.round(products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
+
+  // --- COMPONENT GIAO DIỆN BỘ LỌC CHUẨN EXCEL ---
+  const renderFilterPopup = (colKey: string, title: string, uniqueValues: any[], formatVal?: (v:any)=>string) => {
+    if (openFilter !== colKey) return null;
+    return (
+        <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: colKey==='name' ? "0" : "50%", transform: colKey==='name' ? "none" : "translateX(-50%)", backgroundColor: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px", zIndex: 999, boxShadow: "0 10px 25px -5px rgba(0,0,0,0.2)", minWidth: "160px", textAlign: "left", color: "#1e293b", fontWeight: "normal", fontSize: "12px", display: "flex", flexDirection: "column" }}>
+           <div style={{ cursor: "pointer", padding: "6px 4px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "6px" }} onClick={() => { requestSort(colKey, 'asc'); setOpenFilter(null); }}>🔼 Sắp xếp Tăng dần</div>
+           <div style={{ cursor: "pointer", padding: "6px 4px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "6px" }} onClick={() => { requestSort(colKey, 'desc'); setOpenFilter(null); }}>🔽 Sắp xếp Giảm dần</div>
+           
+           <div style={{ marginTop: "10px", fontWeight: "bold", color: "#64748b", fontSize: "10px", marginBottom: "6px", textTransform: "uppercase" }}>LỌC {title}:</div>
+           
+           <div style={{ overflowY: "auto", flex: 1, maxHeight: "150px", border: "1px solid #e2e8f0", borderRadius: "4px", padding: "4px" }}>
+               <label style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px", cursor: "pointer", borderBottom: "1px dashed #f1f5f9", backgroundColor: (!filters[colKey] || filters[colKey].length === 0) ? "#eff6ff" : "transparent" }}>
+                  <input type="checkbox" checked={!filters[colKey] || filters[colKey].length === 0} onChange={() => setFilters(prev => ({...prev, [colKey]: []}))} />
+                  <span style={{color: "#3b82f6", fontWeight: "bold"}}>Tất cả</span>
+               </label>
+               {uniqueValues.map(v => (
+                   <label key={v} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px", cursor: "pointer", borderBottom: "1px dashed #f1f5f9", backgroundColor: filters[colKey]?.includes(v) ? "#f0fdf4" : "transparent" }}>
+                      <input type="checkbox" checked={filters[colKey]?.includes(v) || false} onChange={() => handleFilterCheck(colKey, v)} />
+                      <span>{formatVal ? formatVal(v) : v}</span>
+                   </label>
+               ))}
+           </div>
+           {filters[colKey]?.length > 0 && (
+               <div style={{ marginTop: "8px", textAlign: "center", cursor: "pointer", color: "#ef4444", fontWeight: "bold", fontSize: "11px", padding: "4px" }} onClick={() => setFilters(prev => ({...prev, [colKey]: []}))}>❌ Bỏ lọc</div>
+           )}
+        </div>
+    );
+  };
 
   const styles = `
     @keyframes float { 0% { transform: translateY(0); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0); } }
@@ -564,10 +583,10 @@ export default function App() {
   const finalToPay = Math.round(Math.max(0, cartTotalAmount - (Number(voucherAmount) || 0) - (useWallet ? Math.min(customers[custPhone]?.wallet||0, Math.max(0, cartTotalAmount - (Number(voucherAmount) || 0))) : 0)));
 
   return (
-    <div onClick={() => { setShowFilterStock(false); setShowFilterExpiry(false); setShowSuggestions(false); }}>
+    <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); }}>
       <style>{styles}</style>
       
-      {/* 🖨️ BIÊN LAI BÁN HÀNG */}
+      {/* 🖨️ BIÊN LAI BÁN HÀNG GIAO DIỆN MỚI */}
       {lastOrder && (
         <div className="print-only">
           <div className="print-header">
@@ -575,22 +594,12 @@ export default function App() {
             <p>Tòa Nhà ATS, 252 Hoàng Quốc Việt, HN</p>
             <p>Hotline: 0902 613 899</p>
           </div>
-
           <div className="print-divider"></div>
-
           <div className="print-info">
-            <div>
-              <div><b>HĐ:</b> {lastOrder.orderId}</div>
-              <div><b>Ngày:</b> {lastOrder.time.split(' ')[1]} {lastOrder.time.split(' ')[0]}</div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div><b>Ca:</b> {shift}</div>
-              <div><b>TN:</b> {role}</div>
-            </div>
+            <div><div><b>HĐ:</b> {lastOrder.orderId}</div><div><b>Ngày:</b> {lastOrder.time.split(' ')[1]} {lastOrder.time.split(' ')[0]}</div></div>
+            <div style={{ textAlign: "right" }}><div><b>Ca:</b> {shift}</div><div><b>TN:</b> {role}</div></div>
           </div>
-
           <div className="print-divider"></div>
-
           <div style={{ width: "100%" }}>
             {lastOrder.cart.map((item: any, idx: number) => {
               const price = Math.round(getActualPrice(item.product));
@@ -602,37 +611,21 @@ export default function App() {
                     <span>{item.qty} x {price.toLocaleString()}</span>
                     <span style={{ fontWeight: "bold" }}>{itemTotal.toLocaleString()}</span>
                   </div>
-                  {item.product.gift_info && (
-                    <div className="print-gift">+ 🎁 Tặng: {item.product.gift_info}</div>
-                  )}
+                  {item.product.gift_info && <div className="print-gift">+ 🎁 Tặng: {item.product.gift_info}</div>}
                 </div>
               );
             })}
           </div>
-
           <div className="print-divider"></div>
-
           <div className="print-totals">
-            <div className="print-totals-row">
-              <span>Cộng tiền hàng:</span>
-              <span>{Math.round(lastOrder.subTotal).toLocaleString()}đ</span>
-            </div>
-            <div className="print-totals-row">
-              <span>Thuế GTGT ({VAT_RATE * 100}%):</span>
-              <span>{Math.round(lastOrder.vatTotal).toLocaleString()}đ</span>
-            </div>
-            {lastOrder.discount > 0 && (
-              <div className="print-totals-row">
-                <span>Giảm giá/Ví:</span>
-                <span>-{Math.round(lastOrder.discount).toLocaleString()}đ</span>
-              </div>
-            )}
+            <div className="print-totals-row"><span>Cộng tiền hàng:</span><span>{Math.round(lastOrder.subTotal).toLocaleString()}đ</span></div>
+            <div className="print-totals-row"><span>Thuế GTGT ({VAT_RATE * 100}%):</span><span>{Math.round(lastOrder.vatTotal).toLocaleString()}đ</span></div>
+            {lastOrder.discount > 0 && <div className="print-totals-row"><span>Giảm giá/Ví:</span><span>-{Math.round(lastOrder.discount).toLocaleString()}đ</span></div>}
             <div className="print-grand-total">
               <span>{lastOrder.debtAmount > 0 ? "KHÁCH NỢ:" : "TỔNG CỘNG:"}</span>
               <span>{Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</span>
             </div>
           </div>
-
           <div className="print-footer">
             <div><b>CẢM ƠN QUÝ KHÁCH & HẸN GẶP LẠI!</b></div>
             <div style={{ marginTop: "5px", fontSize: "10px", color: "#666" }}><i>Powered by Hải Lê POS</i></div>
@@ -829,7 +822,7 @@ export default function App() {
                 <div style={{ fontSize: "40px" }}>🌸</div><h3 style={{ color: "#10b981", margin: "10px 0" }}>Thành công!</h3>
                 <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
                   <button onClick={() => window.print()} style={{ flex: 1, padding: "12px", backgroundColor: "#ef4444", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>🖨️ In Hóa Đơn</button>
-                  <button onClick={closeCheckout} style={{ flex: 1, padding: "12px", backgroundColor: "#e2e8f0", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "cursor" }}>Đóng</button>
+                  <button onClick={closeCheckout} style={{ flex: 1, padding: "12px", backgroundColor: "#e2e8f0", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>Đóng</button>
                 </div>
               </div>
             )}
@@ -883,12 +876,12 @@ export default function App() {
                     value={barcodeInput} 
                     onChange={e => { setBarcodeInput(e.target.value); setShowSuggestions(true); }} 
                     onKeyDown={handleBarcodeSubmit} 
-                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} 
+                    onClick={() => setShowSuggestions(true)}
                     style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", border: "2px solid #ef4444", fontSize: "14px", fontWeight: "bold", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb", color: "#b91c1c" }} 
                   />
                   
                   {showSuggestions && barcodeInput.trim() !== "" && (
-                    <div style={{ position: "absolute", top: "100%", left: 0, right: 0, backgroundColor: "#fff", border: "1px solid #ef4444", borderRadius: "6px", marginTop: "4px", zIndex: 100, maxHeight: "250px", overflowY: "auto", boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}>
+                    <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: 0, right: 0, backgroundColor: "#fff", border: "1px solid #ef4444", borderRadius: "6px", marginTop: "4px", zIndex: 100, maxHeight: "250px", overflowY: "auto", boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}>
                       {products.filter(p => p.name.toLowerCase().includes(barcodeInput.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(barcodeInput.toLowerCase()))).slice(0, 10).map((p, idx) => (
                         <div 
                           key={idx} 
@@ -935,7 +928,7 @@ export default function App() {
                     <input placeholder="Mã..." value={newCode} onChange={handleCodeChange} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
                     <input placeholder="Tên hàng..." value={newName} onChange={e => setNewName(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
                     
-                    {/* 📁 DATALIST CHO PHÂN LOẠI SỔ DANH SÁCH */}
+                    {/* 📁 DATALIST CHO PHÂN LOẠI */}
                     <input list="category-list" placeholder="Phân loại..." value={newCategory} onChange={e => setNewCategory(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} title="Nhập hoặc chọn danh mục" />
                     <datalist id="category-list">
                       {categories.filter(c => c !== 'Tất cả').map(c => <option key={c} value={c} />)}
@@ -970,48 +963,50 @@ export default function App() {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ color: "#16a34a", fontSize: "10px", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}>
-                      <th style={{ textAlign: "left", padding: "6px 4px", borderBottom: "2px solid #fed7aa", cursor: "pointer" }} onClick={() => requestSort('name')}>
-                        SẢN PHẨM {getSortIcon('name')}
+                      
+                      {/* BỘ LỌC CHUẨN EXCEL TẠI CÁC CỘT */}
+                      <th style={{ textAlign: "left", padding: "6px 4px", borderBottom: "2px solid #fed7aa", position: "relative" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px", cursor: "pointer", width: "max-content" }} onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === 'name' ? null : 'name'); }}>
+                           <span>SẢN PHẨM {getSortIcon('name')}</span>
+                           <span style={{ color: filters['name']?.length > 0 ? '#ef4444' : '#94a3b8', fontSize: "10px" }}>🔽</span>
+                        </div>
+                        {renderFilterPopup('name', 'TÊN SẢN PHẨM', uniqueNames)}
                       </th>
                       
-                      {/* 📊 BỘ LỌC EXCEL DROPDOWN CHO CỘT TỒN */}
                       <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa", position: "relative" }}>
-                        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "4px" }}>
-                          <span style={{ cursor: "pointer" }} onClick={() => requestSort('stock')}>TỒN {getSortIcon('stock')}</span>
-                          <span style={{ cursor: "pointer", color: filterStock !== 'all' ? '#ef4444' : '#94a3b8' }} onClick={(e) => { e.stopPropagation(); setShowFilterStock(!showFilterStock); setShowFilterExpiry(false); }}>🔽</span>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === 'stock' ? null : 'stock'); }}>
+                           <span>TỒN {getSortIcon('stock')}</span>
+                           <span style={{ color: filters['stock']?.length > 0 ? '#ef4444' : '#94a3b8', fontSize: "10px" }}>🔽</span>
                         </div>
-                        {showFilterStock && (
-                          <div style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)", backgroundColor: "#fff", border: "1px solid #cbd5e1", borderRadius: "6px", padding: "4px", zIndex: 50, boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)", minWidth: "100px", textAlign: "left" }}>
-                            <div onClick={() => { setFilterStock('all'); setShowFilterStock(false); }} style={{ padding: "6px", fontSize: "11px", cursor: "pointer", fontWeight: filterStock === 'all' ? 'bold' : 'normal', borderBottom: "1px solid #f1f5f9", color: "#1e293b" }}>Tất cả</div>
-                            <div onClick={() => { setFilterStock('low'); setShowFilterStock(false); }} style={{ padding: "6px", fontSize: "11px", cursor: "pointer", color: "#f59e0b", fontWeight: filterStock === 'low' ? 'bold' : 'normal', borderBottom: "1px solid #f1f5f9" }}>Sắp hết (&lt;10)</div>
-                            <div onClick={() => { setFilterStock('out'); setShowFilterStock(false); }} style={{ padding: "6px", fontSize: "11px", cursor: "pointer", color: "#ef4444", fontWeight: filterStock === 'out' ? 'bold' : 'normal' }}>Hết hàng (0)</div>
-                          </div>
-                        )}
+                        {renderFilterPopup('stock', 'SỐ LƯỢNG TỒN', uniqueStocks)}
                       </th>
-
+                      
                       {role === 'admin' && (
-                        <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa", cursor: "pointer" }} onClick={() => requestSort('import_price')}>
-                          GIÁ VỐN {getSortIcon('import_price')}
+                        <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa", position: "relative" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === 'import_price' ? null : 'import_price'); }}>
+                             <span>GIÁ VỐN {getSortIcon('import_price')}</span>
+                             <span style={{ color: filters['import_price']?.length > 0 ? '#ef4444' : '#94a3b8', fontSize: "10px" }}>🔽</span>
+                          </div>
+                          {renderFilterPopup('import_price', 'GIÁ VỐN', uniqueImportPrices, (v) => v.toLocaleString() + 'đ')}
                         </th>
                       )}
                       
-                      <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa", cursor: "pointer" }} onClick={() => requestSort('sale_price')}>
-                        GIÁ BÁN {getSortIcon('sale_price')}
+                      <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa", position: "relative" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === 'sale_price' ? null : 'sale_price'); }}>
+                           <span>GIÁ BÁN {getSortIcon('sale_price')}</span>
+                           <span style={{ color: filters['sale_price']?.length > 0 ? '#ef4444' : '#94a3b8', fontSize: "10px" }}>🔽</span>
+                        </div>
+                        {renderFilterPopup('sale_price', 'GIÁ BÁN', uniqueSalePrices, (v) => v.toLocaleString() + 'đ')}
                       </th>
                       
-                      {/* 📊 BỘ LỌC EXCEL DROPDOWN CHO CỘT HSD */}
                       <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa", lineHeight: "1.2", position: "relative" }}>
-                        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "4px" }}>
-                          <span style={{ cursor: "pointer" }} onClick={() => requestSort('expiry_date')}>HẠN SỬ DỤNG / LƯU KHO {getSortIcon('expiry_date')}</span>
-                          <span style={{ cursor: "pointer", color: filterExpiry !== 'all' ? '#ef4444' : '#94a3b8' }} onClick={(e) => { e.stopPropagation(); setShowFilterExpiry(!showFilterExpiry); setShowFilterStock(false); }}>🔽</span>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === 'expiry_date' ? null : 'expiry_date'); }}>
+                           <span>HẠN SỬ DỤNG {getSortIcon('expiry_date')}</span>
+                           <span style={{ color: filters['expiry_date']?.length > 0 ? '#ef4444' : '#94a3b8', fontSize: "10px" }}>🔽</span>
                         </div>
-                        {showFilterExpiry && (
-                          <div style={{ position: "absolute", top: "100%", right: "0", backgroundColor: "#fff", border: "1px solid #cbd5e1", borderRadius: "6px", padding: "4px", zIndex: 50, boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)", minWidth: "120px", textAlign: "left" }}>
-                            <div onClick={() => { setFilterExpiry('all'); setShowFilterExpiry(false); }} style={{ padding: "6px", fontSize: "11px", cursor: "pointer", fontWeight: filterExpiry === 'all' ? 'bold' : 'normal', borderBottom: "1px solid #f1f5f9", color: "#1e293b" }}>Tất cả</div>
-                            <div onClick={() => { setFilterExpiry('near'); setShowFilterExpiry(false); }} style={{ padding: "6px", fontSize: "11px", cursor: "pointer", color: "#ef4444", fontWeight: filterExpiry === 'near' ? 'bold' : 'normal' }}>⚠️ Sắp/Đã hết hạn</div>
-                          </div>
-                        )}
+                        {renderFilterPopup('expiry_date', 'HẠN SỬ DỤNG', uniqueExpiries, (v) => v ? new Date(v).toLocaleDateString('vi-VN') : '---')}
                       </th>
+                      
                       <th style={{ textAlign: "right", padding: "6px 4px", borderBottom: "2px solid #fed7aa" }}></th>
                     </tr>
                   </thead>
