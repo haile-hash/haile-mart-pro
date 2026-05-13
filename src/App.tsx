@@ -44,7 +44,7 @@ export default function App() {
   const [custPhone, setCustPhone] = useState("");
   const [custName, setCustName] = useState("");
   const [useWallet, setUseWallet] = useState(false);
-  const [voucherAmount, setVoucherAmount] = useState<number | "">(""); // THÊM STATE VOUCHER
+  const [voucherAmount, setVoucherAmount] = useState<number | "">(""); 
   const [lastOrder, setLastOrder] = useState<any>(null);
 
   const [history, setHistory] = useState<any[]>(() => {
@@ -208,7 +208,6 @@ export default function App() {
     setCheckoutStep(2);
   };
 
-  // CẬP NHẬT TÍNH TOÁN VOUCHER
   const confirmCheckout = async (isDebt: boolean = false) => {
     if (isDebt && !custPhone) return alert("Ghi nợ bắt buộc phải nhập SĐT khách hàng!");
     setLoading(true);
@@ -218,13 +217,13 @@ export default function App() {
     const baseTotal = subTotal + vatTotal;
     
     const vDiscount = Number(voucherAmount) || 0;
-    const totalAfterVoucher = Math.max(0, baseTotal - vDiscount); // Trừ voucher trước
+    const totalAfterVoucher = Math.max(0, baseTotal - vDiscount);
 
     const wallet = customers[custPhone]?.wallet || 0;
-    const walletDiscount = useWallet && !isDebt ? Math.round(Math.min(wallet, totalAfterVoucher)) : 0; // Trừ ví sau
+    const walletDiscount = useWallet && !isDebt ? Math.round(Math.min(wallet, totalAfterVoucher)) : 0; 
     
     const finalTotal = totalAfterVoucher - walletDiscount;
-    const totalDiscount = vDiscount + walletDiscount; // Tổng tiền giảm để ghi bill
+    const totalDiscount = vDiscount + walletDiscount; 
     const earned = isDebt ? 0 : Math.round(finalTotal * 0.02);
 
     for (const item of cart) {
@@ -444,6 +443,7 @@ export default function App() {
     return Object.entries(sales).sort((a,b)=>b[1]-a[1]).slice(0,5);
   }, [history]);
 
+  // CSS ĐÃ ĐƯỢC TỐI ƯU HÓA HOÀN HẢO CHO MÁY IN HÓA ĐƠN POS K80/K58
   const styles = `
     @keyframes float { 0% { transform: translateY(0); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0); } }
     .spring-bg { position: fixed; width: 400px; height: 400px; border-radius: 50%; filter: blur(100px); z-index: -1; opacity: 0.3; animation: float 10s infinite ease-in-out; }
@@ -454,7 +454,23 @@ export default function App() {
     .tab-btn { padding: 6px 12px; border-radius: 20px; border: 1px solid #fed7aa; background: #fff; cursor: pointer; font-size: 12px; font-weight: bold; color: #9a3412; white-space: nowrap; }
     .tab-btn.active { background: #ef4444; color: #fff; border-color: #ef4444; }
     .print-only { display: none; }
-    @media print { body { background: white !important; } .no-print { display: none !important; } .print-only { display: block !important; color: #000; font-family: monospace; width: 80mm; margin: 0 auto; padding: 5mm; } @page { margin: 0; } }
+    
+    @media print { 
+      body, html { background: white !important; margin: 0 !important; padding: 0 !important; } 
+      .no-print { display: none !important; } 
+      .print-only { 
+        display: block !important; 
+        color: #000; 
+        font-family: monospace; 
+        width: 100%; 
+        max-width: 80mm; 
+        margin: 0 auto; 
+        padding: 4mm; 
+        box-sizing: border-box; 
+        font-size: 12px;
+      } 
+      @page { margin: 0; } 
+    }
   `;
 
   if (!isLoggedIn) {
