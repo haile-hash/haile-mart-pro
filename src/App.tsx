@@ -31,6 +31,8 @@ export default function App() {
   const [showHoldModal, setShowHoldModal] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [scannedCode, setScannedCode] = useState("");
+  
+  // STATE IN TEM
   const [printBarcodeProduct, setPrintBarcodeProduct] = useState<any>(null);
   const [barcodeCount, setBarcodeCount] = useState<number>(30);
   const [printMode, setPrintMode] = useState<'receipt' | 'barcode' | null>(null);
@@ -97,16 +99,14 @@ export default function App() {
     }
   }, [isLoggedIn]);
 
-  // TỐI ƯU HÓA CAMERA CHO MÃ VẠCH 1D (BARCODE SIÊU THỊ)
   useEffect(() => {
     if (showScanner) {
       let scanner: any;
       const loadScanner = () => {
         if ((window as any).Html5QrcodeScanner) {
-           // Đổi qrbox thành hình chữ nhật và tăng FPS
            scanner = new (window as any).Html5QrcodeScanner("qr-reader", { 
                fps: 15, 
-               qrbox: { width: 250, height: 120 }, // Khung chữ nhật dẹt
+               qrbox: { width: 250, height: 120 }, 
                rememberLastUsedCamera: true
            }, false);
            
@@ -114,9 +114,7 @@ export default function App() {
                setScannedCode(text);
                scanner.clear();
                setShowScanner(false);
-           }, (err: any) => {
-               // Bỏ qua các cảnh báo lỗi không tìm thấy mã liên tục
-           });
+           }, (err: any) => {});
         }
       };
       if (!(window as any).Html5QrcodeScanner) {
@@ -487,11 +485,16 @@ export default function App() {
     }
   };
 
+  // --- TỐI ƯU TÍNH NĂNG IN TEM MÃ VẠCH ---
   const handlePrintBarcode = (p: any) => {
     const q = window.prompt(`Nhập số lượng tem cần in cho: ${p.name}`, "30");
     if (q && parseInt(q) > 0) {
-      setPrintBarcodeProduct(p); setBarcodeCount(parseInt(q)); setPrintMode('barcode');
-      setTimeout(() => window.print(), 500);
+      setPrintBarcodeProduct(p); 
+      setBarcodeCount(parseInt(q)); 
+      setPrintMode('barcode');
+      
+      // Delay 1.5s để API tạo ảnh load xong hoàn toàn trước khi bật bảng Print
+      setTimeout(() => window.print(), 1500);
     }
   };
 
@@ -673,6 +676,7 @@ export default function App() {
       .print-grand-total { display: flex; justify-content: space-between; font-size: 18px; font-weight: 900; border-top: 2px dashed #000; padding-top: 8px; margin-top: 5px; }
       .print-footer { text-align: center; font-size: 11px; margin-top: 15px; }
       
+      /* CẬP NHẬT CSS IN TEM CHỐNG CẮT ĐÔI VÀ HIỂN THỊ MÃ SỐ */
       .print-only.print-barcode-sheet {
         display: flex !important;
         flex-wrap: wrap;
@@ -685,7 +689,8 @@ export default function App() {
         text-align: center;
         margin-bottom: 15px;
         border: 1px dashed #ccc;
-        padding: 5px;
+        padding: 8px;
+        page-break-inside: avoid; /* Ngăn tem bị in cắt nửa ở 2 trang */
       }
 
       @page { margin: 0; } 
@@ -722,7 +727,7 @@ export default function App() {
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); }}>
       <style>{styles}</style>
       
-      {/* 🖨️ BIÊN LAI BÁN HÀNG (Sẽ bị ẩn nếu đang ở chế độ in Tem) */}
+      {/* 🖨️ BIÊN LAI BÁN HÀNG */}
       {lastOrder && printMode !== 'barcode' && (
         <div className="print-only print-receipt">
           <div className="print-header">
@@ -769,13 +774,24 @@ export default function App() {
         </div>
       )}
 
-      {/* 🖨️ TRANG IN TEM MÃ VẠCH (Chỉ hiện khi bấm In Tem) */}
+      {/* 🖨️ TRANG IN TEM MÃ VẠCH */}
       {printMode === 'barcode' && printBarcodeProduct && (
         <div className="print-only print-barcode-sheet">
           {Array.from({length: barcodeCount}).map((_, i) => (
             <div key={i} className="barcode-sticker">
-              <div style={{fontSize: "12px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"}}>{printBarcodeProduct.name}</div>
-              <img src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${printBarcodeProduct.product_code}&scale=2&height=10&includetext=true`} style={{maxWidth: "100%", height: "50px", marginTop: "5px"}} alt="barcode" />
+              <div style={{fontSize: "11px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"}}>{printBarcodeProduct.name}</div>
+              
+              {/* Thêm encodeURIComponent để chống lỗi khoảng trắng, sử dụng API ổn định */}
+              <img 
+                 src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(printBarcodeProduct.product_code)}&scale=2&height=10&includetext=false`} 
+                 onError={(e) => { e.currentTarget.src = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(printBarcodeProduct.product_code)}&code=Code128&translate-esc=on`; }}
+                 style={{maxWidth: "100%", height: "40px", marginTop: "4px"}} 
+                 alt={printBarcodeProduct.product_code} 
+              />
+              
+              {/* HIỂN THỊ RÕ RÀNG MÃ SỐ DƯỚI VẠCH ĐEN */}
+              <div style={{fontSize: "10px", fontFamily: "monospace", letterSpacing: "1px", color: "#333"}}>{printBarcodeProduct.product_code}</div>
+              
               <div style={{fontSize: "14px", fontWeight: "900", color: "#000", marginTop: "2px"}}>{getActualPrice(printBarcodeProduct).toLocaleString()}đ</div>
             </div>
           ))}
@@ -1225,7 +1241,7 @@ export default function App() {
                       return (
                         <tr key={p.id} style={{ borderBottom: "1px solid #fed7aa", backgroundColor: isNearExpiry ? "#fef2f2" : "transparent" }}>
                           <td style={{ padding: "8px 4px" }}>
-                            <div style={{fontSize: "13px", fontWeight: "bold"}}>{p.name} {isNearExpiry && <span style={{color: "#ef4444", fontSize: "9px", border: "1px solid #ef4444", padding: "1px 2px", borderRadius: "2px"}}>⚠️</span>}</div>
+                            <div style={{fontSize: "13px", fontWeight: "bold"}}>{p.name} {isNearExpiry && <span style={{color: "#ef4444", fontSize: "9px", border: "1px solid #ef4444", padding: "1px 2px", borderRadius: "2px"}}>⚠️</span>} {p.isHappyHour && <span style={{color: "#ea580c", fontSize: "9px", fontStyle:"italic"}}>[Giờ Vàng]</span>}</div>
                             <div style={{fontSize: "9px", color: "#94a3b8"}}>
                               {p.product_code} • <span style={{cursor: role==='admin' ? 'pointer' : 'default', textDecoration: role==='admin' ? 'underline' : 'none'}} onClick={() => role==='admin' && handleEdit(p.id, 'category', p.category || "Khác", true)} title="Bấm vào để sửa Phân Loại">{p.category || "Khác"}</span>
                             </div>
