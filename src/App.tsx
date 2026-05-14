@@ -178,6 +178,23 @@ export default function App() {
     return Math.round(price);
   };
 
+  // TÌM KIẾM THEO FIFO
+  const findProductByCode = (code: string) => {
+    const rawCode = code.trim();
+    let matches = products.filter(prod => prod.product_code === rawCode || prod.product_code.startsWith(`${rawCode}-`));
+    let available = matches.filter(p => p.stock > 0);
+    
+    if (available.length > 0) {
+       available.sort((a,b) => {
+           if(!a.expiry_date) return 1; if(!b.expiry_date) return -1;
+           return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
+       });
+       return available[0];
+    } 
+    else if (matches.length > 0) return matches[0];
+    return null;
+  };
+
   const handleSelectSuggest = (p: any) => {
     if (p.stock <= 0) { playSound('error'); return alert("Đã hết hàng trong kho!"); }
     const price = getActualPrice(p);
@@ -194,27 +211,6 @@ export default function App() {
         }
     });
     setBarcodeInput(""); setShowSuggestions(false);
-  };
-
-  // --- THUẬT TOÁN TÌM KIẾM QUÉT MÃ FIFO ---
-  const findProductByCode = (code: string) => {
-    const rawCode = code.trim();
-    // Quét tìm TẤT CẢ sản phẩm có mã khớp hoàn toàn hoặc chứa tiền tố mã (nếu là Lô phụ tách ra)
-    let matches = products.filter(prod => prod.product_code === rawCode || prod.product_code.startsWith(`${rawCode}-`));
-    let available = matches.filter(p => p.stock > 0);
-    
-    if (available.length > 0) {
-       // Ưu tiên bán hàng cũ trước (FIFO) theo HSD
-       available.sort((a,b) => {
-           if(!a.expiry_date) return 1; if(!b.expiry_date) return -1;
-           return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
-       });
-       return available[0];
-    } 
-    else if (matches.length > 0) {
-       return matches[0]; // Trả về để hiện thông báo Hết hàng
-    }
-    return null;
   };
 
   useEffect(() => {
@@ -513,8 +509,7 @@ export default function App() {
     setHistory(updatedHistory);
     fetchProducts();
     logAudit("TRẢ HÀNG", `Hoàn ${refundQty} ${log.name} trị giá ${refundTotal.toLocaleString()}đ`);
-    playSound('success');
-    alert(`Hoàn trả thành công ${refundQty} sản phẩm! Tiền đã được xử lý.`);
+    playSound('success'); alert(`Hoàn trả thành công ${refundQty} sản phẩm! Tiền đã được xử lý.`);
   };
 
   const handlePayDebt = (phone: string) => {
@@ -542,7 +537,6 @@ export default function App() {
     }
   };
 
-  // --- THUẬT TOÁN TÁCH LÔ / RESET LÔ FIFO ---
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault(); setLoading(true);
     const added = parseInt(newStock || "0"); const impPrice = parseInt(newImportPrice);
@@ -553,18 +547,15 @@ export default function App() {
 
     if (exist) {
         if (exist.stock <= 0) {
-            // HÀNG CŨ HẾT -> ĐÈ THÔNG TIN MỚI (RESET BATCH)
             const data = { name: newName, category: newCategory || "Khác", import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null };
             await supabase.from("products").update(data).eq("id", exist.id);
             if (added > 0) setHistory(prev => [{ id: Date.now(), shift: shift, type: "NHẬP", name: newName, qty: added, total: 0 }, ...prev]);
             logAudit("NHẬP MỚI (ĐÈ CŨ)", `${newName} (Mã: ${newCode}) - SL: ${added}`);
         } else {
-            // HÀNG CŨ CÒN -> SO SÁNH GIÁ & HSD ĐỂ TÁCH LÔ FIFO
             const isDiff = exist.import_price !== impPrice || exist.sale_price !== salePrice || (exist.expiry_date || "") !== (newExpiry || "");
             if (isDiff) {
                 const batchCode = `${newCode}-${Date.now().toString().slice(-4)}`;
                 const batchName = `${newName} [Lô ${newExpiry ? new Date(newExpiry).toLocaleDateString('vi-VN') : 'Mới'}]`;
-                
                 if(window.confirm(`Hàng cũ đang tồn ${exist.stock}.\nBạn nhập lô mới có Giá/HSD khác.\nHệ thống sẽ tạo LÔ MỚI (${batchCode}) để quản lý tách biệt (FIFO).\nĐồng ý?`)) {
                     const data = { product_code: batchCode, name: batchName, category: newCategory || "Khác", import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null };
                     await supabase.from("products").insert([data]);
@@ -574,7 +565,6 @@ export default function App() {
                     setLoading(false); return;
                 }
             } else {
-                // GIỐNG Y HỆT -> CỘNG DỒN KHO
                 const data = { stock: exist.stock + added };
                 await supabase.from("products").update(data).eq("id", exist.id);
                 if (added > 0) setHistory(prev => [{ id: Date.now(), shift: shift, type: "NHẬP", name: newName, qty: added, total: 0 }, ...prev]);
@@ -582,7 +572,6 @@ export default function App() {
             }
         }
     } else {
-        // TẠO MỚI HOÀN TOÀN
         const data = { product_code: newCode, name: newName, category: newCategory || "Khác", import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null };
         await supabase.from("products").insert([data]);
         if (added > 0) setHistory(prev => [{ id: Date.now(), shift: shift, type: "NHẬP", name: newName, qty: added, total: 0 }, ...prev]);
@@ -782,6 +771,34 @@ export default function App() {
     return filtered;
   }, [products, searchTerm, selectedCategory, sortConfig, filters]);
 
+  // CÁC HÀM XỬ LÝ DỮ LIỆU ĐÃ ĐƯỢC KHÔI PHỤC ĐẦY ĐỦ
+  const groupedHistory = useMemo(() => {
+    return history.reduce((groups: any, log: any) => {
+      const date = new Date(Math.floor(log.id)).toLocaleDateString('vi-VN'); 
+      if (!groups[date]) groups[date] = [];
+      groups[date].push({ ...log, t: new Date(Math.floor(log.id)).toLocaleTimeString('vi-VN') });
+      return groups;
+    }, {});
+  }, [history]);
+
+  const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
+
+  const todayStats = useMemo(() => {
+    const todayStr = new Date().toLocaleDateString('vi-VN');
+    const todayHistory = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStr);
+    const totalRev = todayHistory.reduce((s, h) => s + ((h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') ? h.total : 0), 0);
+    const totalProf = todayHistory.reduce((s, h) => s + (h.profit || 0), 0);
+    return { rev: totalRev, prof: totalProf };
+  }, [history]);
+
+  const topSelling = useMemo(() => {
+    const sales: Record<string, number> = {};
+    history.forEach(log => { if(log.type === 'BÁN') sales[log.name] = (sales[log.name]||0) + log.qty; });
+    return Object.entries(sales).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  }, [history]);
+
+  const totalValue = Math.round(products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
+
   const renderFilterPopup = (colKey: string, title: string, uniqueValues: any[], formatVal?: (v:any)=>string) => {
     if (openFilter !== colKey) return null;
     return (
@@ -814,7 +831,7 @@ export default function App() {
     .spring-bg { position: fixed; width: 400px; height: 400px; border-radius: 50%; filter: blur(100px); z-index: -1; opacity: 0.3; animation: float 10s infinite ease-in-out; }
     .glass { background: rgba(255, 255, 255, 0.98); border: 1px solid #fed7aa; border-radius: 12px; box-shadow: 0 4px 15px rgba(251, 146, 60, 0.08); }
     body { background-color: #fff7ed; margin: 0; font-family: 'Inter', sans-serif; color: #431407; }
-    
+    .stat-box { background: #fff; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1px solid #fdba74; display: flex; align-items: center; gap: 6px; color: #9a3412; }
     .qty-btn { padding: 2px 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: #f8fafc; cursor: pointer; font-weight: bold; }
     .tab-btn { padding: 6px 12px; border-radius: 20px; border: 1px solid #fed7aa; background: #fff; cursor: pointer; font-size: 12px; font-weight: bold; color: #9a3412; white-space: nowrap; }
     .tab-btn.active { background: #ef4444; color: #fff; border-color: #ef4444; }
@@ -861,7 +878,6 @@ export default function App() {
         <div className="spring-bg" style={{ background: "#fbbf24", bottom: "-10%", right: "-10%" }}></div>
         <div className="glass" style={{ padding: "40px", width: "100%", maxWidth: "380px", textAlign: "center", border: "4px solid #ef4444" }}>
           
-          {/* ✨ LOGO GIAO DIỆN ĐĂNG NHẬP MỚI ✨ */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "25px" }}>
             <div style={{ background: "linear-gradient(135deg, #ef4444, #f97316)", padding: "15px", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 15px rgba(239, 68, 68, 0.4)", marginBottom: "15px" }}>
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1158,10 +1174,100 @@ export default function App() {
         </div>
       )}
 
-      {/* --- PHẦN GIAO DIỆN CHÍNH --- */}
       <div className="no-print" style={{ padding: "15px", position: "relative", minHeight: "100vh", overflowX: "auto" }}>
         <div className="spring-bg" style={{ background: "#ef4444", top: "10%", left: "5%" }}></div>
         <div className="spring-bg" style={{ background: "#f59e0b", bottom: "10%", right: "5%" }}></div>
+
+        {/* POPUP THANH TOÁN */}
+        {isCheckoutOpen && (
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+            {checkoutStep === 1 && (
+              <div className="glass" style={{ padding: "25px", width: "350px" }}>
+                <h3 style={{ color: "#ef4444", margin: "0", textAlign: "center" }}>🧧 THANH TOÁN</h3>
+                
+                <div style={{ display: "flex", position: "relative", marginTop: "15px" }}>
+                  <input 
+                    type="text" 
+                    placeholder="👉 Quẹt mã Voucher hoặc nhập số tiền (đ)..." 
+                    value={voucherInput} 
+                    onChange={(e) => setVoucherInput(e.target.value)} 
+                    onKeyDown={handleVoucherSubmit}
+                    style={{ flex: 1, padding: "12px", borderRadius: "10px 0 0 10px", border: "2px dashed #f59e0b", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb" }} 
+                  />
+                  <button onClick={() => setScannerMode('voucher')} style={{ padding: "0 15px", backgroundColor: "#f59e0b", border: "none", borderRadius: "0 10px 10px 0", cursor: "pointer", color: "white", fontSize: "18px" }} title="Quét mã Voucher bằng Camera">📷</button>
+                </div>
+                {appliedVoucherAmount > 0 && (
+                  <div style={{ color: "#059669", fontSize: "12px", fontWeight: "bold", marginTop: "4px", textAlign: "center" }}>
+                    ✅ Đã áp dụng giảm: {appliedVoucherAmount.toLocaleString()}đ
+                  </div>
+                )}
+
+                <input type="text" placeholder="Số điện thoại khách (nếu có)..." value={custPhone} onChange={handlePhoneChange} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px solid #ef4444", marginTop: "10px", outline: "none", boxSizing: "border-box" }} />
+                
+                {custPhone && (
+                  <div style={{ marginTop: "10px", padding: "12px", backgroundColor: "#fff7ed", borderRadius: "8px", border: "1px dashed #f97316" }}>
+                    {customers[custPhone] ? (
+                      <div><div style={{ color: "#b91c1c", fontWeight: "bold" }}>⭐ {customers[custPhone].name}</div>
+                        <div>Ví điểm: <b>{Math.round(customers[custPhone].wallet || 0).toLocaleString()}đ</b> | Nợ: <b style={{color:"#ef4444"}}>{(customers[custPhone].debt || 0).toLocaleString()}đ</b></div>
+                        {(customers[custPhone].wallet || 0) > 0 && <label style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "10px", cursor: "pointer", color: "#ea580c", fontWeight: "bold" }}><input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} /> Dùng điểm lì xì!</label>}
+                      </div>
+                    ) : <input type="text" placeholder="Tên khách mới..." value={custName} onChange={e => setCustName(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: "8px", outline: "none", border: "1px solid #fdba74", boxSizing: "border-box" }} />}
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+                  <button onClick={() => setIsCheckoutOpen(false)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "#e2e8f0", fontWeight: "bold", cursor: "pointer" }}>Hủy</button>
+                  <button onClick={handleNextToQR} style={{ flex: 2, padding: "10px", backgroundColor: "#ef4444", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>TIẾP TỤC 👉</button>
+                </div>
+              </div>
+            )}
+            
+            {checkoutStep === 2 && (
+              <div className="glass" style={{ padding: "25px", width: "350px", textAlign: "center" }}>
+                <h3 style={{ color: "#ef4444", margin: "0" }}>📱 THANH TOÁN QUẦY</h3>
+                <div style={{ color: "#ef4444", fontSize: "28px", fontWeight: "900", margin: "10px 0" }}>{finalToPay.toLocaleString()}đ</div>
+                
+                <img src={`https://img.vietqr.io/image/970422-0680124181004-compact2.png?amount=${finalToPay}&addInfo=Thanh toan&accountName=LE%20HONG%20HAI`} style={{ width: "160px", margin: "0 auto 15px auto", border: "2px solid #ef4444", borderRadius: "10px", display: "block" }} alt="Mã VietQR" />
+                
+                <div style={{ marginBottom: "15px", textAlign: "left" }}>
+                  <div style={{ fontSize: "12px", color: "#64748b", fontWeight: "bold", marginBottom: "5px" }}>Tiền mặt khách đưa:</div>
+                  <input type="number" placeholder="Nhập số tiền..." value={customerGiven} onChange={e => setCustomerGiven(Number(e.target.value) || "")} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", boxSizing: "border-box", fontSize: "14px", fontWeight: "bold" }} />
+                  <div style={{ display: "flex", gap: "5px", marginTop: "8px", flexWrap: "wrap" }}>
+                    <button onClick={()=>setCustomerGiven(finalToPay)} style={{flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid #cbd5e1", cursor: "pointer"}}>Vừa đủ</button>
+                    <button onClick={()=>setCustomerGiven(50000)} style={{flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid #cbd5e1", cursor: "pointer"}}>50k</button>
+                    <button onClick={()=>setCustomerGiven(100000)} style={{flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid #cbd5e1", cursor: "pointer"}}>100k</button>
+                    <button onClick={()=>setCustomerGiven(200000)} style={{flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid #cbd5e1", cursor: "pointer"}}>200k</button>
+                    <button onClick={()=>setCustomerGiven(500000)} style={{flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid #cbd5e1", cursor: "pointer"}}>500k</button>
+                  </div>
+                  {customerGiven !== "" && Number(customerGiven) >= finalToPay && (
+                    <div style={{ marginTop: "10px", padding: "10px", backgroundColor: "#ecfdf5", border: "1px dashed #10b981", borderRadius: "8px", color: "#059669", fontWeight: "bold", fontSize: "16px", textAlign: "center" }}>
+                      THỐI LẠI: {(Number(customerGiven) - finalToPay).toLocaleString()}đ
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <button onClick={() => setCheckoutStep(1)} style={{ flex: "1 1 100%", padding: "8px", borderRadius: "8px", border: "none", background: "#e2e8f0", cursor: "pointer", fontWeight: "bold" }}>Quay lại</button>
+                  <button onClick={() => confirmCheckout(true)} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#f59e0b", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>📝 GHI NỢ</button>
+                  <button onClick={() => {
+                      if (finalToPay > 0 && (customerGiven === "" || Number(customerGiven) < finalToPay)) {
+                         playSound('error'); alert(`Khách đưa chưa đủ tiền! Cần thanh toán: ${finalToPay.toLocaleString()}đ`); return;
+                      }
+                      confirmCheckout(false);
+                  }} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#10b981", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>✔️ ĐÃ NHẬN</button>
+                </div>
+              </div>
+            )}
+            {checkoutStep === 3 && (
+              <div className="glass" style={{ padding: "30px", width: "350px", textAlign: "center" }}>
+                <div style={{ fontSize: "40px" }}>🌸</div><h3 style={{ color: "#10b981", margin: "10px 0" }}>Thành công!</h3>
+                <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+                  <button onClick={() => { setPrintMode('receipt'); setTimeout(()=>window.print(), 300); }} style={{ flex: 1, padding: "12px", backgroundColor: "#ef4444", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>🖨️ In Hóa Đơn</button>
+                  <button onClick={closeCheckout} style={{ flex: 1, padding: "12px", backgroundColor: "#e2e8f0", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>Đóng</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div style={{ maxWidth: "1500px", margin: "0 auto", minWidth: "1000px" }}>
           
