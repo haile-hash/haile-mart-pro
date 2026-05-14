@@ -29,8 +29,9 @@ export default function App() {
   const [showAuditModal, setShowAuditModal] = useState(false);
   
   const [showHoldModal, setShowHoldModal] = useState(false);
-  const [showScanner, setShowScanner] = useState(false);
-  const [scannedCode, setScannedCode] = useState("");
+  
+  // NÂNG CẤP CAMERA THÀNH ĐA NHIỆM: null | 'product' | 'voucher'
+  const [scannerMode, setScannerMode] = useState<'product' | 'voucher' | null>(null);
   const [scannedCodeObj, setScannedCodeObj] = useState<any>(null);
   const [scanMessage, setScanMessage] = useState<{text: string, type: 'success'|'error'} | null>(null);
   
@@ -104,8 +105,9 @@ export default function App() {
     }
   }, [isLoggedIn]);
 
+  // HỆ THỐNG CAMERA SCANNER
   useEffect(() => {
-    if (showScanner) {
+    if (scannerMode !== null) {
       let scanner: any;
       let lastScanTime = 0;
       const loadScanner = () => {
@@ -132,16 +134,40 @@ export default function App() {
       } else loadScanner();
       return () => { if (scanner) scanner.clear().catch(()=>{}); };
     }
-  }, [showScanner]);
+  }, [scannerMode]);
 
+  // XỬ LÝ KẾT QUẢ QUÉT DỰA THEO MODE
   useEffect(() => {
     if (scannedCodeObj) {
-      const p = products.find(prod => prod.product_code === scannedCodeObj.code.trim());
-      if (p) handleSelectSuggest(p);
-      else { playSound('error'); alert(`Không tìm thấy mã vạch: ${scannedCodeObj.code}`); }
+      if (scannerMode === 'product') {
+          const p = products.find(prod => prod.product_code === scannedCodeObj.code.trim());
+          if (p) handleSelectSuggest(p);
+          else { playSound('error'); alert(`Không tìm thấy mã vạch: ${scannedCodeObj.code}`); }
+      } 
+      else if (scannerMode === 'voucher') {
+          const code = scannedCodeObj.code.trim().toUpperCase();
+          const VOUCHERS: Record<string, number> = { 
+            "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 
+          };
+          
+          if (VOUCHERS[code]) {
+            setAppliedVoucherAmount(VOUCHERS[code]);
+            setVoucherInput(code);
+            playSound('success');
+          } else if (!isNaN(Number(code)) && Number(code) > 0) {
+            setAppliedVoucherAmount(Number(code));
+            setVoucherInput(code);
+            playSound('success');
+          } else {
+            playSound('error');
+            alert("Mã Voucher không hợp lệ!");
+            setAppliedVoucherAmount(0);
+          }
+          setScannerMode(null); // Đóng camera sau khi quét voucher thành công
+      }
       setScannedCodeObj(null);
     }
-  }, [scannedCodeObj, products]);
+  }, [scannedCodeObj, products, scannerMode]);
 
   useEffect(() => {
     const handleAfterPrint = () => setPrintMode(null);
@@ -1121,14 +1147,17 @@ export default function App() {
               <div className="glass" style={{ padding: "25px", width: "350px" }}>
                 <h3 style={{ color: "#ef4444", margin: "0", textAlign: "center" }}>🧧 THANH TOÁN</h3>
                 
-                <input 
-                  type="text" 
-                  placeholder="👉 Quẹt mã Voucher hoặc nhập số tiền (đ)..." 
-                  value={voucherInput} 
-                  onChange={(e) => setVoucherInput(e.target.value)} 
-                  onKeyDown={handleVoucherSubmit}
-                  style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px dashed #f59e0b", marginTop: "15px", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb" }} 
-                />
+                <div style={{ display: "flex", position: "relative", marginTop: "15px" }}>
+                  <input 
+                    type="text" 
+                    placeholder="👉 Quẹt mã Voucher hoặc nhập số tiền (đ)..." 
+                    value={voucherInput} 
+                    onChange={(e) => setVoucherInput(e.target.value)} 
+                    onKeyDown={handleVoucherSubmit}
+                    style={{ flex: 1, padding: "12px", borderRadius: "10px 0 0 10px", border: "2px dashed #f59e0b", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb" }} 
+                  />
+                  <button onClick={() => setScannerMode('voucher')} style={{ padding: "0 15px", backgroundColor: "#f59e0b", border: "none", borderRadius: "0 10px 10px 0", cursor: "pointer", color: "white", fontSize: "18px" }} title="Quét mã Voucher bằng Camera">📷</button>
+                </div>
                 {appliedVoucherAmount > 0 && (
                   <div style={{ color: "#059669", fontSize: "12px", fontWeight: "bold", marginTop: "4px", textAlign: "center" }}>
                     ✅ Đã áp dụng giảm: {appliedVoucherAmount.toLocaleString()}đ
@@ -1205,6 +1234,7 @@ export default function App() {
         )}
 
         <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
+          {/* HEADER CHÍNH */}
           <div className="glass" style={{ padding: "8px 15px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", borderBottom: "4px solid #ef4444" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
               <h2 style={{ color: "#ef4444", margin: 0, fontSize: "18px" }}>🏪 HẢI LÊ MART</h2>
@@ -1240,6 +1270,7 @@ export default function App() {
 
           <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: "10px" }}>
             
+            {/* CỘT TRÁI: SẢN PHẨM */}
             <div className="glass" style={{ padding: "12px" }}>
               
               <div style={{ display: "flex", gap: "8px", marginBottom: "10px", position: "relative" }}>
@@ -1253,7 +1284,7 @@ export default function App() {
                     onClick={() => setShowSuggestions(true)}
                     style={{ flex: 1, padding: "8px 12px", borderRadius: "6px 0 0 6px", border: "2px solid #ef4444", fontSize: "14px", fontWeight: "bold", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb", color: "#b91c1c" }} 
                   />
-                  <button onClick={() => setShowScanner(true)} style={{ padding: "0 15px", backgroundColor: "#ef4444", border: "none", borderRadius: "0 6px 6px 0", cursor: "pointer", color: "white", fontSize: "18px" }} title="Quét mã bằng Camera">📷</button>
+                  <button onClick={() => setScannerMode('product')} style={{ padding: "0 15px", backgroundColor: "#ef4444", border: "none", borderRadius: "0 6px 6px 0", cursor: "pointer", color: "white", fontSize: "18px" }} title="Quét mã bằng Camera">📷</button>
                   
                   {showSuggestions && barcodeInput.trim() !== "" && (
                     <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: 0, right: 0, backgroundColor: "#fff", border: "1px solid #ef4444", borderRadius: "6px", marginTop: "4px", zIndex: 100, maxHeight: "250px", overflowY: "auto", boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}>
@@ -1436,7 +1467,6 @@ export default function App() {
               
               <div className="glass" style={{ padding: "12px", flex: 1.5, minHeight: "45vh", display: "flex", flexDirection: "column" }}>
                 
-                {/* 🛠️ DI CHUYỂN NÚT THANH TOÁN LÊN ĐẦU, GỘP VỚI TỔNG TIỀN */}
                 <div style={{ marginBottom: "12px", paddingBottom: "8px", borderBottom: "2px dashed #fed7aa" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                     <h3 style={{ margin: 0, color: "#ef4444", fontSize: "14px", textTransform: "uppercase" }}>🛒 GIỎ HÀNG ({cart.reduce((s, i) => s + (Number(i.qty) || 0), 0)} món)</h3>
