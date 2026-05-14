@@ -304,7 +304,6 @@ export default function App() {
     return Object.entries(sales).sort((a,b)=>b[1]-a[1]).slice(0,5);
   }, [history]);
 
-  // CẢI TIẾN TÍNH NĂNG LỌC NHẬT KÝ CA 
   const groupedHistory = useMemo(() => {
     let filtered = history;
     if (logTypeFilter !== "Tất cả") {
@@ -736,7 +735,6 @@ export default function App() {
     setLoading(false);
   };
 
-  // ================= TÍNH NĂNG GỬI MÃ THẺ VIP CHO KHÁCH TỰ ĐỘNG =================
   const sendCardEmail = async (phone: string) => {
       const cust = customers[phone];
       const email = cust.email || window.prompt(`Nhập Email của ${cust.name} để gửi mã thẻ:`, "");
@@ -1009,6 +1007,8 @@ export default function App() {
 
   const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
 
+  const handleLoginSubmit = (e: React.FormEvent) => { handleLogin(e); };
+
   // ================= 7. RENDER HELPERS =================
   const renderHeaderIcon = (colKey: string) => {
     const isFiltered = filters[colKey]?.length > 0;
@@ -1101,9 +1101,11 @@ export default function App() {
       .print-only.print-barcode-sheet { position: absolute; left: 0; top: 0; display: flex !important; flex-wrap: wrap; gap: 15px; justify-content: center; padding: 10mm; }
       .barcode-sticker { width: 30%; text-align: center; margin-bottom: 15px; border: 1px dashed #ccc; padding: 8px; page-break-inside: avoid; }
       
+      /* CĂN GIỮA THẺ VIP KHI IN */
       .print-only.print-customer-card { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex !important; justify-content: center; align-items: center; }
     }
 
+    /* MẶC ĐỊNH ẨN KHỐI IN TRÊN MÀN HÌNH CHÍNH */
     .print-only { display: none; }
     .no-print { display: block; }
     @media print { .no-print { display: none !important; } }
@@ -1336,6 +1338,7 @@ export default function App() {
         </div>
       )}
 
+      {/* TÍNH NĂNG IN THẺ VÀ GỬI THẺ VIP */}
       {showCustomerModal && (
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "550px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
