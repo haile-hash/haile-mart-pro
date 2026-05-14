@@ -91,6 +91,10 @@ export default function App() {
   });
 
   const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
+  
+  // STATES CHO BỘ LỌC NHẬT KÝ
+  const [logSearchTerm, setLogSearchTerm] = useState("");
+  const [logTypeFilter, setLogTypeFilter] = useState("Tất cả");
 
   // ================= 3. HÀM LÕI (PURE HELPERS) =================
   const playSound = (type: 'success' | 'error') => {
@@ -300,14 +304,27 @@ export default function App() {
     return Object.entries(sales).sort((a,b)=>b[1]-a[1]).slice(0,5);
   }, [history]);
 
+  // CẢI TIẾN TÍNH NĂNG LỌC NHẬT KÝ CA 
   const groupedHistory = useMemo(() => {
-    return history.reduce((groups: any, log: any) => {
+    let filtered = history;
+    if (logTypeFilter !== "Tất cả") {
+        filtered = filtered.filter(log => log.type === logTypeFilter);
+    }
+    if (logSearchTerm.trim() !== "") {
+        const term = logSearchTerm.toLowerCase();
+        filtered = filtered.filter(log => 
+            (log.name && log.name.toLowerCase().includes(term)) || 
+            (log.customer && log.customer.toLowerCase().includes(term))
+        );
+    }
+
+    return filtered.reduce((groups: any, log: any) => {
       const date = new Date(Math.floor(log.id)).toLocaleDateString('vi-VN'); 
       if (!groups[date]) groups[date] = [];
       groups[date].push({ ...log, t: new Date(Math.floor(log.id)).toLocaleTimeString('vi-VN') });
       return groups;
     }, {});
-  }, [history]);
+  }, [history, logSearchTerm, logTypeFilter]);
 
   const totalValue = Math.round(products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
   const cartTotalAmountDisplay = cart.reduce((sum, item) => sum + item.total, 0);
@@ -762,12 +779,11 @@ export default function App() {
   const shareToZalo = (phone: string) => {
       const cust = customers[phone];
       const code = cust.cardCode || phone;
-      const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(code)}&code=Code128&translate-esc=on`;
       
-      const text = `Chào ${cust.name},\nCảm ơn bạn đã đồng hành cùng Hải Lê Mart!\n💳 Mã Thẻ VIP của bạn là: ${code}\n\n👉 Mã vạch của bạn (Bấm vào link để lấy thẻ tĩnh):\n${barcodeUrl}`;
+      const text = `Chào ${cust.name},\nCảm ơn bạn đã đồng hành cùng Hải Lê Mart!\n💳 Mã Thẻ VIP của bạn là: ${code}\n\n👉 Bạn hãy đưa mã này cho thu ngân khi thanh toán để được tích điểm nhé!`;
       
       navigator.clipboard.writeText(text).then(() => {
-          alert(`💡 MẸO CHUYÊN NGHIỆP:\nThay vì gửi Link, ông chủ hãy bấm [In Thẻ] -> Nhấn phím Alt+Z để cắt ảnh cái Thẻ VIP -> Dán (Ctrl+V) gửi qua Zalo cho khách là xịn nhất!\n\n✅ Đã copy thông tin văn bản, chuẩn bị mở Zalo...`);
+          alert(`💡 MẸO CHUYÊN NGHIỆP CHO ZALO:\nThay vì gửi Link, ông chủ hãy làm theo 3 bước sau:\n1. Bấm nút [🖨️ In Thẻ] để mở thẻ ra.\n2. Bấm phím Alt+Z để chụp ảnh cái thẻ đó.\n3. Dán (Ctrl+V) gửi qua Zalo là siêu đẹp!\n\n✅ Đã copy thông tin văn bản, chuẩn bị mở Zalo...`);
           window.open(`https://zalo.me/${phone}`, '_blank');
       }).catch(() => {
           window.open(`https://zalo.me/${phone}`, '_blank');
@@ -993,8 +1009,6 @@ export default function App() {
 
   const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
 
-  const handleLoginSubmit = (e: React.FormEvent) => { handleLogin(e); };
-
   // ================= 7. RENDER HELPERS =================
   const renderHeaderIcon = (colKey: string) => {
     const isFiltered = filters[colKey]?.length > 0;
@@ -1087,12 +1101,12 @@ export default function App() {
       .print-only.print-barcode-sheet { position: absolute; left: 0; top: 0; display: flex !important; flex-wrap: wrap; gap: 15px; justify-content: center; padding: 10mm; }
       .barcode-sticker { width: 30%; text-align: center; margin-bottom: 15px; border: 1px dashed #ccc; padding: 8px; page-break-inside: avoid; }
       
-      /* CĂN GIỮA THẺ VIP KHI IN */
       .print-only.print-customer-card { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex !important; justify-content: center; align-items: center; }
     }
 
-    /* MẶC ĐỊNH ẨN KHỐI IN TRÊN MÀN HÌNH CHÍNH */
     .print-only { display: none; }
+    .no-print { display: block; }
+    @media print { .no-print { display: none !important; } }
 
     .qty-input { width: 28px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; outline: none; font-size: 11px; font-weight: bold; color: #1e293b; padding: 3px 0; background: #fff; }
     .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
@@ -1144,7 +1158,7 @@ export default function App() {
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); }}>
       <style>{styles}</style>
       
-      {/* 🖨️ BIÊN LAI BÁN HÀNG */}
+      {/* 🖨️ BIÊN LAI BÁN HÀNG (SẼ CHẠY KHI IN) */}
       {lastOrder && printMode === 'receipt' && (
         <div className="print-only print-receipt">
           <div className="print-header">
@@ -1243,10 +1257,10 @@ export default function App() {
         </div>
       )}
 
-      {/* CÁC MODAL HIỂN THỊ */}
+      {/* CÁC MODAL HIỂN THỊ (CÓ NO-PRINT ĐỂ ẨN KHI IN) */}
       {showHoldModal && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
-          <div className="glass no-print" style={{ padding: "25px", width: "400px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div className="glass" style={{ padding: "25px", width: "400px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #fed7aa", paddingBottom: "10px", marginBottom: "10px" }}>
               <h2 style={{ margin: 0, color: "#f59e0b" }}>📂 ĐƠN CHỜ THANH TOÁN</h2>
               <button onClick={() => setShowHoldModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
@@ -1272,8 +1286,8 @@ export default function App() {
       )}
 
       {showAuditModal && role === 'admin' && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
-          <div className="glass no-print" style={{ padding: "25px", width: "600px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div className="glass" style={{ padding: "25px", width: "600px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #cbd5e1", paddingBottom: "10px", marginBottom: "10px" }}>
               <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
                 <h2 style={{ margin: 0, color: "#334155" }}>🕵️ NHẬT KÝ THAO TÁC HỆ THỐNG</h2>
@@ -1301,8 +1315,8 @@ export default function App() {
       )}
 
       {showHandoverModal && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
-          <div className="glass no-print" style={{ padding: "30px", width: "350px", textAlign: "center" }}>
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div className="glass" style={{ padding: "30px", width: "350px", textAlign: "center" }}>
             <h2 style={{ margin: "0 0 15px 0", color: "#ef4444", fontSize: "22px" }}>📋 BIÊN BẢN CHỐT CA</h2>
             <div style={{ backgroundColor: "#fff7ed", padding: "15px", borderRadius: "10px", border: "1px dashed #fdba74", textAlign: "left", fontSize: "14px", lineHeight: "1.8" }}>
               <div>👤 Người trực: <b>{role === 'admin' ? "Quản lý" : "Thu ngân"}</b></div>
@@ -1323,8 +1337,8 @@ export default function App() {
       )}
 
       {showCustomerModal && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
-          <div className="glass no-print" style={{ padding: "25px", width: "550px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div className="glass" style={{ padding: "25px", width: "550px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #c7d2fe", paddingBottom: "10px", marginBottom: "10px" }}>
               <h2 style={{ margin: 0, color: "#4f46e5" }}>🤝 QUẢN LÝ KHÁCH HÀNG</h2>
               <button onClick={() => setShowCustomerModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
@@ -1374,8 +1388,8 @@ export default function App() {
       )}
 
       {showDebtModal && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
-          <div className="glass no-print" style={{ padding: "25px", width: "400px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div className="glass" style={{ padding: "25px", width: "400px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #fed7aa", paddingBottom: "10px", marginBottom: "10px" }}>
               <h2 style={{ margin: 0, color: "#ef4444" }}>📓 SỔ GHI NỢ</h2>
               <button onClick={() => setShowDebtModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
@@ -1398,8 +1412,8 @@ export default function App() {
       )}
 
       {showStatsModal && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
-          <div className="glass no-print" style={{ padding: "25px", width: "450px" }}>
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div className="glass" style={{ padding: "25px", width: "450px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #fed7aa", paddingBottom: "10px", marginBottom: "15px" }}>
               <h2 style={{ margin: 0, color: "#3b82f6" }}>📊 BÁO CÁO NHANH</h2>
               <button onClick={() => setShowStatsModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
@@ -1437,8 +1451,8 @@ export default function App() {
       )}
 
       {scannerMode !== null && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.9)", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", zIndex: 10000 }}>
-          <div className="no-print" style={{ background: "#fff", padding: "10px", borderRadius: "12px", width: "90%", maxWidth: "400px", position: "relative" }}>
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.9)", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", zIndex: 10000 }}>
+          <div style={{ background: "#fff", padding: "10px", borderRadius: "12px", width: "90%", maxWidth: "400px", position: "relative" }}>
             <h3 style={{ margin: "0 0 10px 0", textAlign: "center", color: "#b91c1c" }}>
               {scannerMode === 'voucher' ? '📷 Quét mã Voucher' : (scannerMode === 'customer' ? '📷 Quét Thẻ VIP' : '📷 Đưa mã vạch vào khung')}
             </h3>
@@ -1761,25 +1775,48 @@ export default function App() {
                 </div>
               </div>
               <div className="glass" style={{ padding: "15px", height: "35vh", display: "flex", flexDirection: "column" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", alignItems: "center" }}>
-                  <h3 style={{ margin: 0, fontSize: "14px", color: "#b91c1c" }}>📋 NHẬT KÝ CA NÀY</h3>
+                
+                {/* THANH CÔNG CỤ LỌC NHẬT KÝ */}
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+                  <div style={{ display: "flex", gap: "8px", flex: 1 }}>
+                     <input 
+                        placeholder="🔍 Tìm giao dịch (Tên/SĐT)..." 
+                        value={logSearchTerm}
+                        onChange={e => setLogSearchTerm(e.target.value)}
+                        style={{ padding: "6px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px", flex: 1 }}
+                     />
+                     <select 
+                        value={logTypeFilter}
+                        onChange={e => setLogTypeFilter(e.target.value)}
+                        style={{ padding: "6px", borderRadius: "6px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px", fontWeight: "bold", color: "#1e293b", backgroundColor: "#f8fafc" }}
+                     >
+                        <option value="Tất cả">Tất cả</option>
+                        <option value="BÁN">Bán hàng</option>
+                        <option value="NHẬP">Nhập hàng</option>
+                        <option value="TRẢ HÀNG">Trả hàng</option>
+                        <option value="GHI NỢ">Ghi nợ</option>
+                        <option value="THU NỢ">Thu nợ</option>
+                     </select>
+                  </div>
+
                   {role === 'admin' && (
                     <div style={{ display: "flex", gap: "4px" }}>
-                      <button onClick={exportToCSV} style={{ fontSize: "9px", padding: "4px 6px", background: "#10b981", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}>EXCEL TỔNG</button>
-                      <button onClick={handleSendEmailReport} style={{ fontSize: "9px", padding: "4px 6px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}>✉ CHỐT TỔNG</button>
+                      <button onClick={exportToCSV} style={{ fontSize: "9px", padding: "6px 8px", background: "#10b981", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>EXCEL TỔNG</button>
+                      <button onClick={handleSendEmailReport} style={{ fontSize: "9px", padding: "6px 8px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>✉ CHỐT TỔNG</button>
                     </div>
                   )}
                 </div>
+
                 <div style={{ flex: 1, overflowY: "auto", paddingRight: "4px" }}>
-                    {Object.keys(groupedHistory).length === 0 && <div style={{textAlign: "center", color: "#94a3b8", fontSize: "11px", marginTop: "15px"}}>Chưa có dữ liệu giao dịch</div>}
+                    {Object.keys(groupedHistory).length === 0 && <div style={{textAlign: "center", color: "#94a3b8", fontSize: "11px", marginTop: "15px"}}>Không tìm thấy dữ liệu phù hợp</div>}
                     {Object.keys(groupedHistory).map((date) => (
-                      <div key={date} style={{ marginBottom: "6px", backgroundColor: "#fff7ed", borderRadius: "4px", border: "1px solid #fed7aa", marginTop: "6px" }}>
-                        <div onClick={() => toggleDateGroup(date)} style={{ backgroundColor: "#ffedd5", padding: "6px 10px", fontSize: "11px", fontWeight: "bold", cursor: "pointer", display: "flex", justifyContent: "space-between" }}>
-                          <span>📅 {date}</span>
-                          <span>{expandedDates[date] ?? true ? "▼" : "▶"}</span>
+                      <div key={date}>
+                        <div onClick={() => toggleDateGroup(date)} style={{backgroundColor: "#ffedd5", padding: "6px 10px", fontSize: "11px", fontWeight: "bold", border: "1px solid #fed7aa", borderRadius: "4px", marginTop: "6px", display: "flex", justifyContent: "space-between", cursor: "pointer"}}>
+                            <span>📅 {date}</span>
+                            <span>{expandedDates[date] ?? true ? "▼" : "▶"}</span>
                         </div>
                         {(expandedDates[date] ?? true) && (
-                          <div style={{ padding: "0 8px" }}>
+                          <div style={{ padding: "0 4px" }}>
                             {groupedHistory[date].map((log: any) => (
                               <div key={log.id} style={{fontSize: "11px", padding: "6px 0", borderBottom: "1px dashed #eee", display: "flex", flexDirection: "column"}}>
                                 <div style={{ display: "flex", justifyContent: "space-between" }}>
