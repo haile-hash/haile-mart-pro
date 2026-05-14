@@ -30,9 +30,9 @@ export default function App() {
   
   const [showHoldModal, setShowHoldModal] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
-  const [scannedCode, setScannedCode] = useState("");
+  const [scannedCodeObj, setScannedCodeObj] = useState<any>(null); // State mới cho Camera liên thanh
+  const [scanMessage, setScanMessage] = useState<{text: string, type: 'success'|'error'} | null>(null); // Toast cho camera
   
-  // STATE IN TEM
   const [printBarcodeProduct, setPrintBarcodeProduct] = useState<any>(null);
   const [barcodeCount, setBarcodeCount] = useState<number>(30);
   const [printMode, setPrintMode] = useState<'receipt' | 'barcode' | null>(null);
@@ -42,6 +42,7 @@ export default function App() {
   const [newImportPrice, setNewImportPrice] = useState(""); 
   const [newPrice, setNewPrice] = useState(""); 
   const [newPromoPrice, setNewPromoPrice] = useState(""); 
+  const [newGiftCondition, setNewGiftCondition] = useState("1"); // Tách điều kiện số lượng quà
   const [newGiftInfo, setNewGiftInfo] = useState(""); 
   const [newStock, setNewStock] = useState("");
   const [newExpiry, setNewExpiry] = useState(""); 
@@ -99,9 +100,11 @@ export default function App() {
     }
   }, [isLoggedIn]);
 
+  // --- HỆ THỐNG QUÉT CAMERA LIÊN THANH (NON-STOP) ---
   useEffect(() => {
     if (showScanner) {
       let scanner: any;
+      let lastScanTime = 0;
       const loadScanner = () => {
         if ((window as any).Html5QrcodeScanner) {
            scanner = new (window as any).Html5QrcodeScanner("qr-reader", { 
@@ -111,10 +114,11 @@ export default function App() {
            }, false);
            
            scanner.render((text: string) => {
-               setScannedCode(text);
-               scanner.clear();
-               setShowScanner(false);
-           }, (err: any) => {});
+               const now = Date.now();
+               if (now - lastScanTime < 1500) return; // Chống tít đúp trong 1.5s
+               lastScanTime = now;
+               setScannedCodeObj({ code: text, time: now });
+           }, undefined);
         }
       };
       if (!(window as any).Html5QrcodeScanner) {
@@ -127,14 +131,40 @@ export default function App() {
     }
   }, [showScanner]);
 
+  // XỬ LÝ MÃ SAU KHI QUÉT CAMERA
   useEffect(() => {
-    if (scannedCode) {
-      const p = products.find(prod => prod.product_code === scannedCode.trim());
-      if (p) handleSelectSuggest(p);
-      else { playSound('error'); alert(`Không tìm thấy mã vạch: ${scannedCode}`); }
-      setScannedCode("");
+    if (scannedCodeObj) {
+      const p = products.find(prod => prod.product_code === scannedCodeObj.code.trim());
+      if (p) {
+         if (p.stock <= 0) {
+            playSound('error');
+            setScanMessage({ text: `❌ ${p.name} đã hết hàng!`, type: 'error' });
+         } else {
+            const price = getActualPrice(p);
+            setCart(prev => {
+               const exist = prev.find(item => item.product.id === p.id);
+               if (exist) {
+                  const newQty = exist.qty + 1;
+                  if (newQty > p.stock) {
+                     playSound('error'); setScanMessage({ text: `❌ Quá tồn kho (${p.stock})`, type: 'error' });
+                     return prev;
+                  }
+                  playSound('success'); setScanMessage({ text: `✅ +1 ${p.name}`, type: 'success' });
+                  return prev.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i);
+               } else {
+                  playSound('success'); setScanMessage({ text: `✅ Thêm: ${p.name}`, type: 'success' });
+                  return [...prev, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }];
+               }
+            });
+         }
+      } else {
+         playSound('error');
+         setScanMessage({ text: `❌ Không tìm thấy: ${scannedCodeObj.code}`, type: 'error' });
+      }
+      setTimeout(() => setScanMessage(null), 1500); // Ẩn thông báo sau 1.5s
     }
-  }, [scannedCode, products]);
+  }, [scannedCodeObj]);
+  // --------------------------------------------------
 
   useEffect(() => {
     const handleAfterPrint = () => setPrintMode(null);
@@ -147,19 +177,13 @@ export default function App() {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
+      osc.connect(gain); gain.connect(ctx.destination);
       if (type === 'success') {
-        osc.frequency.value = 800;
-        gain.gain.setValueAtTime(0.1, ctx.currentTime);
-        osc.start(ctx.currentTime);
-        osc.stop(ctx.currentTime + 0.1);
+        osc.frequency.value = 800; gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.1);
       } else {
-        osc.frequency.value = 250;
-        osc.type = 'square';
-        gain.gain.setValueAtTime(0.1, ctx.currentTime);
-        osc.start(ctx.currentTime);
-        osc.stop(ctx.currentTime + 0.3);
+        osc.frequency.value = 250; osc.type = 'square'; gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3);
       }
     } catch(e) {}
   };
@@ -172,6 +196,16 @@ export default function App() {
   const fetchProducts = async () => {
     const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false });
     if (data) setProducts(data);
+  };
+
+  // --- HÀM ĐỌC & TÁCH LỌC QUÀ TẶNG THÔNG MINH ---
+  const parseGift = (giftStr: string | null) => {
+    if (!giftStr) return { cond: 0, text: "" };
+    if (giftStr.includes(';;;')) {
+        const parts = giftStr.split(';;;');
+        return { cond: parseInt(parts[0]) || 1, text: parts[1] || "" };
+    }
+    return { cond: 1, text: giftStr };
   };
 
   const currentShiftStats = useMemo(() => {
@@ -210,11 +244,8 @@ export default function App() {
     let price = (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price;
     const currentHour = new Date().getHours();
     if ((currentHour >= 20 || currentHour < 6) && (p.category === 'Đồ ăn liền' || p.category === 'Bánh Kẹo')) {
-       price = price * 0.8;
-       p.isHappyHour = true; 
-    } else {
-       p.isHappyHour = false;
-    }
+       price = price * 0.8; p.isHappyHour = true; 
+    } else { p.isHappyHour = false; }
     return Math.round(price);
   };
 
@@ -238,6 +269,7 @@ export default function App() {
     logAudit("XÓA ĐƠN TẠM", `Đã xóa 1 đơn hàng lưu tạm`);
   };
 
+  // QUÉT MÃ TỪ Ô TÌM KIẾM (SÚNG TÍT MÃ)
   const handleSelectSuggest = (p: any) => {
     if (p.stock <= 0) { playSound('error'); return alert("Đã hết hàng trong kho!"); }
     const price = getActualPrice(p);
@@ -248,9 +280,7 @@ export default function App() {
       setCart(cart.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i));
     } else setCart([...cart, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }]);
     
-    playSound('success');
-    setBarcodeInput("");
-    setShowSuggestions(false);
+    playSound('success'); setBarcodeInput(""); setShowSuggestions(false);
   };
 
   const handleBarcodeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -318,12 +348,8 @@ export default function App() {
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const phone = e.target.value; 
     setCustPhone(phone);
-    if (customers[phone]) {
-      setCustName(customers[phone].name);
-    } else { 
-      setCustName(""); 
-      setUseWallet(false); 
-    }
+    if (customers[phone]) { setCustName(customers[phone].name); } 
+    else { setCustName(""); setUseWallet(false); }
   };
 
   const handleNextToQR = () => {
@@ -411,7 +437,12 @@ export default function App() {
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const code = e.target.value; setNewCode(code);
     const p = products.find((x: any) => x.product_code === code);
-    if (p) { setNewName(p.name); setNewCategory(p.category || "Khác"); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewGiftInfo(p.gift_info || ""); setNewExpiry(p.expiry_date || ""); }
+    if (p) { 
+      setNewName(p.name); setNewCategory(p.category || "Khác"); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewExpiry(p.expiry_date || ""); 
+      const gift = parseGift(p.gift_info);
+      setNewGiftCondition(gift.cond.toString());
+      setNewGiftInfo(gift.text);
+    }
   };
 
   const handleAddProduct = async (e: React.FormEvent) => {
@@ -421,12 +452,15 @@ export default function App() {
     let fImp = impPrice;
     if (exist && exist.stock > 0) fImp = Math.round((exist.stock * (exist.import_price || 0) + added * impPrice) / (exist.stock + added));
     
-    const data = { product_code: newCode, name: newName, category: newCategory || "Khác", import_price: fImp, sale_price: parseInt(newPrice), promo_price: parseInt(newPromoPrice) || 0, gift_info: newGiftInfo || null, stock: exist ? exist.stock + added : added, expiry_date: newExpiry || null };
+    // Nối điều kiện và quà tặng bằng ;;;
+    const finalGiftInfo = newGiftInfo.trim() !== "" ? `${newGiftCondition};;;${newGiftInfo}` : null;
+
+    const data = { product_code: newCode, name: newName, category: newCategory || "Khác", import_price: fImp, sale_price: parseInt(newPrice), promo_price: parseInt(newPromoPrice) || 0, gift_info: finalGiftInfo, stock: exist ? exist.stock + added : added, expiry_date: newExpiry || null };
     if (exist) await supabase.from("products").update(data).eq("id", exist.id); else await supabase.from("products").insert([data]);
     if (added > 0) setHistory(prev => [{ id: Date.now(), shift: shift, type: "NHẬP", name: newName, qty: added, total: 0 }, ...prev]);
     
     logAudit(exist ? "SỬA HÀNG" : "NHẬP MỚI", `${newName} (Mã: ${newCode}) - SL: ${added}`);
-    setNewCode(""); setNewName(""); setNewCategory("Đồ uống"); setNewImportPrice(""); setNewPrice(""); setNewPromoPrice(""); setNewGiftInfo(""); setNewStock(""); setNewExpiry("");
+    setNewCode(""); setNewName(""); setNewCategory("Đồ uống"); setNewImportPrice(""); setNewPrice(""); setNewPromoPrice(""); setNewGiftCondition("1"); setNewGiftInfo(""); setNewStock(""); setNewExpiry("");
     fetchProducts(); setLoading(false); setShowInputForm(false);
   };
 
@@ -473,7 +507,8 @@ export default function App() {
   const handleEdit = async (id: any, field: string, old: any, isText: boolean = false) => {
     let label = field;
     if (field === 'category') label = 'Danh mục'; if (field === 'sale_price') label = 'Giá bán';
-    if (field === 'promo_price') label = 'Giá KM (Nhập 0 để hủy)'; if (field === 'gift_info') label = 'Quà tặng (Xóa trắng để hủy)';
+    if (field === 'promo_price') label = 'Giá KM (Nhập 0 để hủy)'; 
+    if (field === 'gift_info') label = 'Quà tặng (Cấu trúc: SL_cần_mua;;;Tên_quà. VD: 24;;;1 Ly. Xóa trắng để hủy)';
     if (field === 'expiry_date') label = 'HSD (YYYY-MM-DD)';
     const val = window.prompt(`Sửa ${label}:`, old || "");
     if (val !== null) { 
@@ -485,21 +520,16 @@ export default function App() {
     }
   };
 
-  // --- TỐI ƯU TÍNH NĂNG IN TEM MÃ VẠCH ---
   const handlePrintBarcode = (p: any) => {
     const q = window.prompt(`Nhập số lượng tem cần in cho: ${p.name}`, "30");
     if (q && parseInt(q) > 0) {
-      setPrintBarcodeProduct(p); 
-      setBarcodeCount(parseInt(q)); 
-      setPrintMode('barcode');
-      
-      // Delay 1.5s để API tạo ảnh load xong hoàn toàn trước khi bật bảng Print
+      setPrintBarcodeProduct(p); setBarcodeCount(parseInt(q)); setPrintMode('barcode');
       setTimeout(() => window.print(), 1500);
     }
   };
 
   const downloadSampleCSV = () => {
-    const csv = "\uFEFFMã SP,Tên SP,Danh Mục,Giá Nhập,Giá Bán,Giá KM,Quà Tặng,Số Lượng,Hạn Sử Dụng (YYYY-MM-DD)\nSP001,Mì Hảo Hảo,Đồ ăn liền,3000,5000,0,,100,2026-12-31\nSP002,Nước suối TH,Đồ uống,4000,6000,0,,50,2026-06-15";
+    const csv = "\uFEFFMã SP,Tên SP,Danh Mục,Giá Nhập,Giá Bán,Giá KM,Quà Tặng,Số Lượng,Hạn Sử Dụng (YYYY-MM-DD)\nSP001,Mì Hảo Hảo,Đồ ăn liền,3000,5000,0,,100,2026-12-31\nSP002,Nước suối TH,Đồ uống,4000,6000,0,24;;;1 Ly Thủy Tinh,50,2026-06-15";
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -676,7 +706,6 @@ export default function App() {
       .print-grand-total { display: flex; justify-content: space-between; font-size: 18px; font-weight: 900; border-top: 2px dashed #000; padding-top: 8px; margin-top: 5px; }
       .print-footer { text-align: center; font-size: 11px; margin-top: 15px; }
       
-      /* CẬP NHẬT CSS IN TEM CHỐNG CẮT ĐÔI VÀ HIỂN THỊ MÃ SỐ */
       .print-only.print-barcode-sheet {
         display: flex !important;
         flex-wrap: wrap;
@@ -690,7 +719,7 @@ export default function App() {
         margin-bottom: 15px;
         border: 1px dashed #ccc;
         padding: 8px;
-        page-break-inside: avoid; /* Ngăn tem bị in cắt nửa ở 2 trang */
+        page-break-inside: avoid;
       }
 
       @page { margin: 0; } 
@@ -745,6 +774,9 @@ export default function App() {
             {lastOrder.cart.map((item: any, idx: number) => {
               const price = Math.round(getActualPrice(item.product));
               const itemTotal = Math.round(item.qty * price);
+              const gift = parseGift(item.product.gift_info);
+              const hasGift = gift.text && item.qty >= gift.cond;
+
               return (
                 <div key={idx} style={{ borderBottom: "1px dotted #ccc" }}>
                   <div className="print-item-name">{item.product.name} {item.product.isHappyHour && <span style={{fontSize:"9px", fontStyle:"italic"}}>[Giờ Vàng]</span>}</div>
@@ -752,7 +784,7 @@ export default function App() {
                     <span>{item.qty} x {price.toLocaleString()}</span>
                     <span style={{ fontWeight: "bold" }}>{itemTotal.toLocaleString()}</span>
                   </div>
-                  {item.product.gift_info && <div className="print-gift">+ 🎁 Tặng: {item.product.gift_info}</div>}
+                  {hasGift && <div className="print-gift">+ 🎁 Tặng: {gift.text}</div>}
                 </div>
               );
             })}
@@ -780,18 +812,13 @@ export default function App() {
           {Array.from({length: barcodeCount}).map((_, i) => (
             <div key={i} className="barcode-sticker">
               <div style={{fontSize: "11px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"}}>{printBarcodeProduct.name}</div>
-              
-              {/* Thêm encodeURIComponent để chống lỗi khoảng trắng, sử dụng API ổn định */}
               <img 
                  src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(printBarcodeProduct.product_code)}&scale=2&height=10&includetext=false`} 
                  onError={(e) => { e.currentTarget.src = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(printBarcodeProduct.product_code)}&code=Code128&translate-esc=on`; }}
                  style={{maxWidth: "100%", height: "40px", marginTop: "4px"}} 
                  alt={printBarcodeProduct.product_code} 
               />
-              
-              {/* HIỂN THỊ RÕ RÀNG MÃ SỐ DƯỚI VẠCH ĐEN */}
               <div style={{fontSize: "10px", fontFamily: "monospace", letterSpacing: "1px", color: "#333"}}>{printBarcodeProduct.product_code}</div>
-              
               <div style={{fontSize: "14px", fontWeight: "900", color: "#000", marginTop: "2px"}}>{getActualPrice(printBarcodeProduct).toLocaleString()}đ</div>
             </div>
           ))}
@@ -971,11 +998,19 @@ export default function App() {
         </div>
       )}
 
-      {/* 📷 CAMERA SCANNER OVERLAY */}
+      {/* 📷 CAMERA SCANNER OVERLAY (NON-STOP) */}
       {showScanner && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.9)", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", zIndex: 10000 }}>
-          <div style={{ background: "#fff", padding: "10px", borderRadius: "12px", width: "90%", maxWidth: "400px" }}>
+          <div style={{ background: "#fff", padding: "10px", borderRadius: "12px", width: "90%", maxWidth: "400px", position: "relative" }}>
             <h3 style={{ margin: "0 0 10px 0", textAlign: "center", color: "#b91c1c" }}>📷 Đưa mã vạch vào khung</h3>
+            
+            {/* THÔNG BÁO NỔI TOAST KHI QUÉT */}
+            {scanMessage && (
+              <div style={{ position: "absolute", top: "50px", left: "50%", transform: "translateX(-50%)", padding: "8px 16px", backgroundColor: scanMessage.type === 'success' ? "#10b981" : "#ef4444", color: "#fff", fontWeight: "bold", borderRadius: "20px", zIndex: 10001, boxShadow: "0 4px 6px rgba(0,0,0,0.3)", animation: "float 0.5s ease-out" }}>
+                {scanMessage.text}
+              </div>
+            )}
+
             <div id="qr-reader" style={{ width: "100%" }}></div>
             <button onClick={() => setShowScanner(false)} style={{ width: "100%", padding: "12px", marginTop: "15px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" }}>ĐÓNG CAMERA</button>
           </div>
@@ -1164,7 +1199,13 @@ export default function App() {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.5fr 0.8fr 60px", gap: "6px" }}>
                     <input type="number" placeholder="Giá KM" value={newPromoPrice} onChange={e => setNewPromoPrice(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #ef4444", outline: "none", fontSize: "12px" }} />
                     <input type="date" value={newExpiry} onChange={e => setNewExpiry(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
-                    <input type="text" placeholder="Quà tặng" value={newGiftInfo} onChange={e => setNewGiftInfo(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #10b981", outline: "none", fontSize: "12px" }} />
+                    
+                    {/* CẬP NHẬT GIAO DIỆN NHẬP ĐIỀU KIỆN QUÀ TẶNG */}
+                    <div style={{ display: "flex", gap: "2px" }}>
+                       <input type="number" placeholder="Từ..." value={newGiftCondition} onChange={e => setNewGiftCondition(e.target.value)} style={{ width: "40px", padding: "6px", borderRadius: "4px", border: "1px solid #10b981", outline: "none", fontSize: "12px" }} title="Mua số lượng bao nhiêu thì được tặng?" />
+                       <input type="text" placeholder="Tên quà tặng..." value={newGiftInfo} onChange={e => setNewGiftInfo(e.target.value)} style={{ flex: 1, padding: "6px", borderRadius: "4px", border: "1px solid #10b981", outline: "none", fontSize: "12px" }} />
+                    </div>
+
                     <input type="number" placeholder="SL..." value={newStock} onChange={e => setNewStock(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
                     <button type="submit" disabled={loading} style={{ padding: "6px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "4px", fontWeight: "bold", fontSize: "12px" }}>LƯU</button>
                   </div>
@@ -1237,6 +1278,9 @@ export default function App() {
                       const d = Math.floor(Math.abs(new Date().getTime() - new Date(p.created_at).getTime()) / 86400000);
                       const isNearExpiry = p.expiry_date && (new Date(p.expiry_date).getTime() - new Date().getTime()) / 86400000 <= 45;
                       const isLowStock = p.stock < 10;
+                      
+                      // PARSE QUÀ TẶNG TRONG BẢNG SẢN PHẨM
+                      const gift = parseGift(p.gift_info);
 
                       return (
                         <tr key={p.id} style={{ borderBottom: "1px solid #fed7aa", backgroundColor: isNearExpiry ? "#fef2f2" : "transparent" }}>
@@ -1245,9 +1289,11 @@ export default function App() {
                             <div style={{fontSize: "9px", color: "#94a3b8"}}>
                               {p.product_code} • <span style={{cursor: role==='admin' ? 'pointer' : 'default', textDecoration: role==='admin' ? 'underline' : 'none'}} onClick={() => role==='admin' && handleEdit(p.id, 'category', p.category || "Khác", true)} title="Bấm vào để sửa Phân Loại">{p.category || "Khác"}</span>
                             </div>
-                            {p.gift_info ? (
+                            
+                            {/* HIỂN THỊ ĐIỀU KIỆN QUÀ TẶNG */}
+                            {gift.text ? (
                               <div style={{ fontSize: "9px", color: "#059669", fontWeight: "bold", cursor: role==='admin' ? 'pointer' : 'default' }} onClick={() => role==='admin' && handleEdit(p.id, 'gift_info', p.gift_info, true)} title={role === 'admin' ? "Bấm để sửa hoặc xóa quà" : ""}>
-                                🎁 Tặng: {p.gift_info}
+                                🎁 Tặng: {gift.text} {gift.cond > 1 ? `(Mua ≥ ${gift.cond})` : ''}
                               </div>
                             ) : (
                               role === 'admin' && <div style={{ fontSize: "9px", color: "#cbd5e1", cursor: "pointer" }} onClick={()=>handleEdit(p.id, 'gift_info', '', true)}>+ Thêm quà</div>
@@ -1294,7 +1340,12 @@ export default function App() {
                 
                 <div style={{ flex: 1, overflowY: "auto", marginBottom: "8px", paddingRight: "4px" }}>
                   {cart.length === 0 && <div style={{textAlign: "center", color: "#94a3b8", fontSize: "11px", marginTop: "10px"}}>Trống</div>}
-                  {cart.map((item, idx) => (
+                  {cart.map((item, idx) => {
+                    // XỬ LÝ ẨN/HIỆN QUÀ TẶNG TRONG GIỎ HÀNG
+                    const gift = parseGift(item.product.gift_info);
+                    const hasGift = gift.text && item.qty >= gift.cond;
+
+                    return (
                     <div key={idx} style={{ padding: "6px 0", borderBottom: "1px dashed #fed7aa", fontSize: "11px", display: "flex", flexDirection: "column", gap: "2px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span style={{ fontWeight: "bold", color: "#1e293b", flex: 1 }}>{item.product.name} {item.product.isHappyHour && <span style={{color:"#ea580c", fontSize:"9px"}}>[Giờ Vàng]</span>}</span>
@@ -1306,11 +1357,11 @@ export default function App() {
                         </div>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span>{item.product.gift_info && <span style={{ color: "#10b981", fontSize: "9px", fontStyle: "italic" }}>+ 🎁 {item.product.gift_info}</span>}</span>
+                        <span>{hasGift && <span style={{ color: "#10b981", fontSize: "9px", fontStyle: "italic" }}>+ 🎁 {gift.text}</span>}</span>
                         <span style={{ color: "#ef4444", fontWeight: "bold" }}>{Math.round(item.total).toLocaleString()}đ</span>
                       </div>
                     </div>
-                  ))}
+                  )})}
                 </div>
                 {cart.length > 0 && <button onClick={() => { setIsCheckoutOpen(true); setCheckoutStep(1); }} style={{ width: "100%", padding: "10px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer", fontSize: "12px" }}>THANH TOÁN</button>}
               </div>
