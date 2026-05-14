@@ -180,6 +180,7 @@ export default function App() {
 
   const cleanName = (name: string) => name ? name.split(' [Lô')[0] : '';
 
+  // TÌM KIẾM MÃ CHUẨN FIFO (CHO CAMERA)
   const findProductByCode = (code: string) => {
     const rawCode = code.trim();
     let matches = products.filter(prod => prod.product_code === rawCode || prod.product_code.startsWith(`${rawCode}-`));
@@ -196,22 +197,71 @@ export default function App() {
     return null;
   };
 
-  const handleSelectSuggest = (p: any) => {
+  // THUẬT TOÁN TỰ ĐỘNG CHỌN LÔ CŨ (FIFO) KHI CLICK TAY HOẶC GÕ TÌM KIẾM
+  const getOldestAvailableBatch = (p: any) => {
+    const baseCode = p.product_code.split('-')[0];
+    let availableMatches = products.filter(prod => (prod.product_code === baseCode || prod.product_code.startsWith(`${baseCode}-`)) && prod.stock > 0);
+    
+    if (availableMatches.length === 0) return p; // Hết sạch thì trả về chính nó để báo lỗi
+
+    availableMatches.sort((a,b) => {
+        if(!a.expiry_date) return 1; if(!b.expiry_date) return -1;
+        return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
+    });
+    return availableMatches[0];
+  };
+
+  const handleSelectSuggest = (p_input: any) => {
+    const p = getOldestAvailableBatch(p_input); // Gọi hàm kiểm tra Lô cũ
+    
     if (p.stock <= 0) { playSound('error'); return alert("Đã hết hàng trong kho!"); }
+    
+    if (p.id !== p_input.id) {
+       setScanMessage({ text: `⚡ Tự động xuất Lô cũ: ${p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : ''}`, type: 'success' });
+    } else {
+       setScanMessage({ text: `✅ Thêm: ${cleanName(p.name)}`, type: 'success' });
+    }
+
     const price = getActualPrice(p);
     setCart(prev => {
         const exist = prev.find(item => item.product.id === p.id);
         if (exist) {
             const newQty = exist.qty + 1;
-            if (newQty > p.stock) { playSound('error'); setScanMessage({ text: `❌ Quá tồn kho (${p.stock})`, type: 'error' }); return prev; }
-            playSound('success'); setScanMessage({ text: `✅ +1 ${cleanName(p.name)}`, type: 'success' });
+            if (newQty > p.stock) { playSound('error'); setScanMessage({ text: `❌ Quá tồn kho lô này (${p.stock})`, type: 'error' }); return prev; }
+            playSound('success'); 
             return prev.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i);
         } else {
-            playSound('success'); setScanMessage({ text: `✅ Thêm: ${cleanName(p.name)}`, type: 'success' });
+            playSound('success'); 
             return [...prev, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }];
         }
     });
     setBarcodeInput(""); setShowSuggestions(false);
+    setTimeout(() => setScanMessage(null), 2000);
+  };
+
+  const addToCart = (p_input: any) => {
+    const p = getOldestAvailableBatch(p_input); // Gọi hàm kiểm tra Lô cũ
+
+    if (p.stock <= 0) { playSound('error'); return alert("Đã hết hàng trong kho!"); }
+    
+    if (p.id !== p_input.id) {
+        setScanMessage({ text: `⚡ Tự động xuất Lô cũ: ${p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : ''}`, type: 'success' });
+        setTimeout(() => setScanMessage(null), 2000);
+    }
+
+    const price = getActualPrice(p);
+    setCart(prev => {
+      const exist = prev.find(item => item.product.id === p.id);
+      if (exist) {
+        const newQty = exist.qty + 1;
+        if (newQty > p.stock) { playSound('error'); alert(`Lô hàng này chỉ còn tối đa ${p.stock} sản phẩm. Hãy thêm tiếp lô mới vào giỏ!`); return prev; }
+        playSound('success');
+        return prev.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i);
+      } else {
+        playSound('success');
+        return [...prev, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }];
+      }
+    });
   };
 
   useEffect(() => {
@@ -301,23 +351,6 @@ export default function App() {
     }
   };
 
-  const addToCart = (p: any) => {
-    if (p.stock <= 0) { playSound('error'); return alert("Đã hết hàng trong kho!"); }
-    const price = getActualPrice(p);
-    setCart(prev => {
-      const exist = prev.find(item => item.product.id === p.id);
-      if (exist) {
-        const newQty = exist.qty + 1;
-        if (newQty > p.stock) { playSound('error'); alert(`Không đủ hàng! Trong kho chỉ còn ${p.stock}.`); return prev; }
-        playSound('success');
-        return prev.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i);
-      } else {
-        playSound('success');
-        return [...prev, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }];
-      }
-    });
-  };
-
   const adjustCartQty = (productId: any, delta: number) => {
     let exceedStock = false; let stockLimit = 0;
     setCart(prev => {
@@ -333,7 +366,7 @@ export default function App() {
       return updated.filter(item => item.qty > 0);
     });
     if (exceedStock) {
-      playSound('error'); setTimeout(() => alert(`Vượt quá tồn kho! Món này chỉ còn tối đa ${stockLimit} sản phẩm.`), 10);
+      playSound('error'); setTimeout(() => alert(`Vượt quá tồn kho lô này! Lô này chỉ còn tối đa ${stockLimit} sản phẩm.`), 10);
     } else if (delta > 0) playSound('success');
   };
 
@@ -351,7 +384,7 @@ export default function App() {
         }
         return i;
       });
-      if (exceedStock) { playSound('error'); setTimeout(() => alert(`Vượt quá tồn kho! Tối đa ${stockLimit}.`), 10); }
+      if (exceedStock) { playSound('error'); setTimeout(() => alert(`Vượt quá tồn kho lô này! Tối đa ${stockLimit}.`), 10); }
       return updated;
     });
   };
@@ -544,24 +577,43 @@ export default function App() {
     const salePrice = parseInt(newPrice); const promo = parseInt(newPromoPrice) || 0;
     const finalGiftInfo = newGiftInfo.trim() !== "" ? `${newGiftCondition};;;${newGiftInfo}` : null;
 
-    const exist = products.find(p => p.product_code === newCode);
+    const baseCode = newCode.trim();
+    const allVariants = products.filter(p => p.product_code === baseCode || p.product_code.startsWith(`${baseCode}-`));
+    const exist = allVariants.find(p => p.product_code === baseCode); 
+
+    let priceUpdatedMsg = "";
+
+    if (allVariants.length > 0) {
+        const currentSalePrice = allVariants[0].sale_price;
+        if (currentSalePrice !== salePrice) {
+            await Promise.all(allVariants.map(v => 
+                supabase.from("products").update({ sale_price: salePrice, promo_price: promo }).eq("id", v.id)
+            ));
+            priceUpdatedMsg = `\n\n💡 Đã tự động ĐỒNG BỘ GIÁ BÁN MỚI (${salePrice.toLocaleString()}đ) cho tất cả lô hàng cũ!`;
+            logAudit("ĐỒNG BỘ GIÁ BÁN", `Cập nhật mã ${baseCode} lên giá ${salePrice.toLocaleString()}đ`);
+        }
+    }
 
     if (exist) {
         if (exist.stock <= 0) {
             const data = { name: newName, category: newCategory || "Khác", import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null, created_at: new Date().toISOString() };
             await supabase.from("products").update(data).eq("id", exist.id);
             if (added > 0) setHistory(prev => [{ id: Date.now(), shift: shift, type: "NHẬP", name: newName, qty: added, total: 0 }, ...prev]);
-            logAudit("NHẬP MỚI (ĐÈ CŨ)", `${newName} (Mã: ${newCode}) - SL: ${added}`);
+            logAudit("NHẬP MỚI (ĐÈ CŨ)", `${newName} (Mã: ${baseCode}) - SL: ${added}`);
+            alert(`Đã nhập hàng thành công!${priceUpdatedMsg}`);
         } else {
-            const isDiff = exist.import_price !== impPrice || exist.sale_price !== salePrice || (exist.expiry_date || "") !== (newExpiry || "");
+            const isDiff = exist.import_price !== impPrice || (exist.expiry_date || "") !== (newExpiry || "");
+            
             if (isDiff) {
-                const batchCode = `${newCode}-${Date.now().toString().slice(-4)}`;
+                const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}`;
                 const batchName = `${newName} [Lô ${newExpiry ? new Date(newExpiry).toLocaleDateString('vi-VN') : 'Mới'}]`;
-                if(window.confirm(`Hàng cũ đang tồn ${exist.stock}.\nBạn nhập lô mới có Giá/HSD khác.\nHệ thống sẽ tạo LÔ MỚI (${batchCode}) để quản lý tách biệt (FIFO).\nĐồng ý?`)) {
+                
+                if(window.confirm(`Hàng cũ đang tồn ${exist.stock}.\nBạn nhập lô mới có Giá Vốn hoặc HSD khác.\nHệ thống sẽ tạo LÔ MỚI (${batchCode}) để quản lý tách biệt (FIFO).${priceUpdatedMsg}\n\nĐồng ý?`)) {
                     const data = { product_code: batchCode, name: batchName, category: newCategory || "Khác", import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null };
                     await supabase.from("products").insert([data]);
                     if (added > 0) setHistory(prev => [{ id: Date.now(), shift: shift, type: "NHẬP", name: batchName, qty: added, total: 0 }, ...prev]);
                     logAudit("NHẬP TÁCH LÔ", `${batchName} (Mã: ${batchCode}) - SL: ${added}`);
+                    if (!priceUpdatedMsg) alert(`Đã tạo lô mới thành công!`); 
                 } else {
                     setLoading(false); return;
                 }
@@ -569,14 +621,16 @@ export default function App() {
                 const data = { stock: exist.stock + added, created_at: new Date().toISOString() };
                 await supabase.from("products").update(data).eq("id", exist.id);
                 if (added > 0) setHistory(prev => [{ id: Date.now(), shift: shift, type: "NHẬP", name: newName, qty: added, total: 0 }, ...prev]);
-                logAudit("NHẬP THÊM HÀNG", `${newName} (Mã: ${newCode}) - +SL: ${added}`);
+                logAudit("NHẬP THÊM HÀNG", `${newName} (Mã: ${baseCode}) - +SL: ${added}`);
+                alert(`Đã cộng dồn số lượng thành công!${priceUpdatedMsg}`);
             }
         }
     } else {
-        const data = { product_code: newCode, name: newName, category: newCategory || "Khác", import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null };
+        const data = { product_code: baseCode, name: newName, category: newCategory || "Khác", import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null };
         await supabase.from("products").insert([data]);
         if (added > 0) setHistory(prev => [{ id: Date.now(), shift: shift, type: "NHẬP", name: newName, qty: added, total: 0 }, ...prev]);
-        logAudit("NHẬP MỚI", `${newName} (Mã: ${newCode}) - SL: ${added}`);
+        logAudit("NHẬP MỚI", `${newName} (Mã: ${baseCode}) - SL: ${added}`);
+        if(priceUpdatedMsg) alert(`Đã nhập hàng thành công!${priceUpdatedMsg}`);
     }
 
     setNewCode(""); setNewName(""); setNewCategory("Đồ uống"); setNewImportPrice(""); setNewPrice(""); setNewPromoPrice(""); setNewGiftCondition("1"); setNewGiftInfo(""); setNewStock(""); setNewExpiry("");
@@ -593,23 +647,38 @@ export default function App() {
         const lines = text.split('\n').filter(line => line.trim() !== '');
         if (lines.length <= 1) { alert("File rỗng hoặc không đúng!"); setLoading(false); return; }
         let successCount = 0; let importLogs: any[] = [];
+        
         for (let i = 1; i < lines.length; i++) {
           const cols = lines[i].split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''));
           if (cols.length < 5) continue; 
           const pCode = cols[0]; const pName = cols[1]; const pCategory = cols[2] || "Khác"; const pImpPrice = parseInt(cols[3]) || 0; const pSalePrice = parseInt(cols[4]) || 0; const pPromoPrice = parseInt(cols[5]) || 0; const pGift = cols[6] || null; const pStock = parseInt(cols[7]) || 0; const pExpiry = cols[8] || null;
           if (!pCode || !pName || pSalePrice <= 0) continue;
           
-          const { data: existingData } = await supabase.from("products").select("*").eq("product_code", pCode);
-          const exist = existingData && existingData.length > 0 ? existingData[0] : null;
+          const baseCode = pCode.trim();
+          const allVariants = products.filter(p => p.product_code === baseCode || p.product_code.startsWith(`${baseCode}-`));
+          
+          if (allVariants.length > 0) {
+              const currentSalePrice = allVariants[0].sale_price;
+              if (currentSalePrice !== pSalePrice) {
+                  await Promise.all(allVariants.map(v => 
+                      supabase.from("products").update({ sale_price: pSalePrice, promo_price: pPromoPrice }).eq("id", v.id)
+                  ));
+                  if(!importLogs.find(l => l.name === `Đồng bộ giá ${baseCode}`)) {
+                       importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "HỆ THỐNG", name: `Đồng bộ giá ${baseCode}`, qty: 0, total: 0 });
+                  }
+              }
+          }
+
+          const exist = allVariants.find(p => p.product_code === baseCode);
           
           if (exist) {
              if (exist.stock <= 0) {
                  const data = { name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry, created_at: new Date().toISOString() };
                  await supabase.from("products").update(data).eq("id", exist.id);
              } else {
-                 const isDiff = exist.import_price !== pImpPrice || exist.sale_price !== pSalePrice || (exist.expiry_date || "") !== (pExpiry || "");
+                 const isDiff = exist.import_price !== pImpPrice || (exist.expiry_date || "") !== (pExpiry || "");
                  if (isDiff) {
-                     const batchCode = `${pCode}-${Date.now().toString().slice(-4)}${i}`; 
+                     const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}${i}`; 
                      const batchName = `${pName} [Lô ${pExpiry ? new Date(pExpiry).toLocaleDateString('vi-VN') : 'Mới'}]`;
                      const data = { product_code: batchCode, name: batchName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry };
                      await supabase.from("products").insert([data]);
@@ -619,7 +688,7 @@ export default function App() {
                  }
              }
           } else {
-              const data = { product_code: pCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry };
+              const data = { product_code: baseCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry };
               await supabase.from("products").insert([data]);
           }
           if (pStock > 0) importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "NHẬP", name: cleanName(pName), qty: pStock, total: 0 });
@@ -730,9 +799,25 @@ export default function App() {
     }
   };
 
-  const getSortIcon = (key: string) => {
-    if (!sortConfig || sortConfig.key !== key) return <span style={{opacity: 0.3, fontSize: "9px", marginLeft:"2px"}}>↕️</span>;
-    return sortConfig.direction === 'asc' ? <span style={{fontSize: "11px", marginLeft:"2px", color: "#ef4444"}}>🔼</span> : <span style={{fontSize: "11px", marginLeft:"2px", color: "#ef4444"}}>🔽</span>;
+  // HÀM HIỂN THỊ MŨI TÊN DUY NHẤT TRÊN HEADER
+  const renderHeaderIcon = (colKey: string) => {
+    const isFiltered = filters[colKey]?.length > 0;
+    const isSortedAsc = sortConfig?.key === colKey && sortConfig.direction === 'asc';
+    const isSortedDesc = sortConfig?.key === colKey && sortConfig.direction === 'desc';
+    
+    let icon = '🔽'; 
+    if (isSortedAsc) icon = '🔼';
+    if (isSortedDesc) icon = '🔽';
+    
+    return (
+        <span 
+          onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === colKey ? null : colKey); }} 
+          style={{ cursor: "pointer", color: isFiltered || sortConfig?.key === colKey ? '#ef4444' : '#94a3b8', fontSize: "10px", padding: "2px", marginLeft: "4px", border: isFiltered ? "1px dashed #ef4444" : "1px solid transparent", borderRadius: "2px" }}
+          title="Bấm để lọc"
+        >
+          {icon}
+        </span>
+    );
   };
 
   const handleFilterCheck = (col: string, val: any) => {
@@ -775,38 +860,11 @@ export default function App() {
     return filtered;
   }, [products, searchTerm, selectedCategory, sortConfig, filters]);
 
-  const groupedHistory = useMemo(() => {
-    return history.reduce((groups: any, log: any) => {
-      const date = new Date(Math.floor(log.id)).toLocaleDateString('vi-VN'); 
-      if (!groups[date]) groups[date] = [];
-      groups[date].push({ ...log, t: new Date(Math.floor(log.id)).toLocaleTimeString('vi-VN') });
-      return groups;
-    }, {});
-  }, [history]);
-
-  const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
-
-  const todayStats = useMemo(() => {
-    const todayStr = new Date().toLocaleDateString('vi-VN');
-    const todayHistory = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStr);
-    const totalRev = todayHistory.reduce((s, h) => s + ((h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') ? h.total : 0), 0);
-    const totalProf = todayHistory.reduce((s, h) => s + (h.profit || 0), 0);
-    return { rev: totalRev, prof: totalProf };
-  }, [history]);
-
-  const topSelling = useMemo(() => {
-    const sales: Record<string, number> = {};
-    history.forEach(log => { if(log.type === 'BÁN') sales[log.name] = (sales[log.name]||0) + log.qty; });
-    return Object.entries(sales).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  }, [history]);
-
-  const totalValue = Math.round(products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
-
   const renderFilterPopup = (colKey: string, title: string, uniqueValues: any[], formatVal?: (v:any)=>string) => {
     if (openFilter !== colKey) return null;
     return (
         <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: colKey==='name' ? "0" : "50%", transform: colKey==='name' ? "none" : "translateX(-50%)", backgroundColor: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px", zIndex: 999, boxShadow: "0 10px 25px -5px rgba(0,0,0,0.2)", minWidth: "160px", textAlign: "left", color: "#1e293b", fontWeight: "normal", fontSize: "12px", display: "flex", flexDirection: "column" }}>
-           <div style={{ fontWeight: "bold", color: "#64748b", fontSize: "10px", marginBottom: "6px", textTransform: "uppercase" }}>LỌC {title}:</div>
+           <div style={{ marginTop: "10px", fontWeight: "bold", color: "#64748b", fontSize: "10px", marginBottom: "6px", textTransform: "uppercase" }}>LỌC {title}:</div>
            <div style={{ overflowY: "auto", flex: 1, maxHeight: "150px", border: "1px solid #e2e8f0", borderRadius: "4px", padding: "4px" }}>
                <label style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px", cursor: "pointer", borderBottom: "1px dashed #f1f5f9", backgroundColor: (!filters[colKey] || filters[colKey].length === 0) ? "#eff6ff" : "transparent" }}>
                   <input type="checkbox" checked={!filters[colKey] || filters[colKey].length === 0} onChange={() => setFilters(prev => ({...prev, [colKey]: []}))} />
@@ -913,6 +971,7 @@ export default function App() {
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); }}>
       <style>{styles}</style>
       
+      {/* 🖨️ BIÊN LAI BÁN HÀNG */}
       {lastOrder && printMode !== 'barcode' && (
         <div className="print-only print-receipt">
           <div className="print-header">
@@ -962,6 +1021,7 @@ export default function App() {
         </div>
       )}
 
+      {/* 🖨️ TRANG IN TEM MÃ VẠCH */}
       {printMode === 'barcode' && printBarcodeProduct && (
         <div className="print-only print-barcode-sheet">
           {Array.from({length: barcodeCount}).map((_, i) => (
@@ -980,6 +1040,7 @@ export default function App() {
         </div>
       )}
 
+      {/* MODAL MỞ ĐƠN LƯU TẠM */}
       {showHoldModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "400px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
@@ -1007,6 +1068,7 @@ export default function App() {
         </div>
       )}
 
+      {/* 🕵️ MODAL KIỂM TOÁN LỊCH SỬ THAO TÁC */}
       {showAuditModal && role === 'admin' && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "600px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
@@ -1036,6 +1098,7 @@ export default function App() {
         </div>
       )}
 
+      {/* MODAL BÀN GIAO CA */}
       {showHandoverModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "30px", width: "350px", textAlign: "center" }}>
@@ -1056,6 +1119,7 @@ export default function App() {
         </div>
       )}
 
+      {/* 🤝 MODAL QUẢN LÝ KHÁCH HÀNG CRM - ĐÃ KHÓA SỬA VÍ/NỢ */}
       {showCustomerModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "500px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
@@ -1075,14 +1139,13 @@ export default function App() {
                     <div style={{ fontSize: "11px", color: "#64748b" }}>{phone}</div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ color: "#10b981", fontWeight: "bold", fontSize: "12px", cursor: "pointer" }} onClick={() => {
-                      const newWallet = window.prompt("Sửa điểm ví:", customers[phone].wallet || 0);
-                      if(newWallet !== null) { setCustomers((prev:any) => ({...prev, [phone]: {...prev[phone], wallet: parseInt(newWallet) || 0}})); logAudit("SỬA VÍ", `Sửa ví KH ${customers[phone].name} thành ${newWallet}`); }
-                    }} title="Bấm để sửa ví">Ví: {(customers[phone].wallet || 0).toLocaleString()}đ ✏️</div>
-                    <div style={{ color: "#ef4444", fontWeight: "bold", fontSize: "12px", cursor: "pointer" }} onClick={() => {
-                      const newDebt = window.prompt("Sửa tiền nợ:", customers[phone].debt || 0);
-                      if(newDebt !== null) { setCustomers((prev:any) => ({...prev, [phone]: {...prev[phone], debt: parseInt(newDebt) || 0}})); logAudit("SỬA NỢ", `Sửa nợ KH ${customers[phone].name} thành ${newDebt}`); }
-                    }} title="Bấm để sửa nợ">Nợ: {(customers[phone].debt || 0).toLocaleString()}đ ✏️</div>
+                    {/* ĐÃ KHÓA SỬA VÍ VÀ NỢ */}
+                    <div style={{ color: "#10b981", fontWeight: "bold", fontSize: "12px" }}>
+                      Ví: {(customers[phone].wallet || 0).toLocaleString()}đ
+                    </div>
+                    <div style={{ color: "#ef4444", fontWeight: "bold", fontSize: "12px" }}>
+                      Nợ: {(customers[phone].debt || 0).toLocaleString()}đ
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1091,6 +1154,7 @@ export default function App() {
         </div>
       )}
 
+      {/* MODAL SỔ NỢ */}
       {showDebtModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "400px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
@@ -1115,6 +1179,7 @@ export default function App() {
         </div>
       )}
 
+      {/* MODAL THỐNG KÊ */}
       {showStatsModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "400px" }}>
@@ -1137,19 +1202,20 @@ export default function App() {
             <h3 style={{ fontSize: "14px", color: "#1e293b", marginTop: 0 }}>🏆 Top 5 Bán Chạy Nhất</h3>
             {topSelling.map((item, idx) => (
               <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px dashed #e2e8f0", fontSize: "13px" }}>
-                <span>{idx + 1}. {item[0]}</span><span style={{fontWeight: "bold", color: "#10b981"}}>{item[1]} món</span>
+                <span>{idx + 1}. {cleanName(item[0])}</span><span style={{fontWeight: "bold", color: "#10b981"}}>{item[1]} món</span>
               </div>
             ))}
             <h3 style={{ fontSize: "14px", color: "#b91c1c", marginTop: "20px" }}>📉 Sắp hết hàng (Dưới 10)</h3>
             {products.filter(p=>p.stock < 10).slice(0,5).map((p, idx) => (
               <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px dashed #e2e8f0", fontSize: "13px" }}>
-                <span>{p.name}</span><span style={{fontWeight: "bold", color: "#ef4444"}}>Còn {p.stock}</span>
+                <span>{cleanName(p.name)}</span><span style={{fontWeight: "bold", color: "#ef4444"}}>Còn {p.stock}</span>
               </div>
             ))}
           </div>
         </div>
       )}
 
+      {/* 📷 CAMERA SCANNER OVERLAY */}
       {scannerMode !== null && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.9)", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", zIndex: 10000 }}>
           <div style={{ background: "#fff", padding: "10px", borderRadius: "12px", width: "90%", maxWidth: "400px", position: "relative" }}>
@@ -1169,10 +1235,12 @@ export default function App() {
         </div>
       )}
 
+      {/* --- PHẦN GIAO DIỆN CHÍNH --- */}
       <div className="no-print" style={{ padding: "15px", position: "relative", minHeight: "100vh", overflowX: "auto" }}>
         <div className="spring-bg" style={{ background: "#ef4444", top: "10%", left: "5%" }}></div>
         <div className="spring-bg" style={{ background: "#f59e0b", bottom: "10%", right: "5%" }}></div>
 
+        {/* POPUP THANH TOÁN */}
         {isCheckoutOpen && (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
             {checkoutStep === 1 && (
@@ -1396,7 +1464,6 @@ export default function App() {
                 )}
               </div>
 
-              {/* ✨ CẬP NHẬT FORM GẮN TIÊU ĐỀ TĨNH (STATIC LABELS) ✨ */}
               {showInputForm && role === 'admin' && (
                 <form onSubmit={handleAddProduct} style={{ backgroundColor: "#fff7ed", padding: "12px", borderRadius: "8px", border: "1px solid #fdba74", marginBottom: "10px" }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr 1fr 1fr", gap: "8px", marginBottom: "8px" }}>
@@ -1466,44 +1533,46 @@ export default function App() {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ color: "#16a34a", fontSize: "10px", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}>
+                      
+                      {/* ĐÃ GỘP MŨI TÊN LỌC (1 MŨI TÊN DUY NHẤT/CỘT) */}
                       <th style={{ textAlign: "left", padding: "6px 4px", borderBottom: "2px solid #fed7aa", position: "relative" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "4px", cursor: "pointer", width: "max-content" }} onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === 'name' ? null : 'name'); }}>
-                           <span>SẢN PHẨM {getSortIcon('name')}</span>
-                           <span style={{ color: filters['name']?.length > 0 ? '#ef4444' : '#94a3b8', fontSize: "10px" }}>🔽</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px", width: "max-content" }}>
+                           <span onClick={() => requestSort('name')} style={{ cursor: "pointer", userSelect: "none" }}>SẢN PHẨM</span>
+                           {renderHeaderIcon('name')}
                         </div>
                         {renderFilterPopup('name', 'TÊN SẢN PHẨM', uniqueNames)}
                       </th>
                       
                       <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa", position: "relative" }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === 'stock' ? null : 'stock'); }}>
-                           <span>TỒN {getSortIcon('stock')}</span>
-                           <span style={{ color: filters['stock']?.length > 0 ? '#ef4444' : '#94a3b8', fontSize: "10px" }}>🔽</span>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                           <span onClick={() => requestSort('stock')} style={{ cursor: "pointer", userSelect: "none" }}>TỒN</span>
+                           {renderHeaderIcon('stock')}
                         </div>
                         {renderFilterPopup('stock', 'SỐ LƯỢNG TỒN', uniqueStocks)}
                       </th>
                       
                       {role === 'admin' && (
                         <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa", position: "relative" }}>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === 'import_price' ? null : 'import_price'); }}>
-                             <span>GIÁ VỐN {getSortIcon('import_price')}</span>
-                             <span style={{ color: filters['import_price']?.length > 0 ? '#ef4444' : '#94a3b8', fontSize: "10px" }}>🔽</span>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                             <span onClick={() => requestSort('import_price')} style={{ cursor: "pointer", userSelect: "none" }}>GIÁ VỐN</span>
+                             {renderHeaderIcon('import_price')}
                           </div>
                           {renderFilterPopup('import_price', 'GIÁ VỐN', uniqueImportPrices, (v) => v.toLocaleString() + 'đ')}
                         </th>
                       )}
                       
                       <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa", position: "relative" }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === 'sale_price' ? null : 'sale_price'); }}>
-                           <span>GIÁ BÁN {getSortIcon('sale_price')}</span>
-                           <span style={{ color: filters['sale_price']?.length > 0 ? '#ef4444' : '#94a3b8', fontSize: "10px" }}>🔽</span>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                           <span onClick={() => requestSort('sale_price')} style={{ cursor: "pointer", userSelect: "none" }}>GIÁ BÁN</span>
+                           {renderHeaderIcon('sale_price')}
                         </div>
                         {renderFilterPopup('sale_price', 'GIÁ BÁN', uniqueSalePrices, (v) => v.toLocaleString() + 'đ')}
                       </th>
                       
                       <th style={{ textAlign: "center", padding: "6px 4px", borderBottom: "2px solid #fed7aa", lineHeight: "1.2", position: "relative" }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === 'expiry_date' ? null : 'expiry_date'); }}>
-                           <span>HẠN SỬ DỤNG {getSortIcon('expiry_date')}</span>
-                           <span style={{ color: filters['expiry_date']?.length > 0 ? '#ef4444' : '#94a3b8', fontSize: "10px" }}>🔽</span>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                           <span onClick={() => requestSort('expiry_date')} style={{ cursor: "pointer", userSelect: "none" }}>HẠN SỬ DỤNG</span>
+                           {renderHeaderIcon('expiry_date')}
                         </div>
                         {renderFilterPopup('expiry_date', 'HẠN SỬ DỤNG', uniqueExpiries, (v) => v ? new Date(v).toLocaleDateString('vi-VN') : '---')}
                       </th>
@@ -1527,7 +1596,7 @@ export default function App() {
                       return (
                         <tr key={p.id} style={{ borderBottom: "1px solid #fed7aa", backgroundColor: isNearExpiry ? "#fef2f2" : "transparent" }}>
                           <td style={{ padding: "8px 4px" }}>
-                            <div style={{fontSize: "13px", fontWeight: "bold"}}>{p.name} {isNearExpiry && <span style={{color: "#ef4444", fontSize: "9px", border: "1px solid #ef4444", padding: "1px 2px", borderRadius: "2px"}}>⚠️</span>} {p.isHappyHour && <span style={{color: "#ea580c", fontSize: "9px", fontStyle:"italic"}}>[Giờ Vàng]</span>}</div>
+                            <div style={{fontSize: "13px", fontWeight: "bold"}}>{role === 'admin' ? p.name : cleanName(p.name)} {isNearExpiry && <span style={{color: "#ef4444", fontSize: "9px", border: "1px solid #ef4444", padding: "1px 2px", borderRadius: "2px"}}>⚠️</span>} {p.isHappyHour && <span style={{color: "#ea580c", fontSize: "9px", fontStyle:"italic"}}>[Giờ Vàng]</span>}</div>
                             <div style={{fontSize: "9px", color: "#94a3b8"}}>
                               {p.product_code} • <span style={{cursor: role==='admin' ? 'pointer' : 'default', textDecoration: role==='admin' ? 'underline' : 'none'}} onClick={() => role==='admin' && handleEdit(p.id, 'category', p.category || "Khác", true)} title="Bấm vào để sửa Phân Loại">{p.category || "Khác"}</span>
                             </div>
