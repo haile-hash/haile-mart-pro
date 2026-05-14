@@ -386,11 +386,9 @@ export default function App() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Tự động bỏ khoảng trắng và chuyển chữ thường để chống lỗi gõ sai
     const u = authUsername.trim().toLowerCase();
     const p = authPassword.trim();
 
-    // CHÌA KHÓA VẠN NĂNG (Dùng khi lỡ quên mật khẩu đã đổi)
     if (u === "admin" && p === "khoiphuc88") {
         setAdminPass("haile88"); localStorage.removeItem("mart_admin_pass");
         setStaffPass("123"); localStorage.removeItem("mart_staff_pass");
@@ -801,7 +799,7 @@ export default function App() {
         total_amount: "Ưu đãi Đặc Quyền",
         payment_method: "VIP Member",
         change_amount: "0đ",
-        barcode_url: barcodeUrl // Đẩy link mã vạch vào mail (Dùng với TEMPLATE_VIP_ID)
+        barcode_url: barcodeUrl 
       };
 
       try {
@@ -1224,8 +1222,27 @@ export default function App() {
 
               <h3 style={{fontSize: "14px", color: "#10b981", borderBottom: "1px dashed #10b981", paddingBottom: "4px"}}>2. CẤU HÌNH QR THANH TOÁN</h3>
               <div style={{marginBottom: "10px"}}>
-                <label style={{fontSize: "11px", fontWeight: "bold", color: "#64748b"}}>Mã BIN Ngân Hàng (VD MB: 970422, VCB: 970436):</label>
-                <input value={newBankBin} onChange={e => setNewBankBin(e.target.value)} style={{width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", boxSizing: "border-box", marginTop: "4px"}} />
+                <label style={{fontSize: "11px", fontWeight: "bold", color: "#64748b"}}>Ngân hàng nhận tiền:</label>
+                <select value={newBankBin} onChange={e => setNewBankBin(e.target.value)} style={{width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", boxSizing: "border-box", marginTop: "4px", backgroundColor: "#fff"}}>
+                    <option value="970422">MBBank (Ngân hàng Quân Đội)</option>
+                    <option value="970436">Vietcombank</option>
+                    <option value="970407">Techcombank</option>
+                    <option value="970415">VietinBank</option>
+                    <option value="970418">BIDV</option>
+                    <option value="970405">Agribank</option>
+                    <option value="970416">ACB (Á Châu)</option>
+                    <option value="970432">VPBank</option>
+                    <option value="970423">TPBank (Tiên Phong)</option>
+                    <option value="970403">Sacombank</option>
+                    <option value="970441">VIB (Quốc Tế)</option>
+                    <option value="970437">HDBank</option>
+                    <option value="970440">SeABank</option>
+                    <option value="970426">MSB (Hàng Hải)</option>
+                    <option value="970443">SHB</option>
+                    <option value="970449">LienVietPostBank (LPB)</option>
+                    <option value="970448">OCB (Phương Đông)</option>
+                    <option value="970431">Eximbank</option>
+                </select>
               </div>
               <div style={{marginBottom: "10px"}}>
                 <label style={{fontSize: "11px", fontWeight: "bold", color: "#64748b"}}>Số tài khoản:</label>
@@ -1457,7 +1474,7 @@ export default function App() {
                       </span>
                       <button onClick={() => printCustomerCard(phone)} style={{ padding: "4px 6px", backgroundColor: "#dc2626", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="In thẻ cứng (Cỡ thẻ ATM)">🖨️ In Thẻ</button>
                       <button onClick={() => sendCardEmail(phone)} style={{ padding: "4px 6px", backgroundColor: "#3b82f6", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="Gửi thẻ điện tử tự động qua Email">📧 Mail</button>
-                      <button onClick={() => shareToZalo(phone)} style={{ padding: "4px 6px", backgroundColor: "#059669", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="Copy lời chào và mở Zalo">💬 Zalo</button>
+                      <button onClick={() => shareToZalo(phone)} style={{ padding: "4px 6px", backgroundColor: "#059669", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="Copy ảnh và mở Zalo">💬 Zalo</button>
                     </div>
 
                   </div>
@@ -1726,7 +1743,7 @@ export default function App() {
               {showInputForm && role === 'admin' && (
                 <form onSubmit={handleAddProduct} style={{ backgroundColor: "#fff7ed", padding: "15px", borderRadius: "8px", border: "1px solid #fdba74", marginBottom: "15px" }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr 1fr 1fr", gap: "10px", marginBottom: "10px" }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">MÃ SẢN PHẨM</span><input placeholder="VD: SP001" value={newCode} onChange={handleCodeChange} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">Mã SẢN PHẨM</span><input placeholder="VD: SP001" value={newCode} onChange={handleCodeChange} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
                     <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">TÊN HÀNG HÓA</span><input placeholder="VD: Bia Tiger" value={newName} onChange={e => setNewName(e.target.value)} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
                     <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">PHÂN LOẠI</span><input list="category-list" placeholder="Chọn / Nhập..." value={newCategory} onChange={e => setNewCategory(e.target.value)} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /><datalist id="category-list">{categories.filter(c => c !== 'Tất cả').map(c => <option key={c} value={c} />)}</datalist></div>
                     <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">GIÁ VỐN (Đ)</span><input type="number" placeholder="0" value={newImportPrice} onChange={e => setNewImportPrice(e.target.value)} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
