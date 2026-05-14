@@ -27,10 +27,8 @@ export default function App() {
   const [showCustomerModal, setShowCustomerModal] = useState(false); 
   const [showHandoverModal, setShowHandoverModal] = useState(false);
   const [showAuditModal, setShowAuditModal] = useState(false);
-  
   const [showHoldModal, setShowHoldModal] = useState(false);
   
-  // STATE CAMERA ĐA NHIỆM ĐÃ ĐƯỢC SỬA LỖI
   const [scannerMode, setScannerMode] = useState<'product' | 'voucher' | null>(null);
   const [scannedCodeObj, setScannedCodeObj] = useState<any>(null);
   const [scanMessage, setScanMessage] = useState<{text: string, type: 'success'|'error'} | null>(null);
@@ -73,10 +71,8 @@ export default function App() {
   const [custPhone, setCustPhone] = useState("");
   const [custName, setCustName] = useState("");
   const [useWallet, setUseWallet] = useState(false);
-  
   const [voucherInput, setVoucherInput] = useState(""); 
   const [appliedVoucherAmount, setAppliedVoucherAmount] = useState<number>(0);
-
   const [customerGiven, setCustomerGiven] = useState<number | "">(""); 
   const [lastOrder, setLastOrder] = useState<any>(null);
 
@@ -105,7 +101,6 @@ export default function App() {
     }
   }, [isLoggedIn]);
 
-  // HỆ THỐNG CAMERA SCANNER ĐA NHIỆM
   useEffect(() => {
     if (scannerMode !== null) {
       let scanner: any;
@@ -113,11 +108,8 @@ export default function App() {
       const loadScanner = () => {
         if ((window as any).Html5QrcodeScanner) {
            scanner = new (window as any).Html5QrcodeScanner("qr-reader", { 
-               fps: 15, 
-               qrbox: { width: 250, height: 120 }, 
-               rememberLastUsedCamera: true
+               fps: 15, qrbox: { width: 250, height: 120 }, rememberLastUsedCamera: true
            }, false);
-           
            scanner.render((text: string) => {
                const now = Date.now();
                if (now - lastScanTime < 1500) return; 
@@ -135,66 +127,6 @@ export default function App() {
       return () => { if (scanner) scanner.clear().catch(()=>{}); };
     }
   }, [scannerMode]);
-
-  // XỬ LÝ KẾT QUẢ QUÉT DỰA THEO MODE
-  useEffect(() => {
-    if (scannedCodeObj) {
-      if (scannerMode === 'product') {
-          const p = products.find(prod => prod.product_code === scannedCodeObj.code.trim());
-          if (p) {
-             if (p.stock <= 0) {
-                playSound('error');
-                setScanMessage({ text: `❌ ${p.name} đã hết hàng!`, type: 'error' });
-             } else {
-                const price = getActualPrice(p);
-                setCart(prev => {
-                   const exist = prev.find(item => item.product.id === p.id);
-                   if (exist) {
-                      const newQty = exist.qty + 1;
-                      if (newQty > p.stock) {
-                         playSound('error'); setScanMessage({ text: `❌ Quá tồn kho (${p.stock})`, type: 'error' });
-                         return prev;
-                      }
-                      playSound('success'); setScanMessage({ text: `✅ +1 ${p.name}`, type: 'success' });
-                      return prev.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i);
-                   } else {
-                      playSound('success'); setScanMessage({ text: `✅ Thêm: ${p.name}`, type: 'success' });
-                      return [...prev, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }];
-                   }
-                });
-             }
-          } else {
-             playSound('error');
-             setScanMessage({ text: `❌ Không tìm thấy mã: ${scannedCodeObj.code}`, type: 'error' });
-          }
-      } 
-      else if (scannerMode === 'voucher') {
-          const code = scannedCodeObj.code.trim().toUpperCase();
-          const VOUCHERS: Record<string, number> = { 
-            "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 
-          };
-          
-          if (VOUCHERS[code]) {
-            setAppliedVoucherAmount(VOUCHERS[code]);
-            setVoucherInput(code);
-            playSound('success');
-            setScanMessage({ text: `✅ Đã áp dụng giảm ${VOUCHERS[code].toLocaleString()}đ`, type: 'success' });
-          } else if (!isNaN(Number(code)) && Number(code) > 0) {
-            setAppliedVoucherAmount(Number(code));
-            setVoucherInput(code);
-            playSound('success');
-            setScanMessage({ text: `✅ Đã nhận mức giảm ${Number(code).toLocaleString()}đ`, type: 'success' });
-          } else {
-            playSound('error');
-            alert("Mã Voucher không hợp lệ!");
-            setAppliedVoucherAmount(0);
-          }
-          setTimeout(() => setScannerMode(null), 1000); // Đóng camera sau khi quét voucher thành công
-      }
-      setScannedCodeObj(null);
-      setTimeout(() => setScanMessage(null), 1500); 
-    }
-  }, [scannedCodeObj, products, scannerMode]);
 
   useEffect(() => {
     const handleAfterPrint = () => setPrintMode(null);
@@ -237,6 +169,60 @@ export default function App() {
     return { cond: 1, text: giftStr };
   };
 
+  const getActualPrice = (p: any) => {
+    let price = (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price;
+    const currentHour = new Date().getHours();
+    if ((currentHour >= 20 || currentHour < 6) && (p.category === 'Đồ ăn liền' || p.category === 'Bánh Kẹo')) {
+       price = price * 0.8; p.isHappyHour = true; 
+    } else { p.isHappyHour = false; }
+    return Math.round(price);
+  };
+
+  const handleSelectSuggest = (p: any) => {
+    if (p.stock <= 0) { playSound('error'); return alert("Đã hết hàng trong kho!"); }
+    const price = getActualPrice(p);
+    setCart(prev => {
+        const exist = prev.find(item => item.product.id === p.id);
+        if (exist) {
+            const newQty = exist.qty + 1;
+            if (newQty > p.stock) { playSound('error'); setScanMessage({ text: `❌ Quá tồn kho (${p.stock})`, type: 'error' }); return prev; }
+            playSound('success'); setScanMessage({ text: `✅ +1 ${p.name}`, type: 'success' });
+            return prev.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i);
+        } else {
+            playSound('success'); setScanMessage({ text: `✅ Thêm: ${p.name}`, type: 'success' });
+            return [...prev, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }];
+        }
+    });
+    setBarcodeInput(""); setShowSuggestions(false);
+  };
+
+  // NƠI XỬ LÝ KẾT QUẢ SCAN ĐƯỢC CHUẨN HÓA
+  useEffect(() => {
+    if (scannedCodeObj) {
+      if (scannerMode === 'product') {
+          const p = products.find(prod => prod.product_code === scannedCodeObj.code.trim());
+          if (p) handleSelectSuggest(p);
+          else { playSound('error'); setScanMessage({ text: `❌ Không tìm thấy mã: ${scannedCodeObj.code}`, type: 'error' }); }
+      } 
+      else if (scannerMode === 'voucher') {
+          const code = scannedCodeObj.code.trim().toUpperCase();
+          const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 };
+          if (VOUCHERS[code]) {
+            setAppliedVoucherAmount(VOUCHERS[code]); setVoucherInput(code); playSound('success');
+            setScanMessage({ text: `✅ Đã áp dụng giảm ${VOUCHERS[code].toLocaleString()}đ`, type: 'success' });
+          } else if (!isNaN(Number(code)) && Number(code) > 0) {
+            setAppliedVoucherAmount(Number(code)); setVoucherInput(code); playSound('success');
+            setScanMessage({ text: `✅ Đã nhận mức giảm ${Number(code).toLocaleString()}đ`, type: 'success' });
+          } else {
+            playSound('error'); alert("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0);
+          }
+          setTimeout(() => setScannerMode(null), 1000);
+      }
+      setScannedCodeObj(null);
+      setTimeout(() => setScanMessage(null), 1500); 
+    }
+  }, [scannedCodeObj, products, scannerMode]);
+
   const currentShiftStats = useMemo(() => {
     const todayStr = new Date().toLocaleDateString('vi-VN');
     const shiftLogs = history.filter(h => {
@@ -269,15 +255,6 @@ export default function App() {
     localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role");
   };
 
-  const getActualPrice = (p: any) => {
-    let price = (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price;
-    const currentHour = new Date().getHours();
-    if ((currentHour >= 20 || currentHour < 6) && (p.category === 'Đồ ăn liền' || p.category === 'Bánh Kẹo')) {
-       price = price * 0.8; p.isHappyHour = true; 
-    } else { p.isHappyHour = false; }
-    return Math.round(price);
-  };
-
   const handleHoldOrder = () => {
     if (cart.length === 0) return;
     const newOrder = { id: Date.now(), time: new Date().toLocaleTimeString('vi-VN'), cart: [...cart] };
@@ -302,36 +279,26 @@ export default function App() {
     if (e.key === 'Enter') {
       e.preventDefault();
       const p = products.find(prod => prod.product_code === barcodeInput.trim());
-      if (p) {
-         if (p.stock <= 0) { playSound('error'); return alert("Đã hết hàng trong kho!"); }
-         const price = getActualPrice(p);
-         const exist = cart.find(item => item.product.id === p.id);
-         if (exist) {
-            const newQty = exist.qty + 1;
-            if (newQty > p.stock) { playSound('error'); return alert(`Không đủ hàng! Trong kho chỉ còn ${p.stock}.`); }
-            setCart(cart.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i));
-         } else {
-            setCart([...cart, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }]);
-         }
-         playSound('success'); setBarcodeInput("");
-      } else { 
-         playSound('error'); alert("Mã sai hoặc không tìm thấy!"); 
-      }
+      if (p) handleSelectSuggest(p);
+      else { playSound('error'); alert("Mã sai hoặc không tìm thấy!"); }
     }
   };
 
   const addToCart = (p: any) => {
     if (p.stock <= 0) { playSound('error'); return alert("Đã hết hàng trong kho!"); }
     const price = getActualPrice(p);
-    const exist = cart.find(item => item.product.id === p.id);
-    if (exist) {
-      const newQty = exist.qty + 1;
-      if (newQty > p.stock) { playSound('error'); return alert(`Không đủ hàng! Trong kho chỉ còn ${p.stock}.`); }
-      setCart(cart.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i));
-    } else {
-      setCart([...cart, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }]);
-    }
-    playSound('success');
+    setCart(prev => {
+      const exist = prev.find(item => item.product.id === p.id);
+      if (exist) {
+        const newQty = exist.qty + 1;
+        if (newQty > p.stock) { playSound('error'); alert(`Không đủ hàng! Trong kho chỉ còn ${p.stock}.`); return prev; }
+        playSound('success');
+        return prev.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i);
+      } else {
+        playSound('success');
+        return [...prev, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }];
+      }
+    });
   };
 
   const adjustCartQty = (productId: any, delta: number) => {
@@ -349,35 +316,25 @@ export default function App() {
       return updated.filter(item => item.qty > 0);
     });
     if (exceedStock) {
-      playSound('error');
-      setTimeout(() => alert(`Vượt quá tồn kho! Món này chỉ còn tối đa ${stockLimit} sản phẩm.`), 10);
+      playSound('error'); setTimeout(() => alert(`Vượt quá tồn kho! Món này chỉ còn tối đa ${stockLimit} sản phẩm.`), 10);
     } else if (delta > 0) playSound('success');
   };
 
   const handleDirectQtyChange = (productId: any, val: string) => {
     setCart(prev => {
-      if (val === '') {
-        return prev.map(i => i.product.id === productId ? { ...i, qty: '' as any, total: 0, profit: 0 } : i);
-      }
+      if (val === '') return prev.map(i => i.product.id === productId ? { ...i, qty: '' as any, total: 0, profit: 0 } : i);
       let num = parseInt(val);
       if (isNaN(num) || num < 0) return prev;
-      
       let exceedStock = false; let stockLimit = 0;
       const updated = prev.map(i => {
         if (i.product.id === productId) {
-           if (num > i.product.stock) {
-               exceedStock = true; stockLimit = i.product.stock; num = i.product.stock;
-           }
+           if (num > i.product.stock) { exceedStock = true; stockLimit = i.product.stock; num = i.product.stock; }
            const price = getActualPrice(i.product);
            return { ...i, qty: num, total: Math.round(num*price*(1+VAT_RATE)), profit: Math.round(num*(price - (i.product.import_price||0))) };
         }
         return i;
       });
-      
-      if (exceedStock) {
-         playSound('error');
-         setTimeout(() => alert(`Vượt quá tồn kho! Món này chỉ còn tối đa ${stockLimit} sản phẩm.`), 10);
-      }
+      if (exceedStock) { playSound('error'); setTimeout(() => alert(`Vượt quá tồn kho! Tối đa ${stockLimit}.`), 10); }
       return updated;
     });
   };
@@ -413,24 +370,13 @@ export default function App() {
     if (e.key === 'Enter') {
       e.preventDefault();
       const code = voucherInput.trim().toUpperCase();
-      
-      const VOUCHERS: Record<string, number> = { 
-        "VC50K": 50000, 
-        "VC100K": 100000, 
-        "VIP200K": 200000,
-        "KM10K": 10000 
-      };
-
+      const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 };
       if (VOUCHERS[code]) {
-        setAppliedVoucherAmount(VOUCHERS[code]);
-        playSound('success');
+        setAppliedVoucherAmount(VOUCHERS[code]); playSound('success');
       } else if (!isNaN(Number(code)) && Number(code) > 0) {
-        setAppliedVoucherAmount(Number(code));
-        playSound('success');
+        setAppliedVoucherAmount(Number(code)); playSound('success');
       } else {
-        playSound('error');
-        alert("Mã Voucher không hợp lệ!");
-        setAppliedVoucherAmount(0);
+        playSound('error'); alert("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0);
       }
     }
   };
@@ -450,11 +396,10 @@ export default function App() {
 
   const confirmCheckout = async (isDebt: boolean = false) => {
     if (cart.some(i => !i.qty || i.qty <= 0)) {
-       playSound('error');
-       return alert("Có sản phẩm số lượng không hợp lệ (Trống hoặc bằng 0). Vui lòng kiểm tra lại giỏ hàng!");
+       playSound('error'); return alert("Có sản phẩm số lượng không hợp lệ!");
     }
-
     if (isDebt && !custPhone) return alert("Ghi nợ bắt buộc phải nhập SĐT khách hàng!");
+    
     setLoading(true);
     let logs: any[] = [];
     const subTotal = Math.round(cart.reduce((s, i) => s + (i.qty * getActualPrice(i.product)), 0));
@@ -508,8 +453,7 @@ export default function App() {
     const refundQty = parseInt(qStr);
 
     if (isNaN(refundQty) || refundQty <= 0 || refundQty > maxRefund) {
-      playSound('error');
-      return alert("Số lượng hoàn không hợp lệ!");
+      playSound('error'); return alert("Số lượng hoàn không hợp lệ!");
     }
 
     if(!window.confirm(`Xác nhận hoàn trả ${refundQty} x ${log.name}?`)) return;
@@ -530,11 +474,7 @@ export default function App() {
            if (customers[phone]) {
                if (window.confirm(`Hoàn ${refundTotal.toLocaleString()}đ bằng TIỀN MẶT hay cộng vào VÍ ĐIỂM của khách?\n\n- OK: Cộng vào VÍ ĐIỂM\n- Cancel: Hoàn bằng TIỀN MẶT`)) {
                    setCustomers((prev: any) => ({
-                       ...prev,
-                       [phone]: {
-                           ...prev[phone],
-                           wallet: (prev[phone].wallet || 0) + refundTotal
-                       }
+                       ...prev, [phone]: { ...prev[phone], wallet: (prev[phone].wallet || 0) + refundTotal }
                    }));
                    logAudit("HOÀN TIỀN VÍ", `Hoàn ${refundTotal.toLocaleString()}đ vào ví KH ${customers[phone].name}`);
                    refundedToWallet = true;
@@ -555,8 +495,7 @@ export default function App() {
     setHistory(updatedHistory);
     fetchProducts();
     logAudit("TRẢ HÀNG", `Hoàn ${refundQty} ${log.name} trị giá ${refundTotal.toLocaleString()}đ`);
-    playSound('success');
-    alert(`Hoàn trả thành công ${refundQty} sản phẩm! Tiền đã được xử lý.`);
+    playSound('success'); alert(`Hoàn trả thành công ${refundQty} sản phẩm! Tiền đã được xử lý.`);
   };
 
   const handlePayDebt = (phone: string) => {
@@ -997,7 +936,7 @@ export default function App() {
         </div>
       )}
 
-      {/* 🕵️ MODAL KIỂM TOÁN LỊCH SỬ THAO TÁC (CHỈ ADMIN) */}
+      {/* 🕵️ MODAL KIỂM TOÁN LỊCH SỬ THAO TÁC */}
       {showAuditModal && role === 'admin' && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "600px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
@@ -1263,6 +1202,7 @@ export default function App() {
         )}
 
         <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
+          {/* HEADER CHÍNH */}
           <div className="glass" style={{ padding: "8px 15px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", borderBottom: "4px solid #ef4444" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
               <h2 style={{ color: "#ef4444", margin: 0, fontSize: "18px" }}>🏪 HẢI LÊ MART</h2>
@@ -1298,6 +1238,7 @@ export default function App() {
 
           <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: "10px" }}>
             
+            {/* CỘT TRÁI: SẢN PHẨM */}
             <div className="glass" style={{ padding: "12px" }}>
               
               <div style={{ display: "flex", gap: "8px", marginBottom: "10px", position: "relative" }}>
@@ -1490,6 +1431,7 @@ export default function App() {
               </div>
             </div>
 
+            {/* CỘT PHẢI: GIỎ HÀNG & LỊCH SỬ */}
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               
               <div className="glass" style={{ padding: "12px", flex: 1.5, minHeight: "45vh", display: "flex", flexDirection: "column" }}>
