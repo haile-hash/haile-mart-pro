@@ -84,95 +84,7 @@ export default function App() {
 
   const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
 
-  // ================= 2. HELPER FUNCTIONS =================
-  const playSound = (type: 'success' | 'error') => {
-    try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const osc = ctx.createOscillator(); const gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
-      if (type === 'success') { osc.frequency.value = 800; gain.gain.setValueAtTime(0.1, ctx.currentTime); osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.1); } 
-      else { osc.frequency.value = 250; osc.type = 'square'; gain.gain.setValueAtTime(0.1, ctx.currentTime); osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3); }
-    } catch(e) {}
-  };
-
-  const logAudit = (action: string, detail: string) => {
-    const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user: role === 'admin' ? 'Quản lý' : 'Thu ngân', shift, action, detail };
-    setAuditLogs(prev => [newLog, ...prev].slice(0, 200)); 
-  };
-
-  const fetchProducts = async () => {
-    const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false });
-    if (data) setProducts(data);
-  };
-
-  const parseGift = (giftStr: string | null) => {
-    if (!giftStr) return { cond: 0, text: "" };
-    if (giftStr.includes(';;;')) {
-        const parts = giftStr.split(';;;');
-        return { cond: parseInt(parts[0]) || 1, text: parts[1] || "" };
-    }
-    return { cond: 1, text: giftStr };
-  };
-
-  const cleanName = (name: string) => name ? name.split(' [Lô')[0] : '';
-  
-  const getActualPrice = (p: any) => {
-    let price = (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price;
-    const currentHour = new Date().getHours();
-    if ((currentHour >= 20 || currentHour < 6) && (p.category === 'Đồ ăn liền' || p.category === 'Bánh Kẹo')) { price = price * 0.8; p.isHappyHour = true; } 
-    else { p.isHappyHour = false; }
-    return Math.round(price);
-  };
-
-  const findProductByCode = (code: string) => {
-    const rawCode = code.trim();
-    let matches = products.filter(prod => prod.product_code === rawCode || prod.product_code.startsWith(`${rawCode}-`));
-    let available = matches.filter(p => p.stock > 0);
-    if (available.length > 0) {
-       available.sort((a,b) => {
-           if(!a.expiry_date) return 1; if(!b.expiry_date) return -1;
-           return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
-       });
-       return available[0];
-    } 
-    else if (matches.length > 0) return matches[0];
-    return null;
-  };
-
-  const getOldestAvailableBatch = (p: any) => {
-    const baseCode = p.product_code.split('-')[0];
-    let availableMatches = products.filter(prod => (prod.product_code === baseCode || prod.product_code.startsWith(`${baseCode}-`)) && prod.stock > 0);
-    if (availableMatches.length === 0) return p; 
-    availableMatches.sort((a,b) => {
-        if(!a.expiry_date) return 1; if(!b.expiry_date) return -1;
-        return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
-    });
-    return availableMatches[0];
-  };
-
-  const handleSelectSuggest = (p_input: any) => {
-    const p = getOldestAvailableBatch(p_input); 
-    if (p.stock <= 0) { playSound('error'); return alert("Đã hết hàng trong kho!"); }
-    if (p.id !== p_input.id) setScanMessage({ text: `⚡ Tự động xuất Lô cũ: ${p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : ''}`, type: 'success' });
-    else setScanMessage({ text: `✅ Thêm: ${cleanName(p.name)}`, type: 'success' });
-
-    const price = getActualPrice(p);
-    setCart(prev => {
-        const exist = prev.find(item => item.product.id === p.id);
-        if (exist) {
-            const newQty = exist.qty + 1;
-            if (newQty > p.stock) { playSound('error'); setScanMessage({ text: `❌ Quá tồn kho lô này (${p.stock})`, type: 'error' }); return prev; }
-            playSound('success'); 
-            return prev.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i);
-        } else {
-            playSound('success'); 
-            return [...prev, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }];
-        }
-    });
-    setBarcodeInput(""); setShowSuggestions(false); setTimeout(() => setScanMessage(null), 2000);
-  };
-
-  // ================= 3. EFFECTS =================
+  // ================= 2. EFFECTS =================
   useEffect(() => {
     localStorage.setItem("mart_history", JSON.stringify(history));
     localStorage.setItem("mart_customers", JSON.stringify(customers));
@@ -247,7 +159,66 @@ export default function App() {
     return () => window.removeEventListener("afterprint", handleAfterPrint);
   }, []);
 
-  // ================= 4. COMPUTED DATA =================
+  // ================= 3. UTILS & MEMOS =================
+  const playSound = (type: 'success' | 'error') => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator(); const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      if (type === 'success') { osc.frequency.value = 800; gain.gain.setValueAtTime(0.1, ctx.currentTime); osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.1); } 
+      else { osc.frequency.value = 250; osc.type = 'square'; gain.gain.setValueAtTime(0.1, ctx.currentTime); osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3); }
+    } catch(e) {}
+  };
+
+  const logAudit = (action: string, detail: string) => {
+    const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user: role === 'admin' ? 'Quản lý' : 'Thu ngân', shift, action, detail };
+    setAuditLogs(prev => [newLog, ...prev].slice(0, 200)); 
+  };
+
+  const parseGift = (giftStr: string | null) => {
+    if (!giftStr) return { cond: 0, text: "" };
+    if (giftStr.includes(';;;')) {
+        const parts = giftStr.split(';;;');
+        return { cond: parseInt(parts[0]) || 1, text: parts[1] || "" };
+    }
+    return { cond: 1, text: giftStr };
+  };
+
+  const cleanName = (name: string) => name ? name.split(' [Lô')[0] : '';
+  const getActualPrice = (p: any) => {
+    let price = (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price;
+    const currentHour = new Date().getHours();
+    if ((currentHour >= 20 || currentHour < 6) && (p.category === 'Đồ ăn liền' || p.category === 'Bánh Kẹo')) { price = price * 0.8; p.isHappyHour = true; } 
+    else { p.isHappyHour = false; }
+    return Math.round(price);
+  };
+
+  const findProductByCode = (code: string) => {
+    const rawCode = code.trim();
+    let matches = products.filter(prod => prod.product_code === rawCode || prod.product_code.startsWith(`${rawCode}-`));
+    let available = matches.filter(p => p.stock > 0);
+    if (available.length > 0) {
+       available.sort((a,b) => {
+           if(!a.expiry_date) return 1; if(!b.expiry_date) return -1;
+           return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
+       });
+       return available[0];
+    } 
+    else if (matches.length > 0) return matches[0];
+    return null;
+  };
+
+  const getOldestAvailableBatch = (p: any) => {
+    const baseCode = p.product_code.split('-')[0];
+    let availableMatches = products.filter(prod => (prod.product_code === baseCode || prod.product_code.startsWith(`${baseCode}-`)) && prod.stock > 0);
+    if (availableMatches.length === 0) return p; 
+    availableMatches.sort((a,b) => {
+        if(!a.expiry_date) return 1; if(!b.expiry_date) return -1;
+        return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
+    });
+    return availableMatches[0];
+  };
+
   const currentShiftStats = useMemo(() => {
     const todayStr = new Date().toLocaleDateString('vi-VN');
     const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStr && h.shift === shift);
@@ -301,86 +272,27 @@ export default function App() {
   const uniqueExpiries = useMemo(() => Array.from(new Set(products.map(p => p.expiry_date).filter(Boolean))).sort(), [products]);
   const categories = ["Tất cả", ...Array.from(new Set(products.map(p => p.category || "Khác")))];
 
-  const sortedAndFilteredProducts = useMemo(() => {
-    const todayTime = new Date().getTime();
-    let filtered = products
-      .filter(p => (selectedCategory === "Tất cả" || (p.category || "Khác") === selectedCategory))
-      .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(searchTerm.toLowerCase())));
+  // ================= 4. CART & POS LOGIC =================
+  const handleSelectSuggest = (p_input: any) => {
+    const p = getOldestAvailableBatch(p_input); 
+    if (p.stock <= 0) { playSound('error'); return alert("Đã hết hàng trong kho!"); }
+    if (p.id !== p_input.id) setScanMessage({ text: `⚡ Tự động xuất Lô cũ: ${p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : ''}`, type: 'success' });
+    else setScanMessage({ text: `✅ Thêm: ${cleanName(p.name)}`, type: 'success' });
 
-    if (filters['name']?.length > 0) filtered = filtered.filter(p => filters['name'].includes(cleanName(p.name)));
-    if (filters['stock']?.length > 0) filtered = filtered.filter(p => filters['stock'].includes(p.stock));
-    if (filters['import_price']?.length > 0) filtered = filtered.filter(p => filters['import_price'].includes(p.import_price || 0));
-    if (filters['sale_price']?.length > 0) filtered = filtered.filter(p => filters['sale_price'].includes(p.sale_price));
-    if (filters['expiry_date']?.length > 0) filtered = filtered.filter(p => filters['expiry_date'].includes(p.expiry_date));
-
-    if (sortConfig !== null) {
-      filtered.sort((a, b) => {
-        let valA = a[sortConfig.key]; let valB = b[sortConfig.key];
-        if (sortConfig.key === 'expiry_date') { valA = a.expiry_date ? new Date(a.expiry_date).getTime() : Infinity; valB = b.expiry_date ? new Date(b.expiry_date).getTime() : Infinity; }
-        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
-        return 0;
-      });
-    } else {
-      filtered.sort((a, b) => {
-        const daysA = a.expiry_date ? (new Date(a.expiry_date).getTime() - todayTime) / 86400000 : Infinity;
-        const daysB = b.expiry_date ? (new Date(b.expiry_date).getTime() - todayTime) / 86400000 : Infinity;
-        const aIsUrgent = daysA <= 45; const bIsUrgent = daysB <= 45;
-        if (aIsUrgent && !bIsUrgent) return -1; if (!aIsUrgent && bIsUrgent) return 1; if (aIsUrgent && bIsUrgent) return daysA - daysB; 
-        return 0;
-      });
-    }
-    return filtered;
-  }, [products, searchTerm, selectedCategory, sortConfig, filters]);
-
-  // ================= 5. EVENT HANDLERS =================
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (authUsername === "admin" && authPassword === "haile88") {
-      setIsLoggedIn(true); setRole("admin"); localStorage.setItem("mart_shift", shift);
-      localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "admin");
-      logAudit("ĐĂNG NHẬP", "Mở ca thành công");
-    } else if (authUsername === "nhanvien" && authPassword === "123") {
-      setIsLoggedIn(true); setRole("staff"); localStorage.setItem("mart_shift", shift);
-      localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "staff");
-      logAudit("ĐĂNG NHẬP", "Mở ca thành công");
-    } else alert("Sai tài khoản hoặc mật khẩu!");
-  };
-
-  const handleLogoutClick = () => setShowHandoverModal(true);
-  const confirmHandover = () => {
-    logAudit("CHỐT CA", `Doanh thu bàn giao: ${currentShiftStats.rev.toLocaleString()}đ (TM: ${currentShiftStats.cash.toLocaleString()}đ, CK: ${currentShiftStats.transfer.toLocaleString()}đ)`);
-    setIsLoggedIn(false); setShowHandoverModal(false);
-    localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role");
-  };
-
-  const handleHoldOrder = () => {
-    if (cart.length === 0) return;
-    const newOrder = { id: Date.now(), time: new Date().toLocaleTimeString('vi-VN'), cart: [...cart] };
-    setHeldOrders(prev => [...prev, newOrder]);
-    logAudit("LƯU TẠM", `Lưu giỏ hàng ${cart.length} món`);
-    setCart([]);
-  };
-
-  const restoreOrder = (order: any) => {
-    if (cart.length > 0) return alert("Vui lòng thanh toán hoặc hủy giỏ hiện tại trước khi mở đơn lưu tạm!");
-    setCart(order.cart);
-    setHeldOrders(prev => prev.filter(o => o.id !== order.id));
-    setShowHoldModal(false);
-  };
-
-  const deleteHeldOrder = (id: any) => {
-    setHeldOrders(prev => prev.filter(o => o.id !== id));
-    logAudit("XÓA ĐƠN TẠM", `Đã xóa 1 đơn hàng lưu tạm`);
-  };
-
-  const handleBarcodeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const p = findProductByCode(barcodeInput);
-      if (p) handleSelectSuggest(p);
-      else { playSound('error'); alert("Mã sai hoặc không tìm thấy!"); }
-    }
+    const price = getActualPrice(p);
+    setCart(prev => {
+        const exist = prev.find(item => item.product.id === p.id);
+        if (exist) {
+            const newQty = exist.qty + 1;
+            if (newQty > p.stock) { playSound('error'); setScanMessage({ text: `❌ Quá tồn kho lô này (${p.stock})`, type: 'error' }); return prev; }
+            playSound('success'); 
+            return prev.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i);
+        } else {
+            playSound('success'); 
+            return [...prev, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }];
+        }
+    });
+    setBarcodeInput(""); setShowSuggestions(false); setTimeout(() => setScanMessage(null), 2000);
   };
 
   const addToCart = (p_input: any) => {
@@ -496,7 +408,6 @@ export default function App() {
     setCheckoutStep(2);
   };
 
-  // --- NÂNG CẤP LƯU "TIỀN KHÁCH ĐƯA" LÊN ĐƠN HÀNG ĐỂ IN BILL ---
   const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 'GHI NỢ') => {
     if (cart.some(i => !i.qty || i.qty <= 0)) { playSound('error'); return alert("Có sản phẩm số lượng không hợp lệ!"); }
     if (payMethod === 'GHI NỢ' && !custPhone) return alert("Ghi nợ bắt buộc phải nhập SĐT khách hàng!");
@@ -544,7 +455,6 @@ export default function App() {
 
     setHistory(prev => [...logs, ...prev]);
 
-    // Gắn thêm customerGiven vào thông tin Bill in ra
     setLastOrder({ 
       orderId: "HD" + Date.now().toString().slice(-6), shift: shift, cart: [...cart], 
       subTotal, vatTotal, finalTotal: payMethod === 'GHI NỢ' ? 0 : finalTotal, debtAmount: payMethod === 'GHI NỢ' ? finalTotal : 0, 
@@ -619,6 +529,53 @@ export default function App() {
   };
 
   const closeCheckout = () => { setCart([]); setIsCheckoutOpen(false); setCheckoutStep(1); setCustPhone(""); setCustName(""); setUseWallet(false); setVoucherInput(""); setAppliedVoucherAmount(0); setCustomerGiven(""); setLastOrder(null); };
+
+  // ================= TÍNH NĂNG GỬI EMAIL HÓA ĐƠN =================
+  const sendReceiptEmail = () => {
+    if (!lastOrder) return;
+    const email = window.prompt("Vui lòng nhập Email của khách hàng để gửi hóa đơn:");
+    if (!email) return;
+
+    let body = `🧾 HÓA ĐƠN MUA HÀNG - HẢI LÊ MART\n`;
+    body += `Tòa Nhà ATS, 252 Hoàng Quốc Việt, HN\n`;
+    body += `Hotline: 0902 613 899\n`;
+    body += `------------------------------------------\n`;
+    body += `Mã HĐ: ${lastOrder.orderId}\n`;
+    body += `Ngày: ${lastOrder.time}\n`;
+    body += `Ca: ${lastOrder.shift}\n`;
+    body += `------------------------------------------\n`;
+    body += `CHI TIẾT ĐƠN HÀNG:\n`;
+    
+    lastOrder.cart.forEach((item: any) => {
+        const price = Math.round(getActualPrice(item.product));
+        body += `- ${cleanName(item.product.name)}: ${item.qty} x ${price.toLocaleString()}đ = ${Math.round(item.total).toLocaleString()}đ\n`;
+    });
+    
+    body += `------------------------------------------\n`;
+    body += `Cộng tiền hàng: ${Math.round(lastOrder.subTotal).toLocaleString()}đ\n`;
+    body += `Thuế GTGT (10%): ${Math.round(lastOrder.vatTotal).toLocaleString()}đ\n`;
+    
+    if (lastOrder.discount > 0) {
+        body += `Giảm giá/Ví: -${Math.round(lastOrder.discount).toLocaleString()}đ\n`;
+    }
+    
+    body += `TỔNG CỘNG: ${Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ\n`;
+    
+    if (lastOrder.paymentMethod === 'TIỀN MẶT' && lastOrder.customerGiven > 0) {
+        body += `\nTiền khách đưa: ${Math.round(lastOrder.customerGiven).toLocaleString()}đ\n`;
+        body += `Tiền trả lại: ${Math.round(lastOrder.customerGiven - lastOrder.finalTotal).toLocaleString()}đ\n`;
+    } else if (lastOrder.paymentMethod === 'CHUYỂN KHOẢN') {
+        body += `\nHình thức TT: Chuyển khoản (VietQR)\n`;
+    }
+    
+    body += `------------------------------------------\n`;
+    body += `CẢM ƠN QUÝ KHÁCH & HẸN GẶP LẠI!\n`;
+    body += `(Powered by Hải Lê POS)`;
+
+    const subject = encodeURIComponent(`Hóa đơn mua hàng [${lastOrder.orderId}] - Hải Lê Mart`);
+    const mailtoLink = `mailto:${email}?subject=${subject}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailtoLink;
+  };
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const code = e.target.value; setNewCode(code);
@@ -940,6 +897,7 @@ export default function App() {
     }
   `;
 
+  // ================= 9. LOGIN RENDER =================
   if (!isLoggedIn) {
      return (
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", position: "relative", overflow: "hidden" }}>
@@ -947,22 +905,26 @@ export default function App() {
         <div className="spring-bg" style={{ background: "#ef4444", top: "-10%", left: "-10%" }}></div>
         <div className="spring-bg" style={{ background: "#fbbf24", bottom: "-10%", right: "-10%" }}></div>
         <div className="glass" style={{ padding: "40px", width: "100%", maxWidth: "380px", textAlign: "center", border: "4px solid #ef4444" }}>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "25px" }}>
-            <div style={{ background: "linear-gradient(135deg, #ef4444, #f97316)", padding: "15px", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 15px rgba(239, 68, 68, 0.4)", marginBottom: "15px" }}>
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+          
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "30px" }}>
+            <div style={{ backgroundColor: "#dc2626", padding: "16px", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 10px 25px rgba(220, 38, 38, 0.3)", marginBottom: "15px" }}>
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path>
+              </svg>
             </div>
-            <h1 style={{ margin: 0, fontSize: "32px", fontWeight: "900", letterSpacing: "2px", background: "linear-gradient(90deg, #b91c1c, #ea580c)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", textTransform: "uppercase" }}>HẢI LÊ MART</h1>
-            <span style={{ fontSize: "12px", color: "#64748b", fontWeight: "bold", letterSpacing: "3px", textTransform: "uppercase", marginTop: "5px" }}>Point of Sale PRO</span>
+            <h1 style={{ margin: 0, fontSize: "32px", fontWeight: "900", letterSpacing: "1px", color: "#0f172a", textTransform: "uppercase" }}>HẢI LÊ <span style={{color: "#dc2626"}}>MART</span></h1>
+            <span style={{ fontSize: "11px", color: "#64748b", fontWeight: "800", letterSpacing: "4px", textTransform: "uppercase", marginTop: "5px" }}>Professional POS</span>
           </div>
+
           <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-            <select value={shift} onChange={e => setShift(e.target.value)} style={{ padding: "14px", borderRadius: "10px", border: "1px solid #f97316", outline: "none", fontWeight: "bold", color: "#9a3412", backgroundColor: "#fffbeb" }}>
+            <select value={shift} onChange={e => setShift(e.target.value)} style={{ padding: "14px", borderRadius: "10px", border: "1px solid #cbd5e1", outline: "none", fontWeight: "bold", color: "#1e293b", backgroundColor: "#f8fafc" }}>
               <option value="Ca Sáng">🌅 Ca Sáng (06:00 - 14:00)</option>
               <option value="Ca Chiều">🌇 Ca Chiều (14:00 - 22:00)</option>
               <option value="Ca Tối">🌙 Ca Tối (22:00 - 06:00)</option>
             </select>
-            <input placeholder="Tên đăng nhập (admin / nhanvien)" value={authUsername} onChange={e => setAuthUsername(e.target.value)} style={{ padding: "14px", borderRadius: "10px", border: "1px solid #f97316", outline: "none" }} />
-            <input type="password" placeholder="Mật khẩu" value={authPassword} onChange={e => setAuthPassword(e.target.value)} style={{ padding: "14px", borderRadius: "10px", border: "1px solid #f97316", outline: "none" }} />
-            <button type="submit" style={{ padding: "14px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "bold", cursor: "pointer", boxShadow: "0 4px 6px rgba(239, 68, 68, 0.3)" }}>MỞ CỬA BÁN HÀNG 🚀</button>
+            <input placeholder="Tên đăng nhập (admin / nhanvien)" value={authUsername} onChange={e => setAuthUsername(e.target.value)} style={{ padding: "14px", borderRadius: "10px", border: "1px solid #cbd5e1", outline: "none" }} />
+            <input type="password" placeholder="Mật khẩu" value={authPassword} onChange={e => setAuthPassword(e.target.value)} style={{ padding: "14px", borderRadius: "10px", border: "1px solid #cbd5e1", outline: "none" }} />
+            <button type="submit" style={{ padding: "14px", backgroundColor: "#dc2626", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "bold", cursor: "pointer", boxShadow: "0 4px 6px rgba(220, 38, 38, 0.3)" }}>MỞ CỬA BÁN HÀNG 🚀</button>
           </form>
         </div>
       </div>
@@ -971,11 +933,12 @@ export default function App() {
 
   const finalToPay = Math.round(Math.max(0, cartTotalAmount - appliedVoucherAmount - (useWallet ? Math.min(customers[custPhone]?.wallet||0, Math.max(0, cartTotalAmount - appliedVoucherAmount)) : 0)));
 
+  // ================= 10. MAIN APP RENDER =================
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); }}>
       <style>{styles}</style>
       
-      {/* 🖨️ BIÊN LAI BÁN HÀNG ĐÃ THÊM THÔNG TIN TIỀN TRẢ LẠI / HÌNH THỨC TT */}
+      {/* 🖨️ BIÊN LAI BÁN HÀNG (SẼ CHẠY KHI IN) */}
       {lastOrder && printMode !== 'barcode' && (
         <div className="print-only print-receipt">
           <div className="print-header">
@@ -1018,7 +981,6 @@ export default function App() {
               <span>{Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</span>
             </div>
             
-            {/* THÊM HIỂN THỊ TIỀN KHÁCH ĐƯA VÀ HÌNH THỨC TT */}
             {lastOrder.paymentMethod === 'TIỀN MẶT' && lastOrder.customerGiven > 0 && (
               <div style={{ marginTop: '8px', borderTop: '1px dotted #ccc', paddingTop: '5px' }}>
                 <div className="print-totals-row"><span>Tiền khách đưa:</span><span>{Math.round(lastOrder.customerGiven).toLocaleString()}đ</span></div>
@@ -1030,7 +992,6 @@ export default function App() {
                 <div className="print-totals-row"><span>Hình thức TT:</span><span>Chuyển khoản (VietQR)</span></div>
               </div>
             )}
-            
           </div>
           <div className="print-footer">
             <div><b>CẢM ƠN QUÝ KHÁCH & HẸN GẶP LẠI!</b></div>
@@ -1246,6 +1207,7 @@ export default function App() {
         <div className="spring-bg" style={{ background: "#ef4444", top: "10%", left: "5%" }}></div>
         <div className="spring-bg" style={{ background: "#f59e0b", bottom: "10%", right: "5%" }}></div>
 
+        {/* 💳 POPUP THANH TOÁN (BILL ĐIỆN TỬ NẰM SAU KHI CHỐT ĐƠN) */}
         {isCheckoutOpen && (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
             {checkoutStep === 1 && (
@@ -1333,12 +1295,15 @@ export default function App() {
                 </div>
               </div>
             )}
+            
+            {/* ✨ GỬI EMAIL NẰM TRONG MÀN HÌNH THÀNH CÔNG ✨ */}
             {checkoutStep === 3 && (
               <div className="glass" style={{ padding: "30px", width: "350px", textAlign: "center" }}>
                 <div style={{ fontSize: "40px" }}>🌸</div><h3 style={{ color: "#10b981", margin: "10px 0" }}>Thành công!</h3>
                 <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
-                  <button onClick={() => { setPrintMode('receipt'); setTimeout(()=>window.print(), 300); }} style={{ flex: 1, padding: "12px", backgroundColor: "#ef4444", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>🖨️ In Hóa Đơn</button>
-                  <button onClick={closeCheckout} style={{ flex: 1, padding: "12px", backgroundColor: "#e2e8f0", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>Đóng</button>
+                  <button onClick={() => { setPrintMode('receipt'); setTimeout(()=>window.print(), 300); }} style={{ flex: 1, padding: "12px", backgroundColor: "#ef4444", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer", fontSize: "12px" }}>🖨️ In Hóa Đơn</button>
+                  <button onClick={sendReceiptEmail} style={{ flex: 1, padding: "12px", backgroundColor: "#3b82f6", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer", fontSize: "12px" }}>📧 Gửi Email</button>
+                  <button onClick={closeCheckout} style={{ flex: 1, padding: "12px", backgroundColor: "#e2e8f0", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer", fontSize: "12px", color: "#1e293b" }}>Đóng</button>
                 </div>
               </div>
             )}
@@ -1351,14 +1316,14 @@ export default function App() {
             
             <div style={{ display: "flex", alignItems: "center", gap: "25px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <div style={{ background: "linear-gradient(135deg, #ef4444, #f97316)", padding: "8px", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 6px rgba(239, 68, 68, 0.3)" }}>
+                <div style={{ backgroundColor: "#dc2626", padding: "8px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 10px rgba(220, 38, 38, 0.2)" }}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path>
                   </svg>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                  <h2 style={{ margin: 0, fontSize: "18px", fontWeight: "900", letterSpacing: "1.5px", background: "linear-gradient(90deg, #b91c1c, #ea580c)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", lineHeight: "1.2", textTransform: "uppercase" }}>HẢI LÊ MART</h2>
-                  <span style={{ fontSize: "9px", color: "#64748b", fontWeight: "bold", letterSpacing: "2px", textTransform: "uppercase", marginTop: "-2px" }}>Point of Sale PRO</span>
+                  <h2 style={{ margin: 0, fontSize: "19px", fontWeight: "900", letterSpacing: "0.5px", color: "#0f172a", lineHeight: "1.1", textTransform: "uppercase" }}>HẢI LÊ <span style={{color: "#dc2626"}}>MART</span></h2>
+                  <span style={{ fontSize: "9px", color: "#64748b", fontWeight: "800", letterSpacing: "2.5px", textTransform: "uppercase", marginTop: "2px" }}>Professional POS</span>
                 </div>
               </div>
               
@@ -1626,8 +1591,13 @@ export default function App() {
                           </td>
                           {role === 'admin' && <td style={{ textAlign: "center", color: "#64748b", fontSize: "11px" }}>{p.import_price?.toLocaleString()}</td>}
                           <td style={{ textAlign: "center" }}>
+                            {/* CẬP NHẬT CÁCH SỬA GIÁ KHUYẾN MÃI NẾU ĐANG LÀ 0 */}
                             <div style={{ color: isP ? "#94a3b8" : "#16a34a", textDecoration: isP ? "line-through" : "none", fontSize: isP ? "10px" : "13px", fontWeight: "bold", cursor: role==='admin'?"pointer":"default" }} onClick={()=> role==='admin' && handleEdit(p.id, 'sale_price', p.sale_price)}>{p.sale_price.toLocaleString()}</div>
-                            {isP && <div style={{ color: "#ef4444", fontWeight: "900", fontSize: "13px", cursor: role==='admin'?"pointer":"default" }} onClick={()=> role==='admin' && handleEdit(p.id, 'promo_price', p.promo_price)}>🔥 {p.promo_price.toLocaleString()}</div>}
+                            {isP ? (
+                               <div style={{ color: "#ef4444", fontWeight: "900", fontSize: "13px", cursor: role==='admin'?"pointer":"default" }} onClick={()=> role==='admin' && handleEdit(p.id, 'promo_price', p.promo_price)}>🔥 {p.promo_price.toLocaleString()}</div>
+                            ) : (
+                               role === 'admin' && <div style={{ fontSize: "9px", color: "#cbd5e1", cursor: "pointer", marginTop: "2px" }} onClick={()=>handleEdit(p.id, 'promo_price', 0)}>🏷️ +Thêm KM</div>
+                            )}
                           </td>
                           <td style={{ textAlign: "center", fontSize: "10px" }}>
                             <div style={{color: isNearExpiry ? "#ef4444" : "#b91c1c", fontWeight: "bold", cursor: role==='admin'?"pointer":"default"}} onClick={()=> role==='admin' && handleEdit(p.id,'expiry_date',p.expiry_date,true)}>
