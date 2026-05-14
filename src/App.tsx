@@ -280,13 +280,7 @@ export default function App() {
   }, [history]);
 
   const totalValue = Math.round(products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
-  
-  // TỔNG TIỀN GIỎ HÀNG
   const cartTotalAmount = cart.reduce((sum, item) => sum + item.total, 0);
-
-  // BIẾN TÍNH TIỀN KHÁCH PHẢI TRẢ
-  const finalToPay = Math.round(Math.max(0, cartTotalAmount - appliedVoucherAmount - (useWallet ? Math.min(customers[custPhone]?.wallet||0, Math.max(0, cartTotalAmount - appliedVoucherAmount)) : 0)));
-
 
   const uniqueNames = useMemo(() => Array.from(new Set(products.map(p => cleanName(p.name)))).sort(), [products]);
   const uniqueStocks = useMemo(() => Array.from(new Set(products.map(p => p.stock))).sort((a,b)=>a-b), [products]);
@@ -342,7 +336,6 @@ export default function App() {
   };
 
   const handleLogoutClick = () => setShowHandoverModal(true);
-  
   const confirmHandover = () => {
     logAudit("CHỐT CA", `Doanh thu bàn giao: ${currentShiftStats.rev.toLocaleString()}đ (TM: ${currentShiftStats.cash.toLocaleString()}đ, CK: ${currentShiftStats.transfer.toLocaleString()}đ)`);
     setIsLoggedIn(false); setShowHandoverModal(false);
@@ -551,7 +544,7 @@ export default function App() {
     if (custPhone) {
       setCustomers((prev: any) => ({ 
         ...prev, 
-        [custPhone]: { name: custName, wallet: payMethod === 'GHI NỢ' ? (prev[custPhone]?.wallet || 0) : Math.round((prev[custPhone]?.wallet || 0) - walletDiscount + earned), debt: (prev[custPhone]?.debt || 0) + (payMethod === 'GHI NỢ' ? finalTotal : 0) } 
+        [custPhone]: { name: custName, wallet: payMethod === 'GHI NỢ' ? (prev[custPhone]?.wallet || 0) : Math.round((prev[custPhone]?.wallet || 0) - walletDiscount + earned), debt: (prev[custPhone]?.debt || 0) + (payMethod === 'GHI NỢ' ? finalTotal : 0), email: prev[custPhone]?.email || "" } 
       }));
     }
 
@@ -634,8 +627,17 @@ export default function App() {
 
   const sendReceiptEmail = async () => {
     if (!lastOrder) return;
-    const email = window.prompt("Nhập Email khách hàng:");
+    
+    const savedEmail = (lastOrder.custPhone && customers[lastOrder.custPhone] && customers[lastOrder.custPhone].email) ? customers[lastOrder.custPhone].email : "";
+    const email = window.prompt("Nhập Email khách hàng:", savedEmail);
     if (!email) return;
+
+    if (lastOrder.custPhone) {
+        setCustomers((prev: any) => ({
+            ...prev,
+            [lastOrder.custPhone]: { ...prev[lastOrder.custPhone], email: email }
+        }));
+    }
 
     setLoading(true);
     let itemsTable = "";
@@ -759,7 +761,6 @@ export default function App() {
                   }
               }
           }
-
           const exist = allVariants.find(p => p.product_code === baseCode);
           if (exist) {
              if (exist.stock <= 0) {
@@ -884,7 +885,9 @@ export default function App() {
 
   const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
 
-  // ================= 7. CÁC HÀM HIỂN THỊ (RENDER HELPERS) =================
+  const handleLoginSubmit = (e: React.FormEvent) => { handleLogin(e); };
+
+  // ================= 8. RENDER HELPERS =================
   const renderHeaderIcon = (colKey: string) => {
     const isFiltered = filters[colKey]?.length > 0;
     const isSortedAsc = sortConfig?.key === colKey && sortConfig.direction === 'asc';
@@ -943,7 +946,7 @@ export default function App() {
     </div>
   );
 
-  // ================= 8. STYLES CSS =================
+  // ================= 9. STYLES =================
   const styles = `
     @keyframes float { 0% { transform: translateY(0); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0); } }
     @keyframes pulse-fast { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
@@ -986,7 +989,7 @@ export default function App() {
     }
   `;
 
-  // ================= 9. GIAO DIỆN ĐĂNG NHẬP =================
+  // ================= 10. APP COMPONENT RETURN =================
   if (!isLoggedIn) {
      return (
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", position: "relative", overflow: "hidden" }}>
@@ -994,18 +997,14 @@ export default function App() {
         <div className="spring-bg" style={{ background: "#ef4444", top: "-10%", left: "-10%" }}></div>
         <div className="spring-bg" style={{ background: "#fbbf24", bottom: "-10%", right: "-10%" }}></div>
         <div className="glass" style={{ padding: "40px", width: "100%", maxWidth: "380px", textAlign: "center", border: "4px solid #ef4444" }}>
-          
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "30px" }}>
             <div style={{ backgroundColor: "#dc2626", padding: "16px", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 10px 25px rgba(220, 38, 38, 0.3)", marginBottom: "15px" }}>
-              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path>
-              </svg>
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
             </div>
             <h1 style={{ margin: 0, fontSize: "32px", fontWeight: "900", letterSpacing: "1px", color: "#0f172a", textTransform: "uppercase" }}>HẢI LÊ <span style={{color: "#dc2626"}}>MART</span></h1>
             <span style={{ fontSize: "11px", color: "#64748b", fontWeight: "800", letterSpacing: "4px", textTransform: "uppercase", marginTop: "5px" }}>Professional POS</span>
           </div>
-
-          <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+          <form onSubmit={handleLoginSubmit} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
             <select value={shift} onChange={e => setShift(e.target.value)} style={{ padding: "14px", borderRadius: "10px", border: "1px solid #cbd5e1", outline: "none", fontWeight: "bold", color: "#1e293b", backgroundColor: "#f8fafc" }}>
               <option value="Ca Sáng">🌅 Ca Sáng (06:00 - 14:00)</option>
               <option value="Ca Chiều">🌇 Ca Chiều (14:00 - 22:00)</option>
@@ -1020,12 +1019,11 @@ export default function App() {
     );
   }
 
-  // ================= 10. GIAO DIỆN CHÍNH APP =================
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); }}>
       <style>{styles}</style>
       
-      {/* 🖨️ BIÊN LAI BÁN HÀNG (SẼ CHẠY KHI IN) */}
+      {/* 🖨️ BIÊN LAI BÁN HÀNG */}
       {lastOrder && printMode !== 'barcode' && (
         <div className="print-only print-receipt">
           <div className="print-header">
@@ -1201,7 +1199,18 @@ export default function App() {
                       const newName = window.prompt("Sửa tên khách hàng:", customers[phone].name);
                       if(newName) { setCustomers((prev:any) => ({...prev, [phone]: {...prev[phone], name: newName}})); logAudit("SỬA KHÁCH HÀNG", `Đổi tên KH ${phone} thành ${newName}`); }
                     }} title="Bấm để sửa tên">{customers[phone].name} ✏️</div>
-                    <div style={{ fontSize: "11px", color: "#64748b" }}>{phone}</div>
+                    <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+                      {phone} 
+                      <span style={{cursor: "pointer", color: "#3b82f6", fontWeight: "bold"}} onClick={() => {
+                          const newEmail = window.prompt("Sửa Email khách hàng:", customers[phone].email || "");
+                          if(newEmail !== null) {
+                             setCustomers((prev:any) => ({...prev, [phone]: {...prev[phone], email: newEmail.trim()}}));
+                             logAudit("SỬA EMAIL KH", `Cập nhật Email KH ${phone}`);
+                          }
+                      }} title="Bấm để cập nhật Email">
+                        {customers[phone].email ? ` • 📧 ${customers[phone].email}` : ` • 📧 +Thêm Mail`}
+                      </span>
+                    </div>
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <div style={{ color: "#10b981", fontWeight: "bold", fontSize: "12px" }}>Ví: {(customers[phone].wallet || 0).toLocaleString()}đ</div>
@@ -1390,7 +1399,7 @@ export default function App() {
             <div style={{ display: "flex", gap: "15px", alignItems: "center" }}>
               {(new Date().getHours() >= 20 || new Date().getHours() < 6) && <span style={{fontSize:"11px", backgroundColor:"#fef08a", color:"#b45309", padding:"4px 8px", borderRadius:"4px", fontWeight:"bold", border: "1px solid #fde047", whiteSpace: "nowrap"}}>🌙 HAPPY HOUR</span>}
               <div style={{ width: "2px", height: "30px", backgroundColor: "#e2e8f0" }}></div>
-              <div style={{ display: "flex", gap: "20px" }}>
+              <div style={{ display: "flex", gap: "15px", alignItems: "center" }}>
                 {role === 'admin' && <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>VỐN</div><div style={{ fontSize: "14px", fontWeight: "900", color: "#475569" }}>{totalValue.toLocaleString()}đ</div></div>}
                 <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>💵 THU TIỀN MẶT</div><div style={{ fontSize: "14px", fontWeight: "900", color: "#059669" }}>{currentShiftStats.cash.toLocaleString()}đ</div></div>
                 <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>💳 CHUYỂN KHOẢN</div><div style={{ fontSize: "14px", fontWeight: "900", color: "#2563eb" }}>{currentShiftStats.transfer.toLocaleString()}đ</div></div>
@@ -1399,16 +1408,20 @@ export default function App() {
               <div style={{ width: "2px", height: "30px", backgroundColor: "#e2e8f0" }}></div>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                 <div style={{ textAlign: "right", lineHeight: "1.2", whiteSpace: "nowrap" }}><div style={{ fontSize: "12px", fontWeight: "bold", color: "#1e293b" }}>{role === 'admin' ? "Quản lý" : "Thu ngân"}</div><div style={{ fontSize: "10px", color: "#64748b" }}>{shift}</div></div>
-                <button onClick={handleLogoutClick} style={{ padding: "8px 12px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer", fontSize: "12px", whiteSpace: "nowrap" }}>Đăng xuất 🔒</button>
+                <button onClick={handleLogoutClick} style={{ padding: "8px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} title="Đăng xuất">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line>
+                  </svg>
+                </button>
               </div>
             </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: "10px" }}>
             <div className="glass" style={{ padding: "12px" }}>
-              <div style={{ display: "flex", gap: "8px", marginBottom: "10px", position: "relative" }}>
+              <div style={{ display: "flex", gap: "15px", marginBottom: "15px", alignItems: "center" }}>
                 <div style={{ position: "relative", flex: 1, display: "flex" }}>
-                  <input placeholder="👉 QUẸT MÃ VẠCH (Hoặc gõ Tên SP để chọn)..." value={barcodeInput} onChange={e => { setBarcodeInput(e.target.value); setShowSuggestions(true); }} onKeyDown={handleBarcodeSubmit} onClick={() => setShowSuggestions(true)} style={{ flex: 1, padding: "8px 12px", borderRadius: "6px 0 0 6px", border: "2px solid #ef4444", fontSize: "14px", fontWeight: "bold", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb", color: "#b91c1c" }} />
+                  <input placeholder="👉 QUẸT MÃ VẠCH (Hoặc gõ Tên SP để chọn)..." value={barcodeInput} onChange={e => { setBarcodeInput(e.target.value); setShowSuggestions(true); }} onKeyDown={handleBarcodeSubmit} onClick={() => setShowSuggestions(true)} style={{ flex: 1, padding: "10px 15px", borderRadius: "6px 0 0 6px", border: "2px solid #ef4444", fontSize: "14px", fontWeight: "bold", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb", color: "#b91c1c" }} />
                   <button onClick={() => setScannerMode('product')} style={{ padding: "0 15px", backgroundColor: "#ef4444", border: "none", borderRadius: "0 6px 6px 0", cursor: "pointer", color: "white", fontSize: "18px" }}>📷</button>
                   {showSuggestions && barcodeInput.trim() !== "" && (
                     <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: 0, right: 0, backgroundColor: "#fff", border: "1px solid #ef4444", borderRadius: "6px", marginTop: "4px", zIndex: 100, maxHeight: "250px", overflowY: "auto", boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}>
@@ -1424,52 +1437,74 @@ export default function App() {
                 </div>
 
                 {role === 'admin' && (
-                  <div style={{ display: "flex", gap: "6px" }}>
-                    <div onClick={() => setShowInputForm(!showInputForm)} style={{ padding: "8px 12px", borderRadius: "6px", fontWeight: "bold", color: "#b91c1c", cursor: "pointer", border: "1px dashed #ef4444", fontSize: "12px", display: "flex", alignItems: "center", backgroundColor: "#fef2f2" }}>{showInputForm ? "➖ ĐÓNG" : "➕ NHẬP LẺ"}</div>
-                    <label style={{ cursor: "pointer", padding: "8px 12px", borderRadius: "6px", fontWeight: "bold", color: "#059669", border: "1px dashed #10b981", fontSize: "12px", display: "flex", alignItems: "center", backgroundColor: "#ecfdf5" }}>📁 NHẬP TỪ FILE<input type="file" accept=".csv" onChange={handleFileUpload} style={{ display: "none" }} /></label>
-                    <button onClick={downloadSampleCSV} style={{ padding: "8px 12px", borderRadius: "6px", fontWeight: "bold", color: "#3b82f6", cursor: "pointer", border: "1px dashed #3b82f6", fontSize: "12px", display: "flex", alignItems: "center", backgroundColor: "#eff6ff" }}>📥 TẢI FILE MẪU</button>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <div onClick={() => setShowInputForm(!showInputForm)} style={{ padding: "10px 15px", borderRadius: "6px", fontWeight: "bold", color: "#b91c1c", cursor: "pointer", border: "1px dashed #ef4444", fontSize: "12px", display: "flex", alignItems: "center", backgroundColor: "#fef2f2" }}>{showInputForm ? "➖ ĐÓNG" : "➕ NHẬP LẺ"}</div>
+                    <label style={{ cursor: "pointer", padding: "10px 15px", borderRadius: "6px", fontWeight: "bold", color: "#059669", border: "1px dashed #10b981", fontSize: "12px", display: "flex", alignItems: "center", backgroundColor: "#ecfdf5" }}>📁 NHẬP TỪ FILE<input type="file" accept=".csv" onChange={handleFileUpload} style={{ display: "none" }} /></label>
+                    <button onClick={downloadSampleCSV} style={{ padding: "10px 15px", borderRadius: "6px", fontWeight: "bold", color: "#3b82f6", cursor: "pointer", border: "1px dashed #3b82f6", fontSize: "12px", display: "flex", alignItems: "center", backgroundColor: "#eff6ff" }}>📥 TẢI FILE MẪU</button>
                   </div>
                 )}
               </div>
 
               {showInputForm && role === 'admin' && (
-                <form onSubmit={handleAddProduct} style={{ backgroundColor: "#fff7ed", padding: "12px", borderRadius: "8px", border: "1px solid #fdba74", marginBottom: "10px" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr 1fr 1fr", gap: "8px", marginBottom: "8px" }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}><span className="input-label">MÃ SẢN PHẨM</span><input placeholder="VD: SP001" value={newCode} onChange={handleCodeChange} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}><span className="input-label">TÊN HÀNG HÓA</span><input placeholder="VD: Bia Tiger" value={newName} onChange={e => setNewName(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}><span className="input-label">PHÂN LOẠI</span><input list="category-list" placeholder="Chọn / Nhập..." value={newCategory} onChange={e => setNewCategory(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /><datalist id="category-list">{categories.filter(c => c !== 'Tất cả').map(c => <option key={c} value={c} />)}</datalist></div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}><span className="input-label">GIÁ VỐN (Đ)</span><input type="number" placeholder="0" value={newImportPrice} onChange={e => setNewImportPrice(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}><span className="input-label">GIÁ BÁN (Đ)</span><input type="number" placeholder="0" value={newPrice} onChange={e => setNewPrice(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
+                <form onSubmit={handleAddProduct} style={{ backgroundColor: "#fff7ed", padding: "15px", borderRadius: "8px", border: "1px solid #fdba74", marginBottom: "15px" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr 1fr 1fr", gap: "10px", marginBottom: "10px" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">MÃ SẢN PHẨM</span><input placeholder="VD: SP001" value={newCode} onChange={handleCodeChange} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">TÊN HÀNG HÓA</span><input placeholder="VD: Bia Tiger" value={newName} onChange={e => setNewName(e.target.value)} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">PHÂN LOẠI</span><input list="category-list" placeholder="Chọn / Nhập..." value={newCategory} onChange={e => setNewCategory(e.target.value)} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /><datalist id="category-list">{categories.filter(c => c !== 'Tất cả').map(c => <option key={c} value={c} />)}</datalist></div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">GIÁ VỐN (Đ)</span><input type="number" placeholder="0" value={newImportPrice} onChange={e => setNewImportPrice(e.target.value)} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">GIÁ BÁN (Đ)</span><input type="number" placeholder="0" value={newPrice} onChange={e => setNewPrice(e.target.value)} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.5fr 0.8fr 60px", gap: "8px" }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}><span className="input-label-red">GIÁ KHUYẾN MÃI</span><input type="number" placeholder="0 (Bỏ trống nếu ko KM)" value={newPromoPrice} onChange={e => setNewPromoPrice(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #ef4444", outline: "none", fontSize: "12px" }} /></div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}><span className="input-label">HẠN SỬ DỤNG</span><input type="date" value={newExpiry} onChange={e => setNewExpiry(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px", fontFamily: "sans-serif" }} /></div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}><span className="input-label-green">ĐIỀU KIỆN & QUÀ TẶNG</span><div style={{ display: "flex", gap: "2px" }}><input type="number" placeholder="Từ..." value={newGiftCondition} onChange={e => setNewGiftCondition(e.target.value)} style={{ width: "45px", padding: "6px", borderRadius: "4px", border: "1px solid #10b981", outline: "none", fontSize: "12px" }} title="Số lượng cần mua" /><input type="text" placeholder="Tên quà..." value={newGiftInfo} onChange={e => setNewGiftInfo(e.target.value)} style={{ flex: 1, padding: "6px", borderRadius: "4px", border: "1px solid #10b981", outline: "none", fontSize: "12px" }} /></div></div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}><span className="input-label">SỐ LƯỢNG NHẬP</span><input type="number" placeholder="0" value={newStock} onChange={e => setNewStock(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
-                    <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end" }}><button type="submit" disabled={loading} style={{ padding: "6px", height: "29px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "4px", fontWeight: "bold", fontSize: "12px", cursor: "pointer" }}>LƯU</button></div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.5fr 0.8fr 80px", gap: "10px" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label-red">GIÁ KHUYẾN MÃI</span><input type="number" placeholder="0 (Bỏ trống nếu ko KM)" value={newPromoPrice} onChange={e => setNewPromoPrice(e.target.value)} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #ef4444", outline: "none", fontSize: "12px" }} /></div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">HẠN SỬ DỤNG</span><input type="date" value={newExpiry} onChange={e => setNewExpiry(e.target.value)} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px", fontFamily: "sans-serif" }} /></div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label-green">ĐIỀU KIỆN & QUÀ TẶNG</span><div style={{ display: "flex", gap: "4px" }}><input type="number" placeholder="Từ..." value={newGiftCondition} onChange={e => setNewGiftCondition(e.target.value)} style={{ width: "45px", padding: "8px", borderRadius: "4px", border: "1px solid #10b981", outline: "none", fontSize: "12px" }} title="Số lượng cần mua" /><input type="text" placeholder="Tên quà..." value={newGiftInfo} onChange={e => setNewGiftInfo(e.target.value)} style={{ flex: 1, padding: "8px", borderRadius: "4px", border: "1px solid #10b981", outline: "none", fontSize: "12px" }} /></div></div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">SỐ LƯỢNG NHẬP</span><input type="number" placeholder="0" value={newStock} onChange={e => setNewStock(e.target.value)} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
+                    <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end" }}><button type="submit" disabled={loading} style={{ padding: "8px", height: "35px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "4px", fontWeight: "bold", fontSize: "12px", cursor: "pointer" }}>LƯU</button></div>
                   </div>
                 </form>
               )}
 
-              <div style={{ display: "flex", gap: "6px", marginBottom: "10px", overflowX: "auto", paddingBottom: "4px" }}>
+              <div style={{ display: "flex", gap: "8px", marginBottom: "15px", overflowX: "auto", paddingBottom: "4px" }}>
                 {categories.map(cat => <button key={cat} onClick={() => setSelectedCategory(cat)} className={`tab-btn ${selectedCategory === cat ? 'active' : ''}`}>{cat}</button>)}
               </div>
 
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", paddingBottom: "4px", borderBottom: "1px solid #fed7aa" }}>
-                <div style={{ fontSize: "12px", fontWeight: "bold", color: "#16a34a" }}>📋 SẢN PHẨM</div>
-                <input placeholder="🔍 Lọc Tên/Mã..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ padding: "4px 10px", borderRadius: "15px", border: "1px solid #fdba74", outline: "none", width: "150px", fontSize: "11px" }} />
-              </div>
-
-              <div style={{ maxHeight: "calc(100vh - 200px)", overflowY: "auto" }}>
+              <div style={{ maxHeight: "calc(100vh - 220px)", overflowY: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ color: "#16a34a", fontSize: "10px", borderBottom: "2px solid #fed7aa", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}>
-                      <th style={{ textAlign: "left", padding: "8px" }}>SẢN PHẨM {renderHeaderIcon('name')}{renderFilterPopup('name', 'TÊN SẢN PHẨM', uniqueNames)}</th>
-                      <th style={{ textAlign: "center" }}>TỒN {renderHeaderIcon('stock')}{renderFilterPopup('stock', 'SỐ LƯỢNG TỒN', uniqueStocks)}</th>
-                      {role === 'admin' && <th style={{ textAlign: "center" }}>GIÁ VỐN {renderHeaderIcon('import_price')}{renderFilterPopup('import_price', 'GIÁ VỐN', uniqueImportPrices, (v) => v.toLocaleString() + 'đ')}</th>}
-                      <th style={{ textAlign: "center" }}>GIÁ BÁN {renderHeaderIcon('sale_price')}{renderFilterPopup('sale_price', 'GIÁ BÁN', uniqueSalePrices, (v) => v.toLocaleString() + 'đ')}</th>
-                      <th style={{ textAlign: "center" }}>HSD {renderHeaderIcon('expiry_date')}{renderFilterPopup('expiry_date', 'HẠN SỬ DỤNG', uniqueExpiries, (v) => v ? new Date(v).toLocaleDateString('vi-VN') : '---')}</th>
-                      <th></th>
+                      <th style={{ textAlign: "left", padding: "10px 4px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px", width: "max-content" }}>
+                           <span onClick={() => requestSort('name')} style={{ cursor: "pointer", userSelect: "none" }}>SẢN PHẨM</span>{renderHeaderIcon('name')}
+                        </div>
+                        {renderFilterPopup('name', 'TÊN SẢN PHẨM', uniqueNames)}
+                      </th>
+                      <th style={{ textAlign: "center", padding: "10px 4px" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                           <span onClick={() => requestSort('stock')} style={{ cursor: "pointer", userSelect: "none" }}>TỒN</span>{renderHeaderIcon('stock')}
+                        </div>
+                        {renderFilterPopup('stock', 'SỐ LƯỢNG TỒN', uniqueStocks)}
+                      </th>
+                      {role === 'admin' && (
+                        <th style={{ textAlign: "center", padding: "10px 4px" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                             <span onClick={() => requestSort('import_price')} style={{ cursor: "pointer", userSelect: "none" }}>GIÁ VỐN</span>{renderHeaderIcon('import_price')}
+                          </div>
+                          {renderFilterPopup('import_price', 'GIÁ VỐN', uniqueImportPrices, (v) => v.toLocaleString() + 'đ')}
+                        </th>
+                      )}
+                      <th style={{ textAlign: "center", padding: "10px 4px" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                           <span onClick={() => requestSort('sale_price')} style={{ cursor: "pointer", userSelect: "none" }}>GIÁ BÁN</span>{renderHeaderIcon('sale_price')}
+                        </div>
+                        {renderFilterPopup('sale_price', 'GIÁ BÁN', uniqueSalePrices, (v) => v.toLocaleString() + 'đ')}
+                      </th>
+                      <th style={{ textAlign: "center", padding: "10px 4px", lineHeight: "1.2" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                           <span onClick={() => requestSort('expiry_date')} style={{ cursor: "pointer", userSelect: "none" }}>HẠN SỬ DỤNG</span>{renderHeaderIcon('expiry_date')}
+                        </div>
+                        {renderFilterPopup('expiry_date', 'HẠN SỬ DỤNG', uniqueExpiries, (v) => v ? new Date(v).toLocaleDateString('vi-VN') : '---')}
+                      </th>
+                      <th style={{ textAlign: "right", padding: "10px 4px" }}></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1484,26 +1519,26 @@ export default function App() {
 
                       return (
                         <tr key={p.id} style={{ borderBottom: "1px solid #fed7aa", backgroundColor: isNearExpiry ? "#fef2f2" : "transparent" }}>
-                          <td style={{ padding: "8px 4px" }}>
-                            <div style={{fontSize: "13px", fontWeight: "bold"}}>{role === 'admin' ? p.name : cleanName(p.name)} {isNearExpiry && <span style={{color: "#ef4444", fontSize: "9px", border: "1px solid #ef4444", padding: "1px 2px", borderRadius: "2px"}}>⚠️</span>} {p.isHappyHour && <span style={{color: "#ea580c", fontSize: "9px", fontStyle:"italic"}}>[Giờ Vàng]</span>}</div>
-                            <div style={{fontSize: "9px", color: "#94a3b8"}}>{p.product_code} • <span style={{cursor: role==='admin' ? 'pointer' : 'default', textDecoration: role==='admin' ? 'underline' : 'none'}} onClick={() => role==='admin' && handleEdit(p.id, 'category', p.category || "Khác", true)}>{p.category || "Khác"}</span></div>
-                            {gift.text ? <div style={{ fontSize: "9px", color: "#059669", fontWeight: "bold", cursor: role==='admin' ? 'pointer' : 'default' }} onClick={() => role==='admin' && handleEdit(p.id, 'gift_info', p.gift_info, true)}>🎁 Tặng: {gift.text} {gift.cond > 1 ? `(Mua ≥ ${gift.cond})` : ''}</div> : (role === 'admin' && <div style={{ fontSize: "9px", color: "#cbd5e1", cursor: "pointer" }} onClick={()=>handleEdit(p.id, 'gift_info', '', true)}>+ Thêm quà</div>)}
+                          <td style={{ padding: "12px 4px" }}>
+                            <div style={{fontSize: "14px", fontWeight: "bold"}}>{role === 'admin' ? p.name : cleanName(p.name)} {isNearExpiry && <span style={{color: "#ef4444", fontSize: "9px", border: "1px solid #ef4444", padding: "1px 2px", borderRadius: "2px"}}>⚠️</span>} {p.isHappyHour && <span style={{color: "#ea580c", fontSize: "9px", fontStyle:"italic"}}>[Giờ Vàng]</span>}</div>
+                            <div style={{fontSize: "10px", color: "#94a3b8", marginTop: "2px"}}>{p.product_code} • <span style={{cursor: role==='admin' ? 'pointer' : 'default', textDecoration: role==='admin' ? 'underline' : 'none'}} onClick={() => role==='admin' && handleEdit(p.id, 'category', p.category || "Khác", true)}>{p.category || "Khác"}</span></div>
+                            {gift.text ? <div style={{ fontSize: "10px", color: "#059669", fontWeight: "bold", cursor: role==='admin' ? 'pointer' : 'default', marginTop: "2px" }} onClick={() => role==='admin' && handleEdit(p.id, 'gift_info', p.gift_info, true)}>🎁 Tặng: {gift.text} {gift.cond > 1 ? `(Mua ≥ ${gift.cond})` : ''}</div> : (role === 'admin' && <div style={{ fontSize: "9px", color: "#cbd5e1", cursor: "pointer", marginTop: "2px" }} onClick={()=>handleEdit(p.id, 'gift_info', '', true)}>+ Thêm quà</div>)}
                           </td>
-                          <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "13px", color: isOutOfStock ? "#94a3b8" : (isLowStock ? "#ef4444" : "#1e293b") }}>{p.stock} {isLowStock && <span title="Sắp hết hàng" style={{fontSize:"10px"}}>📉</span>}</td>
-                          {role === 'admin' && <td style={{ textAlign: "center", color: "#64748b", fontSize: "11px" }}>{p.import_price?.toLocaleString()}</td>}
+                          <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "14px", color: isOutOfStock ? "#94a3b8" : (isLowStock ? "#ef4444" : "#1e293b") }}>{p.stock} {isLowStock && <span title="Sắp hết hàng" style={{fontSize:"10px"}}>📉</span>}</td>
+                          {role === 'admin' && <td style={{ textAlign: "center", color: "#64748b", fontSize: "12px" }}>{p.import_price?.toLocaleString()}</td>}
                           <td style={{ textAlign: "center" }}>
-                            <div style={{ color: isP ? "#94a3b8" : "#16a34a", textDecoration: isP ? "line-through" : "none", fontSize: isP ? "10px" : "13px", fontWeight: "bold", cursor: role==='admin'?"pointer":"default" }} onClick={()=> role==='admin' && handleEdit(p.id, 'sale_price', p.sale_price)}>{p.sale_price.toLocaleString()}</div>
-                            {isP ? <div style={{ color: "#ef4444", fontWeight: "900", fontSize: "13px", cursor: role==='admin'?"pointer":"default" }} onClick={()=> role==='admin' && handleEdit(p.id, 'promo_price', p.promo_price)}>🔥 {p.promo_price.toLocaleString()}</div> : (role === 'admin' && <div style={{ fontSize: "9px", color: "#cbd5e1", cursor: "pointer", marginTop: "2px" }} onClick={()=>handleEdit(p.id, 'promo_price', 0)}>🏷️ +Thêm KM</div>)}
+                            <div style={{ color: isP ? "#94a3b8" : "#16a34a", textDecoration: isP ? "line-through" : "none", fontSize: isP ? "11px" : "14px", fontWeight: "bold", cursor: role==='admin'?"pointer":"default" }} onClick={()=> role==='admin' && handleEdit(p.id, 'sale_price', p.sale_price)}>{p.sale_price.toLocaleString()}</div>
+                            {isP ? <div style={{ color: "#ef4444", fontWeight: "900", fontSize: "14px", cursor: role==='admin'?"pointer":"default" }} onClick={()=> role==='admin' && handleEdit(p.id, 'promo_price', p.promo_price)}>🔥 {p.promo_price.toLocaleString()}</div> : (role === 'admin' && <div style={{ fontSize: "9px", color: "#cbd5e1", cursor: "pointer", marginTop: "2px" }} onClick={()=>handleEdit(p.id, 'promo_price', 0)}>🏷️ +Thêm KM</div>)}
                           </td>
-                          <td style={{ textAlign: "center", fontSize: "10px" }}>
+                          <td style={{ textAlign: "center", fontSize: "11px" }}>
                             <div style={{color: isNearExpiry ? "#ef4444" : "#b91c1c", fontWeight: "bold", cursor: role==='admin'?"pointer":"default"}} onClick={()=> role==='admin' && handleEdit(p.id,'expiry_date',p.expiry_date,true)}>{isOutOfStock ? "---" : (p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : "---")}</div>
-                            <div style={{color: "#64748b"}}>{isOutOfStock ? "---" : dText}</div>
+                            <div style={{color: "#64748b", marginTop: "2px"}}>{isOutOfStock ? "---" : dText}</div>
                           </td>
-                          <td style={{ textAlign: "right" }}>
-                            <div style={{ display: "flex", justifyContent: "flex-end", gap: "4px" }}>
+                          <td style={{ textAlign: "right", padding: "12px 4px" }}>
+                            <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}>
                               <button className="add-to-cart-btn" onClick={() => addToCart(p)}>+ GIỎ</button>
-                              {role === 'admin' && <button onClick={() => handlePrintBarcode(p)} style={{ padding: "4px 6px", backgroundColor: "#e2e8f0", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "10px" }}>🖨️ Tem</button>}
-                              {role === 'admin' && <button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "12px", padding: 0 }}>🗑️</button>}
+                              {role === 'admin' && <button onClick={() => handlePrintBarcode(p)} style={{ padding: "6px 8px", backgroundColor: "#e2e8f0", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "11px" }} title="In tem mã vạch">🖨️ Tem</button>}
+                              {role === 'admin' && <button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "14px", padding: 0 }}>🗑️</button>}
                             </div>
                           </td>
                         </tr>
@@ -1515,75 +1550,75 @@ export default function App() {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <div className="glass" style={{ padding: "12px", flex: 1.5, minHeight: "45vh", display: "flex", flexDirection: "column" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", borderBottom: "2px dashed #fed7aa", paddingBottom: "8px" }}>
-                    <h3 style={{ margin: 0, color: "#ef4444", fontSize: "14px", textTransform: "uppercase" }}>🛒 GIỎ HÀNG ({cart.reduce((s, i) => s + (Number(i.qty) || 0), 0)} món)</h3>
-                    <div style={{ display: "flex", gap: "4px" }}>
-                      {heldOrders.length > 0 && <button onClick={() => setShowHoldModal(true)} style={{ fontSize: "9px", padding: "4px 6px", background: "#fef3c7", color: "#d97706", border: "1px solid #fde68a", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>📂 TẠM LƯU ({heldOrders.length})</button>}
-                      {cart.length > 0 && <button onClick={handleHoldOrder} style={{ fontSize: "9px", padding: "4px 6px", background: "#ffedd5", color: "#ea580c", border: "1px solid #fdba74", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>⏸️ LƯU TẠM</button>}
-                      {cart.length > 0 && <button onClick={clearCart} style={{ fontSize: "9px", padding: "4px 6px", background: "#fee2e2", color: "#ef4444", border: "1px solid #fca5a5", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>🗑️ HỦY HẾT</button>}
+              <div className="glass" style={{ padding: "15px", flex: 1.5, minHeight: "45vh", display: "flex", flexDirection: "column" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", borderBottom: "2px dashed #fed7aa", paddingBottom: "12px" }}>
+                    <h3 style={{ margin: 0, color: "#ef4444", fontSize: "15px", textTransform: "uppercase" }}>🛒 GIỎ HÀNG ({cart.reduce((s, i) => s + (Number(i.qty) || 0), 0)} món)</h3>
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      {heldOrders.length > 0 && <button onClick={() => setShowHoldModal(true)} style={{ fontSize: "10px", padding: "6px 8px", background: "#fef3c7", color: "#d97706", border: "1px solid #fde68a", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>📂 TẠM LƯU ({heldOrders.length})</button>}
+                      {cart.length > 0 && <button onClick={handleHoldOrder} style={{ fontSize: "10px", padding: "6px 8px", background: "#ffedd5", color: "#ea580c", border: "1px solid #fdba74", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>⏸️ LƯU TẠM</button>}
+                      {cart.length > 0 && <button onClick={clearCart} style={{ fontSize: "10px", padding: "6px 8px", background: "#fee2e2", color: "#ef4444", border: "1px solid #fca5a5", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>🗑️ HỦY HẾT</button>}
                     </div>
                 </div>
                 {cartTotalAmount > 0 && (
-                    <div style={{ backgroundColor: "#fef2f2", padding: "10px", borderRadius: "8px", border: "1px solid #fecaca", marginBottom: "10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div><span style={{ fontSize: "11px", fontWeight: "bold", color: "#b91c1c" }}>TỔNG CỘNG:</span><div style={{ fontSize: "22px", fontWeight: "900", color: "#ef4444" }}>{cartTotalAmount.toLocaleString()}đ</div></div>
-                      <button onClick={() => { setIsCheckoutOpen(true); setCheckoutStep(1); }} style={{ padding: "12px 20px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" }}>THANH TOÁN</button>
+                    <div style={{ backgroundColor: "#fef2f2", padding: "12px 15px", borderRadius: "8px", border: "1px solid #fecaca", marginBottom: "15px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div><span style={{ fontSize: "12px", fontWeight: "bold", color: "#b91c1c" }}>TỔNG CỘNG:</span><div style={{ fontSize: "24px", fontWeight: "900", color: "#ef4444" }}>{cartTotalAmount.toLocaleString()}đ</div></div>
+                      <button onClick={() => { setIsCheckoutOpen(true); setCheckoutStep(1); }} style={{ padding: "12px 25px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer", fontSize: "14px" }}>THANH TOÁN</button>
                     </div>
                 )}
                 <div style={{ flex: 1, overflowY: "auto", paddingRight: "4px" }}>
-                  {cart.length === 0 && <div style={{textAlign: "center", color: "#94a3b8", fontSize: "11px", marginTop: "10px"}}>Trống</div>}
+                  {cart.length === 0 && <div style={{textAlign: "center", color: "#94a3b8", fontSize: "12px", marginTop: "15px"}}>Giỏ hàng trống</div>}
                   {cart.map((item, idx) => {
                     const gift = parseGift(item.product.gift_info);
                     const hasGift = gift.text && (Number(item.qty)||0) >= gift.cond;
                     return (
-                    <div key={idx} style={{ padding: "6px 0", borderBottom: "1px dashed #fed7aa", fontSize: "11px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <div key={idx} style={{ padding: "8px 0", borderBottom: "1px dashed #fed7aa", fontSize: "12px", display: "flex", flexDirection: "column", gap: "6px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontWeight: "bold", color: "#1e293b", flex: 1 }}>{cleanName(item.product.name)} {item.product.isHappyHour && <span style={{color:"#ea580c", fontSize:"9px"}}>[Giờ Vàng]</span>}</span>
-                        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                        <span style={{ fontWeight: "bold", color: "#1e293b", flex: 1, fontSize: "13px" }}>{cleanName(item.product.name)} {item.product.isHappyHour && <span style={{color:"#ea580c", fontSize:"10px"}}>[Giờ Vàng]</span>}</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                           <button className="qty-btn" onClick={() => adjustCartQty(item.product.id, -1)}>-</button>
-                          <input className="qty-input" type="number" value={item.qty} onChange={(e) => handleDirectQtyChange(item.product.id, e.target.value)} onBlur={(e) => handleDirectQtyBlur(item.product.id, e.target.value)} onFocus={(e) => e.target.select()} title="Bấm để nhập số lượng" />
+                          <input className="qty-input" style={{fontSize: "13px", padding: "4px 0", width: "32px"}} type="number" value={item.qty} onChange={(e) => handleDirectQtyChange(item.product.id, e.target.value)} onBlur={(e) => handleDirectQtyBlur(item.product.id, e.target.value)} onFocus={(e) => e.target.select()} title="Bấm để nhập số lượng" />
                           <button className="qty-btn" onClick={() => adjustCartQty(item.product.id, 1)}>+</button>
-                          <button onClick={()=>removeFromCart(item.product.id)} style={{border:"none",background:"none",color:"#ef4444", cursor:"pointer", fontSize: "16px", marginLeft: "2px", fontWeight:"bold"}}>×</button>
+                          <button onClick={()=>removeFromCart(item.product.id)} style={{border:"none",background:"none",color:"#ef4444", cursor:"pointer", fontSize: "18px", marginLeft: "4px", fontWeight:"bold"}}>×</button>
                         </div>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span>{hasGift && <span style={{ color: "#10b981", fontSize: "9px", fontStyle: "italic" }}>+ 🎁 {gift.text}</span>}</span>
-                        <span style={{ color: "#ef4444", fontWeight: "bold", fontSize:"12px" }}>{Math.round(item.total).toLocaleString()}đ</span>
+                        <span>{hasGift && <span style={{ color: "#10b981", fontSize: "10px", fontStyle: "italic" }}>+ 🎁 {gift.text}</span>}</span>
+                        <span style={{ color: "#ef4444", fontWeight: "bold", fontSize:"14px" }}>{Math.round(item.total).toLocaleString()}đ</span>
                       </div>
                     </div>
                   )})}
                 </div>
               </div>
-              <div className="glass" style={{ padding: "12px", height: "35vh", display: "flex", flexDirection: "column" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", alignItems: "center" }}>
-                  <h3 style={{ margin: 0, fontSize: "13px", color: "#b91c1c" }}>📋 NHẬT KÝ CA NÀY</h3>
+              <div className="glass" style={{ padding: "15px", height: "35vh", display: "flex", flexDirection: "column" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", alignItems: "center" }}>
+                  <h3 style={{ margin: 0, fontSize: "14px", color: "#b91c1c" }}>📋 NHẬT KÝ CA NÀY</h3>
                   {role === 'admin' && (
-                    <div style={{ display: "flex", gap: "2px" }}>
-                      <button onClick={exportToCSV} style={{ fontSize: "8px", padding: "2px 4px", background: "#10b981", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}>EXCEL</button>
-                      <button onClick={handleSendEmailReport} style={{ fontSize: "8px", padding: "2px 4px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}>✉ CHỐT TỔNG</button>
+                    <div style={{ display: "flex", gap: "4px" }}>
+                      <button onClick={exportToCSV} style={{ fontSize: "9px", padding: "4px 6px", background: "#10b981", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}>EXCEL TỔNG</button>
+                      <button onClick={handleSendEmailReport} style={{ fontSize: "9px", padding: "4px 6px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}>✉ CHỐT TỔNG</button>
                     </div>
                   )}
                 </div>
-                <div style={{ flex: 1, overflowY: "auto", paddingRight: "2px" }}>
-                    {Object.keys(groupedHistory).length === 0 && <div style={{textAlign: "center", color: "#94a3b8", fontSize: "10px", marginTop: "10px"}}>Chưa có dữ liệu</div>}
+                <div style={{ flex: 1, overflowY: "auto", paddingRight: "4px" }}>
+                    {Object.keys(groupedHistory).length === 0 && <div style={{textAlign: "center", color: "#94a3b8", fontSize: "11px", marginTop: "15px"}}>Chưa có dữ liệu giao dịch</div>}
                     {Object.keys(groupedHistory).map((date) => (
                       <div key={date}>
-                        <div style={{backgroundColor: "#ffedd5", padding: "4px 8px", fontSize: "10px", fontWeight: "bold", border: "1px solid #fed7aa", borderRadius: "4px", marginTop: "4px"}}>{date}</div>
+                        <div style={{backgroundColor: "#ffedd5", padding: "6px 10px", fontSize: "11px", fontWeight: "bold", border: "1px solid #fed7aa", borderRadius: "4px", marginTop: "6px"}}>{date}</div>
                         {groupedHistory[date].map((log: any) => (
-                          <div key={log.id} style={{fontSize: "10px", padding: "4px 0", borderBottom: "1px dashed #eee", display: "flex", flexDirection: "column"}}>
+                          <div key={log.id} style={{fontSize: "11px", padding: "6px 0", borderBottom: "1px dashed #eee", display: "flex", flexDirection: "column"}}>
                             <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                <span><b style={{color: log.type === 'TRẢ HÀNG' ? '#ef4444' : '#1e293b'}}>[{log.type}]</b> {cleanName(log.name)} x{log.qty} {log.refunded_qty > 0 && <span style={{color:"#ef4444", fontSize:"8px"}}>(Đã hoàn {log.refunded_qty})</span>}</span>
-                                {log.type === "BÁN" && <span style={{color:"#059669", fontWeight:"bold"}}>+{Math.round(log.total).toLocaleString()} <span style={{fontSize: "8px", color:"#94a3b8", fontWeight:"normal"}}>({log.paymentMethod === 'CHUYỂN KHOẢN' ? 'CK' : 'TM'})</span></span>}
-                                {log.type === "TRẢ HÀNG" && <span style={{color:"#ef4444", fontWeight:"bold"}}>{Math.round(log.total).toLocaleString()} <span style={{fontSize: "8px", color:"#94a3b8", fontWeight:"normal"}}>({log.paymentMethod === 'VÍ ĐIỂM' ? 'VÍ' : 'TM'})</span></span>}
+                                <span><b style={{color: log.type === 'TRẢ HÀNG' ? '#ef4444' : '#1e293b'}}>[{log.type}]</b> {cleanName(log.name)} x{log.qty} {log.refunded_qty > 0 && <span style={{color:"#ef4444", fontSize:"9px"}}>(Đã hoàn {log.refunded_qty})</span>}</span>
+                                {log.type === "BÁN" && <span style={{color:"#059669", fontWeight:"bold"}}>+{Math.round(log.total).toLocaleString()} <span style={{fontSize: "9px", color:"#94a3b8", fontWeight:"normal"}}>({log.paymentMethod === 'CHUYỂN KHOẢN' ? 'CK' : 'TM'})</span></span>}
+                                {log.type === "TRẢ HÀNG" && <span style={{color:"#ef4444", fontWeight:"bold"}}>{Math.round(log.total).toLocaleString()} <span style={{fontSize: "9px", color:"#94a3b8", fontWeight:"normal"}}>({log.paymentMethod === 'VÍ ĐIỂM' ? 'VÍ' : 'TM'})</span></span>}
                                 {log.type === "GHI NỢ" && <span style={{color:"#ea580c", fontWeight:"bold"}}>Nợ: {Math.round(log.total).toLocaleString()}</span>}
-                                {log.type === "THU NỢ" && <span style={{color:"#10b981", fontWeight:"bold"}}>+{Math.round(log.total).toLocaleString()} <span style={{fontSize: "8px", color:"#94a3b8", fontWeight:"normal"}}>({log.paymentMethod === 'CHUYỂN KHOẢN' ? 'CK' : 'TM'})</span></span>}
+                                {log.type === "THU NỢ" && <span style={{color:"#10b981", fontWeight:"bold"}}>+{Math.round(log.total).toLocaleString()} <span style={{fontSize: "9px", color:"#94a3b8", fontWeight:"normal"}}>({log.paymentMethod === 'CHUYỂN KHOẢN' ? 'CK' : 'TM'})</span></span>}
                             </div>
-                            <div style={{ display: "flex", justifyContent: "space-between", color: "#94a3b8", marginTop: "2px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", color: "#94a3b8", marginTop: "4px" }}>
                                 <span>{log.customer}</span>
-                                <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                                   <span>{log.t}</span>
                                   {log.type === 'BÁN' && log.product_id !== 'DISCOUNT' && (
-                                    <button onClick={() => handleRefund(log.id)} disabled={(log.refunded_qty || 0) >= log.qty} style={{ fontSize: "8px", border: "1px solid #cbd5e1", background: (log.refunded_qty || 0) >= log.qty ? "#f1f5f9" : "#fff", color: (log.refunded_qty || 0) >= log.qty ? "#94a3b8" : "#000", cursor: (log.refunded_qty || 0) >= log.qty ? "not-allowed" : "pointer", borderRadius: "2px" }}>
+                                    <button onClick={() => handleRefund(log.id)} disabled={(log.refunded_qty || 0) >= log.qty} style={{ fontSize: "9px", padding: "2px 6px", border: "1px solid #cbd5e1", background: (log.refunded_qty || 0) >= log.qty ? "#f1f5f9" : "#fff", color: (log.refunded_qty || 0) >= log.qty ? "#94a3b8" : "#000", cursor: (log.refunded_qty || 0) >= log.qty ? "not-allowed" : "pointer", borderRadius: "4px" }}>
                                         {(log.refunded_qty || 0) >= log.qty ? "Đã hoàn" : `↩️ Hoàn ${log.qty - (log.refunded_qty || 0)}`}
                                     </button>
                                   )}
