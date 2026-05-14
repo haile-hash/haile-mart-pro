@@ -395,7 +395,7 @@ export default function App() {
 
     for (const item of cart) {
       await supabase.from("products").update({ stock: item.product.stock - item.qty }).eq("id", item.product.id);
-      logs.push({ id: Date.now() + Math.random(), shift: shift, type: isDebt ? "GHI NỢ" : "BÁN", name: item.product.name + (item.product.isHappyHour ? ' [Giờ Vàng]' : ''), qty: item.qty, total: Math.round(item.total), profit: Math.round(item.profit), customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id, refunded_qty: 0 }); // Thêm field refunded_qty
+      logs.push({ id: Date.now() + Math.random(), shift: shift, type: isDebt ? "GHI NỢ" : "BÁN", name: item.product.name + (item.product.isHappyHour ? ' [Giờ Vàng]' : ''), qty: item.qty, total: Math.round(item.total), profit: Math.round(item.profit), customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id, refunded_qty: 0 });
     }
     
     if (custPhone) {
@@ -416,7 +416,6 @@ export default function App() {
     setCheckoutStep(3); fetchProducts(); setLoading(false);
   };
 
-  // --- HÀM HOÀN TRẢ MỘT PHẦN (PARTIAL REFUND) SIÊU ĐỈNH ---
   const handleRefund = async (logId: any) => {
     if(role !== 'admin') return alert("Chỉ quản lý mới được hoàn trả!");
 
@@ -439,17 +438,14 @@ export default function App() {
 
     if(!window.confirm(`Xác nhận hoàn trả ${refundQty} x ${log.name}?`)) return;
 
-    // Tính toán số tiền tương ứng cần hoàn
     const unitTotal = log.total / log.qty;
     const unitProfit = log.profit / log.qty;
     const refundTotal = Math.round(unitTotal * refundQty);
     const refundProfit = Math.round(unitProfit * refundQty);
 
-    // Cập nhật lại tồn kho vào database
     const p = products.find(x => x.id === log.product_id);
     if (p) await supabase.from("products").update({ stock: p.stock + refundQty }).eq("id", p.id);
 
-    // Xử lý tiền: Hỏi xem có muốn cộng vào VÍ KHÁCH HÀNG không
     let refundedToWallet = false;
     if (log.customer && log.customer !== "Khách lẻ") {
        const phoneMatch = log.customer.match(/\((.*?)\)/);
@@ -472,20 +468,12 @@ export default function App() {
     }
 
     const updatedHistory = [...history];
-    
-    // Ghi chú lại số lượng đã hoàn vào log gốc (không xóa log cũ để giữ lịch sử)
     updatedHistory[logIndex].refunded_qty = (log.refunded_qty || 0) + refundQty;
 
-    // Tạo thêm 1 log âm để cân bằng doanh thu
     updatedHistory.unshift({ 
-      id: Date.now(), 
-      shift: shift, 
-      type: "TRẢ HÀNG", 
+      id: Date.now(), shift: shift, type: "TRẢ HÀNG", 
       name: log.name + (refundedToWallet ? " (Hoàn Ví)" : " (Hoàn Tiền Mặt)"), 
-      qty: refundQty, 
-      total: -refundTotal, 
-      profit: -refundProfit, 
-      customer: log.customer 
+      qty: refundQty, total: -refundTotal, profit: -refundProfit, customer: log.customer 
     });
     
     setHistory(updatedHistory);
@@ -494,7 +482,6 @@ export default function App() {
     playSound('success');
     alert(`Hoàn trả thành công ${refundQty} sản phẩm! Tiền đã được xử lý.`);
   };
-  // -------------------------------------------------------------------------
 
   const handlePayDebt = (phone: string) => {
     const currentDebt = customers[phone]?.debt || 0;
@@ -843,6 +830,7 @@ export default function App() {
     );
   }
 
+  // TÍNH TOÁN LẠI TỔNG TIỀN CUỐI CÙNG ĐỂ CHECKOUT
   const finalToPay = Math.round(Math.max(0, cartTotalAmount - (Number(voucherAmount) || 0) - (useWallet ? Math.min(customers[custPhone]?.wallet||0, Math.max(0, cartTotalAmount - (Number(voucherAmount) || 0))) : 0)));
 
   return (
@@ -946,7 +934,7 @@ export default function App() {
         </div>
       )}
 
-      {/* 🕵️ MODAL KIỂM TOÁN LỊCH SỬ THAO TÁC */}
+      {/* 🕵️ MODAL KIỂM TOÁN LỊCH SỬ THAO TÁC (CHỈ ADMIN) */}
       {showAuditModal && role === 'admin' && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "600px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
@@ -1170,7 +1158,17 @@ export default function App() {
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                   <button onClick={() => setCheckoutStep(1)} style={{ flex: "1 1 100%", padding: "8px", borderRadius: "8px", border: "none", background: "#e2e8f0", cursor: "pointer", fontWeight: "bold" }}>Quay lại</button>
                   <button onClick={() => confirmCheckout(true)} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#f59e0b", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>📝 GHI NỢ</button>
-                  <button onClick={() => confirmCheckout(false)} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#10b981", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>✔️ ĐÃ NHẬN</button>
+                  
+                  {/* 🔒 CHỐT CHẶN TIỀN KHÁCH ĐƯA Ở ĐÂY */}
+                  <button onClick={() => {
+                      if (finalToPay > 0 && (customerGiven === "" || Number(customerGiven) < finalToPay)) {
+                         playSound('error');
+                         alert(`Khách đưa chưa đủ tiền! Cần thanh toán: ${finalToPay.toLocaleString()}đ`);
+                         return;
+                      }
+                      confirmCheckout(false);
+                  }} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#10b981", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>✔️ ĐÃ NHẬN</button>
+
                 </div>
               </div>
             )}
@@ -1420,7 +1418,12 @@ export default function App() {
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               <div className="glass" style={{ padding: "12px", maxHeight: "40vh", display: "flex", flexDirection: "column" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                  <h3 style={{ margin: 0, color: "#ef4444", fontSize: "13px" }}>🛒 GIỎ HÀNG ({cart.length})</h3>
+                  
+                  {/* TỔNG TIỀN HIỂN THỊ Ở TIÊU ĐỀ GIỎ HÀNG */}
+                  <h3 style={{ margin: 0, color: "#ef4444", fontSize: "13px" }}>
+                    🛒 GIỎ HÀNG ({cart.length}) {cartTotalAmount > 0 && <span style={{color: "#b91c1c"}}> - {cartTotalAmount.toLocaleString()}đ</span>}
+                  </h3>
+
                   <div style={{ display: "flex", gap: "4px" }}>
                     {heldOrders.length > 0 && <button onClick={() => setShowHoldModal(true)} style={{ fontSize: "9px", padding: "2px 6px", background: "#fef3c7", color: "#d97706", border: "1px solid #fde68a", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>📂 TẠM LƯU ({heldOrders.length})</button>}
                     {cart.length > 0 && <button onClick={handleHoldOrder} style={{ fontSize: "9px", padding: "2px 6px", background: "#ffedd5", color: "#ea580c", border: "1px solid #fdba74", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>⏸️ LƯU TẠM</button>}
@@ -1487,7 +1490,6 @@ export default function App() {
                           <div style={{ display: "flex", justifyContent: "space-between" }}>
                             <span>
                                 <b style={{color: log.type === 'TRẢ HÀNG' ? '#ef4444' : '#1e293b'}}>[{log.type}]</b> {log.name} x{log.qty}
-                                {/* HIỂN THỊ TRẠNG THÁI NẾU ĐÃ TỪNG HOÀN TRẢ */}
                                 {log.refunded_qty > 0 && <span style={{color:"#ef4444", fontSize:"8px", marginLeft:"4px"}}>(Đã hoàn {log.refunded_qty})</span>}
                             </span>
                             {log.type === "BÁN" && <span style={{color:"#059669", fontWeight:"bold"}}>+{Math.round(log.total).toLocaleString()}</span>}
@@ -1499,8 +1501,6 @@ export default function App() {
                             <span>{log.customer}</span>
                             <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                               <span>{log.t}</span>
-                              
-                              {/* ↩️ NÚT HOÀN TRẢ 1 PHẦN XỊN XÒ */}
                               {role === 'admin' && log.type === 'BÁN' && (
                                 <button 
                                     onClick={() => handleRefund(log.id)} 
