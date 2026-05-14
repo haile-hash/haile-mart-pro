@@ -196,7 +196,6 @@ export default function App() {
     setBarcodeInput(""); setShowSuggestions(false);
   };
 
-  // NƠI XỬ LÝ KẾT QUẢ SCAN ĐƯỢC CHUẨN HÓA
   useEffect(() => {
     if (scannedCodeObj) {
       if (scannerMode === 'product') {
@@ -395,9 +394,7 @@ export default function App() {
   };
 
   const confirmCheckout = async (isDebt: boolean = false) => {
-    if (cart.some(i => !i.qty || i.qty <= 0)) {
-       playSound('error'); return alert("Có sản phẩm số lượng không hợp lệ!");
-    }
+    if (cart.some(i => !i.qty || i.qty <= 0)) { playSound('error'); return alert("Có sản phẩm số lượng không hợp lệ!"); }
     if (isDebt && !custPhone) return alert("Ghi nợ bắt buộc phải nhập SĐT khách hàng!");
     
     setLoading(true);
@@ -770,7 +767,7 @@ export default function App() {
     .spring-bg { position: fixed; width: 400px; height: 400px; border-radius: 50%; filter: blur(100px); z-index: -1; opacity: 0.3; animation: float 10s infinite ease-in-out; }
     .glass { background: rgba(255, 255, 255, 0.98); border: 1px solid #fed7aa; border-radius: 12px; box-shadow: 0 4px 15px rgba(251, 146, 60, 0.08); }
     body { background-color: #fff7ed; margin: 0; font-family: 'Inter', sans-serif; color: #431407; }
-    .stat-box { background: #fff; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1px solid #fdba74; display: flex; align-items: center; gap: 6px; color: #9a3412; }
+    
     .qty-btn { padding: 2px 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: #f8fafc; cursor: pointer; font-weight: bold; }
     .tab-btn { padding: 6px 12px; border-radius: 20px; border: 1px solid #fed7aa; background: #fff; cursor: pointer; font-size: 12px; font-weight: bold; color: #9a3412; white-space: nowrap; }
     .tab-btn.active { background: #ef4444; color: #fff; border-color: #ef4444; }
@@ -1104,141 +1101,84 @@ export default function App() {
         </div>
       )}
 
-      <div className="no-print" style={{ padding: "10px", position: "relative", minHeight: "100vh" }}>
+      {/* --- PHẦN GIAO DIỆN CHÍNH --- */}
+      <div className="no-print" style={{ padding: "15px", position: "relative", minHeight: "100vh", overflowX: "auto" }}>
         <div className="spring-bg" style={{ background: "#ef4444", top: "10%", left: "5%" }}></div>
         <div className="spring-bg" style={{ background: "#f59e0b", bottom: "10%", right: "5%" }}></div>
 
-        {/* POPUP THANH TOÁN */}
-        {isCheckoutOpen && (
-          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
-            {checkoutStep === 1 && (
-              <div className="glass" style={{ padding: "25px", width: "350px" }}>
-                <h3 style={{ color: "#ef4444", margin: "0", textAlign: "center" }}>🧧 THANH TOÁN</h3>
-                
-                <div style={{ display: "flex", position: "relative", marginTop: "15px" }}>
-                  <input 
-                    type="text" 
-                    placeholder="👉 Quẹt mã Voucher hoặc nhập số tiền (đ)..." 
-                    value={voucherInput} 
-                    onChange={(e) => setVoucherInput(e.target.value)} 
-                    onKeyDown={handleVoucherSubmit}
-                    style={{ flex: 1, padding: "12px", borderRadius: "10px 0 0 10px", border: "2px dashed #f59e0b", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb" }} 
-                  />
-                  <button onClick={() => setScannerMode('voucher')} style={{ padding: "0 15px", backgroundColor: "#f59e0b", border: "none", borderRadius: "0 10px 10px 0", cursor: "pointer", color: "white", fontSize: "18px" }} title="Quét mã Voucher bằng Camera">📷</button>
-                </div>
-                {appliedVoucherAmount > 0 && (
-                  <div style={{ color: "#059669", fontSize: "12px", fontWeight: "bold", marginTop: "4px", textAlign: "center" }}>
-                    ✅ Đã áp dụng giảm: {appliedVoucherAmount.toLocaleString()}đ
-                  </div>
-                )}
-
-                <input type="text" placeholder="Số điện thoại khách (nếu có)..." value={custPhone} onChange={handlePhoneChange} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px solid #ef4444", marginTop: "10px", outline: "none", boxSizing: "border-box" }} />
-                
-                {custPhone && (
-                  <div style={{ marginTop: "10px", padding: "12px", backgroundColor: "#fff7ed", borderRadius: "8px", border: "1px dashed #f97316" }}>
-                    {customers[custPhone] ? (
-                      <div><div style={{ color: "#b91c1c", fontWeight: "bold" }}>⭐ {customers[custPhone].name}</div>
-                        <div>Ví điểm: <b>{Math.round(customers[custPhone].wallet || 0).toLocaleString()}đ</b> | Nợ: <b style={{color:"#ef4444"}}>{(customers[custPhone].debt || 0).toLocaleString()}đ</b></div>
-                        {(customers[custPhone].wallet || 0) > 0 && <label style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "10px", cursor: "pointer", color: "#ea580c", fontWeight: "bold" }}><input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} /> Dùng điểm lì xì!</label>}
-                      </div>
-                    ) : <input type="text" placeholder="Tên khách mới..." value={custName} onChange={e => setCustName(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: "8px", outline: "none", border: "1px solid #fdba74", boxSizing: "border-box" }} />}
-                  </div>
-                )}
-                <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
-                  <button onClick={() => setIsCheckoutOpen(false)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "#e2e8f0", fontWeight: "bold", cursor: "pointer" }}>Hủy</button>
-                  <button onClick={handleNextToQR} style={{ flex: 2, padding: "10px", backgroundColor: "#ef4444", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>TIẾP TỤC 👉</button>
-                </div>
-              </div>
-            )}
+        <div style={{ maxWidth: "1500px", margin: "0 auto", minWidth: "1000px" }}>
+          
+          {/* 🛠️ HEADER THANH CÔNG CỤ CHUYÊN NGHIỆP (TOOLBAR) */}
+          <div className="glass" style={{ padding: "10px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px", borderBottom: "4px solid #ef4444" }}>
             
-            {checkoutStep === 2 && (
-              <div className="glass" style={{ padding: "25px", width: "350px", textAlign: "center" }}>
-                <h3 style={{ color: "#ef4444", margin: "0" }}>📱 THANH TOÁN QUẦY</h3>
-                <div style={{ color: "#ef4444", fontSize: "28px", fontWeight: "900", margin: "10px 0" }}>{finalToPay.toLocaleString()}đ</div>
-                
-                <img src={`https://img.vietqr.io/image/970422-0680124181004-compact2.png?amount=${finalToPay}&addInfo=Thanh toan&accountName=LE%20HONG%20HAI`} style={{ width: "160px", margin: "0 auto 15px auto", border: "2px solid #ef4444", borderRadius: "10px", display: "block" }} alt="Mã VietQR" />
-                
-                <div style={{ marginBottom: "15px", textAlign: "left" }}>
-                  <div style={{ fontSize: "12px", color: "#64748b", fontWeight: "bold", marginBottom: "5px" }}>Tiền mặt khách đưa:</div>
-                  <input type="number" placeholder="Nhập số tiền..." value={customerGiven} onChange={e => setCustomerGiven(Number(e.target.value) || "")} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", boxSizing: "border-box", fontSize: "14px", fontWeight: "bold" }} />
-                  <div style={{ display: "flex", gap: "5px", marginTop: "8px", flexWrap: "wrap" }}>
-                    <button onClick={()=>setCustomerGiven(finalToPay)} style={{flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid #cbd5e1", cursor: "pointer"}}>Vừa đủ</button>
-                    <button onClick={()=>setCustomerGiven(50000)} style={{flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid #cbd5e1", cursor: "pointer"}}>50k</button>
-                    <button onClick={()=>setCustomerGiven(100000)} style={{flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid #cbd5e1", cursor: "pointer"}}>100k</button>
-                    <button onClick={()=>setCustomerGiven(200000)} style={{flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid #cbd5e1", cursor: "pointer"}}>200k</button>
-                    <button onClick={()=>setCustomerGiven(500000)} style={{flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid #cbd5e1", cursor: "pointer"}}>500k</button>
-                  </div>
-                  {customerGiven !== "" && Number(customerGiven) >= finalToPay && (
-                    <div style={{ marginTop: "10px", padding: "10px", backgroundColor: "#ecfdf5", border: "1px dashed #10b981", borderRadius: "8px", color: "#059669", fontWeight: "bold", fontSize: "16px", textAlign: "center" }}>
-                      THỐI LẠI: {(Number(customerGiven) - finalToPay).toLocaleString()}đ
-                    </div>
-                  )}
-                </div>
-
-                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                  <button onClick={() => setCheckoutStep(1)} style={{ flex: "1 1 100%", padding: "8px", borderRadius: "8px", border: "none", background: "#e2e8f0", cursor: "pointer", fontWeight: "bold" }}>Quay lại</button>
-                  <button onClick={() => confirmCheckout(true)} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#f59e0b", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>📝 GHI NỢ</button>
-                  <button onClick={() => {
-                      if (finalToPay > 0 && (customerGiven === "" || Number(customerGiven) < finalToPay)) {
-                         playSound('error');
-                         alert(`Khách đưa chưa đủ tiền! Cần thanh toán: ${finalToPay.toLocaleString()}đ`);
-                         return;
-                      }
-                      confirmCheckout(false);
-                  }} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#10b981", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>✔️ ĐÃ NHẬN</button>
-                </div>
-              </div>
-            )}
-            {checkoutStep === 3 && (
-              <div className="glass" style={{ padding: "30px", width: "350px", textAlign: "center" }}>
-                <div style={{ fontSize: "40px" }}>🌸</div><h3 style={{ color: "#10b981", margin: "10px 0" }}>Thành công!</h3>
-                <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
-                  <button onClick={() => { setPrintMode('receipt'); setTimeout(()=>window.print(), 300); }} style={{ flex: 1, padding: "12px", backgroundColor: "#ef4444", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>🖨️ In Hóa Đơn</button>
-                  <button onClick={closeCheckout} style={{ flex: 1, padding: "12px", backgroundColor: "#e2e8f0", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>Đóng</button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
-          {/* HEADER CHÍNH */}
-          <div className="glass" style={{ padding: "8px 15px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", borderBottom: "4px solid #ef4444" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-              <h2 style={{ color: "#ef4444", margin: 0, fontSize: "18px" }}>🏪 HẢI LÊ MART</h2>
-              <div style={{ display: "flex", gap: "5px" }}>
+            {/* CỤM LOGO VÀ MENU */}
+            <div style={{ display: "flex", alignItems: "center", gap: "25px" }}>
+              <h1 style={{ color: "#ef4444", margin: 0, fontSize: "22px", whiteSpace: "nowrap", fontWeight: "900", letterSpacing: "1px" }}>🏪 HẢI LÊ MART</h1>
+              
+              <div style={{ display: "flex", gap: "8px" }}>
                 {role === 'admin' && (
                   <>
-                    <button onClick={() => setShowStatsModal(true)} style={{ padding: "4px 8px", background: "#eff6ff", color: "#3b82f6", border: "1px solid #bfdbfe", borderRadius: "6px", fontSize: "11px", fontWeight: "bold", cursor: "pointer" }}>📊 THỐNG KÊ</button>
-                    <button onClick={() => setShowCustomerModal(true)} style={{ padding: "4px 8px", background: "#fdf4ff", color: "#4f46e5", border: "1px solid #c7d2fe", borderRadius: "6px", fontSize: "11px", fontWeight: "bold", cursor: "pointer" }}>🤝 KHÁCH HÀNG</button>
-                    <button onClick={() => setShowAuditModal(true)} style={{ padding: "4px 8px", background: "#f8fafc", color: "#334155", border: "1px solid #cbd5e1", borderRadius: "6px", fontSize: "11px", fontWeight: "bold", cursor: "pointer" }}>🕵️ LỊCH SỬ THAO TÁC</button>
+                    <button onClick={() => setShowStatsModal(true)} style={{ padding: "6px 12px", background: "#eff6ff", color: "#3b82f6", border: "1px solid #bfdbfe", borderRadius: "6px", fontSize: "12px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap" }}>📊 THỐNG KÊ</button>
+                    <button onClick={() => setShowCustomerModal(true)} style={{ padding: "6px 12px", background: "#fdf4ff", color: "#4f46e5", border: "1px solid #c7d2fe", borderRadius: "6px", fontSize: "12px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap" }}>🤝 KHÁCH HÀNG</button>
+                    <button onClick={() => setShowAuditModal(true)} style={{ padding: "6px 12px", background: "#f8fafc", color: "#334155", border: "1px solid #cbd5e1", borderRadius: "6px", fontSize: "12px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap" }}>🕵️ LỊCH SỬ</button>
                   </>
                 )}
-                <button onClick={() => setShowDebtModal(true)} style={{ padding: "4px 8px", background: "#fef2f2", color: "#ef4444", border: "1px solid #fecaca", borderRadius: "6px", fontSize: "11px", fontWeight: "bold", cursor: "pointer" }}>📓 SỔ NỢ</button>
+                <button onClick={() => setShowDebtModal(true)} style={{ padding: "6px 12px", background: "#fef2f2", color: "#ef4444", border: "1px solid #fecaca", borderRadius: "6px", fontSize: "12px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap" }}>📓 SỔ NỢ</button>
               </div>
             </div>
-            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-              {new Date().getHours() >= 20 || new Date().getHours() < 6 ? <span style={{fontSize:"11px", backgroundColor:"#fef08a", color:"#b45309", padding:"2px 6px", borderRadius:"4px", fontWeight:"bold"}}>🌙 HAPPY HOUR KÍCH HOẠT</span> : null}
-              <span style={{ fontSize: "12px", fontWeight: "bold", color: "#64748b" }} title="Ca làm việc hiện tại">{shift} • {role === 'admin' ? "Quản lý" : "Thu ngân"}</span>
+
+            {/* CỤM SỐ LIỆU VÀ USER INFO */}
+            <div style={{ display: "flex", gap: "15px", alignItems: "center" }}>
               
-              {role === 'admin' && (
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <div className="stat-box">🧧 Vốn: {totalValue.toLocaleString()}đ</div>
-                  <div className="stat-box" style={{background: "#fee2e2"}}>💰 Thu ca: {currentShiftStats.rev.toLocaleString()}đ</div>
-                  <div className="stat-box" style={{background: "#f0fdf4"}}>📈 Lãi ca: {currentShiftStats.prof.toLocaleString()}đ</div>
+              {/* Happy Hour Badge */}
+              {(new Date().getHours() >= 20 || new Date().getHours() < 6) && (
+                 <span style={{fontSize:"11px", backgroundColor:"#fef08a", color:"#b45309", padding:"4px 8px", borderRadius:"4px", fontWeight:"bold", border: "1px solid #fde047", whiteSpace: "nowrap"}}>🌙 HAPPY HOUR</span>
+              )}
+
+              {/* Phân tách */}
+              <div style={{ width: "2px", height: "30px", backgroundColor: "#e2e8f0" }}></div>
+
+              {/* Bảng số liệu gọn gàng */}
+              <div style={{ display: "flex", gap: "20px" }}>
+                {role === 'admin' ? (
+                  <>
+                    <div style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                      <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>VỐN</div>
+                      <div style={{ fontSize: "14px", fontWeight: "900", color: "#475569" }}>{totalValue.toLocaleString()}đ</div>
+                    </div>
+                    <div style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                      <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>THU CA NÀY</div>
+                      <div style={{ fontSize: "14px", fontWeight: "900", color: "#059669" }}>{currentShiftStats.rev.toLocaleString()}đ</div>
+                    </div>
+                    <div style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                      <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>LÃI CA NÀY</div>
+                      <div style={{ fontSize: "14px", fontWeight: "900", color: "#2563eb" }}>{currentShiftStats.prof.toLocaleString()}đ</div>
+                    </div>
+                  </>
+                ) : (
+                    <div style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                      <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>THU CA NÀY</div>
+                      <div style={{ fontSize: "14px", fontWeight: "900", color: "#059669" }}>{currentShiftStats.rev.toLocaleString()}đ</div>
+                    </div>
+                )}
+              </div>
+
+              <div style={{ width: "2px", height: "30px", backgroundColor: "#e2e8f0" }}></div>
+
+              {/* Thông tin nhân viên & Đăng xuất */}
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div style={{ textAlign: "right", lineHeight: "1.2", whiteSpace: "nowrap" }}>
+                  <div style={{ fontSize: "12px", fontWeight: "bold", color: "#1e293b" }}>{role === 'admin' ? "Quản lý" : "Thu ngân"}</div>
+                  <div style={{ fontSize: "10px", color: "#64748b" }}>{shift}</div>
                 </div>
-              )}
-              {role === 'staff' && (
-                <div className="stat-box" style={{background: "#fee2e2"}}>💰 Thu ca: {currentShiftStats.rev.toLocaleString()}đ</div>
-              )}
-              
-              <button onClick={handleLogoutClick} style={{ padding: "6px 10px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "bold", cursor: "pointer", fontSize: "11px" }}>Đăng xuất / Bàn giao 🔒</button>
+                <button onClick={handleLogoutClick} style={{ padding: "8px 12px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer", fontSize: "12px", whiteSpace: "nowrap" }}>Đăng xuất 🔒</button>
+              </div>
+
             </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: "10px" }}>
             
-            {/* CỘT TRÁI: SẢN PHẨM */}
             <div className="glass" style={{ padding: "12px" }}>
               
               <div style={{ display: "flex", gap: "8px", marginBottom: "10px", position: "relative" }}>
@@ -1431,11 +1371,11 @@ export default function App() {
               </div>
             </div>
 
-            {/* CỘT PHẢI: GIỎ HÀNG & LỊCH SỬ */}
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               
               <div className="glass" style={{ padding: "12px", flex: 1.5, minHeight: "45vh", display: "flex", flexDirection: "column" }}>
                 
+                {/* KHU VỰC TỔNG TIỀN VÀ NÚT THANH TOÁN (LÊN ĐẦU TIÊN) */}
                 <div style={{ marginBottom: "12px", paddingBottom: "8px", borderBottom: "2px dashed #fed7aa" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                     <h3 style={{ margin: 0, color: "#ef4444", fontSize: "14px", textTransform: "uppercase" }}>🛒 GIỎ HÀNG ({cart.reduce((s, i) => s + (Number(i.qty) || 0), 0)} món)</h3>
