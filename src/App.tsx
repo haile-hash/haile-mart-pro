@@ -30,8 +30,9 @@ export default function App() {
   
   const [showHoldModal, setShowHoldModal] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
-  const [scannedCodeObj, setScannedCodeObj] = useState<any>(null); // State mới cho Camera liên thanh
-  const [scanMessage, setScanMessage] = useState<{text: string, type: 'success'|'error'} | null>(null); // Toast cho camera
+  const [scannedCode, setScannedCode] = useState("");
+  const [scannedCodeObj, setScannedCodeObj] = useState<any>(null);
+  const [scanMessage, setScanMessage] = useState<{text: string, type: 'success'|'error'} | null>(null);
   
   const [printBarcodeProduct, setPrintBarcodeProduct] = useState<any>(null);
   const [barcodeCount, setBarcodeCount] = useState<number>(30);
@@ -42,7 +43,7 @@ export default function App() {
   const [newImportPrice, setNewImportPrice] = useState(""); 
   const [newPrice, setNewPrice] = useState(""); 
   const [newPromoPrice, setNewPromoPrice] = useState(""); 
-  const [newGiftCondition, setNewGiftCondition] = useState("1"); // Tách điều kiện số lượng quà
+  const [newGiftCondition, setNewGiftCondition] = useState("1"); 
   const [newGiftInfo, setNewGiftInfo] = useState(""); 
   const [newStock, setNewStock] = useState("");
   const [newExpiry, setNewExpiry] = useState(""); 
@@ -100,7 +101,6 @@ export default function App() {
     }
   }, [isLoggedIn]);
 
-  // --- HỆ THỐNG QUÉT CAMERA LIÊN THANH (NON-STOP) ---
   useEffect(() => {
     if (showScanner) {
       let scanner: any;
@@ -115,7 +115,7 @@ export default function App() {
            
            scanner.render((text: string) => {
                const now = Date.now();
-               if (now - lastScanTime < 1500) return; // Chống tít đúp trong 1.5s
+               if (now - lastScanTime < 1500) return; 
                lastScanTime = now;
                setScannedCodeObj({ code: text, time: now });
            }, undefined);
@@ -131,7 +131,6 @@ export default function App() {
     }
   }, [showScanner]);
 
-  // XỬ LÝ MÃ SAU KHI QUÉT CAMERA
   useEffect(() => {
     if (scannedCodeObj) {
       const p = products.find(prod => prod.product_code === scannedCodeObj.code.trim());
@@ -161,10 +160,9 @@ export default function App() {
          playSound('error');
          setScanMessage({ text: `❌ Không tìm thấy: ${scannedCodeObj.code}`, type: 'error' });
       }
-      setTimeout(() => setScanMessage(null), 1500); // Ẩn thông báo sau 1.5s
+      setTimeout(() => setScanMessage(null), 1500); 
     }
   }, [scannedCodeObj]);
-  // --------------------------------------------------
 
   useEffect(() => {
     const handleAfterPrint = () => setPrintMode(null);
@@ -198,7 +196,6 @@ export default function App() {
     if (data) setProducts(data);
   };
 
-  // --- HÀM ĐỌC & TÁCH LỌC QUÀ TẶNG THÔNG MINH ---
   const parseGift = (giftStr: string | null) => {
     if (!giftStr) return { cond: 0, text: "" };
     if (giftStr.includes(';;;')) {
@@ -269,7 +266,6 @@ export default function App() {
     logAudit("XÓA ĐƠN TẠM", `Đã xóa 1 đơn hàng lưu tạm`);
   };
 
-  // QUÉT MÃ TỪ Ô TÌM KIẾM (SÚNG TÍT MÃ)
   const handleSelectSuggest = (p: any) => {
     if (p.stock <= 0) { playSound('error'); return alert("Đã hết hàng trong kho!"); }
     const price = getActualPrice(p);
@@ -330,6 +326,50 @@ export default function App() {
     } else if (delta > 0) playSound('success');
   };
 
+  // --- HÀM CHO PHÉP NHẬP TRỰC TIẾP SỐ LƯỢNG (CHỐNG LỖI) ---
+  const handleDirectQtyChange = (productId: any, val: string) => {
+    setCart(prev => {
+      if (val === '') {
+        // Cho phép tạm thời để trống ô để người dùng nhập số mới
+        return prev.map(i => i.product.id === productId ? { ...i, qty: '' as any, total: 0, profit: 0 } : i);
+      }
+      let num = parseInt(val);
+      if (isNaN(num) || num < 0) return prev;
+      
+      let exceedStock = false; let stockLimit = 0;
+      const updated = prev.map(i => {
+        if (i.product.id === productId) {
+           if (num > i.product.stock) {
+               exceedStock = true; stockLimit = i.product.stock; num = i.product.stock;
+           }
+           const price = getActualPrice(i.product);
+           return { ...i, qty: num, total: Math.round(num*price*(1+VAT_RATE)), profit: Math.round(num*(price - (i.product.import_price||0))) };
+        }
+        return i;
+      });
+      
+      if (exceedStock) {
+         playSound('error');
+         setTimeout(() => alert(`Vượt quá tồn kho! Món này chỉ còn tối đa ${stockLimit} sản phẩm.`), 10);
+      }
+      return updated;
+    });
+  };
+
+  // Khôi phục về 1 nếu người dùng lỡ xóa trống ô rồi bấm ra ngoài
+  const handleDirectQtyBlur = (productId: any, val: string) => {
+    if (val === '' || parseInt(val) <= 0 || isNaN(parseInt(val))) {
+       setCart(prev => prev.map(i => {
+           if (i.product.id === productId) {
+               const price = getActualPrice(i.product);
+               return { ...i, qty: 1, total: Math.round(1*price*(1+VAT_RATE)), profit: Math.round(1*(price - (i.product.import_price||0))) };
+           }
+           return i;
+       }));
+    }
+  };
+  // -----------------------------------------------------------
+
   const removeFromCart = (productId: any) => {
     const item = cart.find(i => i.product.id === productId);
     if(item) logAudit("XÓA MÓN", `Bỏ ${item.product.name} khỏi giỏ`);
@@ -358,6 +398,11 @@ export default function App() {
   };
 
   const confirmCheckout = async (isDebt: boolean = false) => {
+    if (cart.some(i => !i.qty || i.qty <= 0)) {
+       playSound('error');
+       return alert("Có sản phẩm số lượng không hợp lệ (Trống hoặc bằng 0). Vui lòng kiểm tra lại giỏ hàng!");
+    }
+
     if (isDebt && !custPhone) return alert("Ghi nợ bắt buộc phải nhập SĐT khách hàng!");
     setLoading(true);
     let logs: any[] = [];
@@ -452,7 +497,6 @@ export default function App() {
     let fImp = impPrice;
     if (exist && exist.stock > 0) fImp = Math.round((exist.stock * (exist.import_price || 0) + added * impPrice) / (exist.stock + added));
     
-    // Nối điều kiện và quà tặng bằng ;;;
     const finalGiftInfo = newGiftInfo.trim() !== "" ? `${newGiftCondition};;;${newGiftInfo}` : null;
 
     const data = { product_code: newCode, name: newName, category: newCategory || "Khác", import_price: fImp, sale_price: parseInt(newPrice), promo_price: parseInt(newPromoPrice) || 0, gift_info: finalGiftInfo, stock: exist ? exist.stock + added : added, expiry_date: newExpiry || null };
@@ -685,6 +729,28 @@ export default function App() {
     .tab-btn.active { background: #ef4444; color: #fff; border-color: #ef4444; }
     .print-only { display: none; }
     
+    /* CSS CHO Ô INPUT SỐ LƯỢNG MỚI (ẨN NÚT MŨI TÊN MẶC ĐỊNH) */
+    .qty-input {
+      width: 28px;
+      text-align: center;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      outline: none;
+      font-size: 11px;
+      font-weight: bold;
+      color: #1e293b;
+      padding: 3px 0;
+      background: #fff;
+    }
+    .qty-input::-webkit-outer-spin-button,
+    .qty-input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    .qty-input[type=number] {
+      -moz-appearance: textfield;
+    }
+    
     @media print { 
       body, html { background: white !important; margin: 0 !important; padding: 0 !important; color: #000; } 
       .no-print { display: none !important; } 
@@ -756,7 +822,7 @@ export default function App() {
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); }}>
       <style>{styles}</style>
       
-      {/* 🖨️ BIÊN LAI BÁN HÀNG */}
+      {/* 🖨️ BIÊN LAI BÁN HÀNG (Sẽ bị ẩn nếu đang ở chế độ in Tem) */}
       {lastOrder && printMode !== 'barcode' && (
         <div className="print-only print-receipt">
           <div className="print-header">
@@ -773,9 +839,9 @@ export default function App() {
           <div style={{ width: "100%" }}>
             {lastOrder.cart.map((item: any, idx: number) => {
               const price = Math.round(getActualPrice(item.product));
-              const itemTotal = Math.round(item.qty * price);
+              const itemTotal = Math.round((Number(item.qty)||0) * price); // Safe math
               const gift = parseGift(item.product.gift_info);
-              const hasGift = gift.text && item.qty >= gift.cond;
+              const hasGift = gift.text && (Number(item.qty)||0) >= gift.cond;
 
               return (
                 <div key={idx} style={{ borderBottom: "1px dotted #ccc" }}>
@@ -840,7 +906,7 @@ export default function App() {
                   <div>
                     <div style={{ fontWeight: "bold", color: "#1e293b" }}>Đơn #{idx + 1}</div>
                     <div style={{ fontSize: "11px", color: "#64748b" }}>⏰ Lưu lúc: {order.time}</div>
-                    <div style={{ fontSize: "11px", color: "#b91c1c", fontWeight: "bold" }}>Gồm {order.cart.reduce((s:any,i:any)=>s+i.qty,0)} sản phẩm</div>
+                    <div style={{ fontSize: "11px", color: "#b91c1c", fontWeight: "bold" }}>Gồm {order.cart.reduce((s:any,i:any)=>s+(Number(i.qty)||0),0)} sản phẩm</div>
                   </div>
                   <div style={{ display: "flex", gap: "4px" }}>
                     <button onClick={() => restoreOrder(order)} style={{ padding: "6px 10px", background: "#10b981", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "11px" }}>MỞ LẠI</button>
@@ -998,13 +1064,12 @@ export default function App() {
         </div>
       )}
 
-      {/* 📷 CAMERA SCANNER OVERLAY (NON-STOP) */}
+      {/* 📷 CAMERA SCANNER OVERLAY */}
       {showScanner && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.9)", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", zIndex: 10000 }}>
           <div style={{ background: "#fff", padding: "10px", borderRadius: "12px", width: "90%", maxWidth: "400px", position: "relative" }}>
             <h3 style={{ margin: "0 0 10px 0", textAlign: "center", color: "#b91c1c" }}>📷 Đưa mã vạch vào khung</h3>
             
-            {/* THÔNG BÁO NỔI TOAST KHI QUÉT */}
             {scanMessage && (
               <div style={{ position: "absolute", top: "50px", left: "50%", transform: "translateX(-50%)", padding: "8px 16px", backgroundColor: scanMessage.type === 'success' ? "#10b981" : "#ef4444", color: "#fff", fontWeight: "bold", borderRadius: "20px", zIndex: 10001, boxShadow: "0 4px 6px rgba(0,0,0,0.3)", animation: "float 0.5s ease-out" }}>
                 {scanMessage.text}
@@ -1199,13 +1264,10 @@ export default function App() {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.5fr 0.8fr 60px", gap: "6px" }}>
                     <input type="number" placeholder="Giá KM" value={newPromoPrice} onChange={e => setNewPromoPrice(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #ef4444", outline: "none", fontSize: "12px" }} />
                     <input type="date" value={newExpiry} onChange={e => setNewExpiry(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
-                    
-                    {/* CẬP NHẬT GIAO DIỆN NHẬP ĐIỀU KIỆN QUÀ TẶNG */}
                     <div style={{ display: "flex", gap: "2px" }}>
                        <input type="number" placeholder="Từ..." value={newGiftCondition} onChange={e => setNewGiftCondition(e.target.value)} style={{ width: "40px", padding: "6px", borderRadius: "4px", border: "1px solid #10b981", outline: "none", fontSize: "12px" }} title="Mua số lượng bao nhiêu thì được tặng?" />
                        <input type="text" placeholder="Tên quà tặng..." value={newGiftInfo} onChange={e => setNewGiftInfo(e.target.value)} style={{ flex: 1, padding: "6px", borderRadius: "4px", border: "1px solid #10b981", outline: "none", fontSize: "12px" }} />
                     </div>
-
                     <input type="number" placeholder="SL..." value={newStock} onChange={e => setNewStock(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
                     <button type="submit" disabled={loading} style={{ padding: "6px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "4px", fontWeight: "bold", fontSize: "12px" }}>LƯU</button>
                   </div>
@@ -1278,8 +1340,6 @@ export default function App() {
                       const d = Math.floor(Math.abs(new Date().getTime() - new Date(p.created_at).getTime()) / 86400000);
                       const isNearExpiry = p.expiry_date && (new Date(p.expiry_date).getTime() - new Date().getTime()) / 86400000 <= 45;
                       const isLowStock = p.stock < 10;
-                      
-                      // PARSE QUÀ TẶNG TRONG BẢNG SẢN PHẨM
                       const gift = parseGift(p.gift_info);
 
                       return (
@@ -1289,8 +1349,6 @@ export default function App() {
                             <div style={{fontSize: "9px", color: "#94a3b8"}}>
                               {p.product_code} • <span style={{cursor: role==='admin' ? 'pointer' : 'default', textDecoration: role==='admin' ? 'underline' : 'none'}} onClick={() => role==='admin' && handleEdit(p.id, 'category', p.category || "Khác", true)} title="Bấm vào để sửa Phân Loại">{p.category || "Khác"}</span>
                             </div>
-                            
-                            {/* HIỂN THỊ ĐIỀU KIỆN QUÀ TẶNG */}
                             {gift.text ? (
                               <div style={{ fontSize: "9px", color: "#059669", fontWeight: "bold", cursor: role==='admin' ? 'pointer' : 'default' }} onClick={() => role==='admin' && handleEdit(p.id, 'gift_info', p.gift_info, true)} title={role === 'admin' ? "Bấm để sửa hoặc xóa quà" : ""}>
                                 🎁 Tặng: {gift.text} {gift.cond > 1 ? `(Mua ≥ ${gift.cond})` : ''}
@@ -1341,17 +1399,27 @@ export default function App() {
                 <div style={{ flex: 1, overflowY: "auto", marginBottom: "8px", paddingRight: "4px" }}>
                   {cart.length === 0 && <div style={{textAlign: "center", color: "#94a3b8", fontSize: "11px", marginTop: "10px"}}>Trống</div>}
                   {cart.map((item, idx) => {
-                    // XỬ LÝ ẨN/HIỆN QUÀ TẶNG TRONG GIỎ HÀNG
                     const gift = parseGift(item.product.gift_info);
-                    const hasGift = gift.text && item.qty >= gift.cond;
+                    const hasGift = gift.text && (Number(item.qty)||0) >= gift.cond;
 
                     return (
                     <div key={idx} style={{ padding: "6px 0", borderBottom: "1px dashed #fed7aa", fontSize: "11px", display: "flex", flexDirection: "column", gap: "2px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span style={{ fontWeight: "bold", color: "#1e293b", flex: 1 }}>{item.product.name} {item.product.isHappyHour && <span style={{color:"#ea580c", fontSize:"9px"}}>[Giờ Vàng]</span>}</span>
-                        <div style={{ display: "flex", alignItems: "center", gap: "2px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                           <button className="qty-btn" onClick={() => adjustCartQty(item.product.id, -1)}>-</button>
-                          <span style={{ fontWeight: "bold", width: "14px", textAlign: "center", color: "#64748b" }}>{item.qty}</span>
+                          
+                          {/* 💡 INPUT NHẬP SỐ LƯỢNG TRỰC TIẾP */}
+                          <input 
+                            className="qty-input"
+                            type="number"
+                            value={item.qty}
+                            onChange={(e) => handleDirectQtyChange(item.product.id, e.target.value)}
+                            onBlur={(e) => handleDirectQtyBlur(item.product.id, e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            title="Bấm để nhập số lượng"
+                          />
+
                           <button className="qty-btn" onClick={() => adjustCartQty(item.product.id, 1)}>+</button>
                           <button onClick={()=>removeFromCart(item.product.id)} style={{border:"none",background:"none",color:"#ef4444", cursor:"pointer", fontSize: "14px", marginLeft: "2px"}}>×</button>
                         </div>
