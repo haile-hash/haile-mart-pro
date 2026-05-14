@@ -18,6 +18,20 @@ export default function App() {
   const [authUsername, setAuthUsername] = useState("");
   const [authPassword, setAuthPassword] = useState("");
 
+  // STATES: CÀI ĐẶT HỆ THỐNG
+  const [adminPass, setAdminPass] = useState(() => localStorage.getItem("mart_admin_pass") || "haile88");
+  const [staffPass, setStaffPass] = useState(() => localStorage.getItem("mart_staff_pass") || "123");
+  const [bankBin, setBankBin] = useState(() => localStorage.getItem("mart_bank_bin") || "970422");
+  const [bankAcc, setBankAcc] = useState(() => localStorage.getItem("mart_bank_acc") || "0680124181004");
+  const [bankNameStr, setBankNameStr] = useState(() => localStorage.getItem("mart_bank_name") || "LE HONG HAI");
+
+  const [showSettings, setShowSettings] = useState(false);
+  const [newAdminPass, setNewAdminPass] = useState("");
+  const [newStaffPass, setNewStaffPass] = useState("");
+  const [newBankBin, setNewBankBin] = useState("");
+  const [newBankAcc, setNewBankAcc] = useState("");
+  const [newBankNameStr, setNewBankNameStr] = useState("");
+
   const [products, setProducts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Tất cả");
@@ -92,7 +106,6 @@ export default function App() {
 
   const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
   
-  // STATES CHO BỘ LỌC NHẬT KÝ
   const [logSearchTerm, setLogSearchTerm] = useState("");
   const [logTypeFilter, setLogTypeFilter] = useState("Tất cả");
 
@@ -371,15 +384,30 @@ export default function App() {
   // ================= 6. EVENT HANDLERS =================
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (authUsername === "admin" && authPassword === "haile88") {
+    if (authUsername === "admin" && authPassword === adminPass) {
       setIsLoggedIn(true); setRole("admin"); localStorage.setItem("mart_shift", shift);
       localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "admin");
       logAudit("ĐĂNG NHẬP", "Mở ca thành công");
-    } else if (authUsername === "nhanvien" && authPassword === "123") {
+    } else if (authUsername === "nhanvien" && authPassword === staffPass) {
       setIsLoggedIn(true); setRole("staff"); localStorage.setItem("mart_shift", shift);
       localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "staff");
       logAudit("ĐĂNG NHẬP", "Mở ca thành công");
     } else alert("Sai tài khoản hoặc mật khẩu!");
+  };
+
+  const saveSettings = () => {
+    if(!newAdminPass || !newStaffPass || !newBankBin || !newBankAcc || !newBankNameStr) {
+        return alert("Vui lòng điền đầy đủ thông tin Cài đặt!");
+    }
+    setAdminPass(newAdminPass); localStorage.setItem("mart_admin_pass", newAdminPass);
+    setStaffPass(newStaffPass); localStorage.setItem("mart_staff_pass", newStaffPass);
+    setBankBin(newBankBin); localStorage.setItem("mart_bank_bin", newBankBin);
+    setBankAcc(newBankAcc); localStorage.setItem("mart_bank_acc", newBankAcc);
+    setBankNameStr(newBankNameStr); localStorage.setItem("mart_bank_name", newBankNameStr);
+    
+    logAudit("CÀI ĐẶT", "Cập nhật Mật khẩu / QR Thanh toán");
+    alert("Đã lưu Cài đặt thành công!");
+    setShowSettings(false);
   };
 
   const handleLogoutClick = () => setShowHandoverModal(true);
@@ -735,7 +763,6 @@ export default function App() {
     setLoading(false);
   };
 
-  // ================= TÍNH NĂNG GỬI MÃ THẺ VIP CHO KHÁCH TỰ ĐỘNG =================
   const sendCardEmail = async (phone: string) => {
       const cust = customers[phone];
       const email = cust.email || window.prompt(`Nhập Email của ${cust.name} để gửi mã thẻ:`, "");
@@ -779,10 +806,10 @@ export default function App() {
       const cust = customers[phone];
       const code = cust.cardCode || phone;
       
-      const text = `Chào ${cust.name},\nCảm ơn bạn đã đồng hành cùng Hải Lê Mart!\n💳 Mã Thẻ VIP của bạn là: ${code}\n\n👉 Bạn hãy đưa mã này cho thu ngân khi thanh toán để được tích điểm nhé!`;
+      const text = `Chào ${cust.name},\nCảm ơn bạn đã đồng hành cùng Hải Lê Mart!\n💳 Mã Thẻ VIP của bạn là: ${code}\n\n👉 Bạn hãy đưa mã này cho thu ngân khi thanh toán để được giảm giá và tích điểm nhé!`;
       
       navigator.clipboard.writeText(text).then(() => {
-          alert(`💡 MẸO CHUYÊN NGHIỆP CHO ZALO:\nThay vì gửi Link, ông chủ hãy làm theo 3 bước sau:\n1. Bấm nút [🖨️ In Thẻ] để mở thẻ ra.\n2. Bấm phím Alt+Z để chụp ảnh cái thẻ đó.\n3. Dán (Ctrl+V) gửi qua Zalo là siêu đẹp!\n\n✅ Đã copy thông tin văn bản, chuẩn bị mở Zalo...`);
+          alert(`💡 MẸO GỬI ẢNH MÃ VẠCH QUAN TRỌNG:\nZalo không tự hiện ảnh từ Link. Để gửi ảnh đẹp:\n1. Bấm nút [🖨️ In Thẻ] trên phần mềm.\n2. Bấm phím Alt+Z để cắt ảnh thẻ đó.\n3. Dán (Ctrl+V) gửi qua Zalo là siêu xịn!\n\n✅ Đã copy thông tin văn bản, chuẩn bị mở Zalo...`);
           window.open(`https://zalo.me/${phone}`, '_blank');
       }).catch(() => {
           window.open(`https://zalo.me/${phone}`, '_blank');
@@ -1008,19 +1035,6 @@ export default function App() {
 
   const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (authUsername === "admin" && authPassword === "haile88") {
-      setIsLoggedIn(true); setRole("admin"); localStorage.setItem("mart_shift", shift);
-      localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "admin");
-      logAudit("ĐĂNG NHẬP", "Mở ca thành công");
-    } else if (authUsername === "nhanvien" && authPassword === "123") {
-      setIsLoggedIn(true); setRole("staff"); localStorage.setItem("mart_shift", shift);
-      localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "staff");
-      logAudit("ĐĂNG NHẬP", "Mở ca thành công");
-    } else alert("Sai tài khoản hoặc mật khẩu!");
-  };
-
   // ================= 7. RENDER HELPERS =================
   const renderHeaderIcon = (colKey: string) => {
     const isFiltered = filters[colKey]?.length > 0;
@@ -1158,7 +1172,7 @@ export default function App() {
               <option value="Ca Chiều">🌇 Ca Chiều (14:00 - 22:00)</option>
               <option value="Ca Tối">🌙 Ca Tối (22:00 - 06:00)</option>
             </select>
-            <input placeholder="Tên đăng nhập (admin / nhanvien)" value={authUsername} onChange={e => setAuthUsername(e.target.value)} style={{ padding: "14px", borderRadius: "10px", border: "1px solid #cbd5e1", outline: "none" }} />
+            <input placeholder="Tên đăng nhập" value={authUsername} onChange={e => setAuthUsername(e.target.value)} style={{ padding: "14px", borderRadius: "10px", border: "1px solid #cbd5e1", outline: "none" }} />
             <input type="password" placeholder="Mật khẩu" value={authPassword} onChange={e => setAuthPassword(e.target.value)} style={{ padding: "14px", borderRadius: "10px", border: "1px solid #cbd5e1", outline: "none" }} />
             <button type="submit" style={{ padding: "14px", backgroundColor: "#dc2626", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "bold", cursor: "pointer", boxShadow: "0 4px 6px rgba(220, 38, 38, 0.3)" }}>MỞ CỬA BÁN HÀNG 🚀</button>
           </form>
@@ -1171,6 +1185,45 @@ export default function App() {
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); }}>
       <style>{styles}</style>
+
+      {/* POPUP CÀI ĐẶT HỆ THỐNG */}
+      {showSettings && role === 'admin' && (
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div className="glass" style={{ padding: "25px", width: "450px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #cbd5e1", paddingBottom: "10px", marginBottom: "15px" }}>
+              <h2 style={{ margin: 0, color: "#334155" }}>⚙️ CÀI ĐẶT HỆ THỐNG</h2>
+              <button onClick={() => setShowSettings(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
+            </div>
+            <div style={{ overflowY: "auto", flex: 1, paddingRight: "5px" }}>
+              <h3 style={{fontSize: "14px", color: "#ef4444", borderBottom: "1px dashed #ef4444", paddingBottom: "4px"}}>1. ĐỔI MẬT KHẨU</h3>
+              <div style={{marginBottom: "10px"}}>
+                <label style={{fontSize: "11px", fontWeight: "bold", color: "#64748b"}}>Mật khẩu Quản lý (admin):</label>
+                <input value={newAdminPass} onChange={e => setNewAdminPass(e.target.value)} style={{width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", boxSizing: "border-box", marginTop: "4px"}} />
+              </div>
+              <div style={{marginBottom: "20px"}}>
+                <label style={{fontSize: "11px", fontWeight: "bold", color: "#64748b"}}>Mật khẩu Thu ngân (nhanvien):</label>
+                <input value={newStaffPass} onChange={e => setNewStaffPass(e.target.value)} style={{width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", boxSizing: "border-box", marginTop: "4px"}} />
+              </div>
+
+              <h3 style={{fontSize: "14px", color: "#10b981", borderBottom: "1px dashed #10b981", paddingBottom: "4px"}}>2. CẤU HÌNH QR THANH TOÁN</h3>
+              <div style={{marginBottom: "10px"}}>
+                <label style={{fontSize: "11px", fontWeight: "bold", color: "#64748b"}}>Mã BIN Ngân Hàng (VD MB: 970422, VCB: 970436):</label>
+                <input value={newBankBin} onChange={e => setNewBankBin(e.target.value)} style={{width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", boxSizing: "border-box", marginTop: "4px"}} />
+              </div>
+              <div style={{marginBottom: "10px"}}>
+                <label style={{fontSize: "11px", fontWeight: "bold", color: "#64748b"}}>Số tài khoản:</label>
+                <input value={newBankAcc} onChange={e => setNewBankAcc(e.target.value)} style={{width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", boxSizing: "border-box", marginTop: "4px"}} />
+              </div>
+              <div style={{marginBottom: "20px"}}>
+                <label style={{fontSize: "11px", fontWeight: "bold", color: "#64748b"}}>Tên chủ tài khoản (Không dấu):</label>
+                <input value={newBankNameStr} onChange={e => setNewBankNameStr(e.target.value.toUpperCase())} style={{width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", boxSizing: "border-box", marginTop: "4px"}} />
+              </div>
+
+              <button onClick={saveSettings} style={{width: "100%", padding: "12px", backgroundColor: "#3b82f6", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer"}}>💾 LƯU CÀI ĐẶT</button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* 🖨️ BIÊN LAI BÁN HÀNG (SẼ CHẠY KHI IN) */}
       {lastOrder && printMode === 'receipt' && (
@@ -1387,7 +1440,7 @@ export default function App() {
                       </span>
                       <button onClick={() => printCustomerCard(phone)} style={{ padding: "4px 6px", backgroundColor: "#dc2626", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="In thẻ cứng (Cỡ thẻ ATM)">🖨️ In Thẻ</button>
                       <button onClick={() => sendCardEmail(phone)} style={{ padding: "4px 6px", backgroundColor: "#3b82f6", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="Gửi thẻ điện tử tự động qua Email">📧 Mail</button>
-                      <button onClick={() => shareToZalo(phone)} style={{ padding: "4px 6px", backgroundColor: "#059669", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="Copy lời chào và mở Zalo">💬 Zalo</button>
+                      <button onClick={() => shareToZalo(phone)} style={{ padding: "4px 6px", backgroundColor: "#059669", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="Copy ảnh và mở Zalo">💬 Zalo</button>
                     </div>
 
                   </div>
@@ -1529,7 +1582,7 @@ export default function App() {
                 <div style={{ color: "#ef4444", fontSize: "28px", fontWeight: "900", margin: "10px 0" }}>{finalToPay.toLocaleString()}đ</div>
                 
                 <div style={{ position: "relative" }}>
-                   <img src={`https://img.vietqr.io/image/970422-0680124181004-compact2.png?amount=${finalToPay}&addInfo=Thanh toan&accountName=LE%20HONG%20HAI`} style={{ width: "160px", margin: "0 auto 10px auto", border: "2px solid #ef4444", borderRadius: "10px", display: "block" }} />
+                   <img src={`https://img.vietqr.io/image/${bankBin}-${bankAcc}-compact2.png?amount=${finalToPay}&addInfo=Thanh toan&accountName=${encodeURIComponent(bankNameStr)}`} style={{ width: "160px", margin: "0 auto 10px auto", border: "2px solid #ef4444", borderRadius: "10px", display: "block" }} alt="QR Code" />
                    <div style={{ animation: "pulse-fast 1.5s infinite", color: "#b45309", fontSize: "11px", fontWeight: "bold", marginBottom: "5px" }}>⏳ Đang chờ nhận tiền...</div>
                    <div style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontSize: "10px", padding: "6px", borderRadius: "4px", border: "1px dashed #ef4444", marginBottom: "15px", textAlign: "left", lineHeight: "1.4" }}><b>⚠️ CHÚ Ý:</b> KHÔNG NHÌN MÀN HÌNH KHÁCH. CHỈ BẤM <b>[CHUYỂN KHOẢN]</b> KHI APP NGÂN HÀNG BÁO CÓ TIỀN!</div>
                 </div>
@@ -1581,6 +1634,16 @@ export default function App() {
                     <button onClick={() => setShowStatsModal(true)} style={{ padding: "6px 12px", background: "#eff6ff", color: "#3b82f6", border: "1px solid #bfdbfe", borderRadius: "6px", fontSize: "12px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap" }}>📊 THỐNG KÊ</button>
                     <button onClick={() => setShowCustomerModal(true)} style={{ padding: "6px 12px", background: "#fdf4ff", color: "#4f46e5", border: "1px solid #c7d2fe", borderRadius: "6px", fontSize: "12px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap" }}>🤝 KHÁCH HÀNG</button>
                     <button onClick={() => setShowAuditModal(true)} style={{ padding: "6px 12px", background: "#f8fafc", color: "#334155", border: "1px solid #cbd5e1", borderRadius: "6px", fontSize: "12px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap" }}>🕵️ LỊCH SỬ</button>
+                    
+                    {/* NÚT CÀI ĐẶT HỆ THỐNG */}
+                    <button onClick={() => {
+                        setNewAdminPass(adminPass);
+                        setNewStaffPass(staffPass);
+                        setNewBankBin(bankBin);
+                        setNewBankAcc(bankAcc);
+                        setNewBankNameStr(bankNameStr);
+                        setShowSettings(true);
+                    }} style={{ padding: "6px 12px", background: "#f3f4f6", color: "#475569", border: "1px solid #cbd5e1", borderRadius: "6px", fontSize: "12px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap" }}>⚙️ CÀI ĐẶT</button>
                   </>
                 )}
                 <button onClick={() => setShowDebtModal(true)} style={{ padding: "6px 12px", background: "#fef2f2", color: "#ef4444", border: "1px solid #fecaca", borderRadius: "6px", fontSize: "12px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap" }}>📓 SỔ NỢ</button>
