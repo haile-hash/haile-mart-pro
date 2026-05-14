@@ -5,6 +5,7 @@ import { supabase } from "./supabaseClient";
 export default function App() {
   const VAT_RATE = 0.1; 
 
+  // --- 1. STATES ---
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem("mart_logged_in") === "true");
   const [role, setRole] = useState(() => localStorage.getItem("mart_role") || "staff");
   const [shift, setShift] = useState(() => localStorage.getItem("mart_shift") || "Ca Sáng");
@@ -83,6 +84,7 @@ export default function App() {
 
   const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
 
+  // --- 2. EFFECTS ---
   useEffect(() => {
     localStorage.setItem("mart_history", JSON.stringify(history));
     localStorage.setItem("mart_customers", JSON.stringify(customers));
@@ -129,11 +131,38 @@ export default function App() {
   }, [scannerMode]);
 
   useEffect(() => {
+    if (scannedCodeObj) {
+      if (scannerMode === 'product') {
+          const p = findProductByCode(scannedCodeObj.code);
+          if (p) handleSelectSuggest(p);
+          else { playSound('error'); setScanMessage({ text: `❌ Không tìm thấy mã: ${scannedCodeObj.code}`, type: 'error' }); }
+      } 
+      else if (scannerMode === 'voucher') {
+          const code = scannedCodeObj.code.trim().toUpperCase();
+          const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 };
+          if (VOUCHERS[code]) {
+            setAppliedVoucherAmount(VOUCHERS[code]); setVoucherInput(code); playSound('success');
+            setScanMessage({ text: `✅ Đã áp dụng giảm ${VOUCHERS[code].toLocaleString()}đ`, type: 'success' });
+          } else if (!isNaN(Number(code)) && Number(code) > 0) {
+            setAppliedVoucherAmount(Number(code)); setVoucherInput(code); playSound('success');
+            setScanMessage({ text: `✅ Đã nhận mức giảm ${Number(code).toLocaleString()}đ`, type: 'success' });
+          } else {
+            playSound('error'); alert("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0);
+          }
+          setTimeout(() => setScannerMode(null), 1000);
+      }
+      setScannedCodeObj(null);
+      setTimeout(() => setScanMessage(null), 1500); 
+    }
+  }, [scannedCodeObj, products, scannerMode]);
+
+  useEffect(() => {
     const handleAfterPrint = () => setPrintMode(null);
     window.addEventListener("afterprint", handleAfterPrint);
     return () => window.removeEventListener("afterprint", handleAfterPrint);
   }, []);
 
+  // --- 3. UTILITIES & DATA MEMOS ---
   const playSound = (type: 'success' | 'error') => {
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -180,12 +209,23 @@ export default function App() {
 
   const cleanName = (name: string) => name ? name.split(' [Lô')[0] : '';
 
-  // TÌM KIẾM MÃ CHUẨN FIFO (CHO CAMERA)
+  const getOldestAvailableBatch = (p: any) => {
+    const baseCode = p.product_code.split('-')[0];
+    let availableMatches = products.filter(prod => (prod.product_code === baseCode || prod.product_code.startsWith(`${baseCode}-`)) && prod.stock > 0);
+    
+    if (availableMatches.length === 0) return p; 
+
+    availableMatches.sort((a,b) => {
+        if(!a.expiry_date) return 1; if(!b.expiry_date) return -1;
+        return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
+    });
+    return availableMatches[0];
+  };
+
   const findProductByCode = (code: string) => {
     const rawCode = code.trim();
     let matches = products.filter(prod => prod.product_code === rawCode || prod.product_code.startsWith(`${rawCode}-`));
     let available = matches.filter(p => p.stock > 0);
-    
     if (available.length > 0) {
        available.sort((a,b) => {
            if(!a.expiry_date) return 1; if(!b.expiry_date) return -1;
@@ -196,99 +236,6 @@ export default function App() {
     else if (matches.length > 0) return matches[0];
     return null;
   };
-
-  // THUẬT TOÁN TỰ ĐỘNG CHỌN LÔ CŨ (FIFO) KHI CLICK TAY HOẶC GÕ TÌM KIẾM
-  const getOldestAvailableBatch = (p: any) => {
-    const baseCode = p.product_code.split('-')[0];
-    let availableMatches = products.filter(prod => (prod.product_code === baseCode || prod.product_code.startsWith(`${baseCode}-`)) && prod.stock > 0);
-    
-    if (availableMatches.length === 0) return p; // Hết sạch thì trả về chính nó để báo lỗi
-
-    availableMatches.sort((a,b) => {
-        if(!a.expiry_date) return 1; if(!b.expiry_date) return -1;
-        return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
-    });
-    return availableMatches[0];
-  };
-
-  const handleSelectSuggest = (p_input: any) => {
-    const p = getOldestAvailableBatch(p_input); // Gọi hàm kiểm tra Lô cũ
-    
-    if (p.stock <= 0) { playSound('error'); return alert("Đã hết hàng trong kho!"); }
-    
-    if (p.id !== p_input.id) {
-       setScanMessage({ text: `⚡ Tự động xuất Lô cũ: ${p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : ''}`, type: 'success' });
-    } else {
-       setScanMessage({ text: `✅ Thêm: ${cleanName(p.name)}`, type: 'success' });
-    }
-
-    const price = getActualPrice(p);
-    setCart(prev => {
-        const exist = prev.find(item => item.product.id === p.id);
-        if (exist) {
-            const newQty = exist.qty + 1;
-            if (newQty > p.stock) { playSound('error'); setScanMessage({ text: `❌ Quá tồn kho lô này (${p.stock})`, type: 'error' }); return prev; }
-            playSound('success'); 
-            return prev.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i);
-        } else {
-            playSound('success'); 
-            return [...prev, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }];
-        }
-    });
-    setBarcodeInput(""); setShowSuggestions(false);
-    setTimeout(() => setScanMessage(null), 2000);
-  };
-
-  const addToCart = (p_input: any) => {
-    const p = getOldestAvailableBatch(p_input); // Gọi hàm kiểm tra Lô cũ
-
-    if (p.stock <= 0) { playSound('error'); return alert("Đã hết hàng trong kho!"); }
-    
-    if (p.id !== p_input.id) {
-        setScanMessage({ text: `⚡ Tự động xuất Lô cũ: ${p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : ''}`, type: 'success' });
-        setTimeout(() => setScanMessage(null), 2000);
-    }
-
-    const price = getActualPrice(p);
-    setCart(prev => {
-      const exist = prev.find(item => item.product.id === p.id);
-      if (exist) {
-        const newQty = exist.qty + 1;
-        if (newQty > p.stock) { playSound('error'); alert(`Lô hàng này chỉ còn tối đa ${p.stock} sản phẩm. Hãy thêm tiếp lô mới vào giỏ!`); return prev; }
-        playSound('success');
-        return prev.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i);
-      } else {
-        playSound('success');
-        return [...prev, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }];
-      }
-    });
-  };
-
-  useEffect(() => {
-    if (scannedCodeObj) {
-      if (scannerMode === 'product') {
-          const p = findProductByCode(scannedCodeObj.code);
-          if (p) handleSelectSuggest(p);
-          else { playSound('error'); setScanMessage({ text: `❌ Không tìm thấy mã: ${scannedCodeObj.code}`, type: 'error' }); }
-      } 
-      else if (scannerMode === 'voucher') {
-          const code = scannedCodeObj.code.trim().toUpperCase();
-          const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 };
-          if (VOUCHERS[code]) {
-            setAppliedVoucherAmount(VOUCHERS[code]); setVoucherInput(code); playSound('success');
-            setScanMessage({ text: `✅ Đã áp dụng giảm ${VOUCHERS[code].toLocaleString()}đ`, type: 'success' });
-          } else if (!isNaN(Number(code)) && Number(code) > 0) {
-            setAppliedVoucherAmount(Number(code)); setVoucherInput(code); playSound('success');
-            setScanMessage({ text: `✅ Đã nhận mức giảm ${Number(code).toLocaleString()}đ`, type: 'success' });
-          } else {
-            playSound('error'); alert("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0);
-          }
-          setTimeout(() => setScannerMode(null), 1000);
-      }
-      setScannedCodeObj(null);
-      setTimeout(() => setScanMessage(null), 1500); 
-    }
-  }, [scannedCodeObj, products, scannerMode]);
 
   const currentShiftStats = useMemo(() => {
     const todayStr = new Date().toLocaleDateString('vi-VN');
@@ -301,6 +248,39 @@ export default function App() {
     return { rev, prof };
   }, [history, shift]);
 
+  const todayStats = useMemo(() => {
+    const todayStr = new Date().toLocaleDateString('vi-VN');
+    const todayHistory = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStr);
+    const totalRev = todayHistory.reduce((s, h) => s + ((h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') ? h.total : 0), 0);
+    const totalProf = todayHistory.reduce((s, h) => s + (h.profit || 0), 0);
+    return { rev: totalRev, prof: totalProf };
+  }, [history]);
+
+  const topSelling = useMemo(() => {
+    const sales: Record<string, number> = {};
+    history.forEach(log => { if(log.type === 'BÁN') sales[log.name] = (sales[log.name]||0) + log.qty; });
+    return Object.entries(sales).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  }, [history]);
+
+  const groupedHistory = useMemo(() => {
+    return history.reduce((groups: any, log: any) => {
+      const date = new Date(Math.floor(log.id)).toLocaleDateString('vi-VN'); 
+      if (!groups[date]) groups[date] = [];
+      groups[date].push({ ...log, t: new Date(Math.floor(log.id)).toLocaleTimeString('vi-VN') });
+      return groups;
+    }, {});
+  }, [history]);
+
+  const totalValue = Math.round(products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
+
+  const uniqueNames = useMemo(() => Array.from(new Set(products.map(p => cleanName(p.name)))).sort(), [products]);
+  const uniqueStocks = useMemo(() => Array.from(new Set(products.map(p => p.stock))).sort((a,b)=>a-b), [products]);
+  const uniqueImportPrices = useMemo(() => Array.from(new Set(products.map(p => p.import_price || 0))).sort((a,b)=>a-b), [products]);
+  const uniqueSalePrices = useMemo(() => Array.from(new Set(products.map(p => p.sale_price))).sort((a,b)=>a-b), [products]);
+  const uniqueExpiries = useMemo(() => Array.from(new Set(products.map(p => p.expiry_date).filter(Boolean))).sort(), [products]);
+  const categories = ["Tất cả", ...Array.from(new Set(products.map(p => p.category || "Khác")))];
+
+  // --- 4. EVENT HANDLERS ---
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (authUsername === "admin" && authPassword === "haile88") {
@@ -315,7 +295,6 @@ export default function App() {
   };
 
   const handleLogoutClick = () => setShowHandoverModal(true);
-
   const confirmHandover = () => {
     logAudit("CHỐT CA", `Doanh thu bàn giao: ${currentShiftStats.rev.toLocaleString()}đ`);
     setIsLoggedIn(false); setShowHandoverModal(false);
@@ -342,6 +321,32 @@ export default function App() {
     logAudit("XÓA ĐƠN TẠM", `Đã xóa 1 đơn hàng lưu tạm`);
   };
 
+  const handleSelectSuggest = (p_input: any) => {
+    const p = getOldestAvailableBatch(p_input); 
+    if (p.stock <= 0) { playSound('error'); return alert("Đã hết hàng trong kho!"); }
+    if (p.id !== p_input.id) {
+       setScanMessage({ text: `⚡ Tự động xuất Lô cũ: ${p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : ''}`, type: 'success' });
+    } else {
+       setScanMessage({ text: `✅ Thêm: ${cleanName(p.name)}`, type: 'success' });
+    }
+
+    const price = getActualPrice(p);
+    setCart(prev => {
+        const exist = prev.find(item => item.product.id === p.id);
+        if (exist) {
+            const newQty = exist.qty + 1;
+            if (newQty > p.stock) { playSound('error'); setScanMessage({ text: `❌ Quá tồn kho lô này (${p.stock})`, type: 'error' }); return prev; }
+            playSound('success'); 
+            return prev.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i);
+        } else {
+            playSound('success'); 
+            return [...prev, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }];
+        }
+    });
+    setBarcodeInput(""); setShowSuggestions(false);
+    setTimeout(() => setScanMessage(null), 2000);
+  };
+
   const handleBarcodeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -349,6 +354,28 @@ export default function App() {
       if (p) handleSelectSuggest(p);
       else { playSound('error'); alert("Mã sai hoặc không tìm thấy!"); }
     }
+  };
+
+  const addToCart = (p_input: any) => {
+    const p = getOldestAvailableBatch(p_input); 
+    if (p.stock <= 0) { playSound('error'); return alert("Đã hết hàng trong kho!"); }
+    if (p.id !== p_input.id) {
+        setScanMessage({ text: `⚡ Tự động xuất Lô cũ: ${p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : ''}`, type: 'success' });
+        setTimeout(() => setScanMessage(null), 2000);
+    }
+    const price = getActualPrice(p);
+    setCart(prev => {
+      const exist = prev.find(item => item.product.id === p.id);
+      if (exist) {
+        const newQty = exist.qty + 1;
+        if (newQty > p.stock) { playSound('error'); alert(`Lô hàng này chỉ còn tối đa ${p.stock} sản phẩm. Hãy thêm tiếp lô mới vào giỏ!`); return prev; }
+        playSound('success');
+        return prev.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i);
+      } else {
+        playSound('success');
+        return [...prev, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }];
+      }
+    });
   };
 
   const adjustCartQty = (productId: any, delta: number) => {
@@ -403,7 +430,7 @@ export default function App() {
 
   const removeFromCart = (productId: any) => {
     const item = cart.find(i => i.product.id === productId);
-    if(item) logAudit("XÓA MÓN", `Bỏ ${item.product.name} khỏi giỏ`);
+    if(item) logAudit("XÓA MÓN", `Bỏ ${cleanName(item.product.name)} khỏi giỏ`);
     setCart(cart.filter(item => item.product.id !== productId));
   };
   
@@ -783,13 +810,9 @@ export default function App() {
     window.location.href = `mailto:lehonghaikt6@gmail.com?subject=${sub}&body=${body}`;
   };
 
-  const uniqueNames = useMemo(() => Array.from(new Set(products.map(p => cleanName(p.name)))).sort(), [products]);
-  const uniqueStocks = useMemo(() => Array.from(new Set(products.map(p => p.stock))).sort((a,b)=>a-b), [products]);
-  const uniqueImportPrices = useMemo(() => Array.from(new Set(products.map(p => p.import_price || 0))).sort((a,b)=>a-b), [products]);
-  const uniqueSalePrices = useMemo(() => Array.from(new Set(products.map(p => p.sale_price))).sort((a,b)=>a-b), [products]);
-  const uniqueExpiries = useMemo(() => Array.from(new Set(products.map(p => p.expiry_date).filter(Boolean))).sort(), [products]);
-  const categories = ["Tất cả", ...Array.from(new Set(products.map(p => p.category || "Khác")))];
+  const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
 
+  // --- 5. SORTING & FILTERING ---
   const requestSort = (key: string) => {
     if (sortConfig && sortConfig.key === key) {
       if (sortConfig.direction === 'asc') setSortConfig({ key, direction: 'desc' });
@@ -799,7 +822,19 @@ export default function App() {
     }
   };
 
-  // HÀM HIỂN THỊ MŨI TÊN DUY NHẤT TRÊN HEADER
+  const getSortIcon = (key: string) => {
+    if (!sortConfig || sortConfig.key !== key) return <span style={{opacity: 0.3, fontSize: "9px", marginLeft:"2px"}}>↕️</span>;
+    return sortConfig.direction === 'asc' ? <span style={{fontSize: "11px", marginLeft:"2px", color: "#ef4444"}}>🔼</span> : <span style={{fontSize: "11px", marginLeft:"2px", color: "#ef4444"}}>🔽</span>;
+  };
+
+  const handleFilterCheck = (col: string, val: any) => {
+    setFilters(prev => {
+        const cur = prev[col] || [];
+        if (cur.includes(val)) return { ...prev, [col]: cur.filter(v => v !== val) };
+        return { ...prev, [col]: [...cur, val] };
+    });
+  };
+
   const renderHeaderIcon = (colKey: string) => {
     const isFiltered = filters[colKey]?.length > 0;
     const isSortedAsc = sortConfig?.key === colKey && sortConfig.direction === 'asc';
@@ -818,14 +853,6 @@ export default function App() {
           {icon}
         </span>
     );
-  };
-
-  const handleFilterCheck = (col: string, val: any) => {
-    setFilters(prev => {
-        const cur = prev[col] || [];
-        if (cur.includes(val)) return { ...prev, [col]: cur.filter(v => v !== val) };
-        return { ...prev, [col]: [...cur, val] };
-    });
   };
 
   const sortedAndFilteredProducts = useMemo(() => {
@@ -884,6 +911,7 @@ export default function App() {
     );
   };
 
+  // --- 6. STYLES & RENDER LOGIN ---
   const styles = `
     @keyframes float { 0% { transform: translateY(0); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0); } }
     .spring-bg { position: fixed; width: 400px; height: 400px; border-radius: 50%; filter: blur(100px); z-index: -1; opacity: 0.3; animation: float 10s infinite ease-in-out; }
@@ -927,7 +955,6 @@ export default function App() {
       
       .print-only.print-barcode-sheet { display: flex !important; flex-wrap: wrap; gap: 15px; justify-content: center; padding: 10mm; }
       .barcode-sticker { width: 30%; text-align: center; margin-bottom: 15px; border: 1px dashed #ccc; padding: 8px; page-break-inside: avoid; }
-
       @page { margin: 0; } 
     }
   `;
@@ -967,6 +994,7 @@ export default function App() {
 
   const finalToPay = Math.round(Math.max(0, cartTotalAmount - appliedVoucherAmount - (useWallet ? Math.min(customers[custPhone]?.wallet||0, Math.max(0, cartTotalAmount - appliedVoucherAmount)) : 0)));
 
+  // --- 7. MAIN RENDER ---
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); }}>
       <style>{styles}</style>
@@ -1040,7 +1068,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL MỞ ĐƠN LƯU TẠM */}
+      {/* CÁC MODAL HIỂN THỊ */}
       {showHoldModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "400px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
@@ -1068,7 +1096,6 @@ export default function App() {
         </div>
       )}
 
-      {/* 🕵️ MODAL KIỂM TOÁN LỊCH SỬ THAO TÁC */}
       {showAuditModal && role === 'admin' && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "600px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
@@ -1098,7 +1125,6 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL BÀN GIAO CA */}
       {showHandoverModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "30px", width: "350px", textAlign: "center" }}>
@@ -1119,7 +1145,6 @@ export default function App() {
         </div>
       )}
 
-      {/* 🤝 MODAL QUẢN LÝ KHÁCH HÀNG CRM - ĐÃ KHÓA SỬA VÍ/NỢ */}
       {showCustomerModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "500px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
@@ -1139,13 +1164,8 @@ export default function App() {
                     <div style={{ fontSize: "11px", color: "#64748b" }}>{phone}</div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    {/* ĐÃ KHÓA SỬA VÍ VÀ NỢ */}
-                    <div style={{ color: "#10b981", fontWeight: "bold", fontSize: "12px" }}>
-                      Ví: {(customers[phone].wallet || 0).toLocaleString()}đ
-                    </div>
-                    <div style={{ color: "#ef4444", fontWeight: "bold", fontSize: "12px" }}>
-                      Nợ: {(customers[phone].debt || 0).toLocaleString()}đ
-                    </div>
+                    <div style={{ color: "#10b981", fontWeight: "bold", fontSize: "12px" }}>Ví: {(customers[phone].wallet || 0).toLocaleString()}đ</div>
+                    <div style={{ color: "#ef4444", fontWeight: "bold", fontSize: "12px" }}>Nợ: {(customers[phone].debt || 0).toLocaleString()}đ</div>
                   </div>
                 </div>
               ))}
@@ -1154,7 +1174,6 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL SỔ NỢ */}
       {showDebtModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "400px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
@@ -1179,7 +1198,6 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL THỐNG KÊ */}
       {showStatsModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "400px" }}>
@@ -1215,7 +1233,6 @@ export default function App() {
         </div>
       )}
 
-      {/* 📷 CAMERA SCANNER OVERLAY */}
       {scannerMode !== null && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.9)", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", zIndex: 10000 }}>
           <div style={{ background: "#fff", padding: "10px", borderRadius: "12px", width: "90%", maxWidth: "400px", position: "relative" }}>
@@ -1235,12 +1252,11 @@ export default function App() {
         </div>
       )}
 
-      {/* --- PHẦN GIAO DIỆN CHÍNH --- */}
+      {/* --- GIAO DIỆN CHÍNH --- */}
       <div className="no-print" style={{ padding: "15px", position: "relative", minHeight: "100vh", overflowX: "auto" }}>
         <div className="spring-bg" style={{ background: "#ef4444", top: "10%", left: "5%" }}></div>
         <div className="spring-bg" style={{ background: "#f59e0b", bottom: "10%", right: "5%" }}></div>
 
-        {/* POPUP THANH TOÁN */}
         {isCheckoutOpen && (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
             {checkoutStep === 1 && (
@@ -1534,7 +1550,6 @@ export default function App() {
                   <thead>
                     <tr style={{ color: "#16a34a", fontSize: "10px", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}>
                       
-                      {/* ĐÃ GỘP MŨI TÊN LỌC (1 MŨI TÊN DUY NHẤT/CỘT) */}
                       <th style={{ textAlign: "left", padding: "6px 4px", borderBottom: "2px solid #fed7aa", position: "relative" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "4px", width: "max-content" }}>
                            <span onClick={() => requestSort('name')} style={{ cursor: "pointer", userSelect: "none" }}>SẢN PHẨM</span>
