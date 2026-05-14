@@ -18,6 +18,9 @@ export default function App() {
   const [authUsername, setAuthUsername] = useState("");
   const [authPassword, setAuthPassword] = useState("");
 
+  // ĐỒNG HỒ THỜI GIAN THỰC
+  const [currentTime, setCurrentTime] = useState(new Date());
+
   // STATES: CÀI ĐẶT HỆ THỐNG
   const [adminPass, setAdminPass] = useState(() => localStorage.getItem("mart_admin_pass") || "haile88");
   const [staffPass, setStaffPass] = useState(() => localStorage.getItem("mart_staff_pass") || "123");
@@ -175,6 +178,11 @@ export default function App() {
   };
 
   // ================= 4. EFFECTS =================
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     localStorage.setItem("mart_history", JSON.stringify(history));
     localStorage.setItem("mart_customers", JSON.stringify(customers));
@@ -382,10 +390,9 @@ export default function App() {
   }, [products, searchTerm, selectedCategory, sortConfig, filters]);
 
 
-  // ================= 6. EVENT HANDLERS (ĐĂNG NHẬP CHỐNG LỖI) =================
+  // ================= 6. EVENT HANDLERS =================
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    
     const u = authUsername.trim().toLowerCase();
     const p = authPassword.trim();
 
@@ -1391,7 +1398,7 @@ export default function App() {
           <div className="glass" style={{ padding: "25px", width: "600px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #cbd5e1", paddingBottom: "10px", marginBottom: "10px" }}>
               <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                <h2 style={{ margin: 0, color: "#334155" }}>🕵️ NHẬT KÝ THAO TÁC HỆ THỐNG</h2>
+                <h2 style={{ margin: 0, color: "#334155" }}>🕵️ LỊCH SỬ THAO TÁC</h2>
                 <button onClick={exportAuditToCSV} style={{ fontSize: "10px", padding: "4px 8px", background: "#10b981", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>📥 XUẤT FILE</button>
               </div>
               <button onClick={() => setShowAuditModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
@@ -1517,21 +1524,21 @@ export default function App() {
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "450px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #fed7aa", paddingBottom: "10px", marginBottom: "15px" }}>
-              <h2 style={{ margin: 0, color: "#3b82f6" }}>📊 BÁO CÁO NHANH</h2>
+              <h2 style={{ margin: 0, color: "#3b82f6" }}>📊 THỐNG KÊ NHANH</h2>
               <button onClick={() => setShowStatsModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
             </div>
             
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", marginBottom: "20px" }}>
               <div style={{ backgroundColor: "#fef2f2", padding: "10px", borderRadius: "8px", border: "1px solid #fecaca", textAlign: "center" }}>
-                <div style={{ fontSize: "10px", color: "#ef4444", fontWeight: "bold" }}>TỔNG BÁN RA (Cả Nợ)</div>
+                <div style={{ fontSize: "10px", color: "#ef4444", fontWeight: "bold" }}>TỔNG BÁN RA</div>
                 <div style={{ fontSize: "14px", fontWeight: "bold", color: "#b91c1c", marginTop: "4px" }}>{todayStats.totalSales.toLocaleString()}đ</div>
               </div>
               <div style={{ backgroundColor: "#eff6ff", padding: "10px", borderRadius: "8px", border: "1px solid #bfdbfe", textAlign: "center" }}>
-                <div style={{ fontSize: "10px", color: "#3b82f6", fontWeight: "bold" }}>THỰC THU (Mặt+CK)</div>
+                <div style={{ fontSize: "10px", color: "#3b82f6", fontWeight: "bold" }}>THỰC THU</div>
                 <div style={{ fontSize: "14px", fontWeight: "bold", color: "#1e3a8a", marginTop: "4px" }}>{todayStats.rev.toLocaleString()}đ</div>
               </div>
               <div style={{ backgroundColor: "#f0fdf4", padding: "10px", borderRadius: "8px", border: "1px solid #bbf7d0", textAlign: "center" }}>
-                <div style={{ fontSize: "10px", color: "#16a34a", fontWeight: "bold" }}>TỔNG LÃI GỘP</div>
+                <div style={{ fontSize: "10px", color: "#16a34a", fontWeight: "bold" }}>TỔNG LÃI</div>
                 <div style={{ fontSize: "14px", fontWeight: "bold", color: "#14532d", marginTop: "4px" }}>{todayStats.prof.toLocaleString()}đ</div>
               </div>
             </div>
@@ -1672,9 +1679,9 @@ export default function App() {
                 <div style={{ width: "2px", height: "30px", backgroundColor: "#e2e8f0" }}></div>
                 <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
                   {role === 'admin' && <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>VỐN</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#475569" }}>{totalValue.toLocaleString()}đ</div></div>}
-                  <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>💵 THU TIỀN MẶT</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#059669" }}>{currentShiftStats.cash.toLocaleString()}đ</div></div>
-                  <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>💳 CHUYỂN KHOẢN</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#2563eb" }}>{currentShiftStats.transfer.toLocaleString()}đ</div></div>
-                  {role === 'admin' && <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>LÃI CA NÀY</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#ea580c" }}>{currentShiftStats.prof.toLocaleString()}đ</div></div>}
+                  <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>TIỀN MẶT</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#059669" }}>{currentShiftStats.cash.toLocaleString()}đ</div></div>
+                  <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>CHUYỂN KHOẢN</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#2563eb" }}>{currentShiftStats.transfer.toLocaleString()}đ</div></div>
+                  {role === 'admin' && <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>LÃI</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#ea580c" }}>{currentShiftStats.prof.toLocaleString()}đ</div></div>}
                 </div>
                 <div style={{ width: "2px", height: "30px", backgroundColor: "#e2e8f0" }}></div>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -1688,26 +1695,41 @@ export default function App() {
               </div>
             </div>
 
-            {/* DÒNG 2: THANH MENU NÚT BẤM */}
-            <div style={{ display: "flex", gap: "8px", borderTop: "1px dashed #cbd5e1", paddingTop: "12px", alignItems: "center" }}>
-               {role === 'admin' && (
-                  <>
-                    <button onClick={() => setShowStatsModal(true)} style={{ padding: "8px 16px", background: "#eff6ff", color: "#3b82f6", border: "1px solid #bfdbfe", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s" }}>📊 THỐNG KÊ</button>
-                    <button onClick={() => setShowCustomerModal(true)} style={{ padding: "8px 16px", background: "#fdf4ff", color: "#4f46e5", border: "1px solid #c7d2fe", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s" }}>🤝 KHÁCH HÀNG</button>
-                    <button onClick={() => setShowAuditModal(true)} style={{ padding: "8px 16px", background: "#f8fafc", color: "#334155", border: "1px solid #cbd5e1", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s" }}>🕵️ LỊCH SỬ THAO TÁC</button>
-                    <button onClick={() => {
-                        setNewAdminPass(adminPass);
-                        setNewStaffPass(staffPass);
-                        setNewBankBin(bankBin);
-                        setNewBankAcc(bankAcc);
-                        setNewBankNameStr(bankNameStr);
-                        setShowSettings(true);
-                    }} style={{ padding: "8px 16px", background: "#f3f4f6", color: "#475569", border: "1px solid #cbd5e1", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s" }}>⚙️ CÀI ĐẶT</button>
-                  </>
-                )}
-                <button onClick={() => setShowDebtModal(true)} style={{ padding: "8px 16px", background: "#fef2f2", color: "#ef4444", border: "1px solid #fecaca", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s" }}>📓 SỔ NỢ KHÁCH HÀNG</button>
+            {/* DÒNG 2: THANH MENU NÚT BẤM & TIỆN ÍCH */}
+            <div style={{ display: "flex", borderTop: "1px dashed #cbd5e1", paddingTop: "12px", alignItems: "center", justifyContent: "space-between" }}>
+               
+               {/* Khối bên trái: Các nút chức năng (Đã gọt ngắn chữ) */}
+               <div style={{ display: "flex", gap: "8px" }}>
+                 {role === 'admin' && (
+                    <>
+                      <button onClick={() => setShowStatsModal(true)} style={{ padding: "8px 16px", background: "#eff6ff", color: "#3b82f6", border: "1px solid #bfdbfe", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s" }}>📊 THỐNG KÊ</button>
+                      <button onClick={() => setShowCustomerModal(true)} style={{ padding: "8px 16px", background: "#fdf4ff", color: "#4f46e5", border: "1px solid #c7d2fe", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s" }}>🤝 KHÁCH HÀNG</button>
+                      <button onClick={() => setShowAuditModal(true)} style={{ padding: "8px 16px", background: "#f8fafc", color: "#334155", border: "1px solid #cbd5e1", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s" }}>🕵️ LỊCH SỬ</button>
+                      <button onClick={() => {
+                          setNewAdminPass(adminPass);
+                          setNewStaffPass(staffPass);
+                          setNewBankBin(bankBin);
+                          setNewBankAcc(bankAcc);
+                          setNewBankNameStr(bankNameStr);
+                          setShowSettings(true);
+                      }} style={{ padding: "8px 16px", background: "#f3f4f6", color: "#475569", border: "1px solid #cbd5e1", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s" }}>⚙️ CÀI ĐẶT</button>
+                    </>
+                  )}
+                  <button onClick={() => setShowDebtModal(true)} style={{ padding: "8px 16px", background: "#fef2f2", color: "#ef4444", border: "1px solid #fecaca", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s" }}>📓 SỔ NỢ</button>
+               </div>
                 
-                <div style={{ flex: 1 }}></div> {/* Khối đệm đẩy sang trái */}
+               {/* Khối bên phải: Tiện ích hệ thống */}
+               <div style={{ display: "flex", gap: "15px", alignItems: "center", fontSize: "12px", fontWeight: "bold", color: "#64748b" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#f8fafc", padding: "6px 12px", borderRadius: "6px", border: "1px solid #e2e8f0" }}>
+                      <span style={{ fontSize: "14px" }}>⏱️</span> 
+                      {currentTime.toLocaleTimeString('vi-VN')} - {currentTime.toLocaleDateString('vi-VN')}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#ecfdf5", padding: "6px 12px", borderRadius: "6px", border: "1px solid #a7f3d0", color: "#059669" }}>
+                      <span style={{ height: "8px", width: "8px", backgroundColor: "#10b981", borderRadius: "50%", display: "inline-block", animation: "pulse-fast 2s infinite" }}></span>
+                      Online
+                  </div>
+               </div>
+
             </div>
 
           </div>
@@ -1743,7 +1765,7 @@ export default function App() {
               {showInputForm && role === 'admin' && (
                 <form onSubmit={handleAddProduct} style={{ backgroundColor: "#fff7ed", padding: "15px", borderRadius: "8px", border: "1px solid #fdba74", marginBottom: "15px" }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr 1fr 1fr", gap: "10px", marginBottom: "10px" }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">Mã SẢN PHẨM</span><input placeholder="VD: SP001" value={newCode} onChange={handleCodeChange} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">MÃ SẢN PHẨM</span><input placeholder="VD: SP001" value={newCode} onChange={handleCodeChange} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
                     <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">TÊN HÀNG HÓA</span><input placeholder="VD: Bia Tiger" value={newName} onChange={e => setNewName(e.target.value)} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
                     <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">PHÂN LOẠI</span><input list="category-list" placeholder="Chọn / Nhập..." value={newCategory} onChange={e => setNewCategory(e.target.value)} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /><datalist id="category-list">{categories.filter(c => c !== 'Tất cả').map(c => <option key={c} value={c} />)}</datalist></div>
                     <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">GIÁ VỐN (Đ)</span><input type="number" placeholder="0" value={newImportPrice} onChange={e => setNewImportPrice(e.target.value)} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
