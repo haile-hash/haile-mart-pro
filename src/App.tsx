@@ -72,7 +72,11 @@ export default function App() {
   const [custPhone, setCustPhone] = useState("");
   const [custName, setCustName] = useState("");
   const [useWallet, setUseWallet] = useState(false);
-  const [voucherAmount, setVoucherAmount] = useState<number | "">(""); 
+  
+  // STATE MỚI CHO VOUCHER QUÉT MÃ VẠCH
+  const [voucherInput, setVoucherInput] = useState(""); 
+  const [appliedVoucherAmount, setAppliedVoucherAmount] = useState<number>(0);
+
   const [customerGiven, setCustomerGiven] = useState<number | "">(""); 
   const [lastOrder, setLastOrder] = useState<any>(null);
 
@@ -266,20 +270,16 @@ export default function App() {
 
   const addToCart = (p: any) => {
     if (p.stock <= 0) { playSound('error'); return alert("Đã hết hàng trong kho!"); }
-    const q = window.prompt(`Số lượng ${p.name} (Tồn: ${p.stock}):`, "1");
-    if (q && parseInt(q) > 0) {
-      const qty = parseInt(q); const pr = getActualPrice(p);
-      const exist = cart.find(item => item.product.id === p.id);
-      if (exist) {
-        const newQty = exist.qty + qty;
-        if (newQty > p.stock) { playSound('error'); return alert(`Không đủ hàng! Trong kho chỉ còn ${p.stock}.`); }
-        setCart(cart.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*pr*(1+VAT_RATE)), profit: Math.round(newQty*(pr - (p.import_price||0))) } : i));
-      } else {
-        if (qty > p.stock) { playSound('error'); return alert(`Không đủ hàng! Trong kho chỉ còn ${p.stock}.`); }
-        setCart([...cart, { product: p, qty, total: Math.round(qty*pr*(1+VAT_RATE)), profit: Math.round(qty*(pr - (p.import_price||0))) }]);
-      }
-      playSound('success');
+    const price = getActualPrice(p);
+    const exist = cart.find(item => item.product.id === p.id);
+    if (exist) {
+      const newQty = exist.qty + 1;
+      if (newQty > p.stock) { playSound('error'); return alert(`Không đủ hàng! Trong kho chỉ còn ${p.stock}.`); }
+      setCart(cart.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i));
+    } else {
+      setCart([...cart, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }]);
     }
+    playSound('success');
   };
 
   const adjustCartQty = (productId: any, delta: number) => {
@@ -357,6 +357,35 @@ export default function App() {
 
   const cartTotalAmount = cart.reduce((sum, item) => sum + item.total, 0);
 
+  // --- XỬ LÝ VOUCHER QUÉT MÃ VẠCH ---
+  const handleVoucherSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const code = voucherInput.trim().toUpperCase();
+      
+      // Database mã giảm giá giả lập (Ông chủ có thể tự thêm vào đây)
+      const VOUCHERS: Record<string, number> = { 
+        "VC50K": 50000, 
+        "VC100K": 100000, 
+        "VIP200K": 200000,
+        "KM10K": 10000 
+      };
+
+      if (VOUCHERS[code]) {
+        setAppliedVoucherAmount(VOUCHERS[code]);
+        playSound('success');
+      } else if (!isNaN(Number(code)) && Number(code) > 0) {
+        // Fallback: Cho phép gõ tay trực tiếp số tiền (vd gõ 20000)
+        setAppliedVoucherAmount(Number(code));
+        playSound('success');
+      } else {
+        playSound('error');
+        alert("Mã Voucher không hợp lệ!");
+        setAppliedVoucherAmount(0);
+      }
+    }
+  };
+
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const phone = e.target.value; 
     setCustPhone(phone);
@@ -383,7 +412,7 @@ export default function App() {
     const vatTotal = Math.round(subTotal * VAT_RATE);
     const baseTotal = subTotal + vatTotal;
     
-    const vDiscount = Number(voucherAmount) || 0;
+    const vDiscount = appliedVoucherAmount || 0; // Đổi sang sử dụng appliedVoucherAmount
     const totalAfterVoucher = Math.max(0, baseTotal - vDiscount);
 
     const wallet = customers[custPhone]?.wallet || 0;
@@ -417,8 +446,6 @@ export default function App() {
   };
 
   const handleRefund = async (logId: any) => {
-    // Đã gỡ bỏ giới hạn: Nhân viên và Quản lý đều được hoàn trả
-    
     const logIndex = history.findIndex(l => l.id === logId);
     if(logIndex === -1) return;
     const log = history[logIndex];
@@ -495,7 +522,7 @@ export default function App() {
     }
   };
 
-  const closeCheckout = () => { setCart([]); setIsCheckoutOpen(false); setCheckoutStep(1); setCustPhone(""); setCustName(""); setUseWallet(false); setVoucherAmount(""); setCustomerGiven(""); setLastOrder(null); };
+  const closeCheckout = () => { setCart([]); setIsCheckoutOpen(false); setCheckoutStep(1); setCustPhone(""); setCustName(""); setUseWallet(false); setVoucherInput(""); setAppliedVoucherAmount(0); setCustomerGiven(""); setLastOrder(null); };
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const code = e.target.value; setNewCode(code);
@@ -765,14 +792,15 @@ export default function App() {
     .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     .qty-input[type=number] { -moz-appearance: textfield; }
     
+    .add-to-cart-btn { padding: 8px 16px; background-color: #fbbf24; color: #78350f; border: none; border-radius: 6px; font-weight: 900; cursor: pointer; font-size: 12px; transition: transform 0.1s, background-color 0.2s; box-shadow: 0 2px 4px rgba(251, 191, 36, 0.3); }
+    .add-to-cart-btn:hover { background-color: #f59e0b; transform: scale(1.05); }
+    .add-to-cart-btn:active { transform: scale(0.95); }
+
     @media print { 
       body, html { background: white !important; margin: 0 !important; padding: 0 !important; color: #000; } 
       .no-print { display: none !important; } 
       
-      .print-only.print-receipt { 
-        display: block !important; 
-        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; width: 80mm; margin: 0 auto; padding: 5mm; box-sizing: border-box; font-size: 12px; line-height: 1.4; 
-      }
+      .print-only.print-receipt { display: block !important; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; width: 80mm; margin: 0 auto; padding: 5mm; box-sizing: border-box; font-size: 12px; line-height: 1.4; }
       .print-header { text-align: center; margin-bottom: 10px; }
       .print-header h2 { margin: 0; font-size: 22px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
       .print-header p { margin: 2px 0; font-size: 11px; color: #333; }
@@ -786,21 +814,8 @@ export default function App() {
       .print-grand-total { display: flex; justify-content: space-between; font-size: 18px; font-weight: 900; border-top: 2px dashed #000; padding-top: 8px; margin-top: 5px; }
       .print-footer { text-align: center; font-size: 11px; margin-top: 15px; }
       
-      .print-only.print-barcode-sheet {
-        display: flex !important;
-        flex-wrap: wrap;
-        gap: 15px;
-        justify-content: center;
-        padding: 10mm;
-      }
-      .barcode-sticker {
-        width: 30%;
-        text-align: center;
-        margin-bottom: 15px;
-        border: 1px dashed #ccc;
-        padding: 8px;
-        page-break-inside: avoid;
-      }
+      .print-only.print-barcode-sheet { display: flex !important; flex-wrap: wrap; gap: 15px; justify-content: center; padding: 10mm; }
+      .barcode-sticker { width: 30%; text-align: center; margin-bottom: 15px; border: 1px dashed #ccc; padding: 8px; page-break-inside: avoid; }
 
       @page { margin: 0; } 
     }
@@ -830,13 +845,13 @@ export default function App() {
     );
   }
 
-  const finalToPay = Math.round(Math.max(0, cartTotalAmount - (Number(voucherAmount) || 0) - (useWallet ? Math.min(customers[custPhone]?.wallet||0, Math.max(0, cartTotalAmount - (Number(voucherAmount) || 0))) : 0)));
+  const finalToPay = Math.round(Math.max(0, cartTotalAmount - appliedVoucherAmount - (useWallet ? Math.min(customers[custPhone]?.wallet||0, Math.max(0, cartTotalAmount - appliedVoucherAmount)) : 0)));
 
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); }}>
       <style>{styles}</style>
       
-      {/* 🖨️ BIÊN LAI BÁN HÀNG (Sẽ bị ẩn nếu đang ở chế độ in Tem) */}
+      {/* 🖨️ BIÊN LAI BÁN HÀNG */}
       {lastOrder && printMode !== 'barcode' && (
         <div className="print-only print-receipt">
           <div className="print-header">
@@ -1081,24 +1096,6 @@ export default function App() {
         </div>
       )}
 
-      {/* 📷 CAMERA SCANNER OVERLAY */}
-      {showScanner && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.9)", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", zIndex: 10000 }}>
-          <div style={{ background: "#fff", padding: "10px", borderRadius: "12px", width: "90%", maxWidth: "400px", position: "relative" }}>
-            <h3 style={{ margin: "0 0 10px 0", textAlign: "center", color: "#b91c1c" }}>📷 Đưa mã vạch vào khung</h3>
-            
-            {scanMessage && (
-              <div style={{ position: "absolute", top: "50px", left: "50%", transform: "translateX(-50%)", padding: "8px 16px", backgroundColor: scanMessage.type === 'success' ? "#10b981" : "#ef4444", color: "#fff", fontWeight: "bold", borderRadius: "20px", zIndex: 10001, boxShadow: "0 4px 6px rgba(0,0,0,0.3)", animation: "float 0.5s ease-out" }}>
-                {scanMessage.text}
-              </div>
-            )}
-
-            <div id="qr-reader" style={{ width: "100%" }}></div>
-            <button onClick={() => setShowScanner(false)} style={{ width: "100%", padding: "12px", marginTop: "15px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" }}>ĐÓNG CAMERA</button>
-          </div>
-        </div>
-      )}
-
       <div className="no-print" style={{ padding: "10px", position: "relative", minHeight: "100vh" }}>
         <div className="spring-bg" style={{ background: "#ef4444", top: "10%", left: "5%" }}></div>
         <div className="spring-bg" style={{ background: "#f59e0b", bottom: "10%", right: "5%" }}></div>
@@ -1110,7 +1107,21 @@ export default function App() {
               <div className="glass" style={{ padding: "25px", width: "350px" }}>
                 <h3 style={{ color: "#ef4444", margin: "0", textAlign: "center" }}>🧧 THANH TOÁN</h3>
                 
-                <input type="number" placeholder="Nhập số tiền Voucher giảm (đ)..." value={voucherAmount} onChange={(e) => setVoucherAmount(parseInt(e.target.value) || "")} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px dashed #f59e0b", marginTop: "15px", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb" }} />
+                {/* 💳 NÂNG CẤP Ô VOUCHER QUÉT MÃ VẠCH */}
+                <input 
+                  type="text" 
+                  placeholder="👉 Quẹt mã Voucher hoặc nhập số tiền (đ)..." 
+                  value={voucherInput} 
+                  onChange={(e) => setVoucherInput(e.target.value)} 
+                  onKeyDown={handleVoucherSubmit}
+                  style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px dashed #f59e0b", marginTop: "15px", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb" }} 
+                />
+                {appliedVoucherAmount > 0 && (
+                  <div style={{ color: "#059669", fontSize: "12px", fontWeight: "bold", marginTop: "4px", textAlign: "center" }}>
+                    ✅ Đã áp dụng giảm: {appliedVoucherAmount.toLocaleString()}đ
+                  </div>
+                )}
+
                 <input type="text" placeholder="Số điện thoại khách (nếu có)..." value={custPhone} onChange={handlePhoneChange} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px solid #ef4444", marginTop: "10px", outline: "none", boxSizing: "border-box" }} />
                 
                 {custPhone && (
@@ -1181,7 +1192,6 @@ export default function App() {
         )}
 
         <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
-          {/* HEADER CHÍNH */}
           <div className="glass" style={{ padding: "8px 15px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", borderBottom: "4px solid #ef4444" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
               <h2 style={{ color: "#ef4444", margin: 0, fontSize: "18px" }}>🏪 HẢI LÊ MART</h2>
@@ -1215,9 +1225,8 @@ export default function App() {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "3fr 1fr", gap: "10px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: "10px" }}>
             
-            {/* CỘT TRÁI: SẢN PHẨM */}
             <div className="glass" style={{ padding: "12px" }}>
               
               <div style={{ display: "flex", gap: "8px", marginBottom: "10px", position: "relative" }}>
@@ -1397,7 +1406,7 @@ export default function App() {
                           </td>
                           <td style={{ textAlign: "right", padding: "8px 4px" }}>
                             <div style={{ display: "flex", justifyContent: "flex-end", gap: "4px" }}>
-                              <button onClick={() => addToCart(p)} style={{ padding: "4px 8px", backgroundColor: "#fbbf24", color: "#78350f", border: "none", borderRadius: "4px", fontWeight: "bold", cursor: "pointer", fontSize: "10px" }}>+ GIỎ</button>
+                              <button className="add-to-cart-btn" onClick={() => addToCart(p)}>+ GIỎ</button>
                               {role === 'admin' && <button onClick={() => handlePrintBarcode(p)} style={{ padding: "4px 6px", backgroundColor: "#e2e8f0", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "10px" }} title="In tem mã vạch">🖨️ Tem</button>}
                               {role === 'admin' && <button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "12px", padding: 0 }}>🗑️</button>}
                             </div>
@@ -1410,9 +1419,9 @@ export default function App() {
               </div>
             </div>
 
-            {/* CỘT PHẢI: GIỎ HÀNG & LỊCH SỬ */}
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <div className="glass" style={{ padding: "12px", maxHeight: "40vh", display: "flex", flexDirection: "column" }}>
+              
+              <div className="glass" style={{ padding: "12px", flex: 1.5, minHeight: "45vh", display: "flex", flexDirection: "column" }}>
                 
                 <div style={{ marginBottom: "12px", paddingBottom: "8px", borderBottom: "2px dashed #fed7aa" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
@@ -1466,10 +1475,10 @@ export default function App() {
                     </div>
                   )})}
                 </div>
-                {cart.length > 0 && <button onClick={() => { setIsCheckoutOpen(true); setCheckoutStep(1); }} style={{ width: "100%", padding: "10px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer", fontSize: "12px" }}>THANH TOÁN</button>}
+                {cart.length > 0 && <button onClick={() => { setIsCheckoutOpen(true); setCheckoutStep(1); }} style={{ width: "100%", padding: "12px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer", fontSize: "14px" }}>THANH TOÁN</button>}
               </div>
 
-              <div className="glass" style={{ padding: "12px", flex: 1, display: "flex", flexDirection: "column", maxHeight: "calc(60vh - 50px)" }}>
+              <div className="glass" style={{ padding: "12px", flex: 1, display: "flex", flexDirection: "column", height: "35vh" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", alignItems: "center" }}>
                   <h3 style={{ margin: 0, fontSize: "13px", color: "#b91c1c" }}>📋 NHẬT KÝ CA NÀY</h3>
                   {role === 'admin' && (
@@ -1491,7 +1500,6 @@ export default function App() {
                           <div style={{ display: "flex", justifyContent: "space-between" }}>
                             <span>
                                 <b style={{color: log.type === 'TRẢ HÀNG' ? '#ef4444' : '#1e293b'}}>[{log.type}]</b> {log.name} x{log.qty}
-                                {/* HIỂN THỊ TRẠNG THÁI NẾU ĐÃ TỪNG HOÀN TRẢ */}
                                 {log.refunded_qty > 0 && <span style={{color:"#ef4444", fontSize:"8px", marginLeft:"4px"}}>(Đã hoàn {log.refunded_qty})</span>}
                             </span>
                             {log.type === "BÁN" && <span style={{color:"#059669", fontWeight:"bold"}}>+{Math.round(log.total).toLocaleString()}</span>}
@@ -1503,8 +1511,6 @@ export default function App() {
                             <span>{log.customer}</span>
                             <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                               <span>{log.t}</span>
-                              
-                              {/* ↩️ NÚT HOÀN TRẢ 1 PHẦN CHO CẢ NHÂN VIÊN VÀ QUẢN LÝ */}
                               {log.type === 'BÁN' && (
                                 <button 
                                     onClick={() => handleRefund(log.id)} 
