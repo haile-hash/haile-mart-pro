@@ -134,35 +134,11 @@ export default function App() {
   useEffect(() => {
     if (scannedCodeObj) {
       const p = products.find(prod => prod.product_code === scannedCodeObj.code.trim());
-      if (p) {
-         if (p.stock <= 0) {
-            playSound('error');
-            setScanMessage({ text: `❌ ${p.name} đã hết hàng!`, type: 'error' });
-         } else {
-            const price = getActualPrice(p);
-            setCart(prev => {
-               const exist = prev.find(item => item.product.id === p.id);
-               if (exist) {
-                  const newQty = exist.qty + 1;
-                  if (newQty > p.stock) {
-                     playSound('error'); setScanMessage({ text: `❌ Quá tồn kho (${p.stock})`, type: 'error' });
-                     return prev;
-                  }
-                  playSound('success'); setScanMessage({ text: `✅ +1 ${p.name}`, type: 'success' });
-                  return prev.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i);
-               } else {
-                  playSound('success'); setScanMessage({ text: `✅ Thêm: ${p.name}`, type: 'success' });
-                  return [...prev, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }];
-               }
-            });
-         }
-      } else {
-         playSound('error');
-         setScanMessage({ text: `❌ Không tìm thấy: ${scannedCodeObj.code}`, type: 'error' });
-      }
-      setTimeout(() => setScanMessage(null), 1500); 
+      if (p) handleSelectSuggest(p);
+      else { playSound('error'); alert(`Không tìm thấy mã vạch: ${scannedCodeObj.code}`); }
+      setScannedCodeObj(null);
     }
-  }, [scannedCodeObj]);
+  }, [scannedCodeObj, products]);
 
   useEffect(() => {
     const handleAfterPrint = () => setPrintMode(null);
@@ -326,11 +302,9 @@ export default function App() {
     } else if (delta > 0) playSound('success');
   };
 
-  // --- HÀM CHO PHÉP NHẬP TRỰC TIẾP SỐ LƯỢNG (CHỐNG LỖI) ---
   const handleDirectQtyChange = (productId: any, val: string) => {
     setCart(prev => {
       if (val === '') {
-        // Cho phép tạm thời để trống ô để người dùng nhập số mới
         return prev.map(i => i.product.id === productId ? { ...i, qty: '' as any, total: 0, profit: 0 } : i);
       }
       let num = parseInt(val);
@@ -356,7 +330,6 @@ export default function App() {
     });
   };
 
-  // Khôi phục về 1 nếu người dùng lỡ xóa trống ô rồi bấm ra ngoài
   const handleDirectQtyBlur = (productId: any, val: string) => {
     if (val === '' || parseInt(val) <= 0 || isNaN(parseInt(val))) {
        setCart(prev => prev.map(i => {
@@ -368,7 +341,6 @@ export default function App() {
        }));
     }
   };
-  // -----------------------------------------------------------
 
   const removeFromCart = (productId: any) => {
     const item = cart.find(i => i.product.id === productId);
@@ -393,6 +365,7 @@ export default function App() {
   };
 
   const handleNextToQR = () => {
+    if (cart.length === 0) return alert("Giỏ hàng đang trống!");
     if (custPhone && !customers[custPhone] && !custName) return alert("Nhập Tên khách hàng!");
     setCheckoutStep(2);
   };
@@ -422,7 +395,7 @@ export default function App() {
 
     for (const item of cart) {
       await supabase.from("products").update({ stock: item.product.stock - item.qty }).eq("id", item.product.id);
-      logs.push({ id: Date.now() + Math.random(), shift: shift, type: isDebt ? "GHI NỢ" : "BÁN", name: item.product.name + (item.product.isHappyHour ? ' [Giờ Vàng]' : ''), qty: item.qty, total: Math.round(item.total), profit: Math.round(item.profit), customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id });
+      logs.push({ id: Date.now() + Math.random(), shift: shift, type: isDebt ? "GHI NỢ" : "BÁN", name: item.product.name + (item.product.isHappyHour ? ' [Giờ Vàng]' : ''), qty: item.qty, total: Math.round(item.total), profit: Math.round(item.profit), customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id, refunded_qty: 0 }); // Thêm field refunded_qty
     }
     
     if (custPhone) {
@@ -443,27 +416,85 @@ export default function App() {
     setCheckoutStep(3); fetchProducts(); setLoading(false);
   };
 
+  // --- HÀM HOÀN TRẢ MỘT PHẦN (PARTIAL REFUND) SIÊU ĐỈNH ---
   const handleRefund = async (logId: any) => {
     if(role !== 'admin') return alert("Chỉ quản lý mới được hoàn trả!");
-    if(!window.confirm("Xác nhận khách trả lại món này?")) return;
-    
+
     const logIndex = history.findIndex(l => l.id === logId);
     if(logIndex === -1) return;
     const log = history[logIndex];
     if(log.type !== 'BÁN') return alert("Chỉ hoàn trả đơn BÁN!");
 
+    const maxRefund = log.qty - (log.refunded_qty || 0);
+    if(maxRefund <= 0) return alert("Đơn này đã được hoàn trả toàn bộ!");
+
+    const qStr = window.prompt(`Sản phẩm: ${log.name}\nĐã mua: ${log.qty} | Có thể hoàn tối đa: ${maxRefund}\n\nNhập số lượng muốn hoàn trả:`, maxRefund.toString());
+    if (!qStr) return;
+    const refundQty = parseInt(qStr);
+
+    if (isNaN(refundQty) || refundQty <= 0 || refundQty > maxRefund) {
+      playSound('error');
+      return alert("Số lượng hoàn không hợp lệ!");
+    }
+
+    if(!window.confirm(`Xác nhận hoàn trả ${refundQty} x ${log.name}?`)) return;
+
+    // Tính toán số tiền tương ứng cần hoàn
+    const unitTotal = log.total / log.qty;
+    const unitProfit = log.profit / log.qty;
+    const refundTotal = Math.round(unitTotal * refundQty);
+    const refundProfit = Math.round(unitProfit * refundQty);
+
+    // Cập nhật lại tồn kho vào database
     const p = products.find(x => x.id === log.product_id);
-    if (p) await supabase.from("products").update({ stock: p.stock + log.qty }).eq("id", p.id);
-    
+    if (p) await supabase.from("products").update({ stock: p.stock + refundQty }).eq("id", p.id);
+
+    // Xử lý tiền: Hỏi xem có muốn cộng vào VÍ KHÁCH HÀNG không
+    let refundedToWallet = false;
+    if (log.customer && log.customer !== "Khách lẻ") {
+       const phoneMatch = log.customer.match(/\((.*?)\)/);
+       if (phoneMatch && phoneMatch[1]) {
+           const phone = phoneMatch[1];
+           if (customers[phone]) {
+               if (window.confirm(`Hoàn ${refundTotal.toLocaleString()}đ bằng TIỀN MẶT hay cộng vào VÍ ĐIỂM của khách?\n\n- OK: Cộng vào VÍ ĐIỂM\n- Cancel: Hoàn bằng TIỀN MẶT`)) {
+                   setCustomers((prev: any) => ({
+                       ...prev,
+                       [phone]: {
+                           ...prev[phone],
+                           wallet: (prev[phone].wallet || 0) + refundTotal
+                       }
+                   }));
+                   logAudit("HOÀN TIỀN VÍ", `Hoàn ${refundTotal.toLocaleString()}đ vào ví KH ${customers[phone].name}`);
+                   refundedToWallet = true;
+               }
+           }
+       }
+    }
+
     const updatedHistory = [...history];
-    updatedHistory[logIndex].type = 'ĐÃ HOÀN TRẢ';
-    updatedHistory.unshift({ id: Date.now(), shift: shift, type: "TRẢ HÀNG", name: log.name, qty: log.qty, total: -log.total, profit: -log.profit, customer: log.customer });
+    
+    // Ghi chú lại số lượng đã hoàn vào log gốc (không xóa log cũ để giữ lịch sử)
+    updatedHistory[logIndex].refunded_qty = (log.refunded_qty || 0) + refundQty;
+
+    // Tạo thêm 1 log âm để cân bằng doanh thu
+    updatedHistory.unshift({ 
+      id: Date.now(), 
+      shift: shift, 
+      type: "TRẢ HÀNG", 
+      name: log.name + (refundedToWallet ? " (Hoàn Ví)" : " (Hoàn Tiền Mặt)"), 
+      qty: refundQty, 
+      total: -refundTotal, 
+      profit: -refundProfit, 
+      customer: log.customer 
+    });
     
     setHistory(updatedHistory);
     fetchProducts();
-    logAudit("TRẢ HÀNG", `Hoàn trả ${log.name} trị giá ${log.total.toLocaleString()}đ`);
-    alert("Hoàn trả thành công! Hàng đã nhập lại kho, tiền sẽ tự động trừ khỏi doanh thu ca.");
+    logAudit("TRẢ HÀNG", `Hoàn ${refundQty} ${log.name} trị giá ${refundTotal.toLocaleString()}đ`);
+    playSound('success');
+    alert(`Hoàn trả thành công ${refundQty} sản phẩm! Tiền đã được xử lý.`);
   };
+  // -------------------------------------------------------------------------
 
   const handlePayDebt = (phone: string) => {
     const currentDebt = customers[phone]?.debt || 0;
@@ -592,6 +623,20 @@ export default function App() {
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = `Bao_Cao_Hai_Le_Mart.csv`;
+    link.click();
+  };
+
+  const exportAuditToCSV = () => {
+    if (auditLogs.length === 0) return alert("Chưa có dữ liệu thao tác!");
+    let csv = "\uFEFFThời gian,Người dùng,Ca,Hành động,Chi tiết\n";
+    auditLogs.forEach(log => {
+      const safeDetail = `"${(log.detail || "").replace(/"/g, '""')}"`;
+      csv += `${log.time},${log.user},${log.shift},${log.action},${safeDetail}\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Nhat_Ky_Kiem_Toan_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.csv`;
     link.click();
   };
 
@@ -729,27 +774,9 @@ export default function App() {
     .tab-btn.active { background: #ef4444; color: #fff; border-color: #ef4444; }
     .print-only { display: none; }
     
-    /* CSS CHO Ô INPUT SỐ LƯỢNG MỚI (ẨN NÚT MŨI TÊN MẶC ĐỊNH) */
-    .qty-input {
-      width: 28px;
-      text-align: center;
-      border: 1px solid #cbd5e1;
-      border-radius: 4px;
-      outline: none;
-      font-size: 11px;
-      font-weight: bold;
-      color: #1e293b;
-      padding: 3px 0;
-      background: #fff;
-    }
-    .qty-input::-webkit-outer-spin-button,
-    .qty-input::-webkit-inner-spin-button {
-      -webkit-appearance: none;
-      margin: 0;
-    }
-    .qty-input[type=number] {
-      -moz-appearance: textfield;
-    }
+    .qty-input { width: 28px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; outline: none; font-size: 11px; font-weight: bold; color: #1e293b; padding: 3px 0; background: #fff; }
+    .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .qty-input[type=number] { -moz-appearance: textfield; }
     
     @media print { 
       body, html { background: white !important; margin: 0 !important; padding: 0 !important; color: #000; } 
@@ -822,7 +849,7 @@ export default function App() {
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); }}>
       <style>{styles}</style>
       
-      {/* 🖨️ BIÊN LAI BÁN HÀNG (Sẽ bị ẩn nếu đang ở chế độ in Tem) */}
+      {/* 🖨️ BIÊN LAI BÁN HÀNG */}
       {lastOrder && printMode !== 'barcode' && (
         <div className="print-only print-receipt">
           <div className="print-header">
@@ -839,7 +866,7 @@ export default function App() {
           <div style={{ width: "100%" }}>
             {lastOrder.cart.map((item: any, idx: number) => {
               const price = Math.round(getActualPrice(item.product));
-              const itemTotal = Math.round((Number(item.qty)||0) * price); // Safe math
+              const itemTotal = Math.round((Number(item.qty)||0) * price);
               const gift = parseGift(item.product.gift_info);
               const hasGift = gift.text && (Number(item.qty)||0) >= gift.cond;
 
@@ -919,12 +946,15 @@ export default function App() {
         </div>
       )}
 
-      {/* 🕵️ MODAL KIỂM TOÁN LỊCH SỬ THAO TÁC (CHỈ ADMIN) */}
+      {/* 🕵️ MODAL KIỂM TOÁN LỊCH SỬ THAO TÁC */}
       {showAuditModal && role === 'admin' && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "600px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #cbd5e1", paddingBottom: "10px", marginBottom: "10px" }}>
-              <h2 style={{ margin: 0, color: "#334155" }}>🕵️ NHẬT KÝ THAO TÁC HỆ THỐNG</h2>
+              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                <h2 style={{ margin: 0, color: "#334155" }}>🕵️ NHẬT KÝ THAO TÁC HỆ THỐNG</h2>
+                <button onClick={exportAuditToCSV} style={{ fontSize: "10px", padding: "4px 8px", background: "#10b981", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>📥 XUẤT FILE</button>
+              </div>
               <button onClick={() => setShowAuditModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
             </div>
             <div style={{ overflowY: "auto", flex: 1, fontSize: "12px" }}>
@@ -1118,8 +1148,10 @@ export default function App() {
                 <h3 style={{ color: "#ef4444", margin: "0" }}>📱 THANH TOÁN QUẦY</h3>
                 <div style={{ color: "#ef4444", fontSize: "28px", fontWeight: "900", margin: "10px 0" }}>{finalToPay.toLocaleString()}đ</div>
                 
+                <img src={`https://img.vietqr.io/image/970422-0680124181004-compact2.png?amount=${finalToPay}&addInfo=Thanh toan&accountName=LE%20HONG%20HAI`} style={{ width: "160px", margin: "0 auto 15px auto", border: "2px solid #ef4444", borderRadius: "10px", display: "block" }} alt="Mã VietQR" />
+                
                 <div style={{ marginBottom: "15px", textAlign: "left" }}>
-                  <div style={{ fontSize: "12px", color: "#64748b", fontWeight: "bold", marginBottom: "5px" }}>Tiền khách đưa:</div>
+                  <div style={{ fontSize: "12px", color: "#64748b", fontWeight: "bold", marginBottom: "5px" }}>Tiền mặt khách đưa:</div>
                   <input type="number" placeholder="Nhập số tiền..." value={customerGiven} onChange={e => setCustomerGiven(Number(e.target.value) || "")} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", boxSizing: "border-box", fontSize: "14px", fontWeight: "bold" }} />
                   <div style={{ display: "flex", gap: "5px", marginTop: "8px", flexWrap: "wrap" }}>
                     <button onClick={()=>setCustomerGiven(finalToPay)} style={{flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid #cbd5e1", cursor: "pointer"}}>Vừa đủ</button>
@@ -1409,7 +1441,6 @@ export default function App() {
                         <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                           <button className="qty-btn" onClick={() => adjustCartQty(item.product.id, -1)}>-</button>
                           
-                          {/* 💡 INPUT NHẬP SỐ LƯỢNG TRỰC TIẾP */}
                           <input 
                             className="qty-input"
                             type="number"
@@ -1454,7 +1485,11 @@ export default function App() {
                         <div onClick={() => toggleDateGroup(dateStr)} style={{ backgroundColor: "#ffedd5", padding: "6px 8px", fontSize: "10px", fontWeight: "bold", cursor: "pointer", display: "flex", justifyContent: "space-between" }}><span>📅 {dateStr}</span><span>{isEx ? "▼" : "▶"}</span></div>
                         {isEx && <div style={{ padding: "0 8px" }}>{group.map((log: any) => (<div key={log.id} style={{ padding: "4px 0", borderBottom: "1px dashed #fed7aa", fontSize: "9px", display: "flex", flexDirection: "column" }}>
                           <div style={{ display: "flex", justifyContent: "space-between" }}>
-                            <span><b style={{color: log.type === 'TRẢ HÀNG' ? '#ef4444' : '#1e293b'}}>[{log.type}]</b> {log.name} x{log.qty}</span>
+                            <span>
+                                <b style={{color: log.type === 'TRẢ HÀNG' ? '#ef4444' : '#1e293b'}}>[{log.type}]</b> {log.name} x{log.qty}
+                                {/* HIỂN THỊ TRẠNG THÁI NẾU ĐÃ TỪNG HOÀN TRẢ */}
+                                {log.refunded_qty > 0 && <span style={{color:"#ef4444", fontSize:"8px", marginLeft:"4px"}}>(Đã hoàn {log.refunded_qty})</span>}
+                            </span>
                             {log.type === "BÁN" && <span style={{color:"#059669", fontWeight:"bold"}}>+{Math.round(log.total).toLocaleString()}</span>}
                             {log.type === "TRẢ HÀNG" && <span style={{color:"#ef4444", fontWeight:"bold"}}>{Math.round(log.total).toLocaleString()}</span>}
                             {log.type === "GHI NỢ" && <span style={{color:"#ea580c", fontWeight:"bold"}}>Nợ: {Math.round(log.total).toLocaleString()}</span>}
@@ -1464,7 +1499,24 @@ export default function App() {
                             <span>{log.customer}</span>
                             <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                               <span>{log.t}</span>
-                              {role === 'admin' && log.type === 'BÁN' && <button onClick={() => handleRefund(log.id)} style={{ fontSize: "8px", border: "1px solid #cbd5e1", background: "#fff", cursor: "pointer", borderRadius: "2px" }}>↩️ Hoàn</button>}
+                              
+                              {/* ↩️ NÚT HOÀN TRẢ 1 PHẦN XỊN XÒ */}
+                              {role === 'admin' && log.type === 'BÁN' && (
+                                <button 
+                                    onClick={() => handleRefund(log.id)} 
+                                    disabled={(log.refunded_qty || 0) >= log.qty}
+                                    style={{ 
+                                        fontSize: "8px", 
+                                        border: "1px solid #cbd5e1", 
+                                        background: (log.refunded_qty || 0) >= log.qty ? "#f1f5f9" : "#fff", 
+                                        color: (log.refunded_qty || 0) >= log.qty ? "#94a3b8" : "#000",
+                                        cursor: (log.refunded_qty || 0) >= log.qty ? "not-allowed" : "pointer", 
+                                        borderRadius: "2px" 
+                                    }}
+                                >
+                                    {(log.refunded_qty || 0) >= log.qty ? "Đã hoàn" : `↩️ Hoàn ${log.qty - (log.refunded_qty || 0)}`}
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>))}</div>}
