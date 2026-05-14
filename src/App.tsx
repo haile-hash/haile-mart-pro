@@ -417,8 +417,8 @@ export default function App() {
   };
 
   const handleRefund = async (logId: any) => {
-    if(role !== 'admin') return alert("Chỉ quản lý mới được hoàn trả!");
-
+    // Đã gỡ bỏ giới hạn: Nhân viên và Quản lý đều được hoàn trả
+    
     const logIndex = history.findIndex(l => l.id === logId);
     if(logIndex === -1) return;
     const log = history[logIndex];
@@ -830,14 +830,13 @@ export default function App() {
     );
   }
 
-  // TÍNH TOÁN LẠI TỔNG TIỀN CUỐI CÙNG ĐỂ CHECKOUT
   const finalToPay = Math.round(Math.max(0, cartTotalAmount - (Number(voucherAmount) || 0) - (useWallet ? Math.min(customers[custPhone]?.wallet||0, Math.max(0, cartTotalAmount - (Number(voucherAmount) || 0))) : 0)));
 
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); }}>
       <style>{styles}</style>
       
-      {/* 🖨️ BIÊN LAI BÁN HÀNG */}
+      {/* 🖨️ BIÊN LAI BÁN HÀNG (Sẽ bị ẩn nếu đang ở chế độ in Tem) */}
       {lastOrder && printMode !== 'barcode' && (
         <div className="print-only print-receipt">
           <div className="print-header">
@@ -1158,8 +1157,6 @@ export default function App() {
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                   <button onClick={() => setCheckoutStep(1)} style={{ flex: "1 1 100%", padding: "8px", borderRadius: "8px", border: "none", background: "#e2e8f0", cursor: "pointer", fontWeight: "bold" }}>Quay lại</button>
                   <button onClick={() => confirmCheckout(true)} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#f59e0b", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>📝 GHI NỢ</button>
-                  
-                  {/* 🔒 CHỐT CHẶN TIỀN KHÁCH ĐƯA Ở ĐÂY */}
                   <button onClick={() => {
                       if (finalToPay > 0 && (customerGiven === "" || Number(customerGiven) < finalToPay)) {
                          playSound('error');
@@ -1168,7 +1165,6 @@ export default function App() {
                       }
                       confirmCheckout(false);
                   }} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#10b981", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>✔️ ĐÃ NHẬN</button>
-
                 </div>
               </div>
             )}
@@ -1417,18 +1413,23 @@ export default function App() {
             {/* CỘT PHẢI: GIỎ HÀNG & LỊCH SỬ */}
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               <div className="glass" style={{ padding: "12px", maxHeight: "40vh", display: "flex", flexDirection: "column" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                  
-                  {/* TỔNG TIỀN HIỂN THỊ Ở TIÊU ĐỀ GIỎ HÀNG */}
-                  <h3 style={{ margin: 0, color: "#ef4444", fontSize: "13px" }}>
-                    🛒 GIỎ HÀNG ({cart.length}) {cartTotalAmount > 0 && <span style={{color: "#b91c1c"}}> - {cartTotalAmount.toLocaleString()}đ</span>}
-                  </h3>
-
-                  <div style={{ display: "flex", gap: "4px" }}>
-                    {heldOrders.length > 0 && <button onClick={() => setShowHoldModal(true)} style={{ fontSize: "9px", padding: "2px 6px", background: "#fef3c7", color: "#d97706", border: "1px solid #fde68a", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>📂 TẠM LƯU ({heldOrders.length})</button>}
-                    {cart.length > 0 && <button onClick={handleHoldOrder} style={{ fontSize: "9px", padding: "2px 6px", background: "#ffedd5", color: "#ea580c", border: "1px solid #fdba74", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>⏸️ LƯU TẠM</button>}
-                    {cart.length > 0 && <button onClick={clearCart} style={{ fontSize: "9px", padding: "2px 6px", background: "#fee2e2", color: "#ef4444", border: "1px solid #fca5a5", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>🗑️ HỦY HẾT</button>}
+                
+                <div style={{ marginBottom: "12px", paddingBottom: "8px", borderBottom: "2px dashed #fed7aa" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <h3 style={{ margin: 0, color: "#ef4444", fontSize: "14px", textTransform: "uppercase" }}>🛒 GIỎ HÀNG ({cart.reduce((s, i) => s + (Number(i.qty) || 0), 0)} món)</h3>
+                    <div style={{ display: "flex", gap: "4px" }}>
+                      {heldOrders.length > 0 && <button onClick={() => setShowHoldModal(true)} style={{ fontSize: "9px", padding: "4px 6px", background: "#fef3c7", color: "#d97706", border: "1px solid #fde68a", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>📂 TẠM LƯU ({heldOrders.length})</button>}
+                      {cart.length > 0 && <button onClick={handleHoldOrder} style={{ fontSize: "9px", padding: "4px 6px", background: "#ffedd5", color: "#ea580c", border: "1px solid #fdba74", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>⏸️ LƯU TẠM</button>}
+                      {cart.length > 0 && <button onClick={clearCart} style={{ fontSize: "9px", padding: "4px 6px", background: "#fee2e2", color: "#ef4444", border: "1px solid #fca5a5", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>🗑️ HỦY HẾT</button>}
+                    </div>
                   </div>
+                  
+                  {cartTotalAmount > 0 && (
+                    <div style={{ backgroundColor: "#fef2f2", padding: "8px 12px", borderRadius: "6px", display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid #fecaca" }}>
+                      <span style={{ fontSize: "12px", fontWeight: "bold", color: "#b91c1c" }}>TỔNG THANH TOÁN:</span>
+                      <span style={{ fontSize: "20px", fontWeight: "900", color: "#ef4444" }}>{cartTotalAmount.toLocaleString()}đ</span>
+                    </div>
+                  )}
                 </div>
                 
                 <div style={{ flex: 1, overflowY: "auto", marginBottom: "8px", paddingRight: "4px" }}>
@@ -1438,7 +1439,7 @@ export default function App() {
                     const hasGift = gift.text && (Number(item.qty)||0) >= gift.cond;
 
                     return (
-                    <div key={idx} style={{ padding: "6px 0", borderBottom: "1px dashed #fed7aa", fontSize: "11px", display: "flex", flexDirection: "column", gap: "2px" }}>
+                    <div key={idx} style={{ padding: "6px 0", borderBottom: "1px dashed #fed7aa", fontSize: "11px", display: "flex", flexDirection: "column", gap: "4px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span style={{ fontWeight: "bold", color: "#1e293b", flex: 1 }}>{item.product.name} {item.product.isHappyHour && <span style={{color:"#ea580c", fontSize:"9px"}}>[Giờ Vàng]</span>}</span>
                         <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
@@ -1455,12 +1456,12 @@ export default function App() {
                           />
 
                           <button className="qty-btn" onClick={() => adjustCartQty(item.product.id, 1)}>+</button>
-                          <button onClick={()=>removeFromCart(item.product.id)} style={{border:"none",background:"none",color:"#ef4444", cursor:"pointer", fontSize: "14px", marginLeft: "2px"}}>×</button>
+                          <button onClick={()=>removeFromCart(item.product.id)} style={{border:"none",background:"none",color:"#ef4444", cursor:"pointer", fontSize: "16px", marginLeft: "2px", fontWeight:"bold"}}>×</button>
                         </div>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span>{hasGift && <span style={{ color: "#10b981", fontSize: "9px", fontStyle: "italic" }}>+ 🎁 {gift.text}</span>}</span>
-                        <span style={{ color: "#ef4444", fontWeight: "bold" }}>{Math.round(item.total).toLocaleString()}đ</span>
+                        <span style={{ color: "#ef4444", fontWeight: "bold", fontSize:"12px" }}>{Math.round(item.total).toLocaleString()}đ</span>
                       </div>
                     </div>
                   )})}
@@ -1490,6 +1491,7 @@ export default function App() {
                           <div style={{ display: "flex", justifyContent: "space-between" }}>
                             <span>
                                 <b style={{color: log.type === 'TRẢ HÀNG' ? '#ef4444' : '#1e293b'}}>[{log.type}]</b> {log.name} x{log.qty}
+                                {/* HIỂN THỊ TRẠNG THÁI NẾU ĐÃ TỪNG HOÀN TRẢ */}
                                 {log.refunded_qty > 0 && <span style={{color:"#ef4444", fontSize:"8px", marginLeft:"4px"}}>(Đã hoàn {log.refunded_qty})</span>}
                             </span>
                             {log.type === "BÁN" && <span style={{color:"#059669", fontWeight:"bold"}}>+{Math.round(log.total).toLocaleString()}</span>}
@@ -1501,7 +1503,9 @@ export default function App() {
                             <span>{log.customer}</span>
                             <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                               <span>{log.t}</span>
-                              {role === 'admin' && log.type === 'BÁN' && (
+                              
+                              {/* ↩️ NÚT HOÀN TRẢ 1 PHẦN CHO CẢ NHÂN VIÊN VÀ QUẢN LÝ */}
+                              {log.type === 'BÁN' && (
                                 <button 
                                     onClick={() => handleRefund(log.id)} 
                                     disabled={(log.refunded_qty || 0) >= log.qty}
