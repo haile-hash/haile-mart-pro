@@ -91,7 +91,7 @@ export default function App() {
 
   const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
 
-  // ================= 3. HÀM LÕI (PURE HELPERS) =================
+  // ================= 3. HÀM LÕI =================
   const playSound = (type: 'success' | 'error') => {
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -268,7 +268,7 @@ export default function App() {
     const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStr && h.shift === shift);
     let cash = 0; let transfer = 0; let prof = 0; let totalSales = 0;
     shiftLogs.forEach(h => {
-        if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += h.total;
+        if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += h.total; 
         if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') {
             if (h.paymentMethod === 'CHUYỂN KHOẢN') transfer += h.total;
             else if (h.paymentMethod === 'TIỀN MẶT') cash += h.total;
@@ -351,7 +351,7 @@ export default function App() {
     return filtered;
   }, [products, searchTerm, selectedCategory, sortConfig, filters]);
 
-  // ================= 6. EVENT HANDLERS =================
+  // ================= 6. EVENT HANDLERS (XỬ LÝ CHỨC NĂNG TÍNH TOÁN / GỬI EMAIL ZALO) =================
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (authUsername === "admin" && authPassword === "haile88") {
@@ -718,7 +718,7 @@ export default function App() {
     setLoading(false);
   };
 
-  // ================= TÍNH NĂNG GỬI MÃ THẺ VIP CHO KHÁCH TỰ ĐỘNG =================
+  // 1. TÍNH NĂNG GỬI MÃ THẺ VIP CHO KHÁCH BẰNG EMAIL (ĐÃ PHỤC HỒI)
   const sendCardEmail = async (phone: string) => {
       const cust = customers[phone];
       const email = cust.email || window.prompt(`Nhập Email của ${cust.name} để gửi mã thẻ:`, "");
@@ -736,7 +736,7 @@ export default function App() {
         to_email: email,
         order_id: "THẺ THÀNH VIÊN",
         time: new Date().toLocaleString('vi-VN'),
-        items_list: `💳 MÃ THẺ CỦA BẠN LÀ: ${code}\n(Vui lòng xuất trình mã vạch bên dưới khi thanh toán)`,
+        items_list: `💳 MÃ THẺ CỦA BẠN LÀ: ${code}\n(Vui lòng xuất trình Thẻ/Mã vạch bên dưới khi thanh toán)`,
         total_amount: "Ưu đãi Đặc Quyền",
         payment_method: "VIP Member",
         change_amount: "0đ",
@@ -752,11 +752,27 @@ export default function App() {
       setLoading(false);
   };
 
+  // 2. TÍNH NĂNG MỞ ZALO VÀ COPY LỜI NHẮN (ĐÃ PHỤC HỒI)
+  const shareToZalo = (phone: string) => {
+      const cust = customers[phone];
+      const code = cust.cardCode || phone;
+      const text = `Chào ${cust.name},\nCảm ơn bạn đã đồng hành cùng Hải Lê Mart!\n💳 Mã Thẻ VIP của bạn là: ${code}\n(Đưa mã này cho thu ngân để được giảm giá và tích điểm nhé!)\n\n📸 Mã vạch của bạn (Lưu ảnh này lại):\nhttps://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=10&includetext=true`;
+      
+      navigator.clipboard.writeText(text).then(() => {
+          alert(`✅ Đã copy thông tin Thẻ VIP!\nHệ thống sẽ tự mở Zalo của số ${phone}, ông chủ chỉ cần bấm "Dán" (Ctrl+V) vào khung chat là xong!`);
+          window.open(`https://zalo.me/${phone}`, '_blank');
+      }).catch(() => {
+          window.open(`https://zalo.me/${phone}`, '_blank');
+      });
+  };
+
+  // 3. TÍNH NĂNG IN THẺ VIP CỨNG (ĐÃ PHỤC HỒI)
   const printCustomerCard = (phone: string) => {
       setPrintCustomer({phone, ...customers[phone]});
       setPrintMode('customer_card');
-      setTimeout(() => window.print(), 1000); // 1 giây sau tự bật bảng in
+      setTimeout(() => window.print(), 1000); 
   };
+
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const code = e.target.value; setNewCode(code);
@@ -1307,7 +1323,6 @@ export default function App() {
         </div>
       )}
 
-      {/* TÍNH NĂNG IN THẺ VÀ GỬI THẺ VIP */}
       {showCustomerModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "550px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
@@ -1343,7 +1358,7 @@ export default function App() {
                           {customers[phone].cardCode ? `💳 Mã: ${customers[phone].cardCode}` : `💳 +Gán Mã Thẻ`}
                       </span>
                       <button onClick={() => printCustomerCard(phone)} style={{ padding: "4px 6px", backgroundColor: "#dc2626", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="In thẻ cứng (Cỡ thẻ ATM)">🖨️ In Thẻ</button>
-                      <button onClick={() => sendCardEmail(phone)} style={{ padding: "4px 6px", backgroundColor: "#3b82f6", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="Gửi mã thẻ qua Email tự động">📧 Mail</button>
+                      <button onClick={() => sendCardEmail(phone)} style={{ padding: "4px 6px", backgroundColor: "#3b82f6", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="Gửi thẻ điện tử tự động qua Email">📧 Mail</button>
                       <button onClick={() => shareToZalo(phone)} style={{ padding: "4px 6px", backgroundColor: "#059669", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="Copy ảnh và mở Zalo">💬 Zalo</button>
                     </div>
 
