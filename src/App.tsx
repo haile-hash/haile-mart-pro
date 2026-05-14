@@ -97,17 +97,26 @@ export default function App() {
     }
   }, [isLoggedIn]);
 
+  // TỐI ƯU HÓA CAMERA CHO MÃ VẠCH 1D (BARCODE SIÊU THỊ)
   useEffect(() => {
     if (showScanner) {
       let scanner: any;
       const loadScanner = () => {
         if ((window as any).Html5QrcodeScanner) {
-           scanner = new (window as any).Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: 250 });
+           // Đổi qrbox thành hình chữ nhật và tăng FPS
+           scanner = new (window as any).Html5QrcodeScanner("qr-reader", { 
+               fps: 15, 
+               qrbox: { width: 250, height: 120 }, // Khung chữ nhật dẹt
+               rememberLastUsedCamera: true
+           }, false);
+           
            scanner.render((text: string) => {
                setScannedCode(text);
                scanner.clear();
                setShowScanner(false);
-           }, undefined);
+           }, (err: any) => {
+               // Bỏ qua các cảnh báo lỗi không tìm thấy mã liên tục
+           });
         }
       };
       if (!(window as any).Html5QrcodeScanner) {
@@ -308,7 +317,6 @@ export default function App() {
 
   const cartTotalAmount = cart.reduce((sum, item) => sum + item.total, 0);
 
-  // === KHÔI PHỤC LẠI HÀM XỬ LÝ NHẬP SỐ ĐIỆN THOẠI QUAN TRỌNG ĐÃ BỊ THẤT LẠC ===
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const phone = e.target.value; 
     setCustPhone(phone);
@@ -319,7 +327,6 @@ export default function App() {
       setUseWallet(false); 
     }
   };
-  // ==============================================================================
 
   const handleNextToQR = () => {
     if (custPhone && !customers[custPhone] && !custName) return alert("Nhập Tên khách hàng!");
@@ -970,15 +977,9 @@ export default function App() {
               <div className="glass" style={{ padding: "25px", width: "350px" }}>
                 <h3 style={{ color: "#ef4444", margin: "0", textAlign: "center" }}>🧧 THANH TOÁN</h3>
                 
-                <input 
-                  type="number" 
-                  placeholder="Nhập số tiền Voucher giảm (đ)..." 
-                  value={voucherAmount} 
-                  onChange={(e) => setVoucherAmount(parseInt(e.target.value) || "")} 
-                  style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px dashed #f59e0b", marginTop: "15px", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb" }} 
-                />
-
+                <input type="number" placeholder="Nhập số tiền Voucher giảm (đ)..." value={voucherAmount} onChange={(e) => setVoucherAmount(parseInt(e.target.value) || "")} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px dashed #f59e0b", marginTop: "15px", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb" }} />
                 <input type="text" placeholder="Số điện thoại khách (nếu có)..." value={custPhone} onChange={handlePhoneChange} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "2px solid #ef4444", marginTop: "10px", outline: "none", boxSizing: "border-box" }} />
+                
                 {custPhone && (
                   <div style={{ marginTop: "10px", padding: "12px", backgroundColor: "#fff7ed", borderRadius: "8px", border: "1px dashed #f97316" }}>
                     {customers[custPhone] ? (
@@ -1154,7 +1155,6 @@ export default function App() {
                 </form>
               )}
 
-              {/* TABS PHÂN LOẠI DANH MỤC */}
               <div style={{ display: "flex", gap: "6px", marginBottom: "10px", overflowX: "auto", paddingBottom: "4px" }}>
                 {categories.map(cat => (
                   <button key={cat} onClick={() => setSelectedCategory(cat)} className={`tab-btn ${selectedCategory === cat ? 'active' : ''}`}>{cat}</button>
@@ -1225,7 +1225,7 @@ export default function App() {
                       return (
                         <tr key={p.id} style={{ borderBottom: "1px solid #fed7aa", backgroundColor: isNearExpiry ? "#fef2f2" : "transparent" }}>
                           <td style={{ padding: "8px 4px" }}>
-                            <div style={{fontSize: "13px", fontWeight: "bold"}}>{p.name} {isNearExpiry && <span style={{color: "#ef4444", fontSize: "9px", border: "1px solid #ef4444", padding: "1px 2px", borderRadius: "2px"}}>⚠️</span>} {p.isHappyHour && <span style={{color: "#ea580c", fontSize: "9px", fontStyle:"italic"}}>[Giờ Vàng]</span>}</div>
+                            <div style={{fontSize: "13px", fontWeight: "bold"}}>{p.name} {isNearExpiry && <span style={{color: "#ef4444", fontSize: "9px", border: "1px solid #ef4444", padding: "1px 2px", borderRadius: "2px"}}>⚠️</span>}</div>
                             <div style={{fontSize: "9px", color: "#94a3b8"}}>
                               {p.product_code} • <span style={{cursor: role==='admin' ? 'pointer' : 'default', textDecoration: role==='admin' ? 'underline' : 'none'}} onClick={() => role==='admin' && handleEdit(p.id, 'category', p.category || "Khác", true)} title="Bấm vào để sửa Phân Loại">{p.category || "Khác"}</span>
                             </div>
