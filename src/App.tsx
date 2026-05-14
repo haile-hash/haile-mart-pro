@@ -6,9 +6,9 @@ export default function App() {
   const VAT_RATE = 0.1; 
 
   // ================= 1. CẤU HÌNH EMAIL TỰ ĐỘNG =================
-  const EMAILJS_SERVICE_ID = "service_7ie990l";   // Đã tích hợp Service ID của ông chủ
-  const EMAILJS_TEMPLATE_ID = "template_t91erhg"; // Đã tích hợp Template ID của ông chủ
-  const EMAILJS_PUBLIC_KEY = "5ric0kxuwNPlUleAv"; // Đã tích hợp Public Key của ông chủ
+  const EMAILJS_SERVICE_ID = "service_7ie990l";
+  const EMAILJS_TEMPLATE_ID = "template_t91erhg";
+  const EMAILJS_PUBLIC_KEY = "5ric0kxuwNPlUleAv";
 
   // ================= 2. STATES =================
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem("mart_logged_in") === "true");
@@ -154,7 +154,215 @@ export default function App() {
     return availableMatches[0];
   };
 
-  // ================= 4. EVENT HANDLERS (HÀM XỬ LÝ) =================
+  // ================= 4. EFFECTS (VÒNG ĐỜI) =================
+  useEffect(() => {
+    localStorage.setItem("mart_history", JSON.stringify(history));
+    localStorage.setItem("mart_customers", JSON.stringify(customers));
+    localStorage.setItem("mart_held_orders", JSON.stringify(heldOrders));
+    localStorage.setItem("mart_audit", JSON.stringify(auditLogs));
+  }, [history, customers, heldOrders, auditLogs]);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetchProducts();
+      const channel = supabase.channel("db_changes").on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts()).subscribe();
+      
+      // Tải thư viện EmailJS
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js";
+      script.onload = () => { (window as any).emailjs.init(EMAILJS_PUBLIC_KEY); };
+      document.head.appendChild(script);
+
+      return () => { supabase.removeChannel(channel); };
+    }
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (scannerMode !== null) {
+      let scanner: any;
+      let lastScanTime = 0;
+      const loadScanner = () => {
+        if ((window as any).Html5QrcodeScanner) {
+           scanner = new (window as any).Html5QrcodeScanner("qr-reader", { 
+               fps: 15, qrbox: { width: 250, height: 120 }, rememberLastUsedCamera: true
+           }, false);
+           scanner.render((text: string) => {
+               const now = Date.now();
+               if (now - lastScanTime < 1500) return; 
+               lastScanTime = now;
+               setScannedCodeObj({ code: text, time: now });
+           }, undefined);
+        }
+      };
+      if (!(window as any).Html5QrcodeScanner) {
+         const script = document.createElement("script");
+         script.src = "https://unpkg.com/html5-qrcode";
+         script.onload = loadScanner;
+         document.head.appendChild(script);
+      } else loadScanner();
+      return () => { if (scanner) scanner.clear().catch(()=>{}); };
+    }
+  }, [scannerMode]);
+
+  useEffect(() => {
+    if (scannedCodeObj) {
+      if (scannerMode === 'product') {
+          const p = findProductByCode(scannedCodeObj.code);
+          if (p) handleSelectSuggest(p);
+          else { playSound('error'); setScanMessage({ text: `❌ Không tìm thấy mã: ${scannedCodeObj.code}`, type: 'error' }); }
+      } 
+      else if (scannerMode === 'voucher') {
+          const code = scannedCodeObj.code.trim().toUpperCase();
+          const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 };
+          if (VOUCHERS[code]) {
+            setAppliedVoucherAmount(VOUCHERS[code]); setVoucherInput(code); playSound('success');
+            setScanMessage({ text: `✅ Đã áp dụng giảm ${VOUCHERS[code].toLocaleString()}đ`, type: 'success' });
+          } else if (!isNaN(Number(code)) && Number(code) > 0) {
+            setAppliedVoucherAmount(Number(code)); setVoucherInput(code); playSound('success');
+            setScanMessage({ text: `✅ Đã nhận mức giảm ${Number(code).toLocaleString()}đ`, type: 'success' });
+          } else {
+            playSound('error'); alert("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0);
+          }
+          setTimeout(() => setScannerMode(null), 1000);
+      }
+      setScannedCodeObj(null);
+      setTimeout(() => setScanMessage(null), 1500); 
+    }
+  }, [scannedCodeObj, products, scannerMode]);
+
+  useEffect(() => {
+    const handleAfterPrint = () => setPrintMode(null);
+    window.addEventListener("afterprint", handleAfterPrint);
+    return () => window.removeEventListener("afterprint", handleAfterPrint);
+  }, []);
+
+  // ================= 5. DATA MEMOS =================
+  const currentShiftStats = useMemo(() => {
+    const todayStr = new Date().toLocaleDateString('vi-VN');
+    const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStr && h.shift === shift);
+    let cash = 0; let transfer = 0; let prof = 0;
+    shiftLogs.forEach(h => {
+        if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') {
+            if (h.paymentMethod === 'CHUYỂN KHOẢN') transfer += h.total;
+            else if (h.paymentMethod === 'TIỀN MẶT') cash += h.total;
+        }
+        prof += (h.profit || 0);
+    });
+    return { rev: cash + transfer, cash, transfer, prof };
+  }, [history, shift]);
+
+  const todayStats = useMemo(() => {
+    const todayStr = new Date().toLocaleDateString('vi-VN');
+    const todayHistory = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStr);
+    let cash = 0; let transfer = 0; let prof = 0;
+    todayHistory.forEach(h => {
+        if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') {
+            if (h.paymentMethod === 'CHUYỂN KHOẢN') transfer += h.total;
+            else if (h.paymentMethod === 'TIỀN MẶT') cash += h.total;
+        }
+        prof += (h.profit || 0);
+    });
+    return { rev: cash + transfer, cash, transfer, prof };
+  }, [history]);
+
+  const topSelling = useMemo(() => {
+    const sales: Record<string, number> = {};
+    history.forEach(log => { if(log.type === 'BÁN' && log.product_id !== 'DISCOUNT') sales[log.name] = (sales[log.name]||0) + log.qty; });
+    return Object.entries(sales).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  }, [history]);
+
+  const groupedHistory = useMemo(() => {
+    return history.reduce((groups: any, log: any) => {
+      const date = new Date(Math.floor(log.id)).toLocaleDateString('vi-VN'); 
+      if (!groups[date]) groups[date] = [];
+      groups[date].push({ ...log, t: new Date(Math.floor(log.id)).toLocaleTimeString('vi-VN') });
+      return groups;
+    }, {});
+  }, [history]);
+
+  const totalValue = Math.round(products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
+  const cartTotalAmount = cart.reduce((sum, item) => sum + item.total, 0);
+
+  const uniqueNames = useMemo(() => Array.from(new Set(products.map(p => cleanName(p.name)))).sort(), [products]);
+  const uniqueStocks = useMemo(() => Array.from(new Set(products.map(p => p.stock))).sort((a,b)=>a-b), [products]);
+  const uniqueImportPrices = useMemo(() => Array.from(new Set(products.map(p => p.import_price || 0))).sort((a,b)=>a-b), [products]);
+  const uniqueSalePrices = useMemo(() => Array.from(new Set(products.map(p => p.sale_price))).sort((a,b)=>a-b), [products]);
+  const uniqueExpiries = useMemo(() => Array.from(new Set(products.map(p => p.expiry_date).filter(Boolean))).sort(), [products]);
+  const categories = ["Tất cả", ...Array.from(new Set(products.map(p => p.category || "Khác")))];
+
+  const sortedAndFilteredProducts = useMemo(() => {
+    const todayTime = new Date().getTime();
+    let filtered = products
+      .filter(p => (selectedCategory === "Tất cả" || (p.category || "Khác") === selectedCategory))
+      .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(searchTerm.toLowerCase())));
+
+    if (filters['name']?.length > 0) filtered = filtered.filter(p => filters['name'].includes(cleanName(p.name)));
+    if (filters['stock']?.length > 0) filtered = filtered.filter(p => filters['stock'].includes(p.stock));
+    if (filters['import_price']?.length > 0) filtered = filtered.filter(p => filters['import_price'].includes(p.import_price || 0));
+    if (filters['sale_price']?.length > 0) filtered = filtered.filter(p => filters['sale_price'].includes(p.sale_price));
+    if (filters['expiry_date']?.length > 0) filtered = filtered.filter(p => filters['expiry_date'].includes(p.expiry_date));
+
+    if (sortConfig !== null) {
+      filtered.sort((a, b) => {
+        let valA = a[sortConfig.key]; let valB = b[sortConfig.key];
+        if (sortConfig.key === 'expiry_date') { valA = a.expiry_date ? new Date(a.expiry_date).getTime() : Infinity; valB = b.expiry_date ? new Date(b.expiry_date).getTime() : Infinity; }
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    } else {
+      filtered.sort((a, b) => {
+        const daysA = a.expiry_date ? (new Date(a.expiry_date).getTime() - todayTime) / 86400000 : Infinity;
+        const daysB = b.expiry_date ? (new Date(b.expiry_date).getTime() - todayTime) / 86400000 : Infinity;
+        const aIsUrgent = daysA <= 45; const bIsUrgent = daysB <= 45;
+        if (aIsUrgent && !bIsUrgent) return -1; if (!aIsUrgent && bIsUrgent) return 1; if (aIsUrgent && bIsUrgent) return daysA - daysB; 
+        return 0;
+      });
+    }
+    return filtered;
+  }, [products, searchTerm, selectedCategory, sortConfig, filters]);
+
+  // ================= 6. EVENT HANDLERS =================
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (authUsername === "admin" && authPassword === "haile88") {
+      setIsLoggedIn(true); setRole("admin"); localStorage.setItem("mart_shift", shift);
+      localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "admin");
+      logAudit("ĐĂNG NHẬP", "Mở ca thành công");
+    } else if (authUsername === "nhanvien" && authPassword === "123") {
+      setIsLoggedIn(true); setRole("staff"); localStorage.setItem("mart_shift", shift);
+      localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "staff");
+      logAudit("ĐĂNG NHẬP", "Mở ca thành công");
+    } else alert("Sai tài khoản hoặc mật khẩu!");
+  };
+
+  const handleLogoutClick = () => setShowHandoverModal(true);
+  const confirmHandover = () => {
+    logAudit("CHỐT CA", `Doanh thu bàn giao: ${currentShiftStats.rev.toLocaleString()}đ (TM: ${currentShiftStats.cash.toLocaleString()}đ, CK: ${currentShiftStats.transfer.toLocaleString()}đ)`);
+    setIsLoggedIn(false); setShowHandoverModal(false);
+    localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role");
+  };
+
+  const handleHoldOrder = () => {
+    if (cart.length === 0) return;
+    const newOrder = { id: Date.now(), time: new Date().toLocaleTimeString('vi-VN'), cart: [...cart] };
+    setHeldOrders(prev => [...prev, newOrder]);
+    logAudit("LƯU TẠM", `Lưu giỏ hàng ${cart.length} món`);
+    setCart([]);
+  };
+
+  const restoreOrder = (order: any) => {
+    if (cart.length > 0) return alert("Vui lòng thanh toán hoặc hủy giỏ hiện tại trước khi mở đơn lưu tạm!");
+    setCart(order.cart);
+    setHeldOrders(prev => prev.filter(o => o.id !== order.id));
+    setShowHoldModal(false);
+  };
+
+  const deleteHeldOrder = (id: any) => {
+    setHeldOrders(prev => prev.filter(o => o.id !== id));
+    logAudit("XÓA ĐƠN TẠM", `Đã xóa 1 đơn hàng lưu tạm`);
+  };
+
   const handleSelectSuggest = (p_input: any) => {
     const p = getOldestAvailableBatch(p_input); 
     if (p.stock <= 0) { playSound('error'); return alert("Đã hết hàng trong kho!"); }
@@ -177,6 +385,15 @@ export default function App() {
     setBarcodeInput(""); setShowSuggestions(false); setTimeout(() => setScanMessage(null), 2000);
   };
 
+  const handleBarcodeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const p = findProductByCode(barcodeInput);
+      if (p) handleSelectSuggest(p);
+      else { playSound('error'); alert("Mã sai hoặc không tìm thấy!"); }
+    }
+  };
+
   const addToCart = (p_input: any) => {
     const p = getOldestAvailableBatch(p_input); 
     if (p.stock <= 0) { playSound('error'); return alert("Đã hết hàng trong kho!"); }
@@ -189,7 +406,7 @@ export default function App() {
       const exist = prev.find(item => item.product.id === p.id);
       if (exist) {
         const newQty = exist.qty + 1;
-        if (newQty > p.stock) { playSound('error'); alert(`Lô hàng này chỉ còn tối đa ${p.stock} sản phẩm. Hãy thêm tiếp lô mới vào giỏ!`); return prev; }
+        if (newQty > p.stock) { playSound('error'); alert(`Lô hàng này chỉ còn tối đa ${p.stock} sản phẩm.`); return prev; }
         playSound('success');
         return prev.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i);
       } else {
@@ -475,43 +692,34 @@ export default function App() {
 
     if (exist) {
         if (exist.stock <= 0) {
-            const data = { name: newName, category: newCategory || "Khác", import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null, created_at: new Date().toISOString() };
-            await supabase.from("products").update(data).eq("id", exist.id);
+            await supabase.from("products").update({ name: newName, category: newCategory || "Khác", import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null, created_at: new Date().toISOString() }).eq("id", exist.id);
             if (added > 0) setHistory(prev => [{ id: Date.now(), shift: shift, type: "NHẬP", name: newName, qty: added, total: 0 }, ...prev]);
             logAudit("NHẬP MỚI (ĐÈ CŨ)", `${newName} (Mã: ${baseCode}) - SL: ${added}`);
             alert(`Đã nhập hàng thành công!${priceUpdatedMsg}`);
         } else {
             const isDiff = exist.import_price !== impPrice || (exist.expiry_date || "") !== (newExpiry || "");
-            
             if (isDiff) {
                 const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}`;
                 const batchName = `${newName} [Lô ${newExpiry ? new Date(newExpiry).toLocaleDateString('vi-VN') : 'Mới'}]`;
-                
                 if(window.confirm(`Hàng cũ đang tồn ${exist.stock}.\nBạn nhập lô mới có Giá Vốn hoặc HSD khác.\nHệ thống sẽ tạo LÔ MỚI (${batchCode}) để quản lý tách biệt (FIFO).${priceUpdatedMsg}\n\nĐồng ý?`)) {
-                    const data = { product_code: batchCode, name: batchName, category: newCategory || "Khác", import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null };
-                    await supabase.from("products").insert([data]);
+                    await supabase.from("products").insert([{ product_code: batchCode, name: batchName, category: newCategory || "Khác", import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null }]);
                     if (added > 0) setHistory(prev => [{ id: Date.now(), shift: shift, type: "NHẬP", name: batchName, qty: added, total: 0 }, ...prev]);
                     logAudit("NHẬP TÁCH LÔ", `${batchName} (Mã: ${batchCode}) - SL: ${added}`);
                     if (!priceUpdatedMsg) alert(`Đã tạo lô mới thành công!`); 
-                } else {
-                    setLoading(false); return;
-                }
+                } else { setLoading(false); return; }
             } else {
-                const data = { stock: exist.stock + added, created_at: new Date().toISOString() };
-                await supabase.from("products").update(data).eq("id", exist.id);
+                await supabase.from("products").update({ stock: exist.stock + added, created_at: new Date().toISOString() }).eq("id", exist.id);
                 if (added > 0) setHistory(prev => [{ id: Date.now(), shift: shift, type: "NHẬP", name: newName, qty: added, total: 0 }, ...prev]);
                 logAudit("NHẬP THÊM HÀNG", `${newName} (Mã: ${baseCode}) - +SL: ${added}`);
                 alert(`Đã cộng dồn số lượng thành công!${priceUpdatedMsg}`);
             }
         }
     } else {
-        const data = { product_code: baseCode, name: newName, category: newCategory || "Khác", import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null };
-        await supabase.from("products").insert([data]);
+        await supabase.from("products").insert([{ product_code: baseCode, name: newName, category: newCategory || "Khác", import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null }]);
         if (added > 0) setHistory(prev => [{ id: Date.now(), shift: shift, type: "NHẬP", name: newName, qty: added, total: 0 }, ...prev]);
         logAudit("NHẬP MỚI", `${newName} (Mã: ${baseCode}) - SL: ${added}`);
         if(priceUpdatedMsg) alert(`Đã nhập hàng thành công!${priceUpdatedMsg}`);
     }
-
     setNewCode(""); setNewName(""); setNewCategory("Đồ uống"); setNewImportPrice(""); setNewPrice(""); setNewPromoPrice(""); setNewGiftCondition("1"); setNewGiftInfo(""); setNewStock(""); setNewExpiry("");
     fetchProducts(); setLoading(false); setShowInputForm(false);
   };
@@ -545,26 +753,23 @@ export default function App() {
                   }
               }
           }
+
           const exist = allVariants.find(p => p.product_code === baseCode);
           if (exist) {
              if (exist.stock <= 0) {
-                 const data = { name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry, created_at: new Date().toISOString() };
-                 await supabase.from("products").update(data).eq("id", exist.id);
+                 await supabase.from("products").update({ name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry, created_at: new Date().toISOString() }).eq("id", exist.id);
              } else {
                  const isDiff = exist.import_price !== pImpPrice || (exist.expiry_date || "") !== (pExpiry || "");
                  if (isDiff) {
                      const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}${i}`; 
                      const batchName = `${pName} [Lô ${pExpiry ? new Date(pExpiry).toLocaleDateString('vi-VN') : 'Mới'}]`;
-                     const data = { product_code: batchCode, name: batchName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry };
-                     await supabase.from("products").insert([data]);
+                     await supabase.from("products").insert([{ product_code: batchCode, name: batchName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]);
                  } else {
-                     const data = { stock: exist.stock + pStock, created_at: new Date().toISOString() };
-                     await supabase.from("products").update(data).eq("id", exist.id);
+                     await supabase.from("products").update({ stock: exist.stock + pStock, created_at: new Date().toISOString() }).eq("id", exist.id);
                  }
              }
           } else {
-              const data = { product_code: baseCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry };
-              await supabase.from("products").insert([data]);
+              await supabase.from("products").insert([{ product_code: baseCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]);
           }
           if (pStock > 0) importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "NHẬP", name: cleanName(pName), qty: pStock, total: 0 });
           successCount++;
@@ -578,32 +783,6 @@ export default function App() {
     reader.readAsText(file); e.target.value = '';
   };
 
-  const handlePrintBarcode = (p: any) => {
-    const q = window.prompt(`Nhập số lượng tem cần in cho: ${cleanName(p.name)}`, "30");
-    if (q && parseInt(q) > 0) {
-      setPrintBarcodeProduct(p); setBarcodeCount(parseInt(q)); setPrintMode('barcode');
-      setTimeout(() => window.print(), 1500);
-    }
-  };
-
-  // ================= 5. EFFECTS (TIẾP THEO) =================
-  useEffect(() => {
-    if (isLoggedIn) {
-      // Tự động tải thư viện EmailJS
-      const script = document.createElement("script");
-      script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js";
-      script.onload = () => { (window as any).emailjs.init(EMAILJS_PUBLIC_KEY); };
-      document.head.appendChild(script);
-    }
-  }, [isLoggedIn]);
-
-  useEffect(() => {
-    const handleAfterPrint = () => setPrintMode(null);
-    window.addEventListener("afterprint", handleAfterPrint);
-    return () => window.removeEventListener("afterprint", handleAfterPrint);
-  }, []);
-
-  // ================= 6. EVENT HELPERS KHÁC =================
   const handleDelete = async (id: any, name: any) => { 
       if (window.confirm(`Xóa vĩnh viễn ${name}?`)) { 
           await supabase.from("products").delete().eq("id", id); 
@@ -625,6 +804,14 @@ export default function App() {
       await supabase.from("products").update({ [field]: updateData }).eq("id", id); 
       logAudit("SỬA THÔNG TIN", `ID: ${id}, Sửa ${label} thành ${val}`);
       fetchProducts(); 
+    }
+  };
+
+  const handlePrintBarcode = (p: any) => {
+    const q = window.prompt(`Nhập số lượng tem cần in cho: ${cleanName(p.name)}`, "30");
+    if (q && parseInt(q) > 0) {
+      setPrintBarcodeProduct(p); setBarcodeCount(parseInt(q)); setPrintMode('barcode');
+      setTimeout(() => window.print(), 1500);
     }
   };
 
@@ -691,7 +878,6 @@ export default function App() {
 
   const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
 
-  const handleLoginSubmit = (e: React.FormEvent) => { handleLogin(e); };
 
   // ================= 8. RENDER HELPERS =================
   const renderHeaderIcon = (colKey: string) => {
@@ -752,7 +938,7 @@ export default function App() {
     </div>
   );
 
-  // ================= 10. STYLES =================
+  // ================= 9. STYLES =================
   const styles = `
     @keyframes float { 0% { transform: translateY(0); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0); } }
     @keyframes pulse-fast { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
@@ -795,7 +981,7 @@ export default function App() {
     }
   `;
 
-  // ================= 11. GIAO DIỆN ĐĂNG NHẬP =================
+  // ================= 10. APP COMPONENT RETURN =================
   if (!isLoggedIn) {
      return (
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", position: "relative", overflow: "hidden" }}>
@@ -803,7 +989,6 @@ export default function App() {
         <div className="spring-bg" style={{ background: "#ef4444", top: "-10%", left: "-10%" }}></div>
         <div className="spring-bg" style={{ background: "#fbbf24", bottom: "-10%", right: "-10%" }}></div>
         <div className="glass" style={{ padding: "40px", width: "100%", maxWidth: "380px", textAlign: "center", border: "4px solid #ef4444" }}>
-          
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "30px" }}>
             <div style={{ backgroundColor: "#dc2626", padding: "16px", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 10px 25px rgba(220, 38, 38, 0.3)", marginBottom: "15px" }}>
               <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -813,8 +998,7 @@ export default function App() {
             <h1 style={{ margin: 0, fontSize: "32px", fontWeight: "900", letterSpacing: "1px", color: "#0f172a", textTransform: "uppercase" }}>HẢI LÊ <span style={{color: "#dc2626"}}>MART</span></h1>
             <span style={{ fontSize: "11px", color: "#64748b", fontWeight: "800", letterSpacing: "4px", textTransform: "uppercase", marginTop: "5px" }}>Professional POS</span>
           </div>
-
-          <form onSubmit={handleLoginSubmit} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+          <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
             <select value={shift} onChange={e => setShift(e.target.value)} style={{ padding: "14px", borderRadius: "10px", border: "1px solid #cbd5e1", outline: "none", fontWeight: "bold", color: "#1e293b", backgroundColor: "#f8fafc" }}>
               <option value="Ca Sáng">🌅 Ca Sáng (06:00 - 14:00)</option>
               <option value="Ca Chiều">🌇 Ca Chiều (14:00 - 22:00)</option>
@@ -831,7 +1015,6 @@ export default function App() {
 
   const finalToPay = Math.round(Math.max(0, cartTotalAmount - appliedVoucherAmount - (useWallet ? Math.min(customers[custPhone]?.wallet||0, Math.max(0, cartTotalAmount - appliedVoucherAmount)) : 0)));
 
-  // ================= 12. GIAO DIỆN CHÍNH CỦA APP =================
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); }}>
       <style>{styles}</style>
@@ -1101,6 +1284,7 @@ export default function App() {
         </div>
       )}
 
+      {/* --- GIAO DIỆN CHÍNH --- */}
       <div className="no-print" style={{ padding: "15px", position: "relative", minHeight: "100vh", overflowX: "auto" }}>
         <div className="spring-bg" style={{ background: "#ef4444", top: "10%", left: "5%" }}></div>
         <div className="spring-bg" style={{ background: "#f59e0b", bottom: "10%", right: "5%" }}></div>
@@ -1274,7 +1458,7 @@ export default function App() {
               <div style={{ maxHeight: "calc(100vh - 200px)", overflowY: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
-                    <tr style={{ color: "#16a34a", fontSize: "10px", borderBottom: "2px solid #fed7aa", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}>
+                    <tr style={{ color: "#16a34a", fontSize: "10px", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}>
                       <th style={{ textAlign: "left", padding: "8px" }}>SẢN PHẨM {renderHeaderIcon('name')}{renderFilterPopup('name', 'TÊN SẢN PHẨM', uniqueNames)}</th>
                       <th style={{ textAlign: "center" }}>TỒN {renderHeaderIcon('stock')}{renderFilterPopup('stock', 'SỐ LƯỢNG TỒN', uniqueStocks)}</th>
                       {role === 'admin' && <th style={{ textAlign: "center" }}>GIÁ VỐN {renderHeaderIcon('import_price')}{renderFilterPopup('import_price', 'GIÁ VỐN', uniqueImportPrices, (v) => v.toLocaleString() + 'đ')}</th>}
@@ -1352,7 +1536,7 @@ export default function App() {
                         <span style={{ fontWeight: "bold", color: "#1e293b", flex: 1 }}>{cleanName(item.product.name)} {item.product.isHappyHour && <span style={{color:"#ea580c", fontSize:"9px"}}>[Giờ Vàng]</span>}</span>
                         <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                           <button className="qty-btn" onClick={() => adjustCartQty(item.product.id, -1)}>-</button>
-                          <input className="qty-input" type="number" value={item.qty} onChange={(e) => handleDirectQtyChange(item.product.id, e.target.value)} onBlur={(e) => handleDirectQtyBlur(item.product.id, e.target.value)} onFocus={(e) => e.target.select()} />
+                          <input className="qty-input" type="number" value={item.qty} onChange={(e) => handleDirectQtyChange(item.product.id, e.target.value)} onBlur={(e) => handleDirectQtyBlur(item.product.id, e.target.value)} onFocus={(e) => e.target.select()} title="Bấm để nhập số lượng" />
                           <button className="qty-btn" onClick={() => adjustCartQty(item.product.id, 1)}>+</button>
                           <button onClick={()=>removeFromCart(item.product.id)} style={{border:"none",background:"none",color:"#ef4444", cursor:"pointer", fontSize: "16px", marginLeft: "2px", fontWeight:"bold"}}>×</button>
                         </div>
@@ -1381,12 +1565,27 @@ export default function App() {
                       <div key={date}>
                         <div style={{backgroundColor: "#ffedd5", padding: "4px 8px", fontSize: "10px", fontWeight: "bold"}}>{date}</div>
                         {groupedHistory[date].map((log: any) => (
-                          <div key={log.id} style={{fontSize: "10px", padding: "4px 0", borderBottom: "1px dashed #eee", display: "flex", justifyContent: "space-between"}}>
-                            <span>[{log.type}] {cleanName(log.name)} ({log.paymentMethod === 'CHUYỂN KHOẢN' ? 'CK' : 'TM'})</span>
-                            <span style={{fontWeight: "bold"}}>{Math.round(log.total).toLocaleString()}</span>
+                          <div key={log.id} style={{fontSize: "10px", padding: "4px 0", borderBottom: "1px dashed #eee", display: "flex", flexDirection: "column"}}>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                <span><b style={{color: log.type === 'TRẢ HÀNG' ? '#ef4444' : '#1e293b'}}>[{log.type}]</b> {cleanName(log.name)} x{log.qty} {log.refunded_qty > 0 && <span style={{color:"#ef4444", fontSize:"8px"}}>(Đã hoàn {log.refunded_qty})</span>}</span>
+                                {log.type === "BÁN" && <span style={{color:"#059669", fontWeight:"bold"}}>+{Math.round(log.total).toLocaleString()} <span style={{fontSize: "8px", color:"#94a3b8", fontWeight:"normal"}}>({log.paymentMethod === 'CHUYỂN KHOẢN' ? 'CK' : 'TM'})</span></span>}
+                                {log.type === "TRẢ HÀNG" && <span style={{color:"#ef4444", fontWeight:"bold"}}>{Math.round(log.total).toLocaleString()} <span style={{fontSize: "8px", color:"#94a3b8", fontWeight:"normal"}}>({log.paymentMethod === 'VÍ ĐIỂM' ? 'VÍ' : 'TM'})</span></span>}
+                                {log.type === "GHI NỢ" && <span style={{color:"#ea580c", fontWeight:"bold"}}>Nợ: {Math.round(log.total).toLocaleString()}</span>}
+                                {log.type === "THU NỢ" && <span style={{color:"#10b981", fontWeight:"bold"}}>+{Math.round(log.total).toLocaleString()} <span style={{fontSize: "8px", color:"#94a3b8", fontWeight:"normal"}}>({log.paymentMethod === 'CHUYỂN KHOẢN' ? 'CK' : 'TM'})</span></span>}
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", color: "#94a3b8", marginTop: "2px" }}>
+                                <span>{log.customer}</span>
+                                <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                                  <span>{log.t}</span>
+                                  {log.type === 'BÁN' && log.product_id !== 'DISCOUNT' && (
+                                    <button onClick={() => handleRefund(log.id)} disabled={(log.refunded_qty || 0) >= log.qty} style={{ fontSize: "8px", border: "1px solid #cbd5e1", background: (log.refunded_qty || 0) >= log.qty ? "#f1f5f9" : "#fff", color: (log.refunded_qty || 0) >= log.qty ? "#94a3b8" : "#000", cursor: (log.refunded_qty || 0) >= log.qty ? "not-allowed" : "pointer", borderRadius: "2px" }}>
+                                        {(log.refunded_qty || 0) >= log.qty ? "Đã hoàn" : `↩️ Hoàn ${log.qty - (log.refunded_qty || 0)}`}
+                                    </button>
+                                  )}
+                                </div>
+                            </div>
                           </div>
-                        ))}
-                      </div>
+                        ))}</div>
                     ))}
                 </div>
               </div>
