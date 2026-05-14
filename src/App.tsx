@@ -7,7 +7,8 @@ export default function App() {
 
   // ================= 1. CẤU HÌNH EMAIL TỰ ĐỘNG =================
   const EMAILJS_SERVICE_ID = "service_7ie990l";
-  const EMAILJS_TEMPLATE_ID = "template_t91erhg";
+  const EMAILJS_TEMPLATE_ID = "template_t91erhg";      // Dùng cho HÓA ĐƠN
+  const EMAILJS_TEMPLATE_VIP_ID = "template_m1j9i7k";  // Dùng cho THẺ VIP
   const EMAILJS_PUBLIC_KEY = "5ric0kxuwNPlUleAv";
 
   // ================= 2. STATES =================
@@ -91,7 +92,7 @@ export default function App() {
 
   const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
 
-  // ================= 3. HÀM LÕI =================
+  // ================= 3. HÀM LÕI (PURE HELPERS) =================
   const playSound = (type: 'success' | 'error') => {
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -351,7 +352,7 @@ export default function App() {
     return filtered;
   }, [products, searchTerm, selectedCategory, sortConfig, filters]);
 
-  // ================= 6. EVENT HANDLERS (XỬ LÝ CHỨC NĂNG TÍNH TOÁN / GỬI EMAIL ZALO) =================
+  // ================= 6. EVENT HANDLERS =================
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (authUsername === "admin" && authPassword === "haile88") {
@@ -718,7 +719,7 @@ export default function App() {
     setLoading(false);
   };
 
-  // 1. TÍNH NĂNG GỬI MÃ THẺ VIP CHO KHÁCH BẰNG EMAIL (ĐÃ PHỤC HỒI)
+  // ================= TÍNH NĂNG GỬI MÃ THẺ VIP CHO KHÁCH TỰ ĐỘNG =================
   const sendCardEmail = async (phone: string) => {
       const cust = customers[phone];
       const email = cust.email || window.prompt(`Nhập Email của ${cust.name} để gửi mã thẻ:`, "");
@@ -740,11 +741,11 @@ export default function App() {
         total_amount: "Ưu đãi Đặc Quyền",
         payment_method: "VIP Member",
         change_amount: "0đ",
-        barcode_url: barcodeUrl // Đẩy link mã vạch vào mail
+        barcode_url: barcodeUrl // Đẩy link mã vạch vào mail (Dùng với TEMPLATE_VIP_ID)
       };
 
       try {
-        await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, emailData);
+        await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, emailData);
         alert("🚀 Đã gửi Thẻ VIP điện tử tự động thành công!");
       } catch (error) {
         alert("❌ Lỗi gửi mail. Ông chủ kiểm tra lại thông tin cấu hình EmailJS.");
@@ -752,27 +753,26 @@ export default function App() {
       setLoading(false);
   };
 
-  // 2. TÍNH NĂNG MỞ ZALO VÀ COPY LỜI NHẮN (ĐÃ PHỤC HỒI)
-  const shareToZalo = (phone: string) => {
-      const cust = customers[phone];
-      const code = cust.cardCode || phone;
-      const text = `Chào ${cust.name},\nCảm ơn bạn đã đồng hành cùng Hải Lê Mart!\n💳 Mã Thẻ VIP của bạn là: ${code}\n(Đưa mã này cho thu ngân để được giảm giá và tích điểm nhé!)\n\n📸 Mã vạch của bạn (Lưu ảnh này lại):\nhttps://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=10&includetext=true`;
-      
-      navigator.clipboard.writeText(text).then(() => {
-          alert(`✅ Đã copy thông tin Thẻ VIP!\nHệ thống sẽ tự mở Zalo của số ${phone}, ông chủ chỉ cần bấm "Dán" (Ctrl+V) vào khung chat là xong!`);
-          window.open(`https://zalo.me/${phone}`, '_blank');
-      }).catch(() => {
-          window.open(`https://zalo.me/${phone}`, '_blank');
-      });
-  };
-
-  // 3. TÍNH NĂNG IN THẺ VIP CỨNG (ĐÃ PHỤC HỒI)
   const printCustomerCard = (phone: string) => {
       setPrintCustomer({phone, ...customers[phone]});
       setPrintMode('customer_card');
       setTimeout(() => window.print(), 1000); 
   };
 
+  const shareToZalo = (phone: string) => {
+      const cust = customers[phone];
+      const code = cust.cardCode || phone;
+      const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(code)}&code=Code128&translate-esc=on`;
+      
+      const text = `Chào ${cust.name},\nCảm ơn bạn đã đồng hành cùng Hải Lê Mart!\n💳 Mã Thẻ VIP của bạn là: ${code}\n\n👉 Mã vạch của bạn (Bấm vào link để lấy thẻ tĩnh):\n${barcodeUrl}`;
+      
+      navigator.clipboard.writeText(text).then(() => {
+          alert(`💡 MẸO CHUYÊN NGHIỆP:\nThay vì gửi Link, ông chủ hãy bấm [In Thẻ] -> Nhấn phím Alt+Z để cắt ảnh cái Thẻ VIP -> Dán (Ctrl+V) gửi qua Zalo cho khách là xịn nhất!\n\n✅ Đã copy thông tin văn bản, chuẩn bị mở Zalo...`);
+          window.open(`https://zalo.me/${phone}`, '_blank');
+      }).catch(() => {
+          window.open(`https://zalo.me/${phone}`, '_blank');
+      });
+  };
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const code = e.target.value; setNewCode(code);
@@ -1066,9 +1066,6 @@ export default function App() {
     .tab-btn.active { background: #ef4444; color: #fff; border-color: #ef4444; }
     .print-only { display: none; }
     
-    /* FIX LỖI ẨN THẺ KHI IN: Bắt buộc hiển thị khối in thẻ bằng flex */
-    .print-only.print-customer-card { display: flex !important; justify-content: center; align-items: center; }
-
     .qty-input { width: 28px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; outline: none; font-size: 11px; font-weight: bold; color: #1e293b; padding: 3px 0; background: #fff; }
     .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     .qty-input[type=number] { -moz-appearance: textfield; }
@@ -1082,6 +1079,7 @@ export default function App() {
     @media print { 
       body, html { background: white !important; margin: 0 !important; padding: 0 !important; color: #000; } 
       .no-print { display: none !important; } 
+      
       .print-only.print-receipt { display: block !important; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; width: 80mm; margin: 0 auto; padding: 5mm; box-sizing: border-box; font-size: 12px; line-height: 1.4; }
       .print-header { text-align: center; margin-bottom: 10px; }
       .print-header h2 { margin: 0; font-size: 22px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
@@ -1099,7 +1097,7 @@ export default function App() {
       .print-only.print-barcode-sheet { display: flex !important; flex-wrap: wrap; gap: 15px; justify-content: center; padding: 10mm; }
       .barcode-sticker { width: 30%; text-align: center; margin-bottom: 15px; border: 1px dashed #ccc; padding: 8px; page-break-inside: avoid; }
       
-      /* QUAN TRỌNG: CSS ĐỂ IN THẺ KHÁCH HÀNG */
+      /* FIX LỖI ẨN THẺ KHI IN: Bắt buộc hiển thị khối in thẻ bằng flex */
       .print-only.print-customer-card { display: flex !important; justify-content: center; align-items: center; height: 100vh; padding: 0; }
 
       @page { margin: 0; } 
@@ -1244,9 +1242,9 @@ export default function App() {
         </div>
       )}
 
-      {/* CÁC MODAL HIỂN THỊ */}
+      {/* CÁC MODAL HIỂN THỊ (ĐÃ THÊM LỚP NO-PRINT ĐỂ KHÔNG BỊ IN ĐÈ) */}
       {showHoldModal && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "400px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #fed7aa", paddingBottom: "10px", marginBottom: "10px" }}>
               <h2 style={{ margin: 0, color: "#f59e0b" }}>📂 ĐƠN CHỜ THANH TOÁN</h2>
@@ -1273,7 +1271,7 @@ export default function App() {
       )}
 
       {showAuditModal && role === 'admin' && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "600px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #cbd5e1", paddingBottom: "10px", marginBottom: "10px" }}>
               <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
@@ -1302,7 +1300,7 @@ export default function App() {
       )}
 
       {showHandoverModal && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "30px", width: "350px", textAlign: "center" }}>
             <h2 style={{ margin: "0 0 15px 0", color: "#ef4444", fontSize: "22px" }}>📋 BIÊN BẢN CHỐT CA</h2>
             <div style={{ backgroundColor: "#fff7ed", padding: "15px", borderRadius: "10px", border: "1px dashed #fdba74", textAlign: "left", fontSize: "14px", lineHeight: "1.8" }}>
@@ -1323,8 +1321,9 @@ export default function App() {
         </div>
       )}
 
+      {/* TÍNH NĂNG IN THẺ VÀ GỬI THẺ VIP */}
       {showCustomerModal && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "550px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #c7d2fe", paddingBottom: "10px", marginBottom: "10px" }}>
               <h2 style={{ margin: 0, color: "#4f46e5" }}>🤝 QUẢN LÝ KHÁCH HÀNG</h2>
@@ -1375,7 +1374,7 @@ export default function App() {
       )}
 
       {showDebtModal && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "400px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #fed7aa", paddingBottom: "10px", marginBottom: "10px" }}>
               <h2 style={{ margin: 0, color: "#ef4444" }}>📓 SỔ GHI NỢ</h2>
@@ -1399,7 +1398,7 @@ export default function App() {
       )}
 
       {showStatsModal && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "450px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #fed7aa", paddingBottom: "10px", marginBottom: "15px" }}>
               <h2 style={{ margin: 0, color: "#3b82f6" }}>📊 BÁO CÁO NHANH</h2>
@@ -1438,7 +1437,7 @@ export default function App() {
       )}
 
       {scannerMode !== null && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.9)", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", zIndex: 10000 }}>
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.9)", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", zIndex: 10000 }}>
           <div style={{ background: "#fff", padding: "10px", borderRadius: "12px", width: "90%", maxWidth: "400px", position: "relative" }}>
             <h3 style={{ margin: "0 0 10px 0", textAlign: "center", color: "#b91c1c" }}>
               {scannerMode === 'voucher' ? '📷 Quét mã Voucher' : (scannerMode === 'customer' ? '📷 Quét Thẻ VIP' : '📷 Đưa mã vạch vào khung')}
