@@ -91,7 +91,7 @@ export default function App() {
 
   const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
 
-  // ================= 3. HÀM LÕI =================
+  // ================= 3. HÀM LÕI (PURE HELPERS) =================
   const playSound = (type: 'success' | 'error') => {
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -718,7 +718,7 @@ export default function App() {
     setLoading(false);
   };
 
-  // ================= TÍNH NĂNG GỬI MÃ THẺ VIP CHO KHÁCH =================
+  // ================= TÍNH NĂNG GỬI MÃ THẺ VIP CHO KHÁCH TỰ ĐỘNG =================
   const sendCardEmail = async (phone: string) => {
       const cust = customers[phone];
       const email = cust.email || window.prompt(`Nhập Email của ${cust.name} để gửi mã thẻ:`, "");
@@ -730,43 +730,32 @@ export default function App() {
 
       setLoading(true);
       const code = cust.cardCode || phone;
+      const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=10&includetext=true`;
       
       const emailData = {
         to_email: email,
-        order_id: "THẺ VIP",
+        order_id: "THẺ THÀNH VIÊN",
         time: new Date().toLocaleString('vi-VN'),
-        items_list: `💳 MÃ THẺ CỦA BẠN LÀ: ${code}\n(Vui lòng đưa mã này cho thu ngân khi thanh toán hoặc tích điểm)`,
-        total_amount: "Ưu đãi đặc quyền",
-        payment_method: "Khách Hàng Thân Thiết",
-        change_amount: "0đ"
+        items_list: `💳 MÃ THẺ CỦA BẠN LÀ: ${code}\n(Vui lòng xuất trình mã vạch bên dưới khi thanh toán)`,
+        total_amount: "Ưu đãi Đặc Quyền",
+        payment_method: "VIP Member",
+        change_amount: "0đ",
+        barcode_url: barcodeUrl // Đẩy link mã vạch vào mail
       };
 
       try {
         await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, emailData);
-        alert("🚀 Đã gửi mã Thẻ VIP điện tử thành công!");
+        alert("🚀 Đã gửi Thẻ VIP điện tử tự động thành công!");
       } catch (error) {
-        alert("❌ Lỗi gửi mail. Ông chủ kiểm tra lại Service ID & Template ID nhé.");
+        alert("❌ Lỗi gửi mail. Ông chủ kiểm tra lại thông tin cấu hình EmailJS.");
       }
       setLoading(false);
-  };
-
-  const shareToZalo = (phone: string) => {
-      const cust = customers[phone];
-      const code = cust.cardCode || phone;
-      const text = `Chào ${cust.name},\nCảm ơn bạn đã đồng hành cùng Hải Lê Mart!\n💳 Mã Thẻ VIP của bạn là: ${code}\n(Đưa mã này cho thu ngân để được giảm giá và tích điểm nhé!)\n\n📸 Mã vạch của bạn (Lưu ảnh này lại):\nhttps://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=10&includetext=true`;
-      
-      navigator.clipboard.writeText(text).then(() => {
-          alert(`✅ Đã copy thông tin Thẻ VIP!\nHệ thống sẽ tự mở Zalo của số ${phone}, ông chủ chỉ cần bấm "Dán" (Ctrl+V) vào khung chat là xong!`);
-          window.open(`https://zalo.me/${phone}`, '_blank');
-      }).catch(() => {
-          window.open(`https://zalo.me/${phone}`, '_blank');
-      });
   };
 
   const printCustomerCard = (phone: string) => {
       setPrintCustomer({phone, ...customers[phone]});
       setPrintMode('customer_card');
-      setTimeout(() => window.print(), 1500);
+      setTimeout(() => window.print(), 1000); // 1 giây sau tự bật bảng in
   };
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1061,7 +1050,7 @@ export default function App() {
     .tab-btn.active { background: #ef4444; color: #fff; border-color: #ef4444; }
     .print-only { display: none; }
     
-    /* FIX LỖI ẨN THẺ KHI IN */
+    /* FIX LỖI ẨN THẺ KHI IN: Bắt buộc hiển thị khối in thẻ bằng flex */
     .print-only.print-customer-card { display: flex !important; justify-content: center; align-items: center; }
 
     .qty-input { width: 28px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; outline: none; font-size: 11px; font-weight: bold; color: #1e293b; padding: 3px 0; background: #fff; }
@@ -1093,6 +1082,10 @@ export default function App() {
       
       .print-only.print-barcode-sheet { display: flex !important; flex-wrap: wrap; gap: 15px; justify-content: center; padding: 10mm; }
       .barcode-sticker { width: 30%; text-align: center; margin-bottom: 15px; border: 1px dashed #ccc; padding: 8px; page-break-inside: avoid; }
+      
+      /* QUAN TRỌNG: CSS ĐỂ IN THẺ KHÁCH HÀNG */
+      .print-only.print-customer-card { display: flex !important; justify-content: center; align-items: center; height: 100vh; padding: 0; }
+
       @page { margin: 0; } 
     }
   `;
@@ -1136,8 +1129,8 @@ export default function App() {
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); }}>
       <style>{styles}</style>
       
-      {/* 🖨️ BIÊN LAI BÁN HÀNG */}
-      {lastOrder && printMode !== 'barcode' && printMode !== 'customer_card' && (
+      {/* 🖨️ BIÊN LAI BÁN HÀNG (SẼ CHẠY KHI IN) */}
+      {lastOrder && printMode === 'receipt' && (
         <div className="print-only print-receipt">
           <div className="print-header">
             <h2>HẢI LÊ MART</h2>
@@ -1198,9 +1191,9 @@ export default function App() {
         </div>
       )}
 
-      {/* 🖨️ TRANG IN THẺ KHÁCH HÀNG VIP (FIX LỖI ẨN KHI IN BẰNG CSS PRINT-CUSTOMER-CARD) */}
+      {/* 🖨️ TRANG IN THẺ KHÁCH HÀNG VIP */}
       {printMode === 'customer_card' && printCustomer && (
-        <div className="print-only print-customer-card" style={{ height: "100vh", padding: 0 }}>
+        <div className="print-only print-customer-card">
           <div style={{ width: "85.6mm", height: "53.98mm", border: "3px solid #dc2626", borderRadius: "12px", padding: "15px", textAlign: "center", boxSizing: "border-box", display: "flex", flexDirection: "column", justifyContent: "center", backgroundColor: "#fff7ed" }}>
             <h2 style={{margin: "0 0 5px 0", color: "#b91c1c", fontSize: "20px", textTransform: "uppercase", fontWeight: "900"}}>HẢI LÊ MART</h2>
             <div style={{fontSize: "10px", fontWeight: "bold", color: "#ea580c", letterSpacing: "2px", marginBottom: "10px"}}>THẺ KHÁCH HÀNG THÂN THIẾT</div>
@@ -1314,6 +1307,7 @@ export default function App() {
         </div>
       )}
 
+      {/* TÍNH NĂNG IN THẺ VÀ GỬI THẺ VIP */}
       {showCustomerModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "550px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
@@ -1349,8 +1343,8 @@ export default function App() {
                           {customers[phone].cardCode ? `💳 Mã: ${customers[phone].cardCode}` : `💳 +Gán Mã Thẻ`}
                       </span>
                       <button onClick={() => printCustomerCard(phone)} style={{ padding: "4px 6px", backgroundColor: "#dc2626", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="In thẻ cứng (Cỡ thẻ ATM)">🖨️ In Thẻ</button>
-                      <button onClick={() => sendCardEmail(phone)} style={{ padding: "4px 6px", backgroundColor: "#3b82f6", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="Gửi mã thẻ qua Email">📧 Mail</button>
-                      <button onClick={() => shareToZalo(phone)} style={{ padding: "4px 6px", backgroundColor: "#059669", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="Gửi mã thẻ qua Zalo">💬 Zalo</button>
+                      <button onClick={() => sendCardEmail(phone)} style={{ padding: "4px 6px", backgroundColor: "#3b82f6", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="Gửi mã thẻ qua Email tự động">📧 Mail</button>
+                      <button onClick={() => shareToZalo(phone)} style={{ padding: "4px 6px", backgroundColor: "#059669", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="Copy ảnh và mở Zalo">💬 Zalo</button>
                     </div>
 
                   </div>
