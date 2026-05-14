@@ -30,7 +30,7 @@ export default function App() {
   
   const [showHoldModal, setShowHoldModal] = useState(false);
   
-  // NÂNG CẤP CAMERA THÀNH ĐA NHIỆM: null | 'product' | 'voucher'
+  // STATE CAMERA ĐA NHIỆM ĐÃ ĐƯỢC SỬA LỖI
   const [scannerMode, setScannerMode] = useState<'product' | 'voucher' | null>(null);
   const [scannedCodeObj, setScannedCodeObj] = useState<any>(null);
   const [scanMessage, setScanMessage] = useState<{text: string, type: 'success'|'error'} | null>(null);
@@ -105,7 +105,7 @@ export default function App() {
     }
   }, [isLoggedIn]);
 
-  // HỆ THỐNG CAMERA SCANNER
+  // HỆ THỐNG CAMERA SCANNER ĐA NHIỆM
   useEffect(() => {
     if (scannerMode !== null) {
       let scanner: any;
@@ -141,8 +141,32 @@ export default function App() {
     if (scannedCodeObj) {
       if (scannerMode === 'product') {
           const p = products.find(prod => prod.product_code === scannedCodeObj.code.trim());
-          if (p) handleSelectSuggest(p);
-          else { playSound('error'); alert(`Không tìm thấy mã vạch: ${scannedCodeObj.code}`); }
+          if (p) {
+             if (p.stock <= 0) {
+                playSound('error');
+                setScanMessage({ text: `❌ ${p.name} đã hết hàng!`, type: 'error' });
+             } else {
+                const price = getActualPrice(p);
+                setCart(prev => {
+                   const exist = prev.find(item => item.product.id === p.id);
+                   if (exist) {
+                      const newQty = exist.qty + 1;
+                      if (newQty > p.stock) {
+                         playSound('error'); setScanMessage({ text: `❌ Quá tồn kho (${p.stock})`, type: 'error' });
+                         return prev;
+                      }
+                      playSound('success'); setScanMessage({ text: `✅ +1 ${p.name}`, type: 'success' });
+                      return prev.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i);
+                   } else {
+                      playSound('success'); setScanMessage({ text: `✅ Thêm: ${p.name}`, type: 'success' });
+                      return [...prev, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }];
+                   }
+                });
+             }
+          } else {
+             playSound('error');
+             setScanMessage({ text: `❌ Không tìm thấy mã: ${scannedCodeObj.code}`, type: 'error' });
+          }
       } 
       else if (scannerMode === 'voucher') {
           const code = scannedCodeObj.code.trim().toUpperCase();
@@ -154,18 +178,21 @@ export default function App() {
             setAppliedVoucherAmount(VOUCHERS[code]);
             setVoucherInput(code);
             playSound('success');
+            setScanMessage({ text: `✅ Đã áp dụng giảm ${VOUCHERS[code].toLocaleString()}đ`, type: 'success' });
           } else if (!isNaN(Number(code)) && Number(code) > 0) {
             setAppliedVoucherAmount(Number(code));
             setVoucherInput(code);
             playSound('success');
+            setScanMessage({ text: `✅ Đã nhận mức giảm ${Number(code).toLocaleString()}đ`, type: 'success' });
           } else {
             playSound('error');
             alert("Mã Voucher không hợp lệ!");
             setAppliedVoucherAmount(0);
           }
-          setScannerMode(null); // Đóng camera sau khi quét voucher thành công
+          setTimeout(() => setScannerMode(null), 1000); // Đóng camera sau khi quét voucher thành công
       }
       setScannedCodeObj(null);
+      setTimeout(() => setScanMessage(null), 1500); 
     }
   }, [scannedCodeObj, products, scannerMode]);
 
@@ -271,25 +298,25 @@ export default function App() {
     logAudit("XÓA ĐƠN TẠM", `Đã xóa 1 đơn hàng lưu tạm`);
   };
 
-  const handleSelectSuggest = (p: any) => {
-    if (p.stock <= 0) { playSound('error'); return alert("Đã hết hàng trong kho!"); }
-    const price = getActualPrice(p);
-    const exist = cart.find(item => item.product.id === p.id);
-    if (exist) {
-      const newQty = exist.qty + 1;
-      if (newQty > p.stock) { playSound('error'); return alert(`Không đủ hàng! Trong kho chỉ còn ${p.stock}.`); }
-      setCart(cart.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i));
-    } else setCart([...cart, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }]);
-    
-    playSound('success'); setBarcodeInput(""); setShowSuggestions(false);
-  };
-
   const handleBarcodeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const p = products.find(prod => prod.product_code === barcodeInput.trim());
-      if (p) handleSelectSuggest(p);
-      else { playSound('error'); alert("Mã sai hoặc không tìm thấy!"); }
+      if (p) {
+         if (p.stock <= 0) { playSound('error'); return alert("Đã hết hàng trong kho!"); }
+         const price = getActualPrice(p);
+         const exist = cart.find(item => item.product.id === p.id);
+         if (exist) {
+            const newQty = exist.qty + 1;
+            if (newQty > p.stock) { playSound('error'); return alert(`Không đủ hàng! Trong kho chỉ còn ${p.stock}.`); }
+            setCart(cart.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i));
+         } else {
+            setCart([...cart, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }]);
+         }
+         playSound('success'); setBarcodeInput("");
+      } else { 
+         playSound('error'); alert("Mã sai hoặc không tìm thấy!"); 
+      }
     }
   };
 
@@ -1119,10 +1146,12 @@ export default function App() {
       )}
 
       {/* 📷 CAMERA SCANNER OVERLAY */}
-      {showScanner && (
+      {scannerMode !== null && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.9)", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", zIndex: 10000 }}>
           <div style={{ background: "#fff", padding: "10px", borderRadius: "12px", width: "90%", maxWidth: "400px", position: "relative" }}>
-            <h3 style={{ margin: "0 0 10px 0", textAlign: "center", color: "#b91c1c" }}>📷 Đưa mã vạch vào khung</h3>
+            <h3 style={{ margin: "0 0 10px 0", textAlign: "center", color: "#b91c1c" }}>
+              {scannerMode === 'voucher' ? '📷 Quét mã Voucher' : '📷 Đưa mã vạch vào khung'}
+            </h3>
             
             {scanMessage && (
               <div style={{ position: "absolute", top: "50px", left: "50%", transform: "translateX(-50%)", padding: "8px 16px", backgroundColor: scanMessage.type === 'success' ? "#10b981" : "#ef4444", color: "#fff", fontWeight: "bold", borderRadius: "20px", zIndex: 10001, boxShadow: "0 4px 6px rgba(0,0,0,0.3)", animation: "float 0.5s ease-out" }}>
@@ -1131,7 +1160,7 @@ export default function App() {
             )}
 
             <div id="qr-reader" style={{ width: "100%" }}></div>
-            <button onClick={() => setShowScanner(false)} style={{ width: "100%", padding: "12px", marginTop: "15px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" }}>ĐÓNG CAMERA</button>
+            <button onClick={() => setScannerMode(null)} style={{ width: "100%", padding: "12px", marginTop: "15px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" }}>ĐÓNG CAMERA</button>
           </div>
         </div>
       )}
@@ -1234,7 +1263,6 @@ export default function App() {
         )}
 
         <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
-          {/* HEADER CHÍNH */}
           <div className="glass" style={{ padding: "8px 15px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", borderBottom: "4px solid #ef4444" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
               <h2 style={{ color: "#ef4444", margin: 0, fontSize: "18px" }}>🏪 HẢI LÊ MART</h2>
@@ -1270,7 +1298,6 @@ export default function App() {
 
           <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: "10px" }}>
             
-            {/* CỘT TRÁI: SẢN PHẨM */}
             <div className="glass" style={{ padding: "12px" }}>
               
               <div style={{ display: "flex", gap: "8px", marginBottom: "10px", position: "relative" }}>
