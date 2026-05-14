@@ -73,7 +73,6 @@ export default function App() {
   const [custName, setCustName] = useState("");
   const [useWallet, setUseWallet] = useState(false);
   
-  // STATE MỚI CHO VOUCHER QUÉT MÃ VẠCH
   const [voucherInput, setVoucherInput] = useState(""); 
   const [appliedVoucherAmount, setAppliedVoucherAmount] = useState<number>(0);
 
@@ -357,13 +356,11 @@ export default function App() {
 
   const cartTotalAmount = cart.reduce((sum, item) => sum + item.total, 0);
 
-  // --- XỬ LÝ VOUCHER QUÉT MÃ VẠCH ---
   const handleVoucherSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const code = voucherInput.trim().toUpperCase();
       
-      // Database mã giảm giá giả lập (Ông chủ có thể tự thêm vào đây)
       const VOUCHERS: Record<string, number> = { 
         "VC50K": 50000, 
         "VC100K": 100000, 
@@ -375,7 +372,6 @@ export default function App() {
         setAppliedVoucherAmount(VOUCHERS[code]);
         playSound('success');
       } else if (!isNaN(Number(code)) && Number(code) > 0) {
-        // Fallback: Cho phép gõ tay trực tiếp số tiền (vd gõ 20000)
         setAppliedVoucherAmount(Number(code));
         playSound('success');
       } else {
@@ -412,7 +408,7 @@ export default function App() {
     const vatTotal = Math.round(subTotal * VAT_RATE);
     const baseTotal = subTotal + vatTotal;
     
-    const vDiscount = appliedVoucherAmount || 0; // Đổi sang sử dụng appliedVoucherAmount
+    const vDiscount = appliedVoucherAmount || 0; 
     const totalAfterVoucher = Math.max(0, baseTotal - vDiscount);
 
     const wallet = customers[custPhone]?.wallet || 0;
@@ -1096,6 +1092,24 @@ export default function App() {
         </div>
       )}
 
+      {/* 📷 CAMERA SCANNER OVERLAY */}
+      {showScanner && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.9)", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", zIndex: 10000 }}>
+          <div style={{ background: "#fff", padding: "10px", borderRadius: "12px", width: "90%", maxWidth: "400px", position: "relative" }}>
+            <h3 style={{ margin: "0 0 10px 0", textAlign: "center", color: "#b91c1c" }}>📷 Đưa mã vạch vào khung</h3>
+            
+            {scanMessage && (
+              <div style={{ position: "absolute", top: "50px", left: "50%", transform: "translateX(-50%)", padding: "8px 16px", backgroundColor: scanMessage.type === 'success' ? "#10b981" : "#ef4444", color: "#fff", fontWeight: "bold", borderRadius: "20px", zIndex: 10001, boxShadow: "0 4px 6px rgba(0,0,0,0.3)", animation: "float 0.5s ease-out" }}>
+                {scanMessage.text}
+              </div>
+            )}
+
+            <div id="qr-reader" style={{ width: "100%" }}></div>
+            <button onClick={() => setShowScanner(false)} style={{ width: "100%", padding: "12px", marginTop: "15px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" }}>ĐÓNG CAMERA</button>
+          </div>
+        </div>
+      )}
+
       <div className="no-print" style={{ padding: "10px", position: "relative", minHeight: "100vh" }}>
         <div className="spring-bg" style={{ background: "#ef4444", top: "10%", left: "5%" }}></div>
         <div className="spring-bg" style={{ background: "#f59e0b", bottom: "10%", right: "5%" }}></div>
@@ -1107,7 +1121,6 @@ export default function App() {
               <div className="glass" style={{ padding: "25px", width: "350px" }}>
                 <h3 style={{ color: "#ef4444", margin: "0", textAlign: "center" }}>🧧 THANH TOÁN</h3>
                 
-                {/* 💳 NÂNG CẤP Ô VOUCHER QUÉT MÃ VẠCH */}
                 <input 
                   type="text" 
                   placeholder="👉 Quẹt mã Voucher hoặc nhập số tiền (đ)..." 
@@ -1423,6 +1436,7 @@ export default function App() {
               
               <div className="glass" style={{ padding: "12px", flex: 1.5, minHeight: "45vh", display: "flex", flexDirection: "column" }}>
                 
+                {/* 🛠️ DI CHUYỂN NÚT THANH TOÁN LÊN ĐẦU, GỘP VỚI TỔNG TIỀN */}
                 <div style={{ marginBottom: "12px", paddingBottom: "8px", borderBottom: "2px dashed #fed7aa" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                     <h3 style={{ margin: 0, color: "#ef4444", fontSize: "14px", textTransform: "uppercase" }}>🛒 GIỎ HÀNG ({cart.reduce((s, i) => s + (Number(i.qty) || 0), 0)} món)</h3>
@@ -1434,9 +1448,12 @@ export default function App() {
                   </div>
                   
                   {cartTotalAmount > 0 && (
-                    <div style={{ backgroundColor: "#fef2f2", padding: "8px 12px", borderRadius: "6px", display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid #fecaca" }}>
-                      <span style={{ fontSize: "12px", fontWeight: "bold", color: "#b91c1c" }}>TỔNG THANH TOÁN:</span>
-                      <span style={{ fontSize: "20px", fontWeight: "900", color: "#ef4444" }}>{cartTotalAmount.toLocaleString()}đ</span>
+                    <div style={{ backgroundColor: "#fef2f2", padding: "8px 12px", borderRadius: "6px", display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid #fecaca", marginBottom: "8px" }}>
+                      <div style={{ display: "flex", flexDirection: "column" }}>
+                        <span style={{ fontSize: "11px", fontWeight: "bold", color: "#b91c1c" }}>TỔNG THANH TOÁN:</span>
+                        <span style={{ fontSize: "20px", fontWeight: "900", color: "#ef4444" }}>{cartTotalAmount.toLocaleString()}đ</span>
+                      </div>
+                      <button onClick={() => { setIsCheckoutOpen(true); setCheckoutStep(1); }} style={{ padding: "10px 15px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer", fontSize: "14px", boxShadow: "0 2px 4px rgba(239, 68, 68, 0.4)" }}>THANH TOÁN</button>
                     </div>
                   )}
                 </div>
@@ -1475,7 +1492,6 @@ export default function App() {
                     </div>
                   )})}
                 </div>
-                {cart.length > 0 && <button onClick={() => { setIsCheckoutOpen(true); setCheckoutStep(1); }} style={{ width: "100%", padding: "12px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer", fontSize: "14px" }}>THANH TOÁN</button>}
               </div>
 
               <div className="glass" style={{ padding: "12px", flex: 1, display: "flex", flexDirection: "column", height: "35vh" }}>
