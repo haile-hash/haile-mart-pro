@@ -154,7 +154,7 @@ export default function App() {
     return availableMatches[0];
   };
 
-  // ================= 4. EFFECTS (VÒNG ĐỜI) =================
+  // ================= 4. EFFECTS =================
   useEffect(() => {
     localStorage.setItem("mart_history", JSON.stringify(history));
     localStorage.setItem("mart_customers", JSON.stringify(customers));
@@ -167,7 +167,6 @@ export default function App() {
       fetchProducts();
       const channel = supabase.channel("db_changes").on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts()).subscribe();
       
-      // Tải thư viện EmailJS
       const script = document.createElement("script");
       script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js";
       script.onload = () => { (window as any).emailjs.init(EMAILJS_PUBLIC_KEY); };
@@ -236,7 +235,7 @@ export default function App() {
     return () => window.removeEventListener("afterprint", handleAfterPrint);
   }, []);
 
-  // ================= 5. DATA MEMOS =================
+  // ================= 5. COMPUTED DATA =================
   const currentShiftStats = useMemo(() => {
     const todayStr = new Date().toLocaleDateString('vi-VN');
     const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStr && h.shift === shift);
@@ -281,7 +280,13 @@ export default function App() {
   }, [history]);
 
   const totalValue = Math.round(products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
+  
+  // TỔNG TIỀN GIỎ HÀNG
   const cartTotalAmount = cart.reduce((sum, item) => sum + item.total, 0);
+
+  // BIẾN TÍNH TIỀN KHÁCH PHẢI TRẢ
+  const finalToPay = Math.round(Math.max(0, cartTotalAmount - appliedVoucherAmount - (useWallet ? Math.min(customers[custPhone]?.wallet||0, Math.max(0, cartTotalAmount - appliedVoucherAmount)) : 0)));
+
 
   const uniqueNames = useMemo(() => Array.from(new Set(products.map(p => cleanName(p.name)))).sort(), [products]);
   const uniqueStocks = useMemo(() => Array.from(new Set(products.map(p => p.stock))).sort((a,b)=>a-b), [products]);
@@ -337,6 +342,7 @@ export default function App() {
   };
 
   const handleLogoutClick = () => setShowHandoverModal(true);
+  
   const confirmHandover = () => {
     logAudit("CHỐT CA", `Doanh thu bàn giao: ${currentShiftStats.rev.toLocaleString()}đ (TM: ${currentShiftStats.cash.toLocaleString()}đ, CK: ${currentShiftStats.transfer.toLocaleString()}đ)`);
     setIsLoggedIn(false); setShowHandoverModal(false);
@@ -406,7 +412,7 @@ export default function App() {
       const exist = prev.find(item => item.product.id === p.id);
       if (exist) {
         const newQty = exist.qty + 1;
-        if (newQty > p.stock) { playSound('error'); alert(`Lô hàng này chỉ còn tối đa ${p.stock} sản phẩm.`); return prev; }
+        if (newQty > p.stock) { playSound('error'); alert(`Lô hàng này chỉ còn tối đa ${p.stock} sản phẩm. Hãy thêm tiếp lô mới vào giỏ!`); return prev; }
         playSound('success');
         return prev.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i);
       } else {
@@ -878,8 +884,7 @@ export default function App() {
 
   const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
 
-
-  // ================= 8. RENDER HELPERS =================
+  // ================= 7. CÁC HÀM HIỂN THỊ (RENDER HELPERS) =================
   const renderHeaderIcon = (colKey: string) => {
     const isFiltered = filters[colKey]?.length > 0;
     const isSortedAsc = sortConfig?.key === colKey && sortConfig.direction === 'asc';
@@ -938,7 +943,7 @@ export default function App() {
     </div>
   );
 
-  // ================= 9. STYLES =================
+  // ================= 8. STYLES CSS =================
   const styles = `
     @keyframes float { 0% { transform: translateY(0); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0); } }
     @keyframes pulse-fast { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
@@ -981,7 +986,7 @@ export default function App() {
     }
   `;
 
-  // ================= 10. APP COMPONENT RETURN =================
+  // ================= 9. GIAO DIỆN ĐĂNG NHẬP =================
   if (!isLoggedIn) {
      return (
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", position: "relative", overflow: "hidden" }}>
@@ -989,6 +994,7 @@ export default function App() {
         <div className="spring-bg" style={{ background: "#ef4444", top: "-10%", left: "-10%" }}></div>
         <div className="spring-bg" style={{ background: "#fbbf24", bottom: "-10%", right: "-10%" }}></div>
         <div className="glass" style={{ padding: "40px", width: "100%", maxWidth: "380px", textAlign: "center", border: "4px solid #ef4444" }}>
+          
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "30px" }}>
             <div style={{ backgroundColor: "#dc2626", padding: "16px", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 10px 25px rgba(220, 38, 38, 0.3)", marginBottom: "15px" }}>
               <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -998,6 +1004,7 @@ export default function App() {
             <h1 style={{ margin: 0, fontSize: "32px", fontWeight: "900", letterSpacing: "1px", color: "#0f172a", textTransform: "uppercase" }}>HẢI LÊ <span style={{color: "#dc2626"}}>MART</span></h1>
             <span style={{ fontSize: "11px", color: "#64748b", fontWeight: "800", letterSpacing: "4px", textTransform: "uppercase", marginTop: "5px" }}>Professional POS</span>
           </div>
+
           <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
             <select value={shift} onChange={e => setShift(e.target.value)} style={{ padding: "14px", borderRadius: "10px", border: "1px solid #cbd5e1", outline: "none", fontWeight: "bold", color: "#1e293b", backgroundColor: "#f8fafc" }}>
               <option value="Ca Sáng">🌅 Ca Sáng (06:00 - 14:00)</option>
@@ -1013,13 +1020,12 @@ export default function App() {
     );
   }
 
-  const finalToPay = Math.round(Math.max(0, cartTotalAmount - appliedVoucherAmount - (useWallet ? Math.min(customers[custPhone]?.wallet||0, Math.max(0, cartTotalAmount - appliedVoucherAmount)) : 0)));
-
+  // ================= 10. GIAO DIỆN CHÍNH APP =================
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); }}>
       <style>{styles}</style>
       
-      {/* 🖨️ BIÊN LAI BÁN HÀNG */}
+      {/* 🖨️ BIÊN LAI BÁN HÀNG (SẼ CHẠY KHI IN) */}
       {lastOrder && printMode !== 'barcode' && (
         <div className="print-only print-receipt">
           <div className="print-header">
@@ -1284,7 +1290,6 @@ export default function App() {
         </div>
       )}
 
-      {/* --- GIAO DIỆN CHÍNH --- */}
       <div className="no-print" style={{ padding: "15px", position: "relative", minHeight: "100vh", overflowX: "auto" }}>
         <div className="spring-bg" style={{ background: "#ef4444", top: "10%", left: "5%" }}></div>
         <div className="spring-bg" style={{ background: "#f59e0b", bottom: "10%", right: "5%" }}></div>
@@ -1458,7 +1463,7 @@ export default function App() {
               <div style={{ maxHeight: "calc(100vh - 200px)", overflowY: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
-                    <tr style={{ color: "#16a34a", fontSize: "10px", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}>
+                    <tr style={{ color: "#16a34a", fontSize: "10px", borderBottom: "2px solid #fed7aa", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}>
                       <th style={{ textAlign: "left", padding: "8px" }}>SẢN PHẨM {renderHeaderIcon('name')}{renderFilterPopup('name', 'TÊN SẢN PHẨM', uniqueNames)}</th>
                       <th style={{ textAlign: "center" }}>TỒN {renderHeaderIcon('stock')}{renderFilterPopup('stock', 'SỐ LƯỢNG TỒN', uniqueStocks)}</th>
                       {role === 'admin' && <th style={{ textAlign: "center" }}>GIÁ VỐN {renderHeaderIcon('import_price')}{renderFilterPopup('import_price', 'GIÁ VỐN', uniqueImportPrices, (v) => v.toLocaleString() + 'đ')}</th>}
@@ -1519,9 +1524,9 @@ export default function App() {
                       {cart.length > 0 && <button onClick={clearCart} style={{ fontSize: "9px", padding: "4px 6px", background: "#fee2e2", color: "#ef4444", border: "1px solid #fca5a5", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>🗑️ HỦY HẾT</button>}
                     </div>
                 </div>
-                {cartTotalAmountDisplay > 0 && (
+                {cartTotalAmount > 0 && (
                     <div style={{ backgroundColor: "#fef2f2", padding: "10px", borderRadius: "8px", border: "1px solid #fecaca", marginBottom: "10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div><span style={{ fontSize: "11px", fontWeight: "bold", color: "#b91c1c" }}>TỔNG CỘNG:</span><div style={{ fontSize: "22px", fontWeight: "900", color: "#ef4444" }}>{cartTotalAmountDisplay.toLocaleString()}đ</div></div>
+                      <div><span style={{ fontSize: "11px", fontWeight: "bold", color: "#b91c1c" }}>TỔNG CỘNG:</span><div style={{ fontSize: "22px", fontWeight: "900", color: "#ef4444" }}>{cartTotalAmount.toLocaleString()}đ</div></div>
                       <button onClick={() => { setIsCheckoutOpen(true); setCheckoutStep(1); }} style={{ padding: "12px 20px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" }}>THANH TOÁN</button>
                     </div>
                 )}
@@ -1563,7 +1568,7 @@ export default function App() {
                     {Object.keys(groupedHistory).length === 0 && <div style={{textAlign: "center", color: "#94a3b8", fontSize: "10px", marginTop: "10px"}}>Chưa có dữ liệu</div>}
                     {Object.keys(groupedHistory).map((date) => (
                       <div key={date}>
-                        <div style={{backgroundColor: "#ffedd5", padding: "4px 8px", fontSize: "10px", fontWeight: "bold"}}>{date}</div>
+                        <div style={{backgroundColor: "#ffedd5", padding: "4px 8px", fontSize: "10px", fontWeight: "bold", border: "1px solid #fed7aa", borderRadius: "4px", marginTop: "4px"}}>{date}</div>
                         {groupedHistory[date].map((log: any) => (
                           <div key={log.id} style={{fontSize: "10px", padding: "4px 0", borderBottom: "1px dashed #eee", display: "flex", flexDirection: "column"}}>
                             <div style={{ display: "flex", justifyContent: "space-between" }}>
