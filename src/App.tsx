@@ -84,7 +84,7 @@ export default function App() {
 
   const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
 
-  // ================= 2. HELPER FUNCTIONS (ĐẶT LÊN TRƯỚC ĐỂ KHÔNG LỖI) =================
+  // ================= 2. HELPER FUNCTIONS =================
   const playSound = (type: 'success' | 'error') => {
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -247,7 +247,7 @@ export default function App() {
     return () => window.removeEventListener("afterprint", handleAfterPrint);
   }, []);
 
-  // ================= 4. COMPUTED DATA (USEMEMO) =================
+  // ================= 4. COMPUTED DATA =================
   const currentShiftStats = useMemo(() => {
     const todayStr = new Date().toLocaleDateString('vi-VN');
     const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStr && h.shift === shift);
@@ -496,6 +496,7 @@ export default function App() {
     setCheckoutStep(2);
   };
 
+  // --- NÂNG CẤP LƯU "TIỀN KHÁCH ĐƯA" LÊN ĐƠN HÀNG ĐỂ IN BILL ---
   const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 'GHI NỢ') => {
     if (cart.some(i => !i.qty || i.qty <= 0)) { playSound('error'); return alert("Có sản phẩm số lượng không hợp lệ!"); }
     if (payMethod === 'GHI NỢ' && !custPhone) return alert("Ghi nợ bắt buộc phải nhập SĐT khách hàng!");
@@ -542,10 +543,13 @@ export default function App() {
     }
 
     setHistory(prev => [...logs, ...prev]);
+
+    // Gắn thêm customerGiven vào thông tin Bill in ra
     setLastOrder({ 
       orderId: "HD" + Date.now().toString().slice(-6), shift: shift, cart: [...cart], 
       subTotal, vatTotal, finalTotal: payMethod === 'GHI NỢ' ? 0 : finalTotal, debtAmount: payMethod === 'GHI NỢ' ? finalTotal : 0, 
-      discount: totalDiscount, earnedWallet: custPhone ? earned : 0, custName: custPhone ? custName : null, custPhone: custPhone ? custPhone : null, time: new Date().toLocaleString('vi-VN'), paymentMethod: payMethod
+      discount: totalDiscount, earnedWallet: custPhone ? earned : 0, custName: custPhone ? custName : null, custPhone: custPhone ? custPhone : null, time: new Date().toLocaleString('vi-VN'), paymentMethod: payMethod,
+      customerGiven: payMethod === 'TIỀN MẶT' ? Number(customerGiven) : 0
     });
     setCheckoutStep(3); fetchProducts(); setLoading(false);
   };
@@ -755,6 +759,14 @@ export default function App() {
     reader.readAsText(file); e.target.value = '';
   };
 
+  const handleDelete = async (id: any, name: any) => { 
+      if (window.confirm(`Xóa vĩnh viễn ${name}?`)) { 
+          await supabase.from("products").delete().eq("id", id); 
+          logAudit("XÓA SẢN PHẨM", `Xóa vĩnh viễn: ${name}`);
+          fetchProducts(); 
+      } 
+  };
+  
   const handleEdit = async (id: any, field: string, old: any, isText: boolean = false) => {
     let label = field;
     if (field === 'category') label = 'Danh mục'; if (field === 'sale_price') label = 'Giá bán';
@@ -771,20 +783,18 @@ export default function App() {
     }
   };
 
-  const handleDelete = async (id: any, name: any) => { 
-      if (window.confirm(`Xóa vĩnh viễn ${name}?`)) { 
-          await supabase.from("products").delete().eq("id", id); 
-          logAudit("XÓA SẢN PHẨM", `Xóa vĩnh viễn: ${name}`);
-          fetchProducts(); 
-      } 
-  };
-  
   const handlePrintBarcode = (p: any) => {
     const q = window.prompt(`Nhập số lượng tem cần in cho: ${cleanName(p.name)}`, "30");
     if (q && parseInt(q) > 0) {
       setPrintBarcodeProduct(p); setBarcodeCount(parseInt(q)); setPrintMode('barcode');
       setTimeout(() => window.print(), 1500);
     }
+  };
+
+  const downloadSampleCSV = () => {
+    const csv = "\uFEFFMã SP,Tên SP,Danh Mục,Giá Nhập,Giá Bán,Giá KM,Quà Tặng,Số Lượng,Hạn Sử Dụng (YYYY-MM-DD)\nSP001,Mì Hảo Hảo,Đồ ăn liền,3000,5000,0,,100,2026-12-31\nSP002,Nước suối TH,Đồ uống,4000,6000,0,24;;;1 Ly Thủy Tinh,50,2026-06-15";
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Mau_Nhap_Kho_Hai_Le_Mart.csv`; link.click();
   };
 
   const exportToCSV = () => {
@@ -825,12 +835,6 @@ export default function App() {
     const sub = encodeURIComponent(`Báo Cáo Hải Lê Mart - Ngày ${todayStr}`);
     const body = encodeURIComponent(`Báo cáo TỔNG NGÀY ${todayStr}:\n- Đã bán: ${sold} món\n- TIỀN MẶT: ${Math.round(cash).toLocaleString()}đ\n- CHUYỂN KHOẢN: ${Math.round(transfer).toLocaleString()}đ\n- Lợi nhuận: ${Math.round(prof).toLocaleString()}đ`);
     window.location.href = `mailto:lehonghaikt6@gmail.com?subject=${sub}&body=${body}`;
-  };
-
-  const downloadSampleCSV = () => {
-    const csv = "\uFEFFMã SP,Tên SP,Danh Mục,Giá Nhập,Giá Bán,Giá KM,Quà Tặng,Số Lượng,Hạn Sử Dụng (YYYY-MM-DD)\nSP001,Mì Hảo Hảo,Đồ ăn liền,3000,5000,0,,100,2026-12-31\nSP002,Nước suối TH,Đồ uống,4000,6000,0,24;;;1 Ly Thủy Tinh,50,2026-06-15";
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Mau_Nhap_Kho_Hai_Le_Mart.csv`; link.click();
   };
 
   const requestSort = (key: string) => {
@@ -893,6 +897,7 @@ export default function App() {
     );
   };
 
+  // ================= 7. RENDER =================
   const styles = `
     @keyframes float { 0% { transform: translateY(0); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0); } }
     @keyframes pulse-fast { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
@@ -970,6 +975,7 @@ export default function App() {
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); }}>
       <style>{styles}</style>
       
+      {/* 🖨️ BIÊN LAI BÁN HÀNG ĐÃ THÊM THÔNG TIN TIỀN TRẢ LẠI / HÌNH THỨC TT */}
       {lastOrder && printMode !== 'barcode' && (
         <div className="print-only print-receipt">
           <div className="print-header">
@@ -1011,6 +1017,20 @@ export default function App() {
               <span>{lastOrder.debtAmount > 0 ? "KHÁCH NỢ:" : "TỔNG CỘNG:"}</span>
               <span>{Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</span>
             </div>
+            
+            {/* THÊM HIỂN THỊ TIỀN KHÁCH ĐƯA VÀ HÌNH THỨC TT */}
+            {lastOrder.paymentMethod === 'TIỀN MẶT' && lastOrder.customerGiven > 0 && (
+              <div style={{ marginTop: '8px', borderTop: '1px dotted #ccc', paddingTop: '5px' }}>
+                <div className="print-totals-row"><span>Tiền khách đưa:</span><span>{Math.round(lastOrder.customerGiven).toLocaleString()}đ</span></div>
+                <div className="print-totals-row"><span><b>Tiền trả lại:</b></span><span><b>{Math.round(lastOrder.customerGiven - lastOrder.finalTotal).toLocaleString()}đ</b></span></div>
+              </div>
+            )}
+            {lastOrder.paymentMethod === 'CHUYỂN KHOẢN' && (
+              <div style={{ marginTop: '8px', borderTop: '1px dotted #ccc', paddingTop: '5px' }}>
+                <div className="print-totals-row"><span>Hình thức TT:</span><span>Chuyển khoản (VietQR)</span></div>
+              </div>
+            )}
+            
           </div>
           <div className="print-footer">
             <div><b>CẢM ƠN QUÝ KHÁCH & HẸN GẶP LẠI!</b></div>
@@ -1019,6 +1039,7 @@ export default function App() {
         </div>
       )}
 
+      {/* 🖨️ TRANG IN TEM MÃ VẠCH */}
       {printMode === 'barcode' && printBarcodeProduct && (
         <div className="print-only print-barcode-sheet">
           {Array.from({length: barcodeCount}).map((_, i) => (
@@ -1037,6 +1058,7 @@ export default function App() {
         </div>
       )}
 
+      {/* CÁC MODAL HIỂN THỊ */}
       {showHoldModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "400px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
@@ -1220,7 +1242,6 @@ export default function App() {
         </div>
       )}
 
-      {/* --- GIAO DIỆN CHÍNH --- */}
       <div className="no-print" style={{ padding: "15px", position: "relative", minHeight: "100vh", overflowX: "auto" }}>
         <div className="spring-bg" style={{ background: "#ef4444", top: "10%", left: "5%" }}></div>
         <div className="spring-bg" style={{ background: "#f59e0b", bottom: "10%", right: "5%" }}></div>
