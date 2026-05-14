@@ -178,7 +178,8 @@ export default function App() {
     return Math.round(price);
   };
 
-  // TÌM KIẾM THEO FIFO
+  const cleanName = (name: string) => name ? name.split(' [Lô')[0] : '';
+
   const findProductByCode = (code: string) => {
     const rawCode = code.trim();
     let matches = products.filter(prod => prod.product_code === rawCode || prod.product_code.startsWith(`${rawCode}-`));
@@ -203,10 +204,10 @@ export default function App() {
         if (exist) {
             const newQty = exist.qty + 1;
             if (newQty > p.stock) { playSound('error'); setScanMessage({ text: `❌ Quá tồn kho (${p.stock})`, type: 'error' }); return prev; }
-            playSound('success'); setScanMessage({ text: `✅ +1 ${p.name}`, type: 'success' });
+            playSound('success'); setScanMessage({ text: `✅ +1 ${cleanName(p.name)}`, type: 'success' });
             return prev.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i);
         } else {
-            playSound('success'); setScanMessage({ text: `✅ Thêm: ${p.name}`, type: 'success' });
+            playSound('success'); setScanMessage({ text: `✅ Thêm: ${cleanName(p.name)}`, type: 'success' });
             return [...prev, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }];
         }
     });
@@ -462,7 +463,7 @@ export default function App() {
     const maxRefund = log.qty - (log.refunded_qty || 0);
     if(maxRefund <= 0) return alert("Đơn này đã được hoàn trả toàn bộ!");
 
-    const qStr = window.prompt(`Sản phẩm: ${log.name}\nĐã mua: ${log.qty} | Có thể hoàn tối đa: ${maxRefund}\n\nNhập số lượng muốn hoàn trả:`, maxRefund.toString());
+    const qStr = window.prompt(`Sản phẩm: ${cleanName(log.name)}\nĐã mua: ${log.qty} | Có thể hoàn tối đa: ${maxRefund}\n\nNhập số lượng muốn hoàn trả:`, maxRefund.toString());
     if (!qStr) return;
     const refundQty = parseInt(qStr);
 
@@ -470,7 +471,7 @@ export default function App() {
       playSound('error'); return alert("Số lượng hoàn không hợp lệ!");
     }
 
-    if(!window.confirm(`Xác nhận hoàn trả ${refundQty} x ${log.name}?`)) return;
+    if(!window.confirm(`Xác nhận hoàn trả ${refundQty} x ${cleanName(log.name)}?`)) return;
 
     const unitTotal = log.total / log.qty;
     const unitProfit = log.profit / log.qty;
@@ -508,7 +509,7 @@ export default function App() {
     
     setHistory(updatedHistory);
     fetchProducts();
-    logAudit("TRẢ HÀNG", `Hoàn ${refundQty} ${log.name} trị giá ${refundTotal.toLocaleString()}đ`);
+    logAudit("TRẢ HÀNG", `Hoàn ${refundQty} ${cleanName(log.name)} trị giá ${refundTotal.toLocaleString()}đ`);
     playSound('success'); alert(`Hoàn trả thành công ${refundQty} sản phẩm! Tiền đã được xử lý.`);
   };
 
@@ -530,7 +531,7 @@ export default function App() {
     const code = e.target.value; setNewCode(code);
     const p = products.find((x: any) => x.product_code === code);
     if (p) { 
-      setNewName(p.name); setNewCategory(p.category || "Khác"); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewExpiry(p.expiry_date || ""); 
+      setNewName(cleanName(p.name)); setNewCategory(p.category || "Khác"); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewExpiry(p.expiry_date || ""); 
       const gift = parseGift(p.gift_info);
       setNewGiftCondition(gift.cond.toString());
       setNewGiftInfo(gift.text);
@@ -547,7 +548,7 @@ export default function App() {
 
     if (exist) {
         if (exist.stock <= 0) {
-            const data = { name: newName, category: newCategory || "Khác", import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null };
+            const data = { name: newName, category: newCategory || "Khác", import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null, created_at: new Date().toISOString() };
             await supabase.from("products").update(data).eq("id", exist.id);
             if (added > 0) setHistory(prev => [{ id: Date.now(), shift: shift, type: "NHẬP", name: newName, qty: added, total: 0 }, ...prev]);
             logAudit("NHẬP MỚI (ĐÈ CŨ)", `${newName} (Mã: ${newCode}) - SL: ${added}`);
@@ -565,7 +566,7 @@ export default function App() {
                     setLoading(false); return;
                 }
             } else {
-                const data = { stock: exist.stock + added };
+                const data = { stock: exist.stock + added, created_at: new Date().toISOString() };
                 await supabase.from("products").update(data).eq("id", exist.id);
                 if (added > 0) setHistory(prev => [{ id: Date.now(), shift: shift, type: "NHẬP", name: newName, qty: added, total: 0 }, ...prev]);
                 logAudit("NHẬP THÊM HÀNG", `${newName} (Mã: ${newCode}) - +SL: ${added}`);
@@ -603,7 +604,7 @@ export default function App() {
           
           if (exist) {
              if (exist.stock <= 0) {
-                 const data = { name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry };
+                 const data = { name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry, created_at: new Date().toISOString() };
                  await supabase.from("products").update(data).eq("id", exist.id);
              } else {
                  const isDiff = exist.import_price !== pImpPrice || exist.sale_price !== pSalePrice || (exist.expiry_date || "") !== (pExpiry || "");
@@ -613,7 +614,7 @@ export default function App() {
                      const data = { product_code: batchCode, name: batchName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry };
                      await supabase.from("products").insert([data]);
                  } else {
-                     const data = { stock: exist.stock + pStock };
+                     const data = { stock: exist.stock + pStock, created_at: new Date().toISOString() };
                      await supabase.from("products").update(data).eq("id", exist.id);
                  }
              }
@@ -621,7 +622,7 @@ export default function App() {
               const data = { product_code: pCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry };
               await supabase.from("products").insert([data]);
           }
-          if (pStock > 0) importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "NHẬP", name: pName, qty: pStock, total: 0 });
+          if (pStock > 0) importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "NHẬP", name: cleanName(pName), qty: pStock, total: 0 });
           successCount++;
         }
         if (importLogs.length > 0) setHistory(prev => [...importLogs, ...prev]);
@@ -658,7 +659,7 @@ export default function App() {
   };
 
   const handlePrintBarcode = (p: any) => {
-    const q = window.prompt(`Nhập số lượng tem cần in cho: ${p.name}`, "30");
+    const q = window.prompt(`Nhập số lượng tem cần in cho: ${cleanName(p.name)}`, "30");
     if (q && parseInt(q) > 0) {
       setPrintBarcodeProduct(p); setBarcodeCount(parseInt(q)); setPrintMode('barcode');
       setTimeout(() => window.print(), 1500);
@@ -713,17 +714,20 @@ export default function App() {
     window.location.href = `mailto:lehonghaikt6@gmail.com?subject=${sub}&body=${body}`;
   };
 
-  const uniqueNames = useMemo(() => Array.from(new Set(products.map(p => p.name))).sort(), [products]);
+  const uniqueNames = useMemo(() => Array.from(new Set(products.map(p => cleanName(p.name)))).sort(), [products]);
   const uniqueStocks = useMemo(() => Array.from(new Set(products.map(p => p.stock))).sort((a,b)=>a-b), [products]);
   const uniqueImportPrices = useMemo(() => Array.from(new Set(products.map(p => p.import_price || 0))).sort((a,b)=>a-b), [products]);
   const uniqueSalePrices = useMemo(() => Array.from(new Set(products.map(p => p.sale_price))).sort((a,b)=>a-b), [products]);
   const uniqueExpiries = useMemo(() => Array.from(new Set(products.map(p => p.expiry_date).filter(Boolean))).sort(), [products]);
   const categories = ["Tất cả", ...Array.from(new Set(products.map(p => p.category || "Khác")))];
 
-  const requestSort = (key: string, explicitDirection?: 'asc'|'desc') => {
-    let direction: 'asc' | 'desc' = explicitDirection || 'asc';
-    if (!explicitDirection && sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
-    setSortConfig({ key, direction });
+  const requestSort = (key: string) => {
+    if (sortConfig && sortConfig.key === key) {
+      if (sortConfig.direction === 'asc') setSortConfig({ key, direction: 'desc' });
+      else setSortConfig(null);
+    } else {
+      setSortConfig({ key, direction: 'asc' });
+    }
   };
 
   const getSortIcon = (key: string) => {
@@ -745,7 +749,7 @@ export default function App() {
       .filter(p => (selectedCategory === "Tất cả" || (p.category || "Khác") === selectedCategory))
       .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(searchTerm.toLowerCase())));
 
-    if (filters['name']?.length > 0) filtered = filtered.filter(p => filters['name'].includes(p.name));
+    if (filters['name']?.length > 0) filtered = filtered.filter(p => filters['name'].includes(cleanName(p.name)));
     if (filters['stock']?.length > 0) filtered = filtered.filter(p => filters['stock'].includes(p.stock));
     if (filters['import_price']?.length > 0) filtered = filtered.filter(p => filters['import_price'].includes(p.import_price || 0));
     if (filters['sale_price']?.length > 0) filtered = filtered.filter(p => filters['sale_price'].includes(p.sale_price));
@@ -771,7 +775,6 @@ export default function App() {
     return filtered;
   }, [products, searchTerm, selectedCategory, sortConfig, filters]);
 
-  // CÁC HÀM XỬ LÝ DỮ LIỆU ĐÃ ĐƯỢC KHÔI PHỤC ĐẦY ĐỦ
   const groupedHistory = useMemo(() => {
     return history.reduce((groups: any, log: any) => {
       const date = new Date(Math.floor(log.id)).toLocaleDateString('vi-VN'); 
@@ -803,17 +806,14 @@ export default function App() {
     if (openFilter !== colKey) return null;
     return (
         <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: colKey==='name' ? "0" : "50%", transform: colKey==='name' ? "none" : "translateX(-50%)", backgroundColor: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px", zIndex: 999, boxShadow: "0 10px 25px -5px rgba(0,0,0,0.2)", minWidth: "160px", textAlign: "left", color: "#1e293b", fontWeight: "normal", fontSize: "12px", display: "flex", flexDirection: "column" }}>
-           <div style={{ cursor: "pointer", padding: "6px 4px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "6px" }} onClick={() => { requestSort(colKey, 'asc'); setOpenFilter(null); }}>🔼 Sắp xếp Tăng dần</div>
-           <div style={{ cursor: "pointer", padding: "6px 4px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "6px" }} onClick={() => { requestSort(colKey, 'desc'); setOpenFilter(null); }}>🔽 Sắp xếp Giảm dần</div>
-           
-           <div style={{ marginTop: "10px", fontWeight: "bold", color: "#64748b", fontSize: "10px", marginBottom: "6px", textTransform: "uppercase" }}>LỌC {title}:</div>
+           <div style={{ fontWeight: "bold", color: "#64748b", fontSize: "10px", marginBottom: "6px", textTransform: "uppercase" }}>LỌC {title}:</div>
            <div style={{ overflowY: "auto", flex: 1, maxHeight: "150px", border: "1px solid #e2e8f0", borderRadius: "4px", padding: "4px" }}>
                <label style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px", cursor: "pointer", borderBottom: "1px dashed #f1f5f9", backgroundColor: (!filters[colKey] || filters[colKey].length === 0) ? "#eff6ff" : "transparent" }}>
                   <input type="checkbox" checked={!filters[colKey] || filters[colKey].length === 0} onChange={() => setFilters(prev => ({...prev, [colKey]: []}))} />
                   <span style={{color: "#3b82f6", fontWeight: "bold"}}>Tất cả</span>
                </label>
-               {uniqueValues.map(v => (
-                   <label key={v} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px", cursor: "pointer", borderBottom: "1px dashed #f1f5f9", backgroundColor: filters[colKey]?.includes(v) ? "#f0fdf4" : "transparent" }}>
+               {uniqueValues.map((v, i) => (
+                   <label key={i} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px", cursor: "pointer", borderBottom: "1px dashed #f1f5f9", backgroundColor: filters[colKey]?.includes(v) ? "#f0fdf4" : "transparent" }}>
                       <input type="checkbox" checked={filters[colKey]?.includes(v) || false} onChange={() => handleFilterCheck(colKey, v)} />
                       <span>{formatVal ? formatVal(v) : v}</span>
                    </label>
@@ -831,7 +831,7 @@ export default function App() {
     .spring-bg { position: fixed; width: 400px; height: 400px; border-radius: 50%; filter: blur(100px); z-index: -1; opacity: 0.3; animation: float 10s infinite ease-in-out; }
     .glass { background: rgba(255, 255, 255, 0.98); border: 1px solid #fed7aa; border-radius: 12px; box-shadow: 0 4px 15px rgba(251, 146, 60, 0.08); }
     body { background-color: #fff7ed; margin: 0; font-family: 'Inter', sans-serif; color: #431407; }
-    .stat-box { background: #fff; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1px solid #fdba74; display: flex; align-items: center; gap: 6px; color: #9a3412; }
+    
     .qty-btn { padding: 2px 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: #f8fafc; cursor: pointer; font-weight: bold; }
     .tab-btn { padding: 6px 12px; border-radius: 20px; border: 1px solid #fed7aa; background: #fff; cursor: pointer; font-size: 12px; font-weight: bold; color: #9a3412; white-space: nowrap; }
     .tab-btn.active { background: #ef4444; color: #fff; border-color: #ef4444; }
@@ -844,6 +844,10 @@ export default function App() {
     .add-to-cart-btn { padding: 8px 16px; background-color: #fbbf24; color: #78350f; border: none; border-radius: 6px; font-weight: 900; cursor: pointer; font-size: 12px; transition: transform 0.1s, background-color 0.2s; box-shadow: 0 2px 4px rgba(251, 191, 36, 0.3); }
     .add-to-cart-btn:hover { background-color: #f59e0b; transform: scale(1.05); }
     .add-to-cart-btn:active { transform: scale(0.95); }
+
+    .input-label { font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; }
+    .input-label-red { font-size: 10px; font-weight: bold; color: #ef4444; text-transform: uppercase; }
+    .input-label-green { font-size: 10px; font-weight: bold; color: #10b981; text-transform: uppercase; }
 
     @media print { 
       body, html { background: white !important; margin: 0 !important; padding: 0 !important; color: #000; } 
@@ -909,7 +913,6 @@ export default function App() {
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); }}>
       <style>{styles}</style>
       
-      {/* 🖨️ BIÊN LAI BÁN HÀNG */}
       {lastOrder && printMode !== 'barcode' && (
         <div className="print-only print-receipt">
           <div className="print-header">
@@ -932,7 +935,7 @@ export default function App() {
 
               return (
                 <div key={idx} style={{ borderBottom: "1px dotted #ccc" }}>
-                  <div className="print-item-name">{item.product.name} {item.product.isHappyHour && <span style={{fontSize:"9px", fontStyle:"italic"}}>[Giờ Vàng]</span>}</div>
+                  <div className="print-item-name">{cleanName(item.product.name)} {item.product.isHappyHour && <span style={{fontSize:"9px", fontStyle:"italic"}}>[Giờ Vàng]</span>}</div>
                   <div className="print-item-details">
                     <span>{item.qty} x {price.toLocaleString()}</span>
                     <span style={{ fontWeight: "bold" }}>{itemTotal.toLocaleString()}</span>
@@ -959,12 +962,11 @@ export default function App() {
         </div>
       )}
 
-      {/* 🖨️ TRANG IN TEM MÃ VẠCH */}
       {printMode === 'barcode' && printBarcodeProduct && (
         <div className="print-only print-barcode-sheet">
           {Array.from({length: barcodeCount}).map((_, i) => (
             <div key={i} className="barcode-sticker">
-              <div style={{fontSize: "11px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"}}>{printBarcodeProduct.name}</div>
+              <div style={{fontSize: "11px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"}}>{cleanName(printBarcodeProduct.name)}</div>
               <img 
                  src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(printBarcodeProduct.product_code)}&scale=2&height=10&includetext=false`} 
                  onError={(e) => { e.currentTarget.src = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(printBarcodeProduct.product_code)}&code=Code128&translate-esc=on`; }}
@@ -978,7 +980,6 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL MỞ ĐƠN LƯU TẠM */}
       {showHoldModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "400px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
@@ -1006,7 +1007,6 @@ export default function App() {
         </div>
       )}
 
-      {/* 🕵️ MODAL KIỂM TOÁN LỊCH SỬ THAO TÁC */}
       {showAuditModal && role === 'admin' && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "600px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
@@ -1036,7 +1036,6 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL BÀN GIAO CA */}
       {showHandoverModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "30px", width: "350px", textAlign: "center" }}>
@@ -1057,7 +1056,6 @@ export default function App() {
         </div>
       )}
 
-      {/* 🤝 MODAL QUẢN LÝ KHÁCH HÀNG CRM */}
       {showCustomerModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "500px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
@@ -1093,7 +1091,6 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL SỔ NỢ */}
       {showDebtModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "400px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
@@ -1118,7 +1115,6 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL THỐNG KÊ */}
       {showStatsModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "400px" }}>
@@ -1154,7 +1150,6 @@ export default function App() {
         </div>
       )}
 
-      {/* 📷 CAMERA SCANNER OVERLAY */}
       {scannerMode !== null && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.9)", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", zIndex: 10000 }}>
           <div style={{ background: "#fff", padding: "10px", borderRadius: "12px", width: "90%", maxWidth: "400px", position: "relative" }}>
@@ -1178,7 +1173,6 @@ export default function App() {
         <div className="spring-bg" style={{ background: "#ef4444", top: "10%", left: "5%" }}></div>
         <div className="spring-bg" style={{ background: "#f59e0b", bottom: "10%", right: "5%" }}></div>
 
-        {/* POPUP THANH TOÁN */}
         {isCheckoutOpen && (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
             {checkoutStep === 1 && (
@@ -1362,7 +1356,7 @@ export default function App() {
                   
                   {showSuggestions && barcodeInput.trim() !== "" && (
                     <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: 0, right: 0, backgroundColor: "#fff", border: "1px solid #ef4444", borderRadius: "6px", marginTop: "4px", zIndex: 100, maxHeight: "250px", overflowY: "auto", boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}>
-                      {products.filter(p => p.name.toLowerCase().includes(barcodeInput.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(barcodeInput.toLowerCase()))).slice(0, 10).map((p, idx) => (
+                      {products.filter(p => cleanName(p.name).toLowerCase().includes(barcodeInput.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(barcodeInput.toLowerCase()))).slice(0, 10).map((p, idx) => (
                         <div 
                           key={idx} 
                           onClick={() => handleSelectSuggest(p)}
@@ -1371,13 +1365,13 @@ export default function App() {
                           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                         >
                           <div>
-                            <div style={{ fontWeight: "bold", color: "#1e293b", fontSize: "13px" }}>{p.name}</div>
+                            <div style={{ fontWeight: "bold", color: "#1e293b", fontSize: "13px" }}>{cleanName(p.name)}</div>
                             <div style={{ fontSize: "10px", color: "#64748b" }}>Tồn: <b style={{color: p.stock < 10 ? "#ef4444" : "#10b981"}}>{p.stock}</b></div>
                           </div>
                           <div style={{ fontWeight: "bold", color: "#ef4444", fontSize: "13px" }}>{getActualPrice(p).toLocaleString()}đ</div>
                         </div>
                       ))}
-                      {products.filter(p => p.name.toLowerCase().includes(barcodeInput.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(barcodeInput.toLowerCase()))).length === 0 && (
+                      {products.filter(p => cleanName(p.name).toLowerCase().includes(barcodeInput.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(barcodeInput.toLowerCase()))).length === 0 && (
                         <div style={{ padding: "10px", textAlign: "center", color: "#94a3b8", fontSize: "12px" }}>Không tìm thấy sản phẩm</div>
                       )}
                     </div>
@@ -1402,27 +1396,57 @@ export default function App() {
                 )}
               </div>
 
+              {/* ✨ CẬP NHẬT FORM GẮN TIÊU ĐỀ TĨNH (STATIC LABELS) ✨ */}
               {showInputForm && role === 'admin' && (
-                <form onSubmit={handleAddProduct} style={{ backgroundColor: "#fff7ed", padding: "10px", borderRadius: "8px", border: "1px solid #fdba74", marginBottom: "10px" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr 1fr 1fr", gap: "6px", marginBottom: "6px" }}>
-                    <input placeholder="Mã..." value={newCode} onChange={handleCodeChange} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
-                    <input placeholder="Tên hàng..." value={newName} onChange={e => setNewName(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
-                    <input list="category-list" placeholder="Phân loại..." value={newCategory} onChange={e => setNewCategory(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} title="Nhập hoặc chọn danh mục" />
-                    <datalist id="category-list">
-                      {categories.filter(c => c !== 'Tất cả').map(c => <option key={c} value={c} />)}
-                    </datalist>
-                    <input type="number" placeholder="Giá nhập" value={newImportPrice} onChange={e => setNewImportPrice(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
-                    <input type="number" placeholder="Giá bán" value={newPrice} onChange={e => setNewPrice(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.5fr 0.8fr 60px", gap: "6px" }}>
-                    <input type="number" placeholder="Giá KM" value={newPromoPrice} onChange={e => setNewPromoPrice(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #ef4444", outline: "none", fontSize: "12px" }} />
-                    <input type="date" value={newExpiry} onChange={e => setNewExpiry(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
-                    <div style={{ display: "flex", gap: "2px" }}>
-                       <input type="number" placeholder="Từ..." value={newGiftCondition} onChange={e => setNewGiftCondition(e.target.value)} style={{ width: "40px", padding: "6px", borderRadius: "4px", border: "1px solid #10b981", outline: "none", fontSize: "12px" }} title="Mua số lượng bao nhiêu thì được tặng?" />
-                       <input type="text" placeholder="Tên quà tặng..." value={newGiftInfo} onChange={e => setNewGiftInfo(e.target.value)} style={{ flex: 1, padding: "6px", borderRadius: "4px", border: "1px solid #10b981", outline: "none", fontSize: "12px" }} />
+                <form onSubmit={handleAddProduct} style={{ backgroundColor: "#fff7ed", padding: "12px", borderRadius: "8px", border: "1px solid #fdba74", marginBottom: "10px" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr 1fr 1fr", gap: "8px", marginBottom: "8px" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                       <span className="input-label">MÃ SẢN PHẨM</span>
+                       <input placeholder="VD: SP001" value={newCode} onChange={handleCodeChange} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
                     </div>
-                    <input type="number" placeholder="SL..." value={newStock} onChange={e => setNewStock(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
-                    <button type="submit" disabled={loading} style={{ padding: "6px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "4px", fontWeight: "bold", fontSize: "12px" }}>LƯU</button>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                       <span className="input-label">TÊN HÀNG HÓA</span>
+                       <input placeholder="VD: Bia Tiger" value={newName} onChange={e => setNewName(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                       <span className="input-label">PHÂN LOẠI</span>
+                       <input list="category-list" placeholder="Chọn / Nhập..." value={newCategory} onChange={e => setNewCategory(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
+                       <datalist id="category-list">
+                         {categories.filter(c => c !== 'Tất cả').map(c => <option key={c} value={c} />)}
+                       </datalist>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                       <span className="input-label">GIÁ VỐN (Đ)</span>
+                       <input type="number" placeholder="0" value={newImportPrice} onChange={e => setNewImportPrice(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                       <span className="input-label">GIÁ BÁN (Đ)</span>
+                       <input type="number" placeholder="0" value={newPrice} onChange={e => setNewPrice(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.5fr 0.8fr 60px", gap: "8px" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                       <span className="input-label-red">GIÁ KHUYẾN MÃI</span>
+                       <input type="number" placeholder="0 (Bỏ trống nếu ko KM)" value={newPromoPrice} onChange={e => setNewPromoPrice(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #ef4444", outline: "none", fontSize: "12px" }} />
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                       <span className="input-label">HẠN SỬ DỤNG</span>
+                       <input type="date" value={newExpiry} onChange={e => setNewExpiry(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px", fontFamily: "sans-serif" }} />
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                       <span className="input-label-green">ĐIỀU KIỆN & QUÀ TẶNG</span>
+                       <div style={{ display: "flex", gap: "2px" }}>
+                          <input type="number" placeholder="Từ..." value={newGiftCondition} onChange={e => setNewGiftCondition(e.target.value)} style={{ width: "45px", padding: "6px", borderRadius: "4px", border: "1px solid #10b981", outline: "none", fontSize: "12px" }} title="Số lượng cần mua" />
+                          <input type="text" placeholder="Tên quà..." value={newGiftInfo} onChange={e => setNewGiftInfo(e.target.value)} style={{ flex: 1, padding: "6px", borderRadius: "4px", border: "1px solid #10b981", outline: "none", fontSize: "12px" }} />
+                       </div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                       <span className="input-label">SỐ LƯỢNG NHẬP</span>
+                       <input type="number" placeholder="0" value={newStock} onChange={e => setNewStock(e.target.value)} style={{ padding: "6px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} />
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+                       <button type="submit" disabled={loading} style={{ padding: "6px", height: "29px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "4px", fontWeight: "bold", fontSize: "12px", cursor: "pointer" }}>LƯU</button>
+                    </div>
                   </div>
                 </form>
               )}
@@ -1496,6 +1520,10 @@ export default function App() {
                       const isLowStock = p.stock > 0 && p.stock < 10;
                       const gift = parseGift(p.gift_info);
 
+                      let dText = "Mới nhập hôm nay";
+                      if (d === 1) dText = "Nhập hôm qua";
+                      else if (d > 1) dText = `${d} ngày trước`;
+
                       return (
                         <tr key={p.id} style={{ borderBottom: "1px solid #fed7aa", backgroundColor: isNearExpiry ? "#fef2f2" : "transparent" }}>
                           <td style={{ padding: "8px 4px" }}>
@@ -1523,7 +1551,7 @@ export default function App() {
                             <div style={{color: isNearExpiry ? "#ef4444" : "#b91c1c", fontWeight: "bold", cursor: role==='admin'?"pointer":"default"}} onClick={()=> role==='admin' && handleEdit(p.id,'expiry_date',p.expiry_date,true)}>
                               {isOutOfStock ? "---" : (p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : "---")}
                             </div>
-                            <div style={{color: "#64748b"}}>{isOutOfStock ? "---" : `${d} ngày lưu kho`}</div>
+                            <div style={{color: "#64748b"}}>{isOutOfStock ? "---" : dText}</div>
                           </td>
                           <td style={{ textAlign: "right", padding: "8px 4px" }}>
                             <div style={{ display: "flex", justifyContent: "flex-end", gap: "4px" }}>
@@ -1574,7 +1602,7 @@ export default function App() {
                     return (
                     <div key={idx} style={{ padding: "6px 0", borderBottom: "1px dashed #fed7aa", fontSize: "11px", display: "flex", flexDirection: "column", gap: "4px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontWeight: "bold", color: "#1e293b", flex: 1 }}>{item.product.name} {item.product.isHappyHour && <span style={{color:"#ea580c", fontSize:"9px"}}>[Giờ Vàng]</span>}</span>
+                        <span style={{ fontWeight: "bold", color: "#1e293b", flex: 1 }}>{cleanName(item.product.name)} {item.product.isHappyHour && <span style={{color:"#ea580c", fontSize:"9px"}}>[Giờ Vàng]</span>}</span>
                         <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                           <button className="qty-btn" onClick={() => adjustCartQty(item.product.id, -1)}>-</button>
                           
@@ -1622,7 +1650,7 @@ export default function App() {
                         {isEx && <div style={{ padding: "0 8px" }}>{group.map((log: any) => (<div key={log.id} style={{ padding: "4px 0", borderBottom: "1px dashed #fed7aa", fontSize: "9px", display: "flex", flexDirection: "column" }}>
                           <div style={{ display: "flex", justifyContent: "space-between" }}>
                             <span>
-                                <b style={{color: log.type === 'TRẢ HÀNG' ? '#ef4444' : '#1e293b'}}>[{log.type}]</b> {log.name} x{log.qty}
+                                <b style={{color: log.type === 'TRẢ HÀNG' ? '#ef4444' : '#1e293b'}}>[{log.type}]</b> {cleanName(log.name)} x{log.qty}
                                 {log.refunded_qty > 0 && <span style={{color:"#ef4444", fontSize:"8px", marginLeft:"4px"}}>(Đã hoàn {log.refunded_qty})</span>}
                             </span>
                             {log.type === "BÁN" && <span style={{color:"#059669", fontWeight:"bold"}}>+{Math.round(log.total).toLocaleString()}</span>}
