@@ -1457,7 +1457,7 @@ export default function App() {
                       </span>
                       <button onClick={() => printCustomerCard(phone)} style={{ padding: "4px 6px", backgroundColor: "#dc2626", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="In thẻ cứng (Cỡ thẻ ATM)">🖨️ In Thẻ</button>
                       <button onClick={() => sendCardEmail(phone)} style={{ padding: "4px 6px", backgroundColor: "#3b82f6", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="Gửi thẻ điện tử tự động qua Email">📧 Mail</button>
-                      <button onClick={() => shareToZalo(phone)} style={{ padding: "4px 6px", backgroundColor: "#059669", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="Copy ảnh và mở Zalo">💬 Zalo</button>
+                      <button onClick={() => shareToZalo(phone)} style={{ padding: "4px 6px", backgroundColor: "#059669", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="Copy lời chào và mở Zalo">💬 Zalo</button>
                     </div>
 
                   </div>
@@ -1642,17 +1642,42 @@ export default function App() {
         )}
 
         <div style={{ maxWidth: "1500px", margin: "0 auto", minWidth: "1000px" }}>
-          <div className="glass" style={{ padding: "10px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", borderBottom: "4px solid #ef4444" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+          
+          {/* CẢI TIẾN GIAO DIỆN HEADER 2 HÀNG */}
+          <div className="glass" style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: "12px", marginBottom: "12px", borderBottom: "4px solid #ef4444" }}>
+            
+            {/* DÒNG 1: LOGO & THỐNG KÊ */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <HeaderLogo />
-              <div style={{ display: "flex", gap: "6px" }}>
-                {role === 'admin' && (
+
+              <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+                {(new Date().getHours() >= 20 || new Date().getHours() < 6) && <span style={{fontSize:"11px", backgroundColor:"#fef08a", color:"#b45309", padding:"4px 8px", borderRadius:"4px", fontWeight:"bold", border: "1px solid #fde047", whiteSpace: "nowrap"}}>🌙 HAPPY HOUR</span>}
+                <div style={{ width: "2px", height: "30px", backgroundColor: "#e2e8f0" }}></div>
+                <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
+                  {role === 'admin' && <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>VỐN</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#475569" }}>{totalValue.toLocaleString()}đ</div></div>}
+                  <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>💵 THU TIỀN MẶT</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#059669" }}>{currentShiftStats.cash.toLocaleString()}đ</div></div>
+                  <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>💳 CHUYỂN KHOẢN</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#2563eb" }}>{currentShiftStats.transfer.toLocaleString()}đ</div></div>
+                  {role === 'admin' && <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>LÃI CA NÀY</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#ea580c" }}>{currentShiftStats.prof.toLocaleString()}đ</div></div>}
+                </div>
+                <div style={{ width: "2px", height: "30px", backgroundColor: "#e2e8f0" }}></div>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <div style={{ textAlign: "right", lineHeight: "1.2", whiteSpace: "nowrap" }}><div style={{ fontSize: "13px", fontWeight: "bold", color: "#1e293b" }}>{role === 'admin' ? "Quản lý" : "Thu ngân"}</div><div style={{ fontSize: "11px", color: "#64748b" }}>{shift}</div></div>
+                  <button onClick={handleLogoutClick} style={{ padding: "10px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} title="Đăng xuất">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* DÒNG 2: THANH MENU NÚT BẤM */}
+            <div style={{ display: "flex", gap: "8px", borderTop: "1px dashed #cbd5e1", paddingTop: "12px", alignItems: "center" }}>
+               {role === 'admin' && (
                   <>
-                    <button onClick={() => setShowStatsModal(true)} style={{ padding: "6px 12px", background: "#eff6ff", color: "#3b82f6", border: "1px solid #bfdbfe", borderRadius: "6px", fontSize: "12px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap" }}>📊 THỐNG KÊ</button>
-                    <button onClick={() => setShowCustomerModal(true)} style={{ padding: "6px 12px", background: "#fdf4ff", color: "#4f46e5", border: "1px solid #c7d2fe", borderRadius: "6px", fontSize: "12px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap" }}>🤝 KHÁCH HÀNG</button>
-                    <button onClick={() => setShowAuditModal(true)} style={{ padding: "6px 12px", background: "#f8fafc", color: "#334155", border: "1px solid #cbd5e1", borderRadius: "6px", fontSize: "12px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap" }}>🕵️ LỊCH SỬ</button>
-                    
-                    {/* NÚT CÀI ĐẶT HỆ THỐNG */}
+                    <button onClick={() => setShowStatsModal(true)} style={{ padding: "8px 16px", background: "#eff6ff", color: "#3b82f6", border: "1px solid #bfdbfe", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s" }}>📊 THỐNG KÊ</button>
+                    <button onClick={() => setShowCustomerModal(true)} style={{ padding: "8px 16px", background: "#fdf4ff", color: "#4f46e5", border: "1px solid #c7d2fe", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s" }}>🤝 KHÁCH HÀNG</button>
+                    <button onClick={() => setShowAuditModal(true)} style={{ padding: "8px 16px", background: "#f8fafc", color: "#334155", border: "1px solid #cbd5e1", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s" }}>🕵️ LỊCH SỬ THAO TÁC</button>
                     <button onClick={() => {
                         setNewAdminPass(adminPass);
                         setNewStaffPass(staffPass);
@@ -1660,32 +1685,14 @@ export default function App() {
                         setNewBankAcc(bankAcc);
                         setNewBankNameStr(bankNameStr);
                         setShowSettings(true);
-                    }} style={{ padding: "6px 12px", background: "#f3f4f6", color: "#475569", border: "1px solid #cbd5e1", borderRadius: "6px", fontSize: "12px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap" }}>⚙️ CÀI ĐẶT</button>
+                    }} style={{ padding: "8px 16px", background: "#f3f4f6", color: "#475569", border: "1px solid #cbd5e1", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s" }}>⚙️ CÀI ĐẶT</button>
                   </>
                 )}
-                <button onClick={() => setShowDebtModal(true)} style={{ padding: "6px 12px", background: "#fef2f2", color: "#ef4444", border: "1px solid #fecaca", borderRadius: "6px", fontSize: "12px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap" }}>📓 SỔ NỢ</button>
-              </div>
+                <button onClick={() => setShowDebtModal(true)} style={{ padding: "8px 16px", background: "#fef2f2", color: "#ef4444", border: "1px solid #fecaca", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s" }}>📓 SỔ NỢ KHÁCH HÀNG</button>
+                
+                <div style={{ flex: 1 }}></div> {/* Khối đệm đẩy sang trái */}
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              {(new Date().getHours() >= 20 || new Date().getHours() < 6) && <span style={{fontSize:"11px", backgroundColor:"#fef08a", color:"#b45309", padding:"4px 8px", borderRadius:"4px", fontWeight:"bold", border: "1px solid #fde047", whiteSpace: "nowrap"}}>🌙 HAPPY HOUR</span>}
-              <div style={{ width: "2px", height: "30px", backgroundColor: "#e2e8f0" }}></div>
-              <div style={{ display: "flex", gap: "15px", alignItems: "center" }}>
-                {role === 'admin' && <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>VỐN</div><div style={{ fontSize: "14px", fontWeight: "900", color: "#475569" }}>{totalValue.toLocaleString()}đ</div></div>}
-                <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>💵 THU TIỀN MẶT</div><div style={{ fontSize: "14px", fontWeight: "900", color: "#059669" }}>{currentShiftStats.cash.toLocaleString()}đ</div></div>
-                <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>💳 CHUYỂN KHOẢN</div><div style={{ fontSize: "14px", fontWeight: "900", color: "#2563eb" }}>{currentShiftStats.transfer.toLocaleString()}đ</div></div>
-                {role === 'admin' && <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>LÃI CA NÀY</div><div style={{ fontSize: "14px", fontWeight: "900", color: "#ea580c" }}>{currentShiftStats.prof.toLocaleString()}đ</div></div>}
-              </div>
-              <div style={{ width: "2px", height: "30px", backgroundColor: "#e2e8f0" }}></div>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <div style={{ textAlign: "right", lineHeight: "1.2", whiteSpace: "nowrap" }}><div style={{ fontSize: "12px", fontWeight: "bold", color: "#1e293b" }}>{role === 'admin' ? "Quản lý" : "Thu ngân"}</div><div style={{ fontSize: "10px", color: "#64748b" }}>{shift}</div></div>
-                <button onClick={handleLogoutClick} style={{ padding: "8px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} title="Đăng xuất">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line>
-                  </svg>
-                </button>
-              </div>
-            </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: "10px" }}>
@@ -1719,7 +1726,7 @@ export default function App() {
               {showInputForm && role === 'admin' && (
                 <form onSubmit={handleAddProduct} style={{ backgroundColor: "#fff7ed", padding: "15px", borderRadius: "8px", border: "1px solid #fdba74", marginBottom: "15px" }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr 1fr 1fr", gap: "10px", marginBottom: "10px" }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">M mã SẢN PHẨM</span><input placeholder="VD: SP001" value={newCode} onChange={handleCodeChange} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">MÃ SẢN PHẨM</span><input placeholder="VD: SP001" value={newCode} onChange={handleCodeChange} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
                     <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">TÊN HÀNG HÓA</span><input placeholder="VD: Bia Tiger" value={newName} onChange={e => setNewName(e.target.value)} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
                     <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">PHÂN LOẠI</span><input list="category-list" placeholder="Chọn / Nhập..." value={newCategory} onChange={e => setNewCategory(e.target.value)} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /><datalist id="category-list">{categories.filter(c => c !== 'Tất cả').map(c => <option key={c} value={c} />)}</datalist></div>
                     <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">GIÁ VỐN (Đ)</span><input type="number" placeholder="0" value={newImportPrice} onChange={e => setNewImportPrice(e.target.value)} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
