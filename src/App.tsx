@@ -40,7 +40,7 @@ export default function App() {
   const [scanMessage, setScanMessage] = useState<{text: string, type: 'success'|'error'} | null>(null);
   
   const [printBarcodeProduct, setPrintBarcodeProduct] = useState<any>(null);
-  const [printCustomer, setPrintCustomer] = useState<any>(null); // Trạng thái in thẻ KH
+  const [printCustomer, setPrintCustomer] = useState<any>(null); 
   const [barcodeCount, setBarcodeCount] = useState<number>(30);
   const [printMode, setPrintMode] = useState<'receipt' | 'barcode' | 'customer_card' | null>(null);
 
@@ -91,7 +91,7 @@ export default function App() {
 
   const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
 
-  // ================= 3. HÀM LÕI (PURE HELPERS) =================
+  // ================= 3. HÀM LÕI =================
   const playSound = (type: 'success' | 'error') => {
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -266,34 +266,36 @@ export default function App() {
   const currentShiftStats = useMemo(() => {
     const todayStr = new Date().toLocaleDateString('vi-VN');
     const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStr && h.shift === shift);
-    let cash = 0; let transfer = 0; let prof = 0;
+    let cash = 0; let transfer = 0; let prof = 0; let totalSales = 0;
     shiftLogs.forEach(h => {
+        if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += h.total;
         if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') {
             if (h.paymentMethod === 'CHUYỂN KHOẢN') transfer += h.total;
             else if (h.paymentMethod === 'TIỀN MẶT') cash += h.total;
         }
         prof += (h.profit || 0);
     });
-    return { rev: cash + transfer, cash, transfer, prof };
+    return { rev: cash + transfer, cash, transfer, prof, totalSales };
   }, [history, shift]);
 
   const todayStats = useMemo(() => {
     const todayStr = new Date().toLocaleDateString('vi-VN');
     const todayHistory = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStr);
-    let cash = 0; let transfer = 0; let prof = 0;
+    let cash = 0; let transfer = 0; let prof = 0; let totalSales = 0;
     todayHistory.forEach(h => {
+        if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += h.total;
         if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') {
             if (h.paymentMethod === 'CHUYỂN KHOẢN') transfer += h.total;
             else if (h.paymentMethod === 'TIỀN MẶT') cash += h.total;
         }
         prof += (h.profit || 0);
     });
-    return { rev: cash + transfer, cash, transfer, prof };
+    return { rev: cash + transfer, cash, transfer, prof, totalSales };
   }, [history]);
 
   const topSelling = useMemo(() => {
     const sales: Record<string, number> = {};
-    history.forEach(log => { if(log.type === 'BÁN' && log.product_id !== 'DISCOUNT') sales[log.name] = (sales[log.name]||0) + log.qty; });
+    history.forEach(log => { if((log.type === 'BÁN' || log.type === 'GHI NỢ') && log.product_id !== 'DISCOUNT') sales[log.name] = (sales[log.name]||0) + log.qty; });
     return Object.entries(sales).sort((a,b)=>b[1]-a[1]).slice(0,5);
   }, [history]);
 
@@ -349,8 +351,7 @@ export default function App() {
     return filtered;
   }, [products, searchTerm, selectedCategory, sortConfig, filters]);
 
-
-  // ================= 6. EVENT HANDLERS (CHỨC NĂNG) =================
+  // ================= 6. EVENT HANDLERS =================
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (authUsername === "admin" && authPassword === "haile88") {
@@ -717,8 +718,8 @@ export default function App() {
     setLoading(false);
   };
 
-  // ================= TÍNH NĂNG GỬI MÃ THẺ VIP CHO KHÁCH (EMAIL + ZALO) =================
-  const sendCardEmail = (phone: string) => {
+  // ================= TÍNH NĂNG GỬI MÃ THẺ VIP CHO KHÁCH =================
+  const sendCardEmail = async (phone: string) => {
       const cust = customers[phone];
       const email = cust.email || window.prompt(`Nhập Email của ${cust.name} để gửi mã thẻ:`, "");
       if (!email) return;
@@ -727,17 +728,32 @@ export default function App() {
           setCustomers((prev:any) => ({...prev, [phone]: {...prev[phone], email}}));
       }
 
+      setLoading(true);
       const code = cust.cardCode || phone;
-      const subject = encodeURIComponent(`Thẻ Khách Hàng Thân Thiết Hải Lê Mart - ${cust.name}`);
-      const body = encodeURIComponent(`Chào ${cust.name},\n\nCảm ơn bạn đã trở thành Khách hàng thân thiết của Hải Lê Mart!\n\n💳 MÃ THẺ VIP CỦA BẠN LÀ: ${code}\n\n(Bạn có thể đọc mã này hoặc đưa mã vạch lưu trên điện thoại cho thu ngân ở những lần mua sắm tiếp theo để được tích điểm).\n\nChúc bạn một ngày tốt lành!\nHải Lê Mart\nHotline: 0902 613 899`);
+      
+      const emailData = {
+        to_email: email,
+        order_id: "THẺ VIP",
+        time: new Date().toLocaleString('vi-VN'),
+        items_list: `💳 MÃ THẺ CỦA BẠN LÀ: ${code}\n(Vui lòng đưa mã này cho thu ngân khi thanh toán hoặc tích điểm)`,
+        total_amount: "Ưu đãi đặc quyền",
+        payment_method: "Khách Hàng Thân Thiết",
+        change_amount: "0đ"
+      };
 
-      window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+      try {
+        await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, emailData);
+        alert("🚀 Đã gửi mã Thẻ VIP điện tử thành công!");
+      } catch (error) {
+        alert("❌ Lỗi gửi mail. Ông chủ kiểm tra lại Service ID & Template ID nhé.");
+      }
+      setLoading(false);
   };
 
   const shareToZalo = (phone: string) => {
       const cust = customers[phone];
       const code = cust.cardCode || phone;
-      const text = `Chào ${cust.name},\nCảm ơn bạn đã đồng hành cùng Hải Lê Mart!\n💳 Mã Thẻ VIP của bạn là: ${code}\n(Đưa mã này cho thu ngân để được giảm giá và tích điểm nhé!)`;
+      const text = `Chào ${cust.name},\nCảm ơn bạn đã đồng hành cùng Hải Lê Mart!\n💳 Mã Thẻ VIP của bạn là: ${code}\n(Đưa mã này cho thu ngân để được giảm giá và tích điểm nhé!)\n\n📸 Mã vạch của bạn (Lưu ảnh này lại):\nhttps://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=10&includetext=true`;
       
       navigator.clipboard.writeText(text).then(() => {
           alert(`✅ Đã copy thông tin Thẻ VIP!\nHệ thống sẽ tự mở Zalo của số ${phone}, ông chủ chỉ cần bấm "Dán" (Ctrl+V) vào khung chat là xong!`);
@@ -752,7 +768,6 @@ export default function App() {
       setPrintMode('customer_card');
       setTimeout(() => window.print(), 1500);
   };
-
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const code = e.target.value; setNewCode(code);
@@ -1045,6 +1060,10 @@ export default function App() {
     .tab-btn { padding: 6px 12px; border-radius: 20px; border: 1px solid #fed7aa; background: #fff; cursor: pointer; font-size: 12px; font-weight: bold; color: #9a3412; white-space: nowrap; }
     .tab-btn.active { background: #ef4444; color: #fff; border-color: #ef4444; }
     .print-only { display: none; }
+    
+    /* FIX LỖI ẨN THẺ KHI IN */
+    .print-only.print-customer-card { display: flex !important; justify-content: center; align-items: center; }
+
     .qty-input { width: 28px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; outline: none; font-size: 11px; font-weight: bold; color: #1e293b; padding: 3px 0; background: #fff; }
     .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     .qty-input[type=number] { -moz-appearance: textfield; }
@@ -1117,7 +1136,7 @@ export default function App() {
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); }}>
       <style>{styles}</style>
       
-      {/* 🖨️ BIÊN LAI BÁN HÀNG (SẼ CHẠY KHI IN) */}
+      {/* 🖨️ BIÊN LAI BÁN HÀNG */}
       {lastOrder && printMode !== 'barcode' && printMode !== 'customer_card' && (
         <div className="print-only print-receipt">
           <div className="print-header">
@@ -1179,9 +1198,9 @@ export default function App() {
         </div>
       )}
 
-      {/* 🖨️ TRANG IN THẺ KHÁCH HÀNG VIP */}
+      {/* 🖨️ TRANG IN THẺ KHÁCH HÀNG VIP (FIX LỖI ẨN KHI IN BẰNG CSS PRINT-CUSTOMER-CARD) */}
       {printMode === 'customer_card' && printCustomer && (
-        <div className="print-only" style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", padding: 0 }}>
+        <div className="print-only print-customer-card" style={{ height: "100vh", padding: 0 }}>
           <div style={{ width: "85.6mm", height: "53.98mm", border: "3px solid #dc2626", borderRadius: "12px", padding: "15px", textAlign: "center", boxSizing: "border-box", display: "flex", flexDirection: "column", justifyContent: "center", backgroundColor: "#fff7ed" }}>
             <h2 style={{margin: "0 0 5px 0", color: "#b91c1c", fontSize: "20px", textTransform: "uppercase", fontWeight: "900"}}>HẢI LÊ MART</h2>
             <div style={{fontSize: "10px", fontWeight: "bold", color: "#ea580c", letterSpacing: "2px", marginBottom: "10px"}}>THẺ KHÁCH HÀNG THÂN THIẾT</div>
@@ -1295,7 +1314,6 @@ export default function App() {
         </div>
       )}
 
-      {/* TÍNH NĂNG IN THẺ VÀ GỬI THẺ VIP */}
       {showCustomerModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "550px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
@@ -1373,20 +1391,24 @@ export default function App() {
 
       {showStatsModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
-          <div className="glass" style={{ padding: "25px", width: "400px" }}>
+          <div className="glass" style={{ padding: "25px", width: "450px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #fed7aa", paddingBottom: "10px", marginBottom: "15px" }}>
               <h2 style={{ margin: 0, color: "#3b82f6" }}>📊 BÁO CÁO NHANH</h2>
               <button onClick={() => setShowStatsModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
             </div>
             
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "20px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", marginBottom: "20px" }}>
+              <div style={{ backgroundColor: "#fef2f2", padding: "10px", borderRadius: "8px", border: "1px solid #fecaca", textAlign: "center" }}>
+                <div style={{ fontSize: "10px", color: "#ef4444", fontWeight: "bold" }}>TỔNG BÁN RA (Cả Nợ)</div>
+                <div style={{ fontSize: "14px", fontWeight: "bold", color: "#b91c1c", marginTop: "4px" }}>{todayStats.totalSales.toLocaleString()}đ</div>
+              </div>
               <div style={{ backgroundColor: "#eff6ff", padding: "10px", borderRadius: "8px", border: "1px solid #bfdbfe", textAlign: "center" }}>
-                <div style={{ fontSize: "11px", color: "#3b82f6", fontWeight: "bold" }}>TỔNG THU HÔM NAY</div>
-                <div style={{ fontSize: "16px", fontWeight: "bold", color: "#1e3a8a" }}>{todayStats.rev.toLocaleString()}đ</div>
+                <div style={{ fontSize: "10px", color: "#3b82f6", fontWeight: "bold" }}>THỰC THU (Mặt+CK)</div>
+                <div style={{ fontSize: "14px", fontWeight: "bold", color: "#1e3a8a", marginTop: "4px" }}>{todayStats.rev.toLocaleString()}đ</div>
               </div>
               <div style={{ backgroundColor: "#f0fdf4", padding: "10px", borderRadius: "8px", border: "1px solid #bbf7d0", textAlign: "center" }}>
-                <div style={{ fontSize: "11px", color: "#16a34a", fontWeight: "bold" }}>TỔNG LÃI HÔM NAY</div>
-                <div style={{ fontSize: "16px", fontWeight: "bold", color: "#14532d" }}>{todayStats.prof.toLocaleString()}đ</div>
+                <div style={{ fontSize: "10px", color: "#16a34a", fontWeight: "bold" }}>TỔNG LÃI GỘP</div>
+                <div style={{ fontSize: "14px", fontWeight: "bold", color: "#14532d", marginTop: "4px" }}>{todayStats.prof.toLocaleString()}đ</div>
               </div>
             </div>
 
