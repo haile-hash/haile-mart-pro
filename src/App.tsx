@@ -5,6 +5,7 @@ import { supabase } from "./supabaseClient";
 export default function App() {
   const VAT_RATE = 0.1; 
 
+  // ================= 1. STATES =================
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem("mart_logged_in") === "true");
   const [role, setRole] = useState(() => localStorage.getItem("mart_role") || "staff");
   const [shift, setShift] = useState(() => localStorage.getItem("mart_shift") || "Ca Sáng");
@@ -83,6 +84,7 @@ export default function App() {
 
   const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
 
+  // ================= 2. EFFECTS =================
   useEffect(() => {
     localStorage.setItem("mart_history", JSON.stringify(history));
     localStorage.setItem("mart_customers", JSON.stringify(customers));
@@ -93,10 +95,7 @@ export default function App() {
   useEffect(() => {
     if (isLoggedIn) {
       fetchProducts();
-      const channel = supabase
-        .channel("db_changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts())
-        .subscribe();
+      const channel = supabase.channel("db_changes").on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts()).subscribe();
       return () => { supabase.removeChannel(channel); };
     }
   }, [isLoggedIn]);
@@ -107,9 +106,7 @@ export default function App() {
       let lastScanTime = 0;
       const loadScanner = () => {
         if ((window as any).Html5QrcodeScanner) {
-           scanner = new (window as any).Html5QrcodeScanner("qr-reader", { 
-               fps: 15, qrbox: { width: 250, height: 120 }, rememberLastUsedCamera: true
-           }, false);
+           scanner = new (window as any).Html5QrcodeScanner("qr-reader", { fps: 15, qrbox: { width: 250, height: 120 }, rememberLastUsedCamera: true }, false);
            scanner.render((text: string) => {
                const now = Date.now();
                if (now - lastScanTime < 1500) return; 
@@ -127,112 +124,6 @@ export default function App() {
       return () => { if (scanner) scanner.clear().catch(()=>{}); };
     }
   }, [scannerMode]);
-
-  useEffect(() => {
-    const handleAfterPrint = () => setPrintMode(null);
-    window.addEventListener("afterprint", handleAfterPrint);
-    return () => window.removeEventListener("afterprint", handleAfterPrint);
-  }, []);
-
-  const playSound = (type: 'success' | 'error') => {
-    try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
-      if (type === 'success') {
-        osc.frequency.value = 800; gain.gain.setValueAtTime(0.1, ctx.currentTime);
-        osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.1);
-      } else {
-        osc.frequency.value = 250; osc.type = 'square'; gain.gain.setValueAtTime(0.1, ctx.currentTime);
-        osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3);
-      }
-    } catch(e) {}
-  };
-
-  const logAudit = (action: string, detail: string) => {
-    const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user: role === 'admin' ? 'Quản lý' : 'Thu ngân', shift, action, detail };
-    setAuditLogs(prev => [newLog, ...prev].slice(0, 200)); 
-  };
-
-  const fetchProducts = async () => {
-    const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false });
-    if (data) setProducts(data);
-  };
-
-  const parseGift = (giftStr: string | null) => {
-    if (!giftStr) return { cond: 0, text: "" };
-    if (giftStr.includes(';;;')) {
-        const parts = giftStr.split(';;;');
-        return { cond: parseInt(parts[0]) || 1, text: parts[1] || "" };
-    }
-    return { cond: 1, text: giftStr };
-  };
-
-  const getActualPrice = (p: any) => {
-    let price = (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price;
-    const currentHour = new Date().getHours();
-    if ((currentHour >= 20 || currentHour < 6) && (p.category === 'Đồ ăn liền' || p.category === 'Bánh Kẹo')) {
-       price = price * 0.8; p.isHappyHour = true; 
-    } else { p.isHappyHour = false; }
-    return Math.round(price);
-  };
-
-  const cleanName = (name: string) => name ? name.split(' [Lô')[0] : '';
-
-  const getOldestAvailableBatch = (p: any) => {
-    const baseCode = p.product_code.split('-')[0];
-    let availableMatches = products.filter(prod => (prod.product_code === baseCode || prod.product_code.startsWith(`${baseCode}-`)) && prod.stock > 0);
-    
-    if (availableMatches.length === 0) return p; 
-
-    availableMatches.sort((a,b) => {
-        if(!a.expiry_date) return 1; if(!b.expiry_date) return -1;
-        return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
-    });
-    return availableMatches[0];
-  };
-
-  const findProductByCode = (code: string) => {
-    const rawCode = code.trim();
-    let matches = products.filter(prod => prod.product_code === rawCode || prod.product_code.startsWith(`${rawCode}-`));
-    let available = matches.filter(p => p.stock > 0);
-    if (available.length > 0) {
-       available.sort((a,b) => {
-           if(!a.expiry_date) return 1; if(!b.expiry_date) return -1;
-           return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
-       });
-       return available[0];
-    } 
-    else if (matches.length > 0) return matches[0];
-    return null;
-  };
-
-  const handleSelectSuggest = (p_input: any) => {
-    const p = getOldestAvailableBatch(p_input); 
-    if (p.stock <= 0) { playSound('error'); return alert("Đã hết hàng trong kho!"); }
-    if (p.id !== p_input.id) {
-       setScanMessage({ text: `⚡ Tự động xuất Lô cũ: ${p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : ''}`, type: 'success' });
-    } else {
-       setScanMessage({ text: `✅ Thêm: ${cleanName(p.name)}`, type: 'success' });
-    }
-
-    const price = getActualPrice(p);
-    setCart(prev => {
-        const exist = prev.find(item => item.product.id === p.id);
-        if (exist) {
-            const newQty = exist.qty + 1;
-            if (newQty > p.stock) { playSound('error'); setScanMessage({ text: `❌ Quá tồn kho lô này (${p.stock})`, type: 'error' }); return prev; }
-            playSound('success'); 
-            return prev.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i);
-        } else {
-            playSound('success'); 
-            return [...prev, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }];
-        }
-    });
-    setBarcodeInput(""); setShowSuggestions(false);
-    setTimeout(() => setScanMessage(null), 2000);
-  };
 
   useEffect(() => {
     if (scannedCodeObj) {
@@ -260,14 +151,75 @@ export default function App() {
     }
   }, [scannedCodeObj, products, scannerMode]);
 
-  // --- TÁCH DOANH THU TIỀN MẶT VÀ CHUYỂN KHOẢN TỰ ĐỘNG ---
+  useEffect(() => {
+    const handleAfterPrint = () => setPrintMode(null);
+    window.addEventListener("afterprint", handleAfterPrint);
+    return () => window.removeEventListener("afterprint", handleAfterPrint);
+  }, []);
+
+  // ================= 3. UTILS & MEMOS =================
+  const playSound = (type: 'success' | 'error') => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator(); const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      if (type === 'success') { osc.frequency.value = 800; gain.gain.setValueAtTime(0.1, ctx.currentTime); osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.1); } 
+      else { osc.frequency.value = 250; osc.type = 'square'; gain.gain.setValueAtTime(0.1, ctx.currentTime); osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3); }
+    } catch(e) {}
+  };
+
+  const logAudit = (action: string, detail: string) => {
+    const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user: role === 'admin' ? 'Quản lý' : 'Thu ngân', shift, action, detail };
+    setAuditLogs(prev => [newLog, ...prev].slice(0, 200)); 
+  };
+
+  const parseGift = (giftStr: string | null) => {
+    if (!giftStr) return { cond: 0, text: "" };
+    if (giftStr.includes(';;;')) {
+        const parts = giftStr.split(';;;');
+        return { cond: parseInt(parts[0]) || 1, text: parts[1] || "" };
+    }
+    return { cond: 1, text: giftStr };
+  };
+
+  const cleanName = (name: string) => name ? name.split(' [Lô')[0] : '';
+  const getActualPrice = (p: any) => {
+    let price = (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price;
+    const currentHour = new Date().getHours();
+    if ((currentHour >= 20 || currentHour < 6) && (p.category === 'Đồ ăn liền' || p.category === 'Bánh Kẹo')) { price = price * 0.8; p.isHappyHour = true; } 
+    else { p.isHappyHour = false; }
+    return Math.round(price);
+  };
+
+  const findProductByCode = (code: string) => {
+    const rawCode = code.trim();
+    let matches = products.filter(prod => prod.product_code === rawCode || prod.product_code.startsWith(`${rawCode}-`));
+    let available = matches.filter(p => p.stock > 0);
+    if (available.length > 0) {
+       available.sort((a,b) => {
+           if(!a.expiry_date) return 1; if(!b.expiry_date) return -1;
+           return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
+       });
+       return available[0];
+    } 
+    else if (matches.length > 0) return matches[0];
+    return null;
+  };
+
+  const getOldestAvailableBatch = (p: any) => {
+    const baseCode = p.product_code.split('-')[0];
+    let availableMatches = products.filter(prod => (prod.product_code === baseCode || prod.product_code.startsWith(`${baseCode}-`)) && prod.stock > 0);
+    if (availableMatches.length === 0) return p; 
+    availableMatches.sort((a,b) => {
+        if(!a.expiry_date) return 1; if(!b.expiry_date) return -1;
+        return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
+    });
+    return availableMatches[0];
+  };
+
   const currentShiftStats = useMemo(() => {
     const todayStr = new Date().toLocaleDateString('vi-VN');
-    const shiftLogs = history.filter(h => {
-       const hDate = new Date(Math.floor(h.id)).toLocaleDateString('vi-VN');
-       return hDate === todayStr && h.shift === shift;
-    });
-    
+    const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStr && h.shift === shift);
     let cash = 0; let transfer = 0; let prof = 0;
     shiftLogs.forEach(h => {
         if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') {
@@ -276,14 +228,12 @@ export default function App() {
         }
         prof += (h.profit || 0);
     });
-    
     return { rev: cash + transfer, cash, transfer, prof };
   }, [history, shift]);
 
   const todayStats = useMemo(() => {
     const todayStr = new Date().toLocaleDateString('vi-VN');
     const todayHistory = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStr);
-    
     let cash = 0; let transfer = 0; let prof = 0;
     todayHistory.forEach(h => {
         if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') {
@@ -311,6 +261,7 @@ export default function App() {
   }, [history]);
 
   const totalValue = Math.round(products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
+  const cartTotalAmount = cart.reduce((sum, item) => sum + item.total, 0);
 
   const uniqueNames = useMemo(() => Array.from(new Set(products.map(p => cleanName(p.name)))).sort(), [products]);
   const uniqueStocks = useMemo(() => Array.from(new Set(products.map(p => p.stock))).sort((a,b)=>a-b), [products]);
@@ -319,53 +270,27 @@ export default function App() {
   const uniqueExpiries = useMemo(() => Array.from(new Set(products.map(p => p.expiry_date).filter(Boolean))).sort(), [products]);
   const categories = ["Tất cả", ...Array.from(new Set(products.map(p => p.category || "Khác")))];
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (authUsername === "admin" && authPassword === "haile88") {
-      setIsLoggedIn(true); setRole("admin"); localStorage.setItem("mart_shift", shift);
-      localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "admin");
-      logAudit("ĐĂNG NHẬP", "Mở ca thành công");
-    } else if (authUsername === "nhanvien" && authPassword === "123") {
-      setIsLoggedIn(true); setRole("staff"); localStorage.setItem("mart_shift", shift);
-      localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "staff");
-      logAudit("ĐĂNG NHẬP", "Mở ca thành công");
-    } else alert("Sai tài khoản hoặc mật khẩu!");
-  };
+  // ================= 4. CART & POS LOGIC =================
+  const handleSelectSuggest = (p_input: any) => {
+    const p = getOldestAvailableBatch(p_input); 
+    if (p.stock <= 0) { playSound('error'); return alert("Đã hết hàng trong kho!"); }
+    if (p.id !== p_input.id) setScanMessage({ text: `⚡ Tự động xuất Lô cũ: ${p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : ''}`, type: 'success' });
+    else setScanMessage({ text: `✅ Thêm: ${cleanName(p.name)}`, type: 'success' });
 
-  const handleLogoutClick = () => setShowHandoverModal(true);
-  const confirmHandover = () => {
-    logAudit("CHỐT CA", `Doanh thu bàn giao: ${currentShiftStats.rev.toLocaleString()}đ (TM: ${currentShiftStats.cash.toLocaleString()}đ, CK: ${currentShiftStats.transfer.toLocaleString()}đ)`);
-    setIsLoggedIn(false); setShowHandoverModal(false);
-    localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role");
-  };
-
-  const handleHoldOrder = () => {
-    if (cart.length === 0) return;
-    const newOrder = { id: Date.now(), time: new Date().toLocaleTimeString('vi-VN'), cart: [...cart] };
-    setHeldOrders(prev => [...prev, newOrder]);
-    logAudit("LƯU TẠM", `Lưu giỏ hàng ${cart.length} món`);
-    setCart([]);
-  };
-
-  const restoreOrder = (order: any) => {
-    if (cart.length > 0) return alert("Vui lòng thanh toán hoặc hủy giỏ hiện tại trước khi mở đơn lưu tạm!");
-    setCart(order.cart);
-    setHeldOrders(prev => prev.filter(o => o.id !== order.id));
-    setShowHoldModal(false);
-  };
-
-  const deleteHeldOrder = (id: any) => {
-    setHeldOrders(prev => prev.filter(o => o.id !== id));
-    logAudit("XÓA ĐƠN TẠM", `Đã xóa 1 đơn hàng lưu tạm`);
-  };
-
-  const handleBarcodeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const p = findProductByCode(barcodeInput);
-      if (p) handleSelectSuggest(p);
-      else { playSound('error'); alert("Mã sai hoặc không tìm thấy!"); }
-    }
+    const price = getActualPrice(p);
+    setCart(prev => {
+        const exist = prev.find(item => item.product.id === p.id);
+        if (exist) {
+            const newQty = exist.qty + 1;
+            if (newQty > p.stock) { playSound('error'); setScanMessage({ text: `❌ Quá tồn kho lô này (${p.stock})`, type: 'error' }); return prev; }
+            playSound('success'); 
+            return prev.map(i => i.product.id === p.id ? { ...i, qty: newQty, total: Math.round(newQty*price*(1+VAT_RATE)), profit: Math.round(newQty*(price - (p.import_price||0))) } : i);
+        } else {
+            playSound('success'); 
+            return [...prev, { product: p, qty: 1, total: Math.round(price*(1+VAT_RATE)), profit: Math.round(price - (p.import_price||0)) }];
+        }
+    });
+    setBarcodeInput(""); setShowSuggestions(false); setTimeout(() => setScanMessage(null), 2000);
   };
 
   const addToCart = (p_input: any) => {
@@ -404,9 +329,8 @@ export default function App() {
       });
       return updated.filter(item => item.qty > 0);
     });
-    if (exceedStock) {
-      playSound('error'); setTimeout(() => alert(`Vượt quá tồn kho lô này! Lô này chỉ còn tối đa ${stockLimit} sản phẩm.`), 10);
-    } else if (delta > 0) playSound('success');
+    if (exceedStock) { playSound('error'); setTimeout(() => alert(`Vượt quá tồn kho lô này! Lô này chỉ còn tối đa ${stockLimit} sản phẩm.`), 10); } 
+    else if (delta > 0) playSound('success');
   };
 
   const handleDirectQtyChange = (productId: any, val: string) => {
@@ -447,43 +371,20 @@ export default function App() {
   };
   
   const clearCart = () => {
-    if(window.confirm("Hủy toàn bộ giỏ hàng?")) {
-       logAudit("HỦY GIỎ HÀNG", `Hủy giỏ trị giá ${cartTotalAmount.toLocaleString()}đ`);
-       setCart([]);
-    }
+    if(window.confirm("Hủy toàn bộ giỏ hàng?")) { logAudit("HỦY GIỎ HÀNG", `Hủy giỏ trị giá ${cartTotalAmount.toLocaleString()}đ`); setCart([]); }
   };
-
-  const cartTotalAmount = cart.reduce((sum, item) => sum + item.total, 0);
 
   const handleVoucherSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const code = voucherInput.trim().toUpperCase();
       const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 };
-      if (VOUCHERS[code]) {
-        setAppliedVoucherAmount(VOUCHERS[code]); playSound('success');
-      } else if (!isNaN(Number(code)) && Number(code) > 0) {
-        setAppliedVoucherAmount(Number(code)); playSound('success');
-      } else {
-        playSound('error'); alert("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0);
-      }
+      if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); playSound('success'); } 
+      else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); playSound('success'); } 
+      else { playSound('error'); alert("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0); }
     }
   };
 
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const phone = e.target.value; 
-    setCustPhone(phone);
-    if (customers[phone]) { setCustName(customers[phone].name); } 
-    else { setCustName(""); setUseWallet(false); }
-  };
-
-  const handleNextToQR = () => {
-    if (cart.length === 0) return alert("Giỏ hàng đang trống!");
-    if (custPhone && !customers[custPhone] && !custName) return alert("Nhập Tên khách hàng!");
-    setCheckoutStep(2);
-  };
-
-  // --- XÁC NHẬN THANH TOÁN VỚI HÌNH THỨC CỤ THỂ ---
   const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 'GHI NỢ') => {
     if (cart.some(i => !i.qty || i.qty <= 0)) { playSound('error'); return alert("Có sản phẩm số lượng không hợp lệ!"); }
     if (payMethod === 'GHI NỢ' && !custPhone) return alert("Ghi nợ bắt buộc phải nhập SĐT khách hàng!");
@@ -496,7 +397,6 @@ export default function App() {
     
     const vDiscount = appliedVoucherAmount || 0; 
     const totalAfterVoucher = Math.max(0, baseTotal - vDiscount);
-
     const wallet = customers[custPhone]?.wallet || 0;
     const walletDiscount = useWallet && payMethod !== 'GHI NỢ' ? Math.round(Math.min(wallet, totalAfterVoucher)) : 0; 
     
@@ -507,23 +407,18 @@ export default function App() {
     for (const item of cart) {
       await supabase.from("products").update({ stock: item.product.stock - item.qty }).eq("id", item.product.id);
       logs.push({ 
-          id: Date.now() + Math.random(), shift: shift, 
-          type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", 
-          name: item.product.name + (item.product.isHappyHour ? ' [Giờ Vàng]' : ''), 
-          qty: item.qty, total: Math.round(item.total), profit: Math.round(item.profit), 
-          customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", 
-          product_id: item.product.id, refunded_qty: 0,
-          paymentMethod: payMethod // Ghi nhận hình thức thanh toán
+          id: Date.now() + Math.random(), shift: shift, type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", 
+          name: item.product.name + (item.product.isHappyHour ? ' [Giờ Vàng]' : ''), qty: item.qty, 
+          total: Math.round(item.total), profit: Math.round(item.profit), 
+          customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id, refunded_qty: 0, paymentMethod: payMethod 
       });
     }
 
-    // TẠO LOG GIẢM GIÁ (ÂM) ĐỂ CÂN BẰNG TỔNG DOANH THU MÁY KHỚP VỚI TIỀN THU ĐƯỢC
     if (totalDiscount > 0) {
        logs.push({ 
           id: Date.now() + Math.random(), shift: shift, type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", 
           name: "Giảm giá Voucher/Ví", qty: 1, total: -totalDiscount, profit: -totalDiscount, 
-          customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", 
-          product_id: 'DISCOUNT', refunded_qty: 0, paymentMethod: payMethod 
+          customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: 'DISCOUNT', refunded_qty: 0, paymentMethod: payMethod 
       });
     }
     
@@ -535,13 +430,10 @@ export default function App() {
     }
 
     setHistory(prev => [...logs, ...prev]);
-
     setLastOrder({ 
       orderId: "HD" + Date.now().toString().slice(-6), shift: shift, cart: [...cart], 
       subTotal, vatTotal, finalTotal: payMethod === 'GHI NỢ' ? 0 : finalTotal, debtAmount: payMethod === 'GHI NỢ' ? finalTotal : 0, 
-      discount: totalDiscount, earnedWallet: custPhone ? earned : 0, custName: custPhone ? custName : null, 
-      custPhone: custPhone ? custPhone : null, time: new Date().toLocaleString('vi-VN'),
-      paymentMethod: payMethod
+      discount: totalDiscount, earnedWallet: custPhone ? earned : 0, custName: custPhone ? custName : null, custPhone: custPhone ? custPhone : null, time: new Date().toLocaleString('vi-VN'), paymentMethod: payMethod
     });
     setCheckoutStep(3); fetchProducts(); setLoading(false);
   };
@@ -559,16 +451,11 @@ export default function App() {
     if (!qStr) return;
     const refundQty = parseInt(qStr);
 
-    if (isNaN(refundQty) || refundQty <= 0 || refundQty > maxRefund) {
-      playSound('error'); return alert("Số lượng hoàn không hợp lệ!");
-    }
-
+    if (isNaN(refundQty) || refundQty <= 0 || refundQty > maxRefund) { playSound('error'); return alert("Số lượng hoàn không hợp lệ!"); }
     if(!window.confirm(`Xác nhận hoàn trả ${refundQty} x ${cleanName(log.name)}?`)) return;
 
-    const unitTotal = log.total / log.qty;
-    const unitProfit = log.profit / log.qty;
-    const refundTotal = Math.round(unitTotal * refundQty);
-    const refundProfit = Math.round(unitProfit * refundQty);
+    const unitTotal = log.total / log.qty; const unitProfit = log.profit / log.qty;
+    const refundTotal = Math.round(unitTotal * refundQty); const refundProfit = Math.round(unitProfit * refundQty);
 
     const p = products.find(x => x.id === log.product_id);
     if (p) await supabase.from("products").update({ stock: p.stock + refundQty }).eq("id", p.id);
@@ -580,9 +467,7 @@ export default function App() {
            const phone = phoneMatch[1];
            if (customers[phone]) {
                if (window.confirm(`Hoàn ${refundTotal.toLocaleString()}đ bằng TIỀN MẶT hay cộng vào VÍ ĐIỂM của khách?\n\n- OK: Cộng vào VÍ ĐIỂM\n- Cancel: Hoàn bằng TIỀN MẶT`)) {
-                   setCustomers((prev: any) => ({
-                       ...prev, [phone]: { ...prev[phone], wallet: (prev[phone].wallet || 0) + refundTotal }
-                   }));
+                   setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], wallet: (prev[phone].wallet || 0) + refundTotal } }));
                    logAudit("HOÀN TIỀN VÍ", `Hoàn ${refundTotal.toLocaleString()}đ vào ví KH ${customers[phone].name}`);
                    refundedToWallet = true;
                }
@@ -592,16 +477,13 @@ export default function App() {
 
     const updatedHistory = [...history];
     updatedHistory[logIndex].refunded_qty = (log.refunded_qty || 0) + refundQty;
-
     updatedHistory.unshift({ 
       id: Date.now(), shift: shift, type: "TRẢ HÀNG", 
       name: log.name + (refundedToWallet ? " (Hoàn Ví)" : " (Hoàn Tiền Mặt)"), 
-      qty: refundQty, total: -refundTotal, profit: -refundProfit, customer: log.customer,
-      paymentMethod: refundedToWallet ? 'VÍ ĐIỂM' : 'TIỀN MẶT'
+      qty: refundQty, total: -refundTotal, profit: -refundProfit, customer: log.customer, paymentMethod: refundedToWallet ? 'VÍ ĐIỂM' : 'TIỀN MẶT'
     });
     
-    setHistory(updatedHistory);
-    fetchProducts();
+    setHistory(updatedHistory); fetchProducts();
     logAudit("TRẢ HÀNG", `Hoàn ${refundQty} ${cleanName(log.name)} trị giá ${refundTotal.toLocaleString()}đ`);
     playSound('success'); alert(`Hoàn trả thành công ${refundQty} sản phẩm! Tiền đã được xử lý.`);
   };
@@ -613,7 +495,6 @@ export default function App() {
       const amt = parseInt(payAmtStr);
       const isTransfer = window.confirm(`Thu nợ bằng hình thức nào?\n\n- [OK] : CHUYỂN KHOẢN\n- [Cancel] : TIỀN MẶT`);
       const pMethod = isTransfer ? 'CHUYỂN KHOẢN' : 'TIỀN MẶT';
-
       setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], debt: Math.max(0, (prev[phone]?.debt || 0) - amt) } }));
       setHistory(prev => [{ id: Date.now(), shift: shift, type: "THU NỢ", name: "Thanh toán công nợ", qty: 1, total: amt, profit: 0, customer: `${customers[phone].name} (${phone})`, paymentMethod: pMethod }, ...prev]);
       logAudit("THU NỢ", `Thu ${amt.toLocaleString()}đ từ ${customers[phone].name}`);
@@ -621,19 +502,7 @@ export default function App() {
     }
   };
 
-  const closeCheckout = () => { setCart([]); setIsCheckoutOpen(false); setCheckoutStep(1); setCustPhone(""); setCustName(""); setUseWallet(false); setVoucherInput(""); setAppliedVoucherAmount(0); setCustomerGiven(""); setLastOrder(null); };
-
-  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const code = e.target.value; setNewCode(code);
-    const p = products.find((x: any) => x.product_code === code);
-    if (p) { 
-      setNewName(cleanName(p.name)); setNewCategory(p.category || "Khác"); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewExpiry(p.expiry_date || ""); 
-      const gift = parseGift(p.gift_info);
-      setNewGiftCondition(gift.cond.toString());
-      setNewGiftInfo(gift.text);
-    }
-  };
-
+  // ================= 5. PRODUCT & DATA MGMT =================
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault(); setLoading(true);
     const added = parseInt(newStock || "0"); const impPrice = parseInt(newImportPrice);
@@ -649,9 +518,7 @@ export default function App() {
     if (allVariants.length > 0) {
         const currentSalePrice = allVariants[0].sale_price;
         if (currentSalePrice !== salePrice) {
-            await Promise.all(allVariants.map(v => 
-                supabase.from("products").update({ sale_price: salePrice, promo_price: promo }).eq("id", v.id)
-            ));
+            await Promise.all(allVariants.map(v => supabase.from("products").update({ sale_price: salePrice, promo_price: promo }).eq("id", v.id)));
             priceUpdatedMsg = `\n\n💡 Đã tự động ĐỒNG BỘ GIÁ BÁN MỚI (${salePrice.toLocaleString()}đ) cho tất cả lô hàng cũ!`;
             logAudit("ĐỒNG BỘ GIÁ BÁN", `Cập nhật mã ${baseCode} lên giá ${salePrice.toLocaleString()}đ`);
         }
@@ -666,20 +533,16 @@ export default function App() {
             alert(`Đã nhập hàng thành công!${priceUpdatedMsg}`);
         } else {
             const isDiff = exist.import_price !== impPrice || (exist.expiry_date || "") !== (newExpiry || "");
-            
             if (isDiff) {
                 const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}`;
                 const batchName = `${newName} [Lô ${newExpiry ? new Date(newExpiry).toLocaleDateString('vi-VN') : 'Mới'}]`;
-                
                 if(window.confirm(`Hàng cũ đang tồn ${exist.stock}.\nBạn nhập lô mới có Giá Vốn hoặc HSD khác.\nHệ thống sẽ tạo LÔ MỚI (${batchCode}) để quản lý tách biệt (FIFO).${priceUpdatedMsg}\n\nĐồng ý?`)) {
                     const data = { product_code: batchCode, name: batchName, category: newCategory || "Khác", import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null };
                     await supabase.from("products").insert([data]);
                     if (added > 0) setHistory(prev => [{ id: Date.now(), shift: shift, type: "NHẬP", name: batchName, qty: added, total: 0 }, ...prev]);
                     logAudit("NHẬP TÁCH LÔ", `${batchName} (Mã: ${batchCode}) - SL: ${added}`);
                     if (!priceUpdatedMsg) alert(`Đã tạo lô mới thành công!`); 
-                } else {
-                    setLoading(false); return;
-                }
+                } else { setLoading(false); return; }
             } else {
                 const data = { stock: exist.stock + added, created_at: new Date().toISOString() };
                 await supabase.from("products").update(data).eq("id", exist.id);
@@ -695,7 +558,6 @@ export default function App() {
         logAudit("NHẬP MỚI", `${newName} (Mã: ${baseCode}) - SL: ${added}`);
         if(priceUpdatedMsg) alert(`Đã nhập hàng thành công!${priceUpdatedMsg}`);
     }
-
     setNewCode(""); setNewName(""); setNewCategory("Đồ uống"); setNewImportPrice(""); setNewPrice(""); setNewPromoPrice(""); setNewGiftCondition("1"); setNewGiftInfo(""); setNewStock(""); setNewExpiry("");
     fetchProducts(); setLoading(false); setShowInputForm(false);
   };
@@ -723,17 +585,13 @@ export default function App() {
           if (allVariants.length > 0) {
               const currentSalePrice = allVariants[0].sale_price;
               if (currentSalePrice !== pSalePrice) {
-                  await Promise.all(allVariants.map(v => 
-                      supabase.from("products").update({ sale_price: pSalePrice, promo_price: pPromoPrice }).eq("id", v.id)
-                  ));
+                  await Promise.all(allVariants.map(v => supabase.from("products").update({ sale_price: pSalePrice, promo_price: pPromoPrice }).eq("id", v.id)));
                   if(!importLogs.find(l => l.name === `Đồng bộ giá ${baseCode}`)) {
                        importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "HỆ THỐNG", name: `Đồng bộ giá ${baseCode}`, qty: 0, total: 0 });
                   }
               }
           }
-
           const exist = allVariants.find(p => p.product_code === baseCode);
-          
           if (exist) {
              if (exist.stock <= 0) {
                  const data = { name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry, created_at: new Date().toISOString() };
@@ -766,14 +624,6 @@ export default function App() {
     reader.readAsText(file); e.target.value = '';
   };
 
-  const handleDelete = async (id: any, name: any) => { 
-      if (window.confirm(`Xóa vĩnh viễn ${name}?`)) { 
-          await supabase.from("products").delete().eq("id", id); 
-          logAudit("XÓA SẢN PHẨM", `Xóa vĩnh viễn: ${name}`);
-          fetchProducts(); 
-      } 
-  };
-  
   const handleEdit = async (id: any, field: string, old: any, isText: boolean = false) => {
     let label = field;
     if (field === 'category') label = 'Danh mục'; if (field === 'sale_price') label = 'Giá bán';
@@ -790,21 +640,20 @@ export default function App() {
     }
   };
 
+  const handleDelete = async (id: any, name: any) => { 
+      if (window.confirm(`Xóa vĩnh viễn ${name}?`)) { 
+          await supabase.from("products").delete().eq("id", id); 
+          logAudit("XÓA SẢN PHẨM", `Xóa vĩnh viễn: ${name}`);
+          fetchProducts(); 
+      } 
+  };
+  
   const handlePrintBarcode = (p: any) => {
     const q = window.prompt(`Nhập số lượng tem cần in cho: ${cleanName(p.name)}`, "30");
     if (q && parseInt(q) > 0) {
       setPrintBarcodeProduct(p); setBarcodeCount(parseInt(q)); setPrintMode('barcode');
       setTimeout(() => window.print(), 1500);
     }
-  };
-
-  const downloadSampleCSV = () => {
-    const csv = "\uFEFFMã SP,Tên SP,Danh Mục,Giá Nhập,Giá Bán,Giá KM,Quà Tặng,Số Lượng,Hạn Sử Dụng (YYYY-MM-DD)\nSP001,Mì Hảo Hảo,Đồ ăn liền,3000,5000,0,,100,2026-12-31\nSP002,Nước suối TH,Đồ uống,4000,6000,0,24;;;1 Ly Thủy Tinh,50,2026-06-15";
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `Mau_Nhap_Kho_Hai_Le_Mart.csv`;
-    link.click();
   };
 
   const exportToCSV = () => {
@@ -815,10 +664,7 @@ export default function App() {
       csv += `${time},${log.shift || "Không rõ"},${log.type},${log.paymentMethod || ""},${log.customer || "Khách lẻ"},${log.name},${log.qty},${Math.round(log.total)},${Math.round(log.profit || 0)}\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `Bao_Cao_Hai_Le_Mart.csv`;
-    link.click();
+    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Bao_Cao_Hai_Le_Mart.csv`; link.click();
   };
 
   const exportAuditToCSV = () => {
@@ -829,10 +675,7 @@ export default function App() {
       csv += `${log.time},${log.user},${log.shift},${log.action},${safeDetail}\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `Nhat_Ky_Kiem_Toan_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.csv`;
-    link.click();
+    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Nhat_Ky_Kiem_Toan_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.csv`; link.click();
   };
 
   const handleSendEmailReport = () => {
@@ -853,28 +696,119 @@ export default function App() {
     window.location.href = `mailto:lehonghaikt6@gmail.com?subject=${sub}&body=${body}`;
   };
 
-  const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
+  const downloadSampleCSV = () => {
+    const csv = "\uFEFFMã SP,Tên SP,Danh Mục,Giá Nhập,Giá Bán,Giá KM,Quà Tặng,Số Lượng,Hạn Sử Dụng (YYYY-MM-DD)\nSP001,Mì Hảo Hảo,Đồ ăn liền,3000,5000,0,,100,2026-12-31\nSP002,Nước suối TH,Đồ uống,4000,6000,0,24;;;1 Ly Thủy Tinh,50,2026-06-15";
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Mau_Nhap_Kho_Hai_Le_Mart.csv`; link.click();
+  };
 
+  // --- 6. FILTERING & SORTING LOGIC ---
+  const requestSort = (key: string) => {
+    if (sortConfig && sortConfig.key === key) {
+      if (sortConfig.direction === 'asc') setSortConfig({ key, direction: 'desc' });
+      else setSortConfig(null);
+    } else { setSortConfig({ key, direction: 'asc' }); }
+  };
+
+  const handleFilterCheck = (col: string, val: any) => {
+    setFilters(prev => {
+        const cur = prev[col] || [];
+        if (cur.includes(val)) return { ...prev, [col]: cur.filter(v => v !== val) };
+        return { ...prev, [col]: [...cur, val] };
+    });
+  };
+
+  const sortedAndFilteredProducts = useMemo(() => {
+    const todayTime = new Date().getTime();
+    let filtered = products
+      .filter(p => (selectedCategory === "Tất cả" || (p.category || "Khác") === selectedCategory))
+      .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(searchTerm.toLowerCase())));
+
+    if (filters['name']?.length > 0) filtered = filtered.filter(p => filters['name'].includes(cleanName(p.name)));
+    if (filters['stock']?.length > 0) filtered = filtered.filter(p => filters['stock'].includes(p.stock));
+    if (filters['import_price']?.length > 0) filtered = filtered.filter(p => filters['import_price'].includes(p.import_price || 0));
+    if (filters['sale_price']?.length > 0) filtered = filtered.filter(p => filters['sale_price'].includes(p.sale_price));
+    if (filters['expiry_date']?.length > 0) filtered = filtered.filter(p => filters['expiry_date'].includes(p.expiry_date));
+
+    if (sortConfig !== null) {
+      filtered.sort((a, b) => {
+        let valA = a[sortConfig.key]; let valB = b[sortConfig.key];
+        if (sortConfig.key === 'expiry_date') { valA = a.expiry_date ? new Date(a.expiry_date).getTime() : Infinity; valB = b.expiry_date ? new Date(b.expiry_date).getTime() : Infinity; }
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    } else {
+      filtered.sort((a, b) => {
+        const daysA = a.expiry_date ? (new Date(a.expiry_date).getTime() - todayTime) / 86400000 : Infinity;
+        const daysB = b.expiry_date ? (new Date(b.expiry_date).getTime() - todayTime) / 86400000 : Infinity;
+        const aIsUrgent = daysA <= 45; const bIsUrgent = daysB <= 45;
+        if (aIsUrgent && !bIsUrgent) return -1; if (!aIsUrgent && bIsUrgent) return 1; if (aIsUrgent && bIsUrgent) return daysA - daysB; 
+        return 0;
+      });
+    }
+    return filtered;
+  }, [products, searchTerm, selectedCategory, sortConfig, filters]);
+
+  const renderHeaderIcon = (colKey: string) => {
+    const isFiltered = filters[colKey]?.length > 0;
+    const isSortedAsc = sortConfig?.key === colKey && sortConfig.direction === 'asc';
+    const isSortedDesc = sortConfig?.key === colKey && sortConfig.direction === 'desc';
+    let icon = '🔽'; 
+    if (isSortedAsc) icon = '🔼';
+    if (isSortedDesc) icon = '🔽';
+    return (
+        <span 
+          onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === colKey ? null : colKey); }} 
+          style={{ cursor: "pointer", color: isFiltered || sortConfig?.key === colKey ? '#ef4444' : '#94a3b8', fontSize: "10px", padding: "2px", marginLeft: "4px", border: isFiltered ? "1px dashed #ef4444" : "1px solid transparent", borderRadius: "2px" }}
+          title="Bấm để lọc"
+        >
+          {icon}
+        </span>
+    );
+  };
+
+  const renderFilterPopup = (colKey: string, title: string, uniqueValues: any[], formatVal?: (v:any)=>string) => {
+    if (openFilter !== colKey) return null;
+    return (
+        <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: colKey==='name' ? "0" : "50%", transform: colKey==='name' ? "none" : "translateX(-50%)", backgroundColor: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px", zIndex: 999, boxShadow: "0 10px 25px -5px rgba(0,0,0,0.2)", minWidth: "160px", textAlign: "left", color: "#1e293b", fontWeight: "normal", fontSize: "12px", display: "flex", flexDirection: "column" }}>
+           <div style={{ marginTop: "10px", fontWeight: "bold", color: "#64748b", fontSize: "10px", marginBottom: "6px", textTransform: "uppercase" }}>LỌC {title}:</div>
+           <div style={{ overflowY: "auto", flex: 1, maxHeight: "150px", border: "1px solid #e2e8f0", borderRadius: "4px", padding: "4px" }}>
+               <label style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px", cursor: "pointer", borderBottom: "1px dashed #f1f5f9", backgroundColor: (!filters[colKey] || filters[colKey].length === 0) ? "#eff6ff" : "transparent" }}>
+                  <input type="checkbox" checked={!filters[colKey] || filters[colKey].length === 0} onChange={() => setFilters(prev => ({...prev, [colKey]: []}))} />
+                  <span style={{color: "#3b82f6", fontWeight: "bold"}}>Tất cả</span>
+               </label>
+               {uniqueValues.map((v, i) => (
+                   <label key={i} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px", cursor: "pointer", borderBottom: "1px dashed #f1f5f9", backgroundColor: filters[colKey]?.includes(v) ? "#f0fdf4" : "transparent" }}>
+                      <input type="checkbox" checked={filters[colKey]?.includes(v) || false} onChange={() => handleFilterCheck(colKey, v)} />
+                      <span>{formatVal ? formatVal(v) : v}</span>
+                   </label>
+               ))}
+           </div>
+           {filters[colKey]?.length > 0 && (
+               <div style={{ marginTop: "8px", textAlign: "center", cursor: "pointer", color: "#ef4444", fontWeight: "bold", fontSize: "11px", padding: "4px" }} onClick={() => setFilters(prev => ({...prev, [colKey]: []}))}>❌ Bỏ lọc</div>
+           )}
+        </div>
+    );
+  };
+
+  // ================= 7. RENDER =================
   const styles = `
-    @keyframes pulse-fast { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     @keyframes float { 0% { transform: translateY(0); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0); } }
+    @keyframes pulse-fast { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     .spring-bg { position: fixed; width: 400px; height: 400px; border-radius: 50%; filter: blur(100px); z-index: -1; opacity: 0.3; animation: float 10s infinite ease-in-out; }
     .glass { background: rgba(255, 255, 255, 0.98); border: 1px solid #fed7aa; border-radius: 12px; box-shadow: 0 4px 15px rgba(251, 146, 60, 0.08); }
     body { background-color: #fff7ed; margin: 0; font-family: 'Inter', sans-serif; color: #431407; }
-    
     .qty-btn { padding: 2px 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: #f8fafc; cursor: pointer; font-weight: bold; }
     .tab-btn { padding: 6px 12px; border-radius: 20px; border: 1px solid #fed7aa; background: #fff; cursor: pointer; font-size: 12px; font-weight: bold; color: #9a3412; white-space: nowrap; }
     .tab-btn.active { background: #ef4444; color: #fff; border-color: #ef4444; }
     .print-only { display: none; }
-    
     .qty-input { width: 28px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; outline: none; font-size: 11px; font-weight: bold; color: #1e293b; padding: 3px 0; background: #fff; }
     .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     .qty-input[type=number] { -moz-appearance: textfield; }
-    
     .add-to-cart-btn { padding: 8px 16px; background-color: #fbbf24; color: #78350f; border: none; border-radius: 6px; font-weight: 900; cursor: pointer; font-size: 12px; transition: transform 0.1s, background-color 0.2s; box-shadow: 0 2px 4px rgba(251, 191, 36, 0.3); }
     .add-to-cart-btn:hover { background-color: #f59e0b; transform: scale(1.05); }
     .add-to-cart-btn:active { transform: scale(0.95); }
-
     .input-label { font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; }
     .input-label-red { font-size: 10px; font-weight: bold; color: #ef4444; text-transform: uppercase; }
     .input-label-green { font-size: 10px; font-weight: bold; color: #10b981; text-transform: uppercase; }
@@ -882,7 +816,6 @@ export default function App() {
     @media print { 
       body, html { background: white !important; margin: 0 !important; padding: 0 !important; color: #000; } 
       .no-print { display: none !important; } 
-      
       .print-only.print-receipt { display: block !important; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; width: 80mm; margin: 0 auto; padding: 5mm; box-sizing: border-box; font-size: 12px; line-height: 1.4; }
       .print-header { text-align: center; margin-bottom: 10px; }
       .print-header h2 { margin: 0; font-size: 22px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
@@ -896,7 +829,6 @@ export default function App() {
       .print-totals-row { display: flex; justify-content: space-between; padding: 3px 0; }
       .print-grand-total { display: flex; justify-content: space-between; font-size: 18px; font-weight: 900; border-top: 2px dashed #000; padding-top: 8px; margin-top: 5px; }
       .print-footer { text-align: center; font-size: 11px; margin-top: 15px; }
-      
       .print-only.print-barcode-sheet { display: flex !important; flex-wrap: wrap; gap: 15px; justify-content: center; padding: 10mm; }
       .barcode-sticker { width: 30%; text-align: center; margin-bottom: 15px; border: 1px dashed #ccc; padding: 8px; page-break-inside: avoid; }
       @page { margin: 0; } 
@@ -910,17 +842,13 @@ export default function App() {
         <div className="spring-bg" style={{ background: "#ef4444", top: "-10%", left: "-10%" }}></div>
         <div className="spring-bg" style={{ background: "#fbbf24", bottom: "-10%", right: "-10%" }}></div>
         <div className="glass" style={{ padding: "40px", width: "100%", maxWidth: "380px", textAlign: "center", border: "4px solid #ef4444" }}>
-          
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "25px" }}>
             <div style={{ background: "linear-gradient(135deg, #ef4444, #f97316)", padding: "15px", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 15px rgba(239, 68, 68, 0.4)", marginBottom: "15px" }}>
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
-              </svg>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
             </div>
             <h1 style={{ margin: 0, fontSize: "32px", fontWeight: "900", letterSpacing: "2px", background: "linear-gradient(90deg, #b91c1c, #ea580c)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", textTransform: "uppercase" }}>HẢI LÊ MART</h1>
             <span style={{ fontSize: "12px", color: "#64748b", fontWeight: "bold", letterSpacing: "3px", textTransform: "uppercase", marginTop: "5px" }}>Point of Sale PRO</span>
           </div>
-
           <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
             <select value={shift} onChange={e => setShift(e.target.value)} style={{ padding: "14px", borderRadius: "10px", border: "1px solid #f97316", outline: "none", fontWeight: "bold", color: "#9a3412", backgroundColor: "#fffbeb" }}>
               <option value="Ca Sáng">🌅 Ca Sáng (06:00 - 14:00)</option>
@@ -1011,6 +939,7 @@ export default function App() {
         </div>
       )}
 
+      {/* CÁC MODAL HIỂN THỊ */}
       {showHoldModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "400px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
@@ -1076,7 +1005,9 @@ export default function App() {
               <div>⏰ Ca làm việc: <b style={{color: "#b91c1c"}}>{shift}</b></div>
               <div style={{ borderTop: "1px solid #fed7aa", margin: "10px 0" }}></div>
               <div style={{ display: "flex", justifyContent: "space-between" }}><span>💵 Tổng thu ca này:</span><b style={{color: "#059669", fontSize: "16px"}}>{currentShiftStats.rev.toLocaleString()}đ</b></div>
-              {role === 'admin' && <div style={{ display: "flex", justifyContent: "space-between" }}><span>📈 Lợi nhuận ca này:</span><b style={{color: "#3b82f6"}}>{currentShiftStats.prof.toLocaleString()}đ</b></div>}
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color:"#64748b" }}><span>- Tiền mặt:</span><b>{currentShiftStats.cash.toLocaleString()}đ</b></div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color:"#64748b", marginBottom: "8px" }}><span>- Chuyển khoản:</span><b>{currentShiftStats.transfer.toLocaleString()}đ</b></div>
+              {role === 'admin' && <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px dashed #fed7aa", paddingTop: "8px" }}><span>📈 Lợi nhuận ca này:</span><b style={{color: "#3b82f6"}}>{currentShiftStats.prof.toLocaleString()}đ</b></div>}
               <div style={{ fontSize: "11px", color: "#64748b", marginTop: "10px", fontStyle: "italic", textAlign: "center" }}>*Doanh thu đã được tự động lưu vào Lịch sử tổng.</div>
             </div>
             <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
@@ -1181,13 +1112,11 @@ export default function App() {
             <h3 style={{ margin: "0 0 10px 0", textAlign: "center", color: "#b91c1c" }}>
               {scannerMode === 'voucher' ? '📷 Quét mã Voucher' : '📷 Đưa mã vạch vào khung'}
             </h3>
-            
             {scanMessage && (
               <div style={{ position: "absolute", top: "50px", left: "50%", transform: "translateX(-50%)", padding: "8px 16px", backgroundColor: scanMessage.type === 'success' ? "#10b981" : "#ef4444", color: "#fff", fontWeight: "bold", borderRadius: "20px", zIndex: 10001, boxShadow: "0 4px 6px rgba(0,0,0,0.3)", animation: "float 0.5s ease-out" }}>
                 {scanMessage.text}
               </div>
             )}
-
             <div id="qr-reader" style={{ width: "100%" }}></div>
             <button onClick={() => setScannerMode(null)} style={{ width: "100%", padding: "12px", marginTop: "15px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" }}>ĐÓNG CAMERA</button>
           </div>
@@ -1198,7 +1127,7 @@ export default function App() {
         <div className="spring-bg" style={{ background: "#ef4444", top: "10%", left: "5%" }}></div>
         <div className="spring-bg" style={{ background: "#f59e0b", bottom: "10%", right: "5%" }}></div>
 
-        {/* 💳 POPUP THANH TOÁN */}
+        {/* 💳 POPUP THANH TOÁN CÓ CHIA TIỀN MẶT / CHUYỂN KHOẢN */}
         {isCheckoutOpen && (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
             {checkoutStep === 1 && (
@@ -1248,17 +1177,16 @@ export default function App() {
                 
                 <div style={{ position: "relative" }}>
                    <img src={`https://img.vietqr.io/image/970422-0680124181004-compact2.png?amount=${finalToPay}&addInfo=Thanh toan&accountName=LE%20HONG%20HAI`} style={{ width: "160px", margin: "0 auto 10px auto", border: "2px solid #ef4444", borderRadius: "10px", display: "block" }} alt="Mã VietQR" />
-                   
                    <div style={{ animation: "pulse-fast 1.5s infinite", color: "#b45309", fontSize: "11px", fontWeight: "bold", marginBottom: "5px" }}>
                       ⏳ Đang chờ nhận tiền...
                    </div>
                    <div style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontSize: "10px", padding: "6px", borderRadius: "4px", border: "1px dashed #ef4444", marginBottom: "15px", textAlign: "left", lineHeight: "1.4" }}>
-                      <b>⚠️ CHÚ Ý:</b> KHÔNG NHÌN MÀN HÌNH KHÁCH. CHỈ BẤM <b>[ĐÃ NHẬN]</b> KHI APP NGÂN HÀNG CỦA BẠN ĐÃ BÁO CÓ TIỀN!
+                      <b>⚠️ CHÚ Ý:</b> KHÔNG NHÌN MÀN HÌNH KHÁCH. CHỈ BẤM <b>[CHUYỂN KHOẢN]</b> KHI APP NGÂN HÀNG BÁO CÓ TIỀN!
                    </div>
                 </div>
                 
                 <div style={{ marginBottom: "15px", textAlign: "left", borderTop: "1px dashed #cbd5e1", paddingTop: "10px" }}>
-                  <div style={{ fontSize: "12px", color: "#64748b", fontWeight: "bold", marginBottom: "5px" }}>Tiền mặt khách đưa (Chỉ nhập nếu trả bằng Tiền mặt):</div>
+                  <div style={{ fontSize: "12px", color: "#64748b", fontWeight: "bold", marginBottom: "5px" }}>Tiền mặt khách đưa (Chỉ dùng nếu trả Tiền mặt):</div>
                   <input type="number" placeholder="Nhập số tiền..." value={customerGiven} onChange={e => setCustomerGiven(Number(e.target.value) || "")} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", boxSizing: "border-box", fontSize: "14px", fontWeight: "bold" }} />
                   <div style={{ display: "flex", gap: "5px", marginTop: "8px", flexWrap: "wrap" }}>
                     <button onClick={()=>setCustomerGiven(finalToPay)} style={{flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid #cbd5e1", cursor: "pointer"}}>Vừa đủ</button>
@@ -1274,7 +1202,6 @@ export default function App() {
                   )}
                 </div>
 
-                {/* 💳 NÚT THANH TOÁN ĐƯỢC CHIA ĐÔI */}
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                   <button onClick={() => setCheckoutStep(1)} style={{ flex: "1 1 100%", padding: "8px", borderRadius: "8px", border: "none", background: "#e2e8f0", cursor: "pointer", fontWeight: "bold" }}>Quay lại</button>
                   <button onClick={() => confirmCheckout('GHI NỢ')} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#f59e0b", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer", fontSize: "11px" }}>📝 GHI NỢ</button>
@@ -1337,7 +1264,6 @@ export default function App() {
 
               <div style={{ width: "2px", height: "30px", backgroundColor: "#e2e8f0" }}></div>
 
-              {/* 💵 BẢNG THỐNG KÊ TÁCH TIỀN MẶT VÀ CHUYỂN KHOẢN */}
               <div style={{ display: "flex", gap: "20px" }}>
                 {role === 'admin' && (
                   <div style={{ textAlign: "center", whiteSpace: "nowrap" }}>
@@ -1691,8 +1617,6 @@ export default function App() {
                                 <b style={{color: log.type === 'TRẢ HÀNG' ? '#ef4444' : '#1e293b'}}>[{log.type}]</b> {cleanName(log.name)} x{log.qty}
                                 {log.refunded_qty > 0 && <span style={{color:"#ef4444", fontSize:"8px", marginLeft:"4px"}}>(Đã hoàn {log.refunded_qty})</span>}
                             </span>
-                            
-                            {/* 🔥 HIỂN THỊ LOG KÈM TAG TIỀN MẶT / CHUYỂN KHOẢN */}
                             {log.type === "BÁN" && <span style={{color:"#059669", fontWeight:"bold"}}>+{Math.round(log.total).toLocaleString()} <span style={{fontSize: "8px", color:"#94a3b8", fontWeight:"normal"}}>({log.paymentMethod === 'CHUYỂN KHOẢN' ? 'CK' : 'TM'})</span></span>}
                             {log.type === "TRẢ HÀNG" && <span style={{color:"#ef4444", fontWeight:"bold"}}>{Math.round(log.total).toLocaleString()} <span style={{fontSize: "8px", color:"#94a3b8", fontWeight:"normal"}}>({log.paymentMethod === 'VÍ ĐIỂM' ? 'VÍ' : 'TM'})</span></span>}
                             {log.type === "GHI NỢ" && <span style={{color:"#ea580c", fontWeight:"bold"}}>Nợ: {Math.round(log.total).toLocaleString()}</span>}
