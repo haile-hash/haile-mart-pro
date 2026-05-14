@@ -381,18 +381,42 @@ export default function App() {
     return filtered;
   }, [products, searchTerm, selectedCategory, sortConfig, filters]);
 
-  // ================= 6. EVENT HANDLERS =================
+
+  // ================= 6. EVENT HANDLERS (ĐĂNG NHẬP CHỐNG LỖI) =================
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (authUsername === "admin" && authPassword === adminPass) {
+    
+    // Tự động bỏ khoảng trắng và chuyển chữ thường để chống lỗi gõ sai
+    const u = authUsername.trim().toLowerCase();
+    const p = authPassword.trim();
+
+    // CHÌA KHÓA VẠN NĂNG (Dùng khi lỡ quên mật khẩu đã đổi)
+    if (u === "admin" && p === "khoiphuc88") {
+        setAdminPass("haile88"); localStorage.removeItem("mart_admin_pass");
+        setStaffPass("123"); localStorage.removeItem("mart_staff_pass");
+        setAuthPassword("");
+        alert("✅ Đã khôi phục mật khẩu mặc định!\n- Admin: haile88\n- Nhân viên: 123\n\nVui lòng đăng nhập lại!");
+        return;
+    }
+
+    if (u === "admin" && p === adminPass) {
       setIsLoggedIn(true); setRole("admin"); localStorage.setItem("mart_shift", shift);
       localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "admin");
       logAudit("ĐĂNG NHẬP", "Mở ca thành công");
-    } else if (authUsername === "nhanvien" && authPassword === staffPass) {
+    } else if (u === "nhanvien" && p === staffPass) {
       setIsLoggedIn(true); setRole("staff"); localStorage.setItem("mart_shift", shift);
       localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "staff");
       logAudit("ĐĂNG NHẬP", "Mở ca thành công");
-    } else alert("Sai tài khoản hoặc mật khẩu!");
+    } else {
+      alert("❌ Sai tài khoản hoặc mật khẩu!\n(Nếu quên mật khẩu quản lý, hãy nhập mật khẩu là: khoiphuc88 để khôi phục)");
+    }
+  };
+
+  const handleLogoutClick = () => setShowHandoverModal(true);
+  const confirmHandover = () => {
+    logAudit("CHỐT CA", `Doanh thu bàn giao: ${currentShiftStats.rev.toLocaleString()}đ (TM: ${currentShiftStats.cash.toLocaleString()}đ, CK: ${currentShiftStats.transfer.toLocaleString()}đ)`);
+    setIsLoggedIn(false); setShowHandoverModal(false);
+    localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role");
   };
 
   const saveSettings = () => {
@@ -408,13 +432,6 @@ export default function App() {
     logAudit("CÀI ĐẶT", "Cập nhật Mật khẩu / QR Thanh toán");
     alert("Đã lưu Cài đặt thành công!");
     setShowSettings(false);
-  };
-
-  const handleLogoutClick = () => setShowHandoverModal(true);
-  const confirmHandover = () => {
-    logAudit("CHỐT CA", `Doanh thu bàn giao: ${currentShiftStats.rev.toLocaleString()}đ (TM: ${currentShiftStats.cash.toLocaleString()}đ, CK: ${currentShiftStats.transfer.toLocaleString()}đ)`);
-    setIsLoggedIn(false); setShowHandoverModal(false);
-    localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role");
   };
 
   const handleHoldOrder = () => {
@@ -758,14 +775,14 @@ export default function App() {
       alert("🚀 Đã gửi hóa đơn điện tử tự động thành công!");
     } catch (error) {
       console.error(error);
-      alert("❌ Lỗi gửi mail. Ông chủ kiểm tra lại Service ID & Template ID nhé.");
+      alert("❌ Lỗi gửi mail. Vui lòng kiểm tra lại Hộp thư Rác (Spam) hoặc mạng.");
     }
     setLoading(false);
   };
 
   const sendCardEmail = async (phone: string) => {
       const cust = customers[phone];
-      const email = cust.email || window.prompt(`Nhập Email của ${cust.name} để gửi mã thẻ:`, "");
+      const email = cust.email || window.prompt(`Nhập Email cá nhân (VD: gmail.com) của ${cust.name} để gửi mã thẻ:`, "");
       if (!email) return;
 
       if (!cust.email) {
@@ -791,7 +808,7 @@ export default function App() {
         await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, emailData);
         alert("🚀 Đã gửi Thẻ VIP điện tử tự động thành công!");
       } catch (error) {
-        alert("❌ Lỗi gửi mail. Ông chủ kiểm tra lại thông tin cấu hình EmailJS.");
+        alert("❌ Lỗi gửi mail. Vui lòng kiểm tra lại Hộp thư Rác (Spam) hoặc mạng.");
       }
       setLoading(false);
   };
@@ -809,7 +826,7 @@ export default function App() {
       const text = `Chào ${cust.name},\nCảm ơn bạn đã đồng hành cùng Hải Lê Mart!\n💳 Mã Thẻ VIP của bạn là: ${code}\n\n👉 Bạn hãy đưa mã này cho thu ngân khi thanh toán để được giảm giá và tích điểm nhé!`;
       
       navigator.clipboard.writeText(text).then(() => {
-          alert(`💡 MẸO GỬI ẢNH MÃ VẠCH QUAN TRỌNG:\nZalo không tự hiện ảnh từ Link. Để gửi ảnh đẹp:\n1. Bấm nút [🖨️ In Thẻ] trên phần mềm.\n2. Bấm phím Alt+Z để cắt ảnh thẻ đó.\n3. Dán (Ctrl+V) gửi qua Zalo là siêu xịn!\n\n✅ Đã copy thông tin văn bản, chuẩn bị mở Zalo...`);
+          alert(`💡 MẸO GỬI ẢNH MÃ VẠCH QUA ZALO:\nZalo chặn link ảnh tự động. Để gửi ảnh đẹp:\n1. Bấm nút [🖨️ In Thẻ] trên phần mềm.\n2. Bấm phím (Alt + Z) để cắt vùng ảnh Thẻ VIP.\n3. Dán (Ctrl + V) và gửi qua Zalo là siêu xịn!\n\n✅ Mình đã chuẩn bị mở sẵn Zalo của khách cho ông chủ rồi...`);
           window.open(`https://zalo.me/${phone}`, '_blank');
       }).catch(() => {
           window.open(`https://zalo.me/${phone}`, '_blank');
@@ -1702,7 +1719,7 @@ export default function App() {
               {showInputForm && role === 'admin' && (
                 <form onSubmit={handleAddProduct} style={{ backgroundColor: "#fff7ed", padding: "15px", borderRadius: "8px", border: "1px solid #fdba74", marginBottom: "15px" }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr 1fr 1fr", gap: "10px", marginBottom: "10px" }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">MÃ SẢN PHẨM</span><input placeholder="VD: SP001" value={newCode} onChange={handleCodeChange} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">M mã SẢN PHẨM</span><input placeholder="VD: SP001" value={newCode} onChange={handleCodeChange} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
                     <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">TÊN HÀNG HÓA</span><input placeholder="VD: Bia Tiger" value={newName} onChange={e => setNewName(e.target.value)} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
                     <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">PHÂN LOẠI</span><input list="category-list" placeholder="Chọn / Nhập..." value={newCategory} onChange={e => setNewCategory(e.target.value)} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /><datalist id="category-list">{categories.filter(c => c !== 'Tất cả').map(c => <option key={c} value={c} />)}</datalist></div>
                     <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">GIÁ VỐN (Đ)</span><input type="number" placeholder="0" value={newImportPrice} onChange={e => setNewImportPrice(e.target.value)} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px" }} /></div>
