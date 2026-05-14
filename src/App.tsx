@@ -5,7 +5,6 @@ import { supabase } from "./supabaseClient";
 export default function App() {
   const VAT_RATE = 0.1; 
 
-  // --- 1. STATES ---
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem("mart_logged_in") === "true");
   const [role, setRole] = useState(() => localStorage.getItem("mart_role") || "staff");
   const [shift, setShift] = useState(() => localStorage.getItem("mart_shift") || "Ca Sáng");
@@ -84,7 +83,6 @@ export default function App() {
 
   const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
 
-  // --- 2. EFFECTS ---
   useEffect(() => {
     localStorage.setItem("mart_history", JSON.stringify(history));
     localStorage.setItem("mart_customers", JSON.stringify(customers));
@@ -131,38 +129,11 @@ export default function App() {
   }, [scannerMode]);
 
   useEffect(() => {
-    if (scannedCodeObj) {
-      if (scannerMode === 'product') {
-          const p = findProductByCode(scannedCodeObj.code);
-          if (p) handleSelectSuggest(p);
-          else { playSound('error'); setScanMessage({ text: `❌ Không tìm thấy mã: ${scannedCodeObj.code}`, type: 'error' }); }
-      } 
-      else if (scannerMode === 'voucher') {
-          const code = scannedCodeObj.code.trim().toUpperCase();
-          const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 };
-          if (VOUCHERS[code]) {
-            setAppliedVoucherAmount(VOUCHERS[code]); setVoucherInput(code); playSound('success');
-            setScanMessage({ text: `✅ Đã áp dụng giảm ${VOUCHERS[code].toLocaleString()}đ`, type: 'success' });
-          } else if (!isNaN(Number(code)) && Number(code) > 0) {
-            setAppliedVoucherAmount(Number(code)); setVoucherInput(code); playSound('success');
-            setScanMessage({ text: `✅ Đã nhận mức giảm ${Number(code).toLocaleString()}đ`, type: 'success' });
-          } else {
-            playSound('error'); alert("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0);
-          }
-          setTimeout(() => setScannerMode(null), 1000);
-      }
-      setScannedCodeObj(null);
-      setTimeout(() => setScanMessage(null), 1500); 
-    }
-  }, [scannedCodeObj, products, scannerMode]);
-
-  useEffect(() => {
     const handleAfterPrint = () => setPrintMode(null);
     window.addEventListener("afterprint", handleAfterPrint);
     return () => window.removeEventListener("afterprint", handleAfterPrint);
   }, []);
 
-  // --- 3. UTILITIES & DATA MEMOS ---
   const playSound = (type: 'success' | 'error') => {
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -237,90 +208,6 @@ export default function App() {
     return null;
   };
 
-  const currentShiftStats = useMemo(() => {
-    const todayStr = new Date().toLocaleDateString('vi-VN');
-    const shiftLogs = history.filter(h => {
-       const hDate = new Date(Math.floor(h.id)).toLocaleDateString('vi-VN');
-       return hDate === todayStr && h.shift === shift;
-    });
-    const rev = shiftLogs.reduce((s, h) => s + ((h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') ? h.total : 0), 0);
-    const prof = shiftLogs.reduce((s, h) => s + (h.profit || 0), 0);
-    return { rev, prof };
-  }, [history, shift]);
-
-  const todayStats = useMemo(() => {
-    const todayStr = new Date().toLocaleDateString('vi-VN');
-    const todayHistory = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStr);
-    const totalRev = todayHistory.reduce((s, h) => s + ((h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') ? h.total : 0), 0);
-    const totalProf = todayHistory.reduce((s, h) => s + (h.profit || 0), 0);
-    return { rev: totalRev, prof: totalProf };
-  }, [history]);
-
-  const topSelling = useMemo(() => {
-    const sales: Record<string, number> = {};
-    history.forEach(log => { if(log.type === 'BÁN') sales[log.name] = (sales[log.name]||0) + log.qty; });
-    return Object.entries(sales).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  }, [history]);
-
-  const groupedHistory = useMemo(() => {
-    return history.reduce((groups: any, log: any) => {
-      const date = new Date(Math.floor(log.id)).toLocaleDateString('vi-VN'); 
-      if (!groups[date]) groups[date] = [];
-      groups[date].push({ ...log, t: new Date(Math.floor(log.id)).toLocaleTimeString('vi-VN') });
-      return groups;
-    }, {});
-  }, [history]);
-
-  const totalValue = Math.round(products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
-
-  const uniqueNames = useMemo(() => Array.from(new Set(products.map(p => cleanName(p.name)))).sort(), [products]);
-  const uniqueStocks = useMemo(() => Array.from(new Set(products.map(p => p.stock))).sort((a,b)=>a-b), [products]);
-  const uniqueImportPrices = useMemo(() => Array.from(new Set(products.map(p => p.import_price || 0))).sort((a,b)=>a-b), [products]);
-  const uniqueSalePrices = useMemo(() => Array.from(new Set(products.map(p => p.sale_price))).sort((a,b)=>a-b), [products]);
-  const uniqueExpiries = useMemo(() => Array.from(new Set(products.map(p => p.expiry_date).filter(Boolean))).sort(), [products]);
-  const categories = ["Tất cả", ...Array.from(new Set(products.map(p => p.category || "Khác")))];
-
-  // --- 4. EVENT HANDLERS ---
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (authUsername === "admin" && authPassword === "haile88") {
-      setIsLoggedIn(true); setRole("admin"); localStorage.setItem("mart_shift", shift);
-      localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "admin");
-      logAudit("ĐĂNG NHẬP", "Mở ca thành công");
-    } else if (authUsername === "nhanvien" && authPassword === "123") {
-      setIsLoggedIn(true); setRole("staff"); localStorage.setItem("mart_shift", shift);
-      localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "staff");
-      logAudit("ĐĂNG NHẬP", "Mở ca thành công");
-    } else alert("Sai tài khoản hoặc mật khẩu!");
-  };
-
-  const handleLogoutClick = () => setShowHandoverModal(true);
-  const confirmHandover = () => {
-    logAudit("CHỐT CA", `Doanh thu bàn giao: ${currentShiftStats.rev.toLocaleString()}đ`);
-    setIsLoggedIn(false); setShowHandoverModal(false);
-    localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role");
-  };
-
-  const handleHoldOrder = () => {
-    if (cart.length === 0) return;
-    const newOrder = { id: Date.now(), time: new Date().toLocaleTimeString('vi-VN'), cart: [...cart] };
-    setHeldOrders(prev => [...prev, newOrder]);
-    logAudit("LƯU TẠM", `Lưu giỏ hàng ${cart.length} món`);
-    setCart([]);
-  };
-
-  const restoreOrder = (order: any) => {
-    if (cart.length > 0) return alert("Vui lòng thanh toán hoặc hủy giỏ hiện tại trước khi mở đơn lưu tạm!");
-    setCart(order.cart);
-    setHeldOrders(prev => prev.filter(o => o.id !== order.id));
-    setShowHoldModal(false);
-  };
-
-  const deleteHeldOrder = (id: any) => {
-    setHeldOrders(prev => prev.filter(o => o.id !== id));
-    logAudit("XÓA ĐƠN TẠM", `Đã xóa 1 đơn hàng lưu tạm`);
-  };
-
   const handleSelectSuggest = (p_input: any) => {
     const p = getOldestAvailableBatch(p_input); 
     if (p.stock <= 0) { playSound('error'); return alert("Đã hết hàng trong kho!"); }
@@ -345,6 +232,131 @@ export default function App() {
     });
     setBarcodeInput(""); setShowSuggestions(false);
     setTimeout(() => setScanMessage(null), 2000);
+  };
+
+  useEffect(() => {
+    if (scannedCodeObj) {
+      if (scannerMode === 'product') {
+          const p = findProductByCode(scannedCodeObj.code);
+          if (p) handleSelectSuggest(p);
+          else { playSound('error'); setScanMessage({ text: `❌ Không tìm thấy mã: ${scannedCodeObj.code}`, type: 'error' }); }
+      } 
+      else if (scannerMode === 'voucher') {
+          const code = scannedCodeObj.code.trim().toUpperCase();
+          const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 };
+          if (VOUCHERS[code]) {
+            setAppliedVoucherAmount(VOUCHERS[code]); setVoucherInput(code); playSound('success');
+            setScanMessage({ text: `✅ Đã áp dụng giảm ${VOUCHERS[code].toLocaleString()}đ`, type: 'success' });
+          } else if (!isNaN(Number(code)) && Number(code) > 0) {
+            setAppliedVoucherAmount(Number(code)); setVoucherInput(code); playSound('success');
+            setScanMessage({ text: `✅ Đã nhận mức giảm ${Number(code).toLocaleString()}đ`, type: 'success' });
+          } else {
+            playSound('error'); alert("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0);
+          }
+          setTimeout(() => setScannerMode(null), 1000);
+      }
+      setScannedCodeObj(null);
+      setTimeout(() => setScanMessage(null), 1500); 
+    }
+  }, [scannedCodeObj, products, scannerMode]);
+
+  // --- TÁCH DOANH THU TIỀN MẶT VÀ CHUYỂN KHOẢN TỰ ĐỘNG ---
+  const currentShiftStats = useMemo(() => {
+    const todayStr = new Date().toLocaleDateString('vi-VN');
+    const shiftLogs = history.filter(h => {
+       const hDate = new Date(Math.floor(h.id)).toLocaleDateString('vi-VN');
+       return hDate === todayStr && h.shift === shift;
+    });
+    
+    let cash = 0; let transfer = 0; let prof = 0;
+    shiftLogs.forEach(h => {
+        if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') {
+            if (h.paymentMethod === 'CHUYỂN KHOẢN') transfer += h.total;
+            else if (h.paymentMethod === 'TIỀN MẶT') cash += h.total;
+        }
+        prof += (h.profit || 0);
+    });
+    
+    return { rev: cash + transfer, cash, transfer, prof };
+  }, [history, shift]);
+
+  const todayStats = useMemo(() => {
+    const todayStr = new Date().toLocaleDateString('vi-VN');
+    const todayHistory = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStr);
+    
+    let cash = 0; let transfer = 0; let prof = 0;
+    todayHistory.forEach(h => {
+        if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') {
+            if (h.paymentMethod === 'CHUYỂN KHOẢN') transfer += h.total;
+            else if (h.paymentMethod === 'TIỀN MẶT') cash += h.total;
+        }
+        prof += (h.profit || 0);
+    });
+    return { rev: cash + transfer, cash, transfer, prof };
+  }, [history]);
+
+  const topSelling = useMemo(() => {
+    const sales: Record<string, number> = {};
+    history.forEach(log => { if(log.type === 'BÁN' && log.product_id !== 'DISCOUNT') sales[log.name] = (sales[log.name]||0) + log.qty; });
+    return Object.entries(sales).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  }, [history]);
+
+  const groupedHistory = useMemo(() => {
+    return history.reduce((groups: any, log: any) => {
+      const date = new Date(Math.floor(log.id)).toLocaleDateString('vi-VN'); 
+      if (!groups[date]) groups[date] = [];
+      groups[date].push({ ...log, t: new Date(Math.floor(log.id)).toLocaleTimeString('vi-VN') });
+      return groups;
+    }, {});
+  }, [history]);
+
+  const totalValue = Math.round(products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
+
+  const uniqueNames = useMemo(() => Array.from(new Set(products.map(p => cleanName(p.name)))).sort(), [products]);
+  const uniqueStocks = useMemo(() => Array.from(new Set(products.map(p => p.stock))).sort((a,b)=>a-b), [products]);
+  const uniqueImportPrices = useMemo(() => Array.from(new Set(products.map(p => p.import_price || 0))).sort((a,b)=>a-b), [products]);
+  const uniqueSalePrices = useMemo(() => Array.from(new Set(products.map(p => p.sale_price))).sort((a,b)=>a-b), [products]);
+  const uniqueExpiries = useMemo(() => Array.from(new Set(products.map(p => p.expiry_date).filter(Boolean))).sort(), [products]);
+  const categories = ["Tất cả", ...Array.from(new Set(products.map(p => p.category || "Khác")))];
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (authUsername === "admin" && authPassword === "haile88") {
+      setIsLoggedIn(true); setRole("admin"); localStorage.setItem("mart_shift", shift);
+      localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "admin");
+      logAudit("ĐĂNG NHẬP", "Mở ca thành công");
+    } else if (authUsername === "nhanvien" && authPassword === "123") {
+      setIsLoggedIn(true); setRole("staff"); localStorage.setItem("mart_shift", shift);
+      localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "staff");
+      logAudit("ĐĂNG NHẬP", "Mở ca thành công");
+    } else alert("Sai tài khoản hoặc mật khẩu!");
+  };
+
+  const handleLogoutClick = () => setShowHandoverModal(true);
+  const confirmHandover = () => {
+    logAudit("CHỐT CA", `Doanh thu bàn giao: ${currentShiftStats.rev.toLocaleString()}đ (TM: ${currentShiftStats.cash.toLocaleString()}đ, CK: ${currentShiftStats.transfer.toLocaleString()}đ)`);
+    setIsLoggedIn(false); setShowHandoverModal(false);
+    localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role");
+  };
+
+  const handleHoldOrder = () => {
+    if (cart.length === 0) return;
+    const newOrder = { id: Date.now(), time: new Date().toLocaleTimeString('vi-VN'), cart: [...cart] };
+    setHeldOrders(prev => [...prev, newOrder]);
+    logAudit("LƯU TẠM", `Lưu giỏ hàng ${cart.length} món`);
+    setCart([]);
+  };
+
+  const restoreOrder = (order: any) => {
+    if (cart.length > 0) return alert("Vui lòng thanh toán hoặc hủy giỏ hiện tại trước khi mở đơn lưu tạm!");
+    setCart(order.cart);
+    setHeldOrders(prev => prev.filter(o => o.id !== order.id));
+    setShowHoldModal(false);
+  };
+
+  const deleteHeldOrder = (id: any) => {
+    setHeldOrders(prev => prev.filter(o => o.id !== id));
+    logAudit("XÓA ĐƠN TẠM", `Đã xóa 1 đơn hàng lưu tạm`);
   };
 
   const handleBarcodeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -471,9 +483,10 @@ export default function App() {
     setCheckoutStep(2);
   };
 
-  const confirmCheckout = async (isDebt: boolean = false) => {
+  // --- XÁC NHẬN THANH TOÁN VỚI HÌNH THỨC CỤ THỂ ---
+  const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 'GHI NỢ') => {
     if (cart.some(i => !i.qty || i.qty <= 0)) { playSound('error'); return alert("Có sản phẩm số lượng không hợp lệ!"); }
-    if (isDebt && !custPhone) return alert("Ghi nợ bắt buộc phải nhập SĐT khách hàng!");
+    if (payMethod === 'GHI NỢ' && !custPhone) return alert("Ghi nợ bắt buộc phải nhập SĐT khách hàng!");
     
     setLoading(true);
     let logs: any[] = [];
@@ -485,21 +498,39 @@ export default function App() {
     const totalAfterVoucher = Math.max(0, baseTotal - vDiscount);
 
     const wallet = customers[custPhone]?.wallet || 0;
-    const walletDiscount = useWallet && !isDebt ? Math.round(Math.min(wallet, totalAfterVoucher)) : 0; 
+    const walletDiscount = useWallet && payMethod !== 'GHI NỢ' ? Math.round(Math.min(wallet, totalAfterVoucher)) : 0; 
     
     const finalTotal = totalAfterVoucher - walletDiscount;
     const totalDiscount = vDiscount + walletDiscount; 
-    const earned = isDebt ? 0 : Math.round(finalTotal * 0.02);
+    const earned = payMethod === 'GHI NỢ' ? 0 : Math.round(finalTotal * 0.02);
 
     for (const item of cart) {
       await supabase.from("products").update({ stock: item.product.stock - item.qty }).eq("id", item.product.id);
-      logs.push({ id: Date.now() + Math.random(), shift: shift, type: isDebt ? "GHI NỢ" : "BÁN", name: item.product.name + (item.product.isHappyHour ? ' [Giờ Vàng]' : ''), qty: item.qty, total: Math.round(item.total), profit: Math.round(item.profit), customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id, refunded_qty: 0 });
+      logs.push({ 
+          id: Date.now() + Math.random(), shift: shift, 
+          type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", 
+          name: item.product.name + (item.product.isHappyHour ? ' [Giờ Vàng]' : ''), 
+          qty: item.qty, total: Math.round(item.total), profit: Math.round(item.profit), 
+          customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", 
+          product_id: item.product.id, refunded_qty: 0,
+          paymentMethod: payMethod // Ghi nhận hình thức thanh toán
+      });
+    }
+
+    // TẠO LOG GIẢM GIÁ (ÂM) ĐỂ CÂN BẰNG TỔNG DOANH THU MÁY KHỚP VỚI TIỀN THU ĐƯỢC
+    if (totalDiscount > 0) {
+       logs.push({ 
+          id: Date.now() + Math.random(), shift: shift, type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", 
+          name: "Giảm giá Voucher/Ví", qty: 1, total: -totalDiscount, profit: -totalDiscount, 
+          customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", 
+          product_id: 'DISCOUNT', refunded_qty: 0, paymentMethod: payMethod 
+      });
     }
     
     if (custPhone) {
       setCustomers((prev: any) => ({ 
         ...prev, 
-        [custPhone]: { name: custName, wallet: isDebt ? (prev[custPhone]?.wallet || 0) : Math.round((prev[custPhone]?.wallet || 0) - walletDiscount + earned), debt: (prev[custPhone]?.debt || 0) + (isDebt ? finalTotal : 0) } 
+        [custPhone]: { name: custName, wallet: payMethod === 'GHI NỢ' ? (prev[custPhone]?.wallet || 0) : Math.round((prev[custPhone]?.wallet || 0) - walletDiscount + earned), debt: (prev[custPhone]?.debt || 0) + (payMethod === 'GHI NỢ' ? finalTotal : 0) } 
       }));
     }
 
@@ -507,9 +538,10 @@ export default function App() {
 
     setLastOrder({ 
       orderId: "HD" + Date.now().toString().slice(-6), shift: shift, cart: [...cart], 
-      subTotal, vatTotal, finalTotal: isDebt ? 0 : finalTotal, debtAmount: isDebt ? finalTotal : 0, 
+      subTotal, vatTotal, finalTotal: payMethod === 'GHI NỢ' ? 0 : finalTotal, debtAmount: payMethod === 'GHI NỢ' ? finalTotal : 0, 
       discount: totalDiscount, earnedWallet: custPhone ? earned : 0, custName: custPhone ? custName : null, 
-      custPhone: custPhone ? custPhone : null, time: new Date().toLocaleString('vi-VN') 
+      custPhone: custPhone ? custPhone : null, time: new Date().toLocaleString('vi-VN'),
+      paymentMethod: payMethod
     });
     setCheckoutStep(3); fetchProducts(); setLoading(false);
   };
@@ -564,7 +596,8 @@ export default function App() {
     updatedHistory.unshift({ 
       id: Date.now(), shift: shift, type: "TRẢ HÀNG", 
       name: log.name + (refundedToWallet ? " (Hoàn Ví)" : " (Hoàn Tiền Mặt)"), 
-      qty: refundQty, total: -refundTotal, profit: -refundProfit, customer: log.customer 
+      qty: refundQty, total: -refundTotal, profit: -refundProfit, customer: log.customer,
+      paymentMethod: refundedToWallet ? 'VÍ ĐIỂM' : 'TIỀN MẶT'
     });
     
     setHistory(updatedHistory);
@@ -575,11 +608,14 @@ export default function App() {
 
   const handlePayDebt = (phone: string) => {
     const currentDebt = customers[phone]?.debt || 0;
-    const payAmt = window.prompt(`Khách ${customers[phone].name} đang nợ ${currentDebt.toLocaleString()}đ. Nhập số tiền trả:`, currentDebt.toString());
-    if (payAmt && parseInt(payAmt) > 0) {
-      const amt = parseInt(payAmt);
+    const payAmtStr = window.prompt(`Khách ${customers[phone].name} đang nợ ${currentDebt.toLocaleString()}đ. Nhập số tiền trả:`, currentDebt.toString());
+    if (payAmtStr && parseInt(payAmtStr) > 0) {
+      const amt = parseInt(payAmtStr);
+      const isTransfer = window.confirm(`Thu nợ bằng hình thức nào?\n\n- [OK] : CHUYỂN KHOẢN\n- [Cancel] : TIỀN MẶT`);
+      const pMethod = isTransfer ? 'CHUYỂN KHOẢN' : 'TIỀN MẶT';
+
       setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], debt: Math.max(0, (prev[phone]?.debt || 0) - amt) } }));
-      setHistory(prev => [{ id: Date.now(), shift: shift, type: "THU NỢ", name: "Thanh toán công nợ", qty: 1, total: amt, profit: 0, customer: `${customers[phone].name} (${phone})` }, ...prev]);
+      setHistory(prev => [{ id: Date.now(), shift: shift, type: "THU NỢ", name: "Thanh toán công nợ", qty: 1, total: amt, profit: 0, customer: `${customers[phone].name} (${phone})`, paymentMethod: pMethod }, ...prev]);
       logAudit("THU NỢ", `Thu ${amt.toLocaleString()}đ từ ${customers[phone].name}`);
       alert("Đã thu nợ thành công! Tiền nợ thu được đã cộng vào doanh thu ca này.");
     }
@@ -773,10 +809,10 @@ export default function App() {
 
   const exportToCSV = () => {
     if (history.length === 0) return alert("Chưa có lịch sử!");
-    let csv = "\uFEFFGiờ,Ca Làm Việc,Loại,Khách,Sản phẩm,SL,Tổng(VAT),Lợi nhuận\n";
+    let csv = "\uFEFFGiờ,Ca Làm Việc,Loại,Hình thức,Khách,Sản phẩm,SL,Tổng(VAT),Lợi nhuận\n";
     history.forEach(log => {
       const time = new Date(Math.floor(log.id)).toLocaleString('vi-VN');
-      csv += `${time},${log.shift || "Không rõ"},${log.type},${log.customer || "Khách lẻ"},${log.name},${log.qty},${Math.round(log.total)},${Math.round(log.profit || 0)}\n`;
+      csv += `${time},${log.shift || "Không rõ"},${log.type},${log.paymentMethod || ""},${log.customer || "Khách lẻ"},${log.name},${log.qty},${Math.round(log.total)},${Math.round(log.profit || 0)}\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
@@ -803,116 +839,24 @@ export default function App() {
     const todayStr = new Date().toLocaleDateString('vi-VN');
     const logs = history.filter(log => new Date(Math.floor(log.id)).toLocaleDateString('vi-VN') === todayStr);
     if (logs.length === 0) return alert("Chưa có giao dịch!");
-    let rev = 0, prof = 0, sold = 0;
-    logs.forEach(l => { if(l.type==='BÁN'){ rev += l.total; prof += (l.profit||0); sold += l.qty; } });
+    let cash = 0, transfer = 0, prof = 0, sold = 0;
+    logs.forEach(l => { 
+        if(l.type==='BÁN') sold += l.qty; 
+        if(l.type==='BÁN' || l.type==='THU NỢ' || l.type==='TRẢ HÀNG') {
+            if (l.paymentMethod === 'CHUYỂN KHOẢN') transfer += l.total;
+            else if (l.paymentMethod === 'TIỀN MẶT') cash += l.total;
+        }
+        prof += (l.profit||0); 
+    });
     const sub = encodeURIComponent(`Báo Cáo Hải Lê Mart - Ngày ${todayStr}`);
-    const body = encodeURIComponent(`Báo cáo TỔNG NGÀY ${todayStr}:\n- Đã bán: ${sold} món\n- Doanh thu (có VAT): ${Math.round(rev).toLocaleString()}đ\n- Lợi nhuận: ${Math.round(prof).toLocaleString()}đ`);
+    const body = encodeURIComponent(`Báo cáo TỔNG NGÀY ${todayStr}:\n- Đã bán: ${sold} món\n- TIỀN MẶT: ${Math.round(cash).toLocaleString()}đ\n- CHUYỂN KHOẢN: ${Math.round(transfer).toLocaleString()}đ\n- Lợi nhuận: ${Math.round(prof).toLocaleString()}đ`);
     window.location.href = `mailto:lehonghaikt6@gmail.com?subject=${sub}&body=${body}`;
   };
 
   const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
 
-  // --- 5. SORTING & FILTERING ---
-  const requestSort = (key: string) => {
-    if (sortConfig && sortConfig.key === key) {
-      if (sortConfig.direction === 'asc') setSortConfig({ key, direction: 'desc' });
-      else setSortConfig(null);
-    } else {
-      setSortConfig({ key, direction: 'asc' });
-    }
-  };
-
-  const getSortIcon = (key: string) => {
-    if (!sortConfig || sortConfig.key !== key) return <span style={{opacity: 0.3, fontSize: "9px", marginLeft:"2px"}}>↕️</span>;
-    return sortConfig.direction === 'asc' ? <span style={{fontSize: "11px", marginLeft:"2px", color: "#ef4444"}}>🔼</span> : <span style={{fontSize: "11px", marginLeft:"2px", color: "#ef4444"}}>🔽</span>;
-  };
-
-  const handleFilterCheck = (col: string, val: any) => {
-    setFilters(prev => {
-        const cur = prev[col] || [];
-        if (cur.includes(val)) return { ...prev, [col]: cur.filter(v => v !== val) };
-        return { ...prev, [col]: [...cur, val] };
-    });
-  };
-
-  const renderHeaderIcon = (colKey: string) => {
-    const isFiltered = filters[colKey]?.length > 0;
-    const isSortedAsc = sortConfig?.key === colKey && sortConfig.direction === 'asc';
-    const isSortedDesc = sortConfig?.key === colKey && sortConfig.direction === 'desc';
-    
-    let icon = '🔽'; 
-    if (isSortedAsc) icon = '🔼';
-    if (isSortedDesc) icon = '🔽';
-    
-    return (
-        <span 
-          onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === colKey ? null : colKey); }} 
-          style={{ cursor: "pointer", color: isFiltered || sortConfig?.key === colKey ? '#ef4444' : '#94a3b8', fontSize: "10px", padding: "2px", marginLeft: "4px", border: isFiltered ? "1px dashed #ef4444" : "1px solid transparent", borderRadius: "2px" }}
-          title="Bấm để lọc"
-        >
-          {icon}
-        </span>
-    );
-  };
-
-  const sortedAndFilteredProducts = useMemo(() => {
-    const todayTime = new Date().getTime();
-    let filtered = products
-      .filter(p => (selectedCategory === "Tất cả" || (p.category || "Khác") === selectedCategory))
-      .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(searchTerm.toLowerCase())));
-
-    if (filters['name']?.length > 0) filtered = filtered.filter(p => filters['name'].includes(cleanName(p.name)));
-    if (filters['stock']?.length > 0) filtered = filtered.filter(p => filters['stock'].includes(p.stock));
-    if (filters['import_price']?.length > 0) filtered = filtered.filter(p => filters['import_price'].includes(p.import_price || 0));
-    if (filters['sale_price']?.length > 0) filtered = filtered.filter(p => filters['sale_price'].includes(p.sale_price));
-    if (filters['expiry_date']?.length > 0) filtered = filtered.filter(p => filters['expiry_date'].includes(p.expiry_date));
-
-    if (sortConfig !== null) {
-      filtered.sort((a, b) => {
-        let valA = a[sortConfig.key]; let valB = b[sortConfig.key];
-        if (sortConfig.key === 'expiry_date') { valA = a.expiry_date ? new Date(a.expiry_date).getTime() : Infinity; valB = b.expiry_date ? new Date(b.expiry_date).getTime() : Infinity; }
-        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
-        return 0;
-      });
-    } else {
-      filtered.sort((a, b) => {
-        const daysA = a.expiry_date ? (new Date(a.expiry_date).getTime() - todayTime) / 86400000 : Infinity;
-        const daysB = b.expiry_date ? (new Date(b.expiry_date).getTime() - todayTime) / 86400000 : Infinity;
-        const aIsUrgent = daysA <= 45; const bIsUrgent = daysB <= 45;
-        if (aIsUrgent && !bIsUrgent) return -1; if (!aIsUrgent && bIsUrgent) return 1; if (aIsUrgent && bIsUrgent) return daysA - daysB; 
-        return 0;
-      });
-    }
-    return filtered;
-  }, [products, searchTerm, selectedCategory, sortConfig, filters]);
-
-  const renderFilterPopup = (colKey: string, title: string, uniqueValues: any[], formatVal?: (v:any)=>string) => {
-    if (openFilter !== colKey) return null;
-    return (
-        <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: colKey==='name' ? "0" : "50%", transform: colKey==='name' ? "none" : "translateX(-50%)", backgroundColor: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px", zIndex: 999, boxShadow: "0 10px 25px -5px rgba(0,0,0,0.2)", minWidth: "160px", textAlign: "left", color: "#1e293b", fontWeight: "normal", fontSize: "12px", display: "flex", flexDirection: "column" }}>
-           <div style={{ marginTop: "10px", fontWeight: "bold", color: "#64748b", fontSize: "10px", marginBottom: "6px", textTransform: "uppercase" }}>LỌC {title}:</div>
-           <div style={{ overflowY: "auto", flex: 1, maxHeight: "150px", border: "1px solid #e2e8f0", borderRadius: "4px", padding: "4px" }}>
-               <label style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px", cursor: "pointer", borderBottom: "1px dashed #f1f5f9", backgroundColor: (!filters[colKey] || filters[colKey].length === 0) ? "#eff6ff" : "transparent" }}>
-                  <input type="checkbox" checked={!filters[colKey] || filters[colKey].length === 0} onChange={() => setFilters(prev => ({...prev, [colKey]: []}))} />
-                  <span style={{color: "#3b82f6", fontWeight: "bold"}}>Tất cả</span>
-               </label>
-               {uniqueValues.map((v, i) => (
-                   <label key={i} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px", cursor: "pointer", borderBottom: "1px dashed #f1f5f9", backgroundColor: filters[colKey]?.includes(v) ? "#f0fdf4" : "transparent" }}>
-                      <input type="checkbox" checked={filters[colKey]?.includes(v) || false} onChange={() => handleFilterCheck(colKey, v)} />
-                      <span>{formatVal ? formatVal(v) : v}</span>
-                   </label>
-               ))}
-           </div>
-           {filters[colKey]?.length > 0 && (
-               <div style={{ marginTop: "8px", textAlign: "center", cursor: "pointer", color: "#ef4444", fontWeight: "bold", fontSize: "11px", padding: "4px" }} onClick={() => setFilters(prev => ({...prev, [colKey]: []}))}>❌ Bỏ lọc</div>
-           )}
-        </div>
-    );
-  };
-
-  // --- 6. STYLES & RENDER LOGIN ---
   const styles = `
+    @keyframes pulse-fast { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     @keyframes float { 0% { transform: translateY(0); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0); } }
     .spring-bg { position: fixed; width: 400px; height: 400px; border-radius: 50%; filter: blur(100px); z-index: -1; opacity: 0.3; animation: float 10s infinite ease-in-out; }
     .glass { background: rgba(255, 255, 255, 0.98); border: 1px solid #fed7aa; border-radius: 12px; box-shadow: 0 4px 15px rgba(251, 146, 60, 0.08); }
@@ -994,7 +938,6 @@ export default function App() {
 
   const finalToPay = Math.round(Math.max(0, cartTotalAmount - appliedVoucherAmount - (useWallet ? Math.min(customers[custPhone]?.wallet||0, Math.max(0, cartTotalAmount - appliedVoucherAmount)) : 0)));
 
-  // --- 7. MAIN RENDER ---
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); }}>
       <style>{styles}</style>
@@ -1068,7 +1011,6 @@ export default function App() {
         </div>
       )}
 
-      {/* CÁC MODAL HIỂN THỊ */}
       {showHoldModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "400px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
@@ -1252,11 +1194,11 @@ export default function App() {
         </div>
       )}
 
-      {/* --- GIAO DIỆN CHÍNH --- */}
       <div className="no-print" style={{ padding: "15px", position: "relative", minHeight: "100vh", overflowX: "auto" }}>
         <div className="spring-bg" style={{ background: "#ef4444", top: "10%", left: "5%" }}></div>
         <div className="spring-bg" style={{ background: "#f59e0b", bottom: "10%", right: "5%" }}></div>
 
+        {/* 💳 POPUP THANH TOÁN */}
         {isCheckoutOpen && (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
             {checkoutStep === 1 && (
@@ -1304,10 +1246,19 @@ export default function App() {
                 <h3 style={{ color: "#ef4444", margin: "0" }}>📱 THANH TOÁN QUẦY</h3>
                 <div style={{ color: "#ef4444", fontSize: "28px", fontWeight: "900", margin: "10px 0" }}>{finalToPay.toLocaleString()}đ</div>
                 
-                <img src={`https://img.vietqr.io/image/970422-0680124181004-compact2.png?amount=${finalToPay}&addInfo=Thanh toan&accountName=LE%20HONG%20HAI`} style={{ width: "160px", margin: "0 auto 15px auto", border: "2px solid #ef4444", borderRadius: "10px", display: "block" }} alt="Mã VietQR" />
+                <div style={{ position: "relative" }}>
+                   <img src={`https://img.vietqr.io/image/970422-0680124181004-compact2.png?amount=${finalToPay}&addInfo=Thanh toan&accountName=LE%20HONG%20HAI`} style={{ width: "160px", margin: "0 auto 10px auto", border: "2px solid #ef4444", borderRadius: "10px", display: "block" }} alt="Mã VietQR" />
+                   
+                   <div style={{ animation: "pulse-fast 1.5s infinite", color: "#b45309", fontSize: "11px", fontWeight: "bold", marginBottom: "5px" }}>
+                      ⏳ Đang chờ nhận tiền...
+                   </div>
+                   <div style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontSize: "10px", padding: "6px", borderRadius: "4px", border: "1px dashed #ef4444", marginBottom: "15px", textAlign: "left", lineHeight: "1.4" }}>
+                      <b>⚠️ CHÚ Ý:</b> KHÔNG NHÌN MÀN HÌNH KHÁCH. CHỈ BẤM <b>[ĐÃ NHẬN]</b> KHI APP NGÂN HÀNG CỦA BẠN ĐÃ BÁO CÓ TIỀN!
+                   </div>
+                </div>
                 
-                <div style={{ marginBottom: "15px", textAlign: "left" }}>
-                  <div style={{ fontSize: "12px", color: "#64748b", fontWeight: "bold", marginBottom: "5px" }}>Tiền mặt khách đưa:</div>
+                <div style={{ marginBottom: "15px", textAlign: "left", borderTop: "1px dashed #cbd5e1", paddingTop: "10px" }}>
+                  <div style={{ fontSize: "12px", color: "#64748b", fontWeight: "bold", marginBottom: "5px" }}>Tiền mặt khách đưa (Chỉ nhập nếu trả bằng Tiền mặt):</div>
                   <input type="number" placeholder="Nhập số tiền..." value={customerGiven} onChange={e => setCustomerGiven(Number(e.target.value) || "")} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", boxSizing: "border-box", fontSize: "14px", fontWeight: "bold" }} />
                   <div style={{ display: "flex", gap: "5px", marginTop: "8px", flexWrap: "wrap" }}>
                     <button onClick={()=>setCustomerGiven(finalToPay)} style={{flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid #cbd5e1", cursor: "pointer"}}>Vừa đủ</button>
@@ -1323,15 +1274,17 @@ export default function App() {
                   )}
                 </div>
 
+                {/* 💳 NÚT THANH TOÁN ĐƯỢC CHIA ĐÔI */}
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                   <button onClick={() => setCheckoutStep(1)} style={{ flex: "1 1 100%", padding: "8px", borderRadius: "8px", border: "none", background: "#e2e8f0", cursor: "pointer", fontWeight: "bold" }}>Quay lại</button>
-                  <button onClick={() => confirmCheckout(true)} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#f59e0b", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>📝 GHI NỢ</button>
+                  <button onClick={() => confirmCheckout('GHI NỢ')} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#f59e0b", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer", fontSize: "11px" }}>📝 GHI NỢ</button>
+                  <button onClick={() => confirmCheckout('CHUYỂN KHOẢN')} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#3b82f6", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer", fontSize: "11px" }}>💳 CHUYỂN KHOẢN</button>
                   <button onClick={() => {
                       if (finalToPay > 0 && (customerGiven === "" || Number(customerGiven) < finalToPay)) {
-                         playSound('error'); alert(`Khách đưa chưa đủ tiền! Cần thanh toán: ${finalToPay.toLocaleString()}đ`); return;
+                         playSound('error'); alert(`Khách đưa chưa đủ tiền mặt! Cần thanh toán: ${finalToPay.toLocaleString()}đ`); return;
                       }
-                      confirmCheckout(false);
-                  }} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#10b981", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>✔️ ĐÃ NHẬN</button>
+                      confirmCheckout('TIỀN MẶT');
+                  }} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#10b981", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer", fontSize: "11px" }}>💵 TIỀN MẶT</button>
                 </div>
               </div>
             )}
@@ -1384,27 +1337,29 @@ export default function App() {
 
               <div style={{ width: "2px", height: "30px", backgroundColor: "#e2e8f0" }}></div>
 
+              {/* 💵 BẢNG THỐNG KÊ TÁCH TIỀN MẶT VÀ CHUYỂN KHOẢN */}
               <div style={{ display: "flex", gap: "20px" }}>
-                {role === 'admin' ? (
-                  <>
-                    <div style={{ textAlign: "center", whiteSpace: "nowrap" }}>
-                      <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>VỐN</div>
-                      <div style={{ fontSize: "14px", fontWeight: "900", color: "#475569" }}>{totalValue.toLocaleString()}đ</div>
-                    </div>
-                    <div style={{ textAlign: "center", whiteSpace: "nowrap" }}>
-                      <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>THU CA NÀY</div>
-                      <div style={{ fontSize: "14px", fontWeight: "900", color: "#059669" }}>{currentShiftStats.rev.toLocaleString()}đ</div>
-                    </div>
-                    <div style={{ textAlign: "center", whiteSpace: "nowrap" }}>
-                      <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>LÃI CA NÀY</div>
-                      <div style={{ fontSize: "14px", fontWeight: "900", color: "#2563eb" }}>{currentShiftStats.prof.toLocaleString()}đ</div>
-                    </div>
-                  </>
-                ) : (
-                    <div style={{ textAlign: "center", whiteSpace: "nowrap" }}>
-                      <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>THU CA NÀY</div>
-                      <div style={{ fontSize: "14px", fontWeight: "900", color: "#059669" }}>{currentShiftStats.rev.toLocaleString()}đ</div>
-                    </div>
+                {role === 'admin' && (
+                  <div style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                    <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>VỐN</div>
+                    <div style={{ fontSize: "14px", fontWeight: "900", color: "#475569" }}>{totalValue.toLocaleString()}đ</div>
+                  </div>
+                )}
+                
+                <div style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                  <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>💵 THU TIỀN MẶT</div>
+                  <div style={{ fontSize: "14px", fontWeight: "900", color: "#059669" }}>{currentShiftStats.cash.toLocaleString()}đ</div>
+                </div>
+                <div style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                  <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>💳 CHUYỂN KHOẢN</div>
+                  <div style={{ fontSize: "14px", fontWeight: "900", color: "#2563eb" }}>{currentShiftStats.transfer.toLocaleString()}đ</div>
+                </div>
+
+                {role === 'admin' && (
+                  <div style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                    <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>LÃI CA NÀY</div>
+                    <div style={{ fontSize: "14px", fontWeight: "900", color: "#ea580c" }}>{currentShiftStats.prof.toLocaleString()}đ</div>
+                  </div>
                 )}
               </div>
 
@@ -1549,7 +1504,6 @@ export default function App() {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ color: "#16a34a", fontSize: "10px", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}>
-                      
                       <th style={{ textAlign: "left", padding: "6px 4px", borderBottom: "2px solid #fed7aa", position: "relative" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "4px", width: "max-content" }}>
                            <span onClick={() => requestSort('name')} style={{ cursor: "pointer", userSelect: "none" }}>SẢN PHẨM</span>
@@ -1737,16 +1691,18 @@ export default function App() {
                                 <b style={{color: log.type === 'TRẢ HÀNG' ? '#ef4444' : '#1e293b'}}>[{log.type}]</b> {cleanName(log.name)} x{log.qty}
                                 {log.refunded_qty > 0 && <span style={{color:"#ef4444", fontSize:"8px", marginLeft:"4px"}}>(Đã hoàn {log.refunded_qty})</span>}
                             </span>
-                            {log.type === "BÁN" && <span style={{color:"#059669", fontWeight:"bold"}}>+{Math.round(log.total).toLocaleString()}</span>}
-                            {log.type === "TRẢ HÀNG" && <span style={{color:"#ef4444", fontWeight:"bold"}}>{Math.round(log.total).toLocaleString()}</span>}
+                            
+                            {/* 🔥 HIỂN THỊ LOG KÈM TAG TIỀN MẶT / CHUYỂN KHOẢN */}
+                            {log.type === "BÁN" && <span style={{color:"#059669", fontWeight:"bold"}}>+{Math.round(log.total).toLocaleString()} <span style={{fontSize: "8px", color:"#94a3b8", fontWeight:"normal"}}>({log.paymentMethod === 'CHUYỂN KHOẢN' ? 'CK' : 'TM'})</span></span>}
+                            {log.type === "TRẢ HÀNG" && <span style={{color:"#ef4444", fontWeight:"bold"}}>{Math.round(log.total).toLocaleString()} <span style={{fontSize: "8px", color:"#94a3b8", fontWeight:"normal"}}>({log.paymentMethod === 'VÍ ĐIỂM' ? 'VÍ' : 'TM'})</span></span>}
                             {log.type === "GHI NỢ" && <span style={{color:"#ea580c", fontWeight:"bold"}}>Nợ: {Math.round(log.total).toLocaleString()}</span>}
-                            {log.type === "THU NỢ" && <span style={{color:"#10b981", fontWeight:"bold"}}>+{Math.round(log.total).toLocaleString()}</span>}
+                            {log.type === "THU NỢ" && <span style={{color:"#10b981", fontWeight:"bold"}}>+{Math.round(log.total).toLocaleString()} <span style={{fontSize: "8px", color:"#94a3b8", fontWeight:"normal"}}>({log.paymentMethod === 'CHUYỂN KHOẢN' ? 'CK' : 'TM'})</span></span>}
                           </div>
                           <div style={{ display: "flex", justifyContent: "space-between", color: "#94a3b8", marginTop: "2px" }}>
                             <span>{log.customer}</span>
                             <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                               <span>{log.t}</span>
-                              {log.type === 'BÁN' && (
+                              {log.type === 'BÁN' && log.product_id !== 'DISCOUNT' && (
                                 <button 
                                     onClick={() => handleRefund(log.id)} 
                                     disabled={(log.refunded_qty || 0) >= log.qty}
