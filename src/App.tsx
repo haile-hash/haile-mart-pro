@@ -735,6 +735,7 @@ export default function App() {
     setLoading(false);
   };
 
+  // ================= TÍNH NĂNG GỬI MÃ THẺ VIP CHO KHÁCH TỰ ĐỘNG =================
   const sendCardEmail = async (phone: string) => {
       const cust = customers[phone];
       const email = cust.email || window.prompt(`Nhập Email của ${cust.name} để gửi mã thẻ:`, "");
@@ -771,7 +772,7 @@ export default function App() {
   const printCustomerCard = (phone: string) => {
       setPrintCustomer({phone, ...customers[phone]});
       setPrintMode('customer_card');
-      setTimeout(() => window.print(), 1000); // 1 giây sau tự bật bảng in
+      setTimeout(() => window.print(), 1000); 
   };
 
   const shareToZalo = (phone: string) => {
@@ -1007,7 +1008,18 @@ export default function App() {
 
   const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
 
-  const handleLoginSubmit = (e: React.FormEvent) => { handleLogin(e); };
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (authUsername === "admin" && authPassword === "haile88") {
+      setIsLoggedIn(true); setRole("admin"); localStorage.setItem("mart_shift", shift);
+      localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "admin");
+      logAudit("ĐĂNG NHẬP", "Mở ca thành công");
+    } else if (authUsername === "nhanvien" && authPassword === "123") {
+      setIsLoggedIn(true); setRole("staff"); localStorage.setItem("mart_shift", shift);
+      localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "staff");
+      logAudit("ĐĂNG NHẬP", "Mở ca thành công");
+    } else alert("Sai tài khoản hoặc mật khẩu!");
+  };
 
   // ================= 7. RENDER HELPERS =================
   const renderHeaderIcon = (colKey: string) => {
@@ -1140,7 +1152,7 @@ export default function App() {
             <span style={{ fontSize: "11px", color: "#64748b", fontWeight: "800", letterSpacing: "4px", textTransform: "uppercase", marginTop: "5px" }}>Professional POS</span>
           </div>
 
-          <form onSubmit={handleLoginSubmit} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+          <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
             <select value={shift} onChange={e => setShift(e.target.value)} style={{ padding: "14px", borderRadius: "10px", border: "1px solid #cbd5e1", outline: "none", fontWeight: "bold", color: "#1e293b", backgroundColor: "#f8fafc" }}>
               <option value="Ca Sáng">🌅 Ca Sáng (06:00 - 14:00)</option>
               <option value="Ca Chiều">🌇 Ca Chiều (14:00 - 22:00)</option>
@@ -1375,7 +1387,7 @@ export default function App() {
                       </span>
                       <button onClick={() => printCustomerCard(phone)} style={{ padding: "4px 6px", backgroundColor: "#dc2626", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="In thẻ cứng (Cỡ thẻ ATM)">🖨️ In Thẻ</button>
                       <button onClick={() => sendCardEmail(phone)} style={{ padding: "4px 6px", backgroundColor: "#3b82f6", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="Gửi thẻ điện tử tự động qua Email">📧 Mail</button>
-                      <button onClick={() => shareToZalo(phone)} style={{ padding: "4px 6px", backgroundColor: "#059669", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="Copy ảnh và mở Zalo">💬 Zalo</button>
+                      <button onClick={() => shareToZalo(phone)} style={{ padding: "4px 6px", backgroundColor: "#059669", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="Copy lời chào và mở Zalo">💬 Zalo</button>
                     </div>
 
                   </div>
