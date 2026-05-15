@@ -53,6 +53,7 @@ export default function App() {
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [showMarketingModal, setShowMarketingModal] = useState(false);
+  const [showAdvancedMenu, setShowAdvancedMenu] = useState(false); // Sửa lỗi không gập được menu
   
   const [scannerMode, setScannerMode] = useState<'product' | 'voucher' | 'customer' | null>(null);
   const [scannedCodeObj, setScannedCodeObj] = useState<any>(null);
@@ -424,20 +425,34 @@ export default function App() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     const u = authUsername.trim().toLowerCase(); const p = authPassword.trim();
+
     if (u === "admin" && p === "khoiphuc88") {
-        setAdminPass("haile88"); localStorage.removeItem("mart_admin_pass"); setStaffPass("123"); localStorage.removeItem("mart_staff_pass"); setAuthPassword("");
-        alert("✅ Đã khôi phục mật khẩu mặc định!\n- Admin: haile88\n- Nhân viên: 123"); return;
+        setAdminPass("haile88"); localStorage.removeItem("mart_admin_pass");
+        setStaffPass("123"); localStorage.removeItem("mart_staff_pass");
+        setAuthPassword("");
+        alert("✅ Đã khôi phục mật khẩu mặc định!\n- Admin: haile88\n- Nhân viên: 123");
+        return;
     }
-    if (u === "admin" && p === adminPass) { setIsLoggedIn(true); setRole("admin"); localStorage.setItem("mart_shift", shift); localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "admin"); logAudit("ĐĂNG NHẬP", "Mở ca thành công"); } 
-    else if (u === "nhanvien" && p === staffPass) { setIsLoggedIn(true); setRole("staff"); localStorage.setItem("mart_shift", shift); localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "staff"); logAudit("ĐĂNG NHẬP", "Mở ca thành công"); } 
-    else { alert("❌ Sai tài khoản hoặc mật khẩu!"); }
+
+    if (u === "admin" && p === adminPass) {
+      setIsLoggedIn(true); setRole("admin"); localStorage.setItem("mart_shift", shift);
+      localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "admin");
+      logAudit("ĐĂNG NHẬP", "Mở ca thành công");
+    } else if (u === "nhanvien" && p === staffPass) {
+      setIsLoggedIn(true); setRole("staff"); localStorage.setItem("mart_shift", shift);
+      localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "staff");
+      logAudit("ĐĂNG NHẬP", "Mở ca thành công");
+    } else {
+      alert("❌ Sai tài khoản hoặc mật khẩu!\n(Nếu quên mật khẩu quản lý, hãy nhập mật khẩu là: khoiphuc88 để khôi phục)");
+    }
   };
 
   const handleLogoutClick = () => setShowHandoverModal(true);
 
   const confirmHandover = () => {
     logAudit("CHỐT CA", `Doanh thu bàn giao: ${currentShiftStats.rev.toLocaleString()}đ (TM: ${currentShiftStats.cash.toLocaleString()}đ, CK: ${currentShiftStats.transfer.toLocaleString()}đ)`);
-    setIsLoggedIn(false); setShowHandoverModal(false); localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role");
+    setIsLoggedIn(false); setShowHandoverModal(false);
+    localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role");
   };
 
   const addSupplier = () => {
@@ -899,13 +914,13 @@ export default function App() {
 
   // ================= 10. GIAO DIỆN CHÍNH APP =================
   return (
-    <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); }}>
+    <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowAdvancedMenu(false); }}>
       <style>{styles}</style>
 
       {/* MODALS QUẢN LÝ NÂNG CAO (Marketing, Chi phí, NCC) */}
       {showExpenseModal && (
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
-          <div className="glass" style={{ padding: "25px", width: "450px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+          <div className="glass" style={{ padding: "25px", width: "450px", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #cbd5e1", paddingBottom: "10px", marginBottom: "15px" }}>
               <h2 style={{ margin: 0, color: "#ea580c" }}>💸 QUẢN LÝ CHI PHÍ VẬN HÀNH</h2>
               <button onClick={() => setShowExpenseModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
@@ -929,7 +944,7 @@ export default function App() {
 
       {showSupplierModal && (
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
-          <div className="glass" style={{ padding: "25px", width: "500px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+          <div className="glass" style={{ padding: "25px", width: "500px", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #cbd5e1", paddingBottom: "10px", marginBottom: "15px" }}>
               <h2 style={{ margin: 0, color: "#3b82f6" }}>🏭 NHÀ CUNG CẤP & MỐI HÀNG</h2>
               <button onClick={() => setShowSupplierModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
@@ -957,7 +972,7 @@ export default function App() {
 
       {showMarketingModal && (
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
-          <div className="glass" style={{ padding: "25px", width: "450px" }}>
+          <div className="glass" style={{ padding: "25px", width: "450px" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #cbd5e1", paddingBottom: "10px", marginBottom: "15px" }}>
               <h2 style={{ margin: 0, color: "#8b5cf6" }}>📢 GỬI EMAIL MARKETING</h2>
               <button onClick={() => setShowMarketingModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
@@ -981,7 +996,7 @@ export default function App() {
 
       {showSettings && role === 'admin' && (
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
-          <div className="glass" style={{ padding: "25px", width: "450px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+          <div className="glass" style={{ padding: "25px", width: "450px", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #cbd5e1", paddingBottom: "10px", marginBottom: "15px" }}>
               <h2 style={{ margin: 0, color: "#334155" }}>⚙️ CÀI ĐẶT HỆ THỐNG</h2>
               <button onClick={() => setShowSettings(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
@@ -1000,10 +1015,9 @@ export default function App() {
         </div>
       )}
 
-      {/* CÁC MODAL CŨ GIỮ NGUYÊN (Stats, Customer, Settings...) */}
       {showStatsModal && (
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
-          <div className="glass" style={{ padding: "25px", width: "500px" }}>
+          <div className="glass" style={{ padding: "25px", width: "500px" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #fed7aa", paddingBottom: "10px", marginBottom: "15px" }}>
               <h2 style={{ margin: 0, color: "#3b82f6" }}>📊 BÁO CÁO TÀI CHÍNH & TỒN KHO</h2>
               <button onClick={() => setShowStatsModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
@@ -1024,7 +1038,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* BIỂU ĐỒ VẼ BẰNG CSS THUẦN */}
             <div style={{ marginBottom: "20px" }}>
                <h3 style={{ fontSize: "12px", color: "#475569", margin: "0 0 5px 0" }}>📈 Biểu đồ doanh thu 7 ngày qua</h3>
                <div className="chart-container">
@@ -1060,10 +1073,10 @@ export default function App() {
         </div>
       )}
 
-      {/* BẢNG CHỐT CA */}
+      {/* CÁC MODAL KHÁC GIỮ NGUYÊN HOÀN TOÀN CỦA PHIÊN BẢN TRƯỚC */}
       {showHandoverModal && (
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
-          <div className="glass" style={{ padding: "30px", width: "350px", textAlign: "center" }}>
+          <div className="glass" style={{ padding: "30px", width: "350px", textAlign: "center" }} onClick={e => e.stopPropagation()}>
             <h2 style={{ margin: "0 0 15px 0", color: "#ef4444", fontSize: "22px" }}>📋 BIÊN BẢN CHỐT CA</h2>
             <div style={{ backgroundColor: "#fff7ed", padding: "15px", borderRadius: "10px", border: "1px dashed #fdba74", textAlign: "left", fontSize: "14px", lineHeight: "1.8" }}>
               <div>👤 Người trực: <b>{role === 'admin' ? "Quản lý" : "Thu ngân"}</b></div>
@@ -1082,10 +1095,9 @@ export default function App() {
         </div>
       )}
 
-      {/* 🏆 GIAO DIỆN QUẢN LÝ KHÁCH HÀNG KÈM HIỂN THỊ HẠNG THẺ */}
       {showCustomerModal && (
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
-          <div className="glass" style={{ padding: "25px", width: "600px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+          <div className="glass" style={{ padding: "25px", width: "600px", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #c7d2fe", paddingBottom: "10px", marginBottom: "10px" }}>
               <h2 style={{ margin: 0, color: "#4f46e5" }}>🤝 QUẢN LÝ KHÁCH HÀNG & HẠNG THẺ</h2>
               <button onClick={() => setShowCustomerModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
@@ -1125,7 +1137,7 @@ export default function App() {
 
       {showDebtModal && (
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
-          <div className="glass" style={{ padding: "25px", width: "400px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+          <div className="glass" style={{ padding: "25px", width: "400px", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #fed7aa", paddingBottom: "10px", marginBottom: "10px" }}>
               <h2 style={{ margin: 0, color: "#ef4444" }}>📓 SỔ GHI NỢ</h2>
               <button onClick={() => setShowDebtModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
@@ -1147,9 +1159,65 @@ export default function App() {
         </div>
       )}
 
+      {showAuditModal && role === 'admin' && (
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div className="glass" style={{ padding: "25px", width: "600px", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #cbd5e1", paddingBottom: "10px", marginBottom: "10px" }}>
+              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                <h2 style={{ margin: 0, color: "#334155" }}>🕵️ LỊCH SỬ THAO TÁC</h2>
+                <button onClick={exportAuditToCSV} style={{ fontSize: "10px", padding: "4px 8px", background: "#10b981", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>📥 XUẤT FILE</button>
+              </div>
+              <button onClick={() => setShowAuditModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
+            </div>
+            <div style={{ overflowY: "auto", flex: 1, fontSize: "12px" }}>
+              {auditLogs.length === 0 && <div style={{textAlign: "center", color: "#94a3b8", marginTop: "20px"}}>Chưa có bản ghi nào.</div>}
+              {auditLogs.map((log, idx) => (
+                <div key={idx} style={{ padding: "8px", borderBottom: "1px dashed #e2e8f0", backgroundColor: idx % 2 === 0 ? "#f8fafc" : "#fff" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+                    <span style={{ fontWeight: "bold", color: "#b91c1c" }}>[{log.action}]</span>
+                    <span style={{ color: "#64748b" }}>{log.time}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span>{log.detail}</span>
+                    <span style={{ fontWeight: "bold", color: "#3b82f6" }}>{log.user} ({log.shift})</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showHoldModal && (
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div className="glass" style={{ padding: "25px", width: "400px", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #fed7aa", paddingBottom: "10px", marginBottom: "10px" }}>
+              <h2 style={{ margin: 0, color: "#f59e0b" }}>📂 ĐƠN CHỜ THANH TOÁN</h2>
+              <button onClick={() => setShowHoldModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
+            </div>
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              {heldOrders.length === 0 && <div style={{textAlign: "center", color: "#94a3b8", marginTop: "20px"}}>Không có đơn hàng nào lưu tạm.</div>}
+              {heldOrders.map((order, idx) => (
+                <div key={order.id} style={{ padding: "10px", borderBottom: "1px dashed #cbd5e1", display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "#fffbeb", borderRadius: "8px", marginBottom: "8px" }}>
+                  <div>
+                    <div style={{ fontWeight: "bold", color: "#1e293b" }}>Đơn #{idx + 1}</div>
+                    <div style={{ fontSize: "11px", color: "#64748b" }}>⏰ Lưu lúc: {order.time}</div>
+                    <div style={{ fontSize: "11px", color: "#b91c1c", fontWeight: "bold" }}>Gồm {order.cart.reduce((s:any,i:any)=>s+(Number(i.qty)||0),0)} sản phẩm</div>
+                  </div>
+                  <div style={{ display: "flex", gap: "4px" }}>
+                    <button onClick={() => restoreOrder(order)} style={{ padding: "6px 10px", background: "#10b981", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "11px" }}>MỞ LẠI</button>
+                    <button onClick={() => deleteHeldOrder(order.id)} style={{ padding: "6px", background: "#fee2e2", color: "#ef4444", border: "1px solid #fca5a5", borderRadius: "6px", cursor: "pointer", fontSize: "11px" }}>🗑️</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {scannerMode !== null && (
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.9)", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", zIndex: 10000 }}>
-          <div style={{ background: "#fff", padding: "10px", borderRadius: "12px", width: "90%", maxWidth: "400px", position: "relative" }}>
+          <div style={{ background: "#fff", padding: "10px", borderRadius: "12px", width: "90%", maxWidth: "400px", position: "relative" }} onClick={e => e.stopPropagation()}>
             <h3 style={{ margin: "0 0 10px 0", textAlign: "center", color: "#b91c1c" }}>{scannerMode === 'voucher' ? '📷 Quét mã Voucher' : (scannerMode === 'customer' ? '📷 Quét Thẻ VIP' : '📷 Đưa mã vạch vào khung')}</h3>
             {scanMessage && <div style={{ position: "absolute", top: "50px", left: "50%", transform: "translateX(-50%)", padding: "8px 16px", backgroundColor: scanMessage.type === 'success' ? "#10b981" : "#ef4444", color: "#fff", fontWeight: "bold", borderRadius: "20px", zIndex: 10001, boxShadow: "0 4px 6px rgba(0,0,0,0.3)", animation: "float 0.5s ease-out" }}>{scanMessage.text}</div>}
             <div id="qr-reader" style={{ width: "100%" }}></div>
@@ -1158,11 +1226,161 @@ export default function App() {
         </div>
       )}
 
+      {/* 💳 POPUP THANH TOÁN */}
+      {isCheckoutOpen && (
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          {checkoutStep === 1 && (
+            <div className="glass" style={{ padding: "25px", width: "350px" }} onClick={e => e.stopPropagation()}>
+              <h3 style={{ color: "#ef4444", margin: "0", textAlign: "center" }}>🧧 THANH TOÁN</h3>
+              
+              <div style={{ display: "flex", position: "relative", marginTop: "15px" }}>
+                <input type="text" placeholder="👉 Quẹt mã Voucher hoặc nhập số tiền (đ)..." value={voucherInput} onChange={(e) => setVoucherInput(e.target.value)} onKeyDown={handleVoucherSubmit} style={{ flex: 1, padding: "12px", borderRadius: "10px 0 0 10px", border: "2px dashed #f59e0b", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb" }} />
+                <button onClick={() => setScannerMode('voucher')} style={{ padding: "0 15px", backgroundColor: "#f59e0b", border: "none", borderRadius: "0 10px 10px 0", cursor: "pointer", color: "white", fontSize: "18px" }}>📷</button>
+              </div>
+              {appliedVoucherAmount > 0 && <div style={{ color: "#059669", fontSize: "12px", fontWeight: "bold", marginTop: "4px", textAlign: "center" }}>✅ Đã áp dụng giảm: {appliedVoucherAmount.toLocaleString()}đ</div>}
+
+              {/* Ô NHẬP KHÁCH HÀNG MỚI - QUẸT THẺ VIP */}
+              <div style={{ display: "flex", position: "relative", marginTop: "10px" }}>
+                <input type="text" placeholder="👉 Quẹt Thẻ VIP / SĐT khách..." value={customerInput} onChange={handleCustomerInputChange} style={{ flex: 1, padding: "12px", borderRadius: "10px 0 0 10px", border: "2px solid #ef4444", outline: "none", boxSizing: "border-box", fontWeight: "bold", color: "#b91c1c" }} />
+                <button onClick={() => setScannerMode('customer')} style={{ padding: "0 15px", backgroundColor: "#ef4444", border: "none", borderRadius: "0 10px 10px 0", cursor: "pointer", color: "white", fontSize: "18px" }} title="Quét thẻ VIP bằng Camera">📷</button>
+              </div>
+              
+              {custPhone && (
+                <div style={{ marginTop: "10px", padding: "12px", backgroundColor: "#fff7ed", borderRadius: "8px", border: "1px dashed #f97316" }}>
+                  {customers[custPhone] ? (
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <div style={{ color: "#b91c1c", fontWeight: "bold" }}>⭐ {customers[custPhone].name}</div>
+                          <span style={{ fontSize: "9px", fontWeight: "900", color: getCustomerTier(customers[custPhone].totalSpent).color, border: `1px solid ${getCustomerTier(customers[custPhone].totalSpent).color}`, padding: "2px 4px", borderRadius: "8px", backgroundColor: "#fff" }}>{getCustomerTier(customers[custPhone].totalSpent).name}</span>
+                      </div>
+                      <div style={{ fontSize: "11px", color: "#059669", marginTop: "4px", fontWeight: "bold" }}>⚡ Giảm trực tiếp: {getCustomerTier(customers[custPhone].totalSpent).discountRate * 100}%</div>
+                      <div style={{ marginTop: "4px" }}>Ví điểm: <b>{Math.round(customers[custPhone].wallet || 0).toLocaleString()}đ</b> | Nợ: <b style={{color:"#ef4444"}}>{(customers[custPhone].debt || 0).toLocaleString()}đ</b></div>
+                      {(customers[custPhone].wallet || 0) > 0 && <label style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "10px", cursor: "pointer", color: "#ea580c", fontWeight: "bold" }}><input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} /> Dùng điểm lì xì!</label>}
+                    </div>
+                  ) : <input type="text" placeholder="Tên khách mới..." value={custName} onChange={e => setCustName(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: "8px", outline: "none", border: "1px solid #fdba74", boxSizing: "border-box" }} />}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+                <button onClick={() => setIsCheckoutOpen(false)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "#e2e8f0", fontWeight: "bold", cursor: "pointer" }}>Hủy</button>
+                <button onClick={handleNextToQR} style={{ flex: 2, padding: "10px", backgroundColor: "#ef4444", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>TIẾP TỤC 👉</button>
+              </div>
+            </div>
+          )}
+          
+          {checkoutStep === 2 && (
+            <div className="glass" style={{ padding: "25px", width: "350px", textAlign: "center" }} onClick={e => e.stopPropagation()}>
+              <h3 style={{ color: "#ef4444", margin: "0" }}>📱 THANH TOÁN QUẦY</h3>
+              <div style={{ color: "#ef4444", fontSize: "28px", fontWeight: "900", margin: "10px 0" }}>{finalToPay.toLocaleString()}đ</div>
+              
+              <div style={{ position: "relative" }}>
+                 <img src={`https://img.vietqr.io/image/${bankBin}-${bankAcc}-compact2.png?amount=${finalToPay}&addInfo=Thanh toan&accountName=${encodeURIComponent(bankNameStr)}`} style={{ width: "160px", margin: "0 auto 10px auto", border: "2px solid #ef4444", borderRadius: "10px", display: "block" }} alt="QR Code" />
+                 <div style={{ animation: "pulse-fast 1.5s infinite", color: "#b45309", fontSize: "11px", fontWeight: "bold", marginBottom: "5px" }}>⏳ Đang chờ nhận tiền...</div>
+                 <div style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontSize: "10px", padding: "6px", borderRadius: "4px", border: "1px dashed #ef4444", marginBottom: "15px", textAlign: "left", lineHeight: "1.4" }}><b>⚠️ CHÚ Ý:</b> KHÔNG NHÌN MÀN HÌNH KHÁCH. CHỈ BẤM <b>[CHUYỂN KHOẢN]</b> KHI APP NGÂN HÀNG BÁO CÓ TIỀN!</div>
+              </div>
+              
+              <div style={{ marginBottom: "15px", textAlign: "left", borderTop: "1px dashed #cbd5e1", paddingTop: "10px" }}>
+                <div style={{ fontSize: "12px", color: "#64748b", fontWeight: "bold", marginBottom: "5px" }}>Tiền mặt khách đưa (Chỉ dùng nếu trả Tiền mặt):</div>
+                <input type="number" placeholder="Nhập số tiền..." value={customerGiven} onChange={e => setCustomerGiven(Number(e.target.value) || "")} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", boxSizing: "border-box", fontSize: "14px", fontWeight: "bold" }} />
+                <div style={{ display: "flex", gap: "5px", marginTop: "8px", flexWrap: "wrap" }}>
+                  <button onClick={()=>setCustomerGiven(finalToPay)} style={{flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid #cbd5e1", cursor: "pointer"}}>Vừa đủ</button>
+                  <button onClick={()=>setCustomerGiven(50000)} style={{flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid #cbd5e1", cursor: "pointer"}}>50k</button>
+                  <button onClick={()=>setCustomerGiven(100000)} style={{flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid #cbd5e1", cursor: "pointer"}}>100k</button>
+                  <button onClick={()=>setCustomerGiven(200000)} style={{flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid #cbd5e1", cursor: "pointer"}}>200k</button>
+                  <button onClick={()=>setCustomerGiven(500000)} style={{flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid #cbd5e1", cursor: "pointer"}}>500k</button>
+                </div>
+                {customerGiven !== "" && Number(customerGiven) >= finalToPay && <div style={{ marginTop: "10px", padding: "10px", backgroundColor: "#ecfdf5", border: "1px dashed #10b981", borderRadius: "8px", color: "#059669", fontWeight: "bold", fontSize: "16px", textAlign: "center" }}>THỐI LẠI: {(Number(customerGiven) - finalToPay).toLocaleString()}đ</div>}
+              </div>
+
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                <button onClick={() => setCheckoutStep(1)} style={{ flex: "1 1 100%", padding: "8px", borderRadius: "8px", border: "none", background: "#e2e8f0", cursor: "pointer", fontWeight: "bold" }}>Quay lại</button>
+                <button onClick={() => confirmCheckout('GHI NỢ')} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#f59e0b", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer", fontSize: "11px" }}>📝 GHI NỢ</button>
+                <button onClick={() => confirmCheckout('CHUYỂN KHOẢN')} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#3b82f6", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer", fontSize: "11px" }}>💳 CHUYỂN KHOẢN</button>
+                <button onClick={() => {
+                    if (finalToPay > 0 && (customerGiven === "" || Number(customerGiven) < finalToPay)) { playSound('error'); alert(`Khách đưa chưa đủ tiền mặt! Cần thanh toán: ${finalToPay.toLocaleString()}đ`); return; }
+                    confirmCheckout('TIỀN MẶT');
+                }} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#10b981", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer", fontSize: "11px" }}>💵 TIỀN MẶT</button>
+              </div>
+            </div>
+          )}
+          {checkoutStep === 3 && (
+            <div className="glass" style={{ padding: "30px", width: "350px", textAlign: "center" }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontSize: "40px" }}>🌸</div><h3 style={{ color: "#10b981", margin: "10px 0" }}>Thành công!</h3>
+              <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+                <button onClick={() => { setPrintMode('receipt'); setTimeout(()=>window.print(), 300); }} style={{ flex: 1, padding: "12px", backgroundColor: "#ef4444", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer", fontSize: "12px" }}>🖨️ In Hóa Đơn</button>
+                <button onClick={sendReceiptEmail} disabled={loading} style={{ flex: 1, padding: "12px", backgroundColor: "#3b82f6", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer", fontSize: "12px" }}>{loading ? "Đang gửi..." : "📧 Gửi Email"}</button>
+                <button onClick={closeCheckout} style={{ flex: 1, padding: "12px", backgroundColor: "#e2e8f0", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer", fontSize: "12px", color: "#1e293b" }}>Đóng</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 🖨️ BIÊN LAI BÁN HÀNG VÀ TEM MÃ VẠCH (SẼ CHẠY KHI IN) */}
+      {lastOrder && printMode === 'receipt' && (
+        <div className="print-only print-receipt">
+          <div className="print-header">
+            <h2>HẢI LÊ MART</h2>
+            <p>Tòa Nhà ATS, 252 Hoàng Quốc Việt, HN</p>
+            <p>Hotline: 0902 613 899</p>
+          </div>
+          <div className="print-divider"></div>
+          <div className="print-info">
+            <div><div><b>HĐ:</b> {lastOrder.orderId}</div><div><b>Ngày:</b> {lastOrder.time.split(' ')[1]} {lastOrder.time.split(' ')[0]}</div></div>
+            <div style={{ textAlign: "right" }}><div><b>Ca:</b> {shift}</div><div><b>TN:</b> {role}</div></div>
+          </div>
+          <div className="print-divider"></div>
+          <div style={{ width: "100%" }}>
+            {lastOrder.cart.map((item: any, idx: number) => {
+              const price = Math.round(getActualPrice(item.product));
+              const itemTotal = Math.round((Number(item.qty)||0) * price);
+              const gift = parseGift(item.product.gift_info);
+              const hasGift = gift.text && (Number(item.qty)||0) >= gift.cond;
+              return (
+                <div key={idx} style={{ borderBottom: "1px dotted #ccc" }}>
+                  <div className="print-item-name">{cleanName(item.product.name)} {item.product.isHappyHour && <span style={{fontSize:"9px", fontStyle:"italic"}}>[Giờ Vàng]</span>}</div>
+                  <div className="print-item-details"><span>{item.qty} x {price.toLocaleString()}</span><span style={{ fontWeight: "bold" }}>{itemTotal.toLocaleString()}</span></div>
+                  {hasGift && <div className="print-gift">+ 🎁 Tặng: {gift.text}</div>}
+                </div>
+              );
+            })}
+          </div>
+          <div className="print-divider"></div>
+          <div className="print-totals">
+            <div className="print-totals-row"><span>Cộng tiền hàng:</span><span>{Math.round(lastOrder.subTotal).toLocaleString()}đ</span></div>
+            <div className="print-totals-row"><span>Thuế GTGT ({VAT_RATE * 100}%):</span><span>{Math.round(lastOrder.vatTotal).toLocaleString()}đ</span></div>
+            {lastOrder.discount > 0 && <div className="print-totals-row"><span>Giảm giá/Ví:</span><span>-{Math.round(lastOrder.discount).toLocaleString()}đ</span></div>}
+            <div className="print-grand-total"><span>{lastOrder.debtAmount > 0 ? "KHÁCH NỢ:" : "TỔNG CỘNG:"}</span><span>{Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</span></div>
+            {lastOrder.paymentMethod === 'TIỀN MẶT' && lastOrder.customerGiven > 0 && (
+              <div style={{ marginTop: '8px', borderTop: '1px dotted #ccc', paddingTop: '5px' }}>
+                <div className="print-totals-row"><span>Tiền khách đưa:</span><span>{Math.round(lastOrder.customerGiven).toLocaleString()}đ</span></div>
+                <div className="print-totals-row"><span><b>Tiền trả lại:</b></span><span><b>{Math.round(lastOrder.customerGiven - lastOrder.finalTotal).toLocaleString()}đ</b></span></div>
+              </div>
+            )}
+            {lastOrder.paymentMethod === 'CHUYỂN KHOẢN' && ( <div style={{ marginTop: '8px', borderTop: '1px dotted #ccc', paddingTop: '5px' }}><div className="print-totals-row"><span>Hình thức TT:</span><span>Chuyển khoản (VietQR)</span></div></div> )}
+          </div>
+          <div className="print-footer"><div><b>CẢM ƠN QUÝ KHÁCH & HẸN GẶP LẠI!</b></div><div style={{ marginTop: "5px", fontSize: "10px", color: "#666" }}><i>Powered by Hải Lê POS</i></div></div>
+        </div>
+      )}
+      {printMode === 'barcode' && printBarcodeProduct && (
+        <div className="print-only print-barcode-sheet">
+          {Array.from({length: barcodeCount}).map((_, i) => (
+            <div key={i} className="barcode-sticker">
+              <div style={{fontSize: "11px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"}}>{cleanName(printBarcodeProduct.name)}</div>
+              <img src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(printBarcodeProduct.product_code)}&scale=2&height=10&includetext=false`} onError={(e) => { e.currentTarget.src = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(printBarcodeProduct.product_code)}&code=Code128&translate-esc=on`; }} style={{maxWidth: "100%", height: "40px", marginTop: "4px"}} alt={printBarcodeProduct.product_code} />
+              <div style={{fontSize: "10px", fontFamily: "monospace", letterSpacing: "1px", color: "#333"}}>{printBarcodeProduct.product_code}</div>
+              <div style={{fontSize: "14px", fontWeight: "900", color: "#000", marginTop: "2px"}}>{getActualPrice(printBarcodeProduct).toLocaleString()}đ</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* --- GIAO DIỆN CHÍNH APP --- */}
       <div className="no-print" style={{ padding: "15px", position: "relative", minHeight: "100vh", overflowX: "auto" }}>
         
         {/* HEADER 2 HÀNG CẢI TIẾN */}
         <div style={{ maxWidth: "1500px", margin: "0 auto", minWidth: "1000px" }}>
           <div className="glass" style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: "12px", marginBottom: "12px", borderBottom: "4px solid #ef4444" }}>
+            
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                   <div style={{ backgroundColor: "#dc2626", padding: "8px", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1202,13 +1420,15 @@ export default function App() {
                       <button onClick={() => setShowAuditModal(true)} style={{ padding: "8px 16px", background: "#f8fafc", color: "#334155", border: "1px solid #cbd5e1", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer" }}>🕵️ LỊCH SỬ</button>
                       
                       <div className="dropdown" style={{ position: "relative", display: "inline-block" }}>
-                         <button style={{ padding: "8px 16px", background: "#fdf2f8", color: "#db2777", border: "1px solid #fbcfe8", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer" }}>🚀 QUẢN LÝ NÂNG CAO ▼</button>
-                         <div style={{ position: "absolute", top: "100%", left: 0, backgroundColor: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", minWidth: "200px", boxShadow: "0 10px 15px rgba(0,0,0,0.1)", zIndex: 100, display: "flex", flexDirection: "column", marginTop: "5px", padding: "5px" }}>
-                            <div onClick={() => setShowExpenseModal(true)} style={{ padding: "10px", cursor: "pointer", fontSize: "12px", fontWeight: "bold", borderBottom: "1px dashed #e2e8f0" }}>💸 Nhập Chi Phí (Điện/Nước...)</div>
-                            <div onClick={() => setShowSupplierModal(true)} style={{ padding: "10px", cursor: "pointer", fontSize: "12px", fontWeight: "bold", borderBottom: "1px dashed #e2e8f0" }}>🏭 Quản Lý Nhà Cung Cấp</div>
-                            <div onClick={() => setShowMarketingModal(true)} style={{ padding: "10px", cursor: "pointer", fontSize: "12px", fontWeight: "bold", borderBottom: "1px dashed #e2e8f0", color: "#8b5cf6" }}>📢 Gửi Email Marketing</div>
-                            <div onClick={() => { setNewAdminPass(adminPass); setNewStaffPass(staffPass); setNewBankBin(bankBin); setNewBankAcc(bankAcc); setNewBankNameStr(bankNameStr); setShowSettings(true); }} style={{ padding: "10px", cursor: "pointer", fontSize: "12px", fontWeight: "bold", color: "#475569" }}>⚙️ Cài Đặt Hệ Thống</div>
-                         </div>
+                         <button onClick={(e) => { e.stopPropagation(); setShowAdvancedMenu(!showAdvancedMenu); }} style={{ padding: "8px 16px", background: "#fdf2f8", color: "#db2777", border: "1px solid #fbcfe8", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer" }}>🚀 QUẢN LÝ NÂNG CAO ▼</button>
+                         {showAdvancedMenu && (
+                             <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: 0, backgroundColor: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", minWidth: "200px", boxShadow: "0 10px 15px rgba(0,0,0,0.1)", zIndex: 100, display: "flex", flexDirection: "column", marginTop: "5px", padding: "5px" }}>
+                                <div onClick={() => { setShowAdvancedMenu(false); setShowExpenseModal(true); }} style={{ padding: "10px", cursor: "pointer", fontSize: "12px", fontWeight: "bold", borderBottom: "1px dashed #e2e8f0" }}>💸 Nhập Chi Phí (Điện/Nước...)</div>
+                                <div onClick={() => { setShowAdvancedMenu(false); setShowSupplierModal(true); }} style={{ padding: "10px", cursor: "pointer", fontSize: "12px", fontWeight: "bold", borderBottom: "1px dashed #e2e8f0" }}>🏭 Quản Lý Nhà Cung Cấp</div>
+                                <div onClick={() => { setShowAdvancedMenu(false); setShowMarketingModal(true); }} style={{ padding: "10px", cursor: "pointer", fontSize: "12px", fontWeight: "bold", borderBottom: "1px dashed #e2e8f0", color: "#8b5cf6" }}>📢 Gửi Email Marketing</div>
+                                <div onClick={() => { setShowAdvancedMenu(false); setNewAdminPass(adminPass); setNewStaffPass(staffPass); setNewBankBin(bankBin); setNewBankAcc(bankAcc); setNewBankNameStr(bankNameStr); setShowSettings(true); }} style={{ padding: "10px", cursor: "pointer", fontSize: "12px", fontWeight: "bold", color: "#475569" }}>⚙️ Cài Đặt Hệ Thống</div>
+                             </div>
+                         )}
                       </div>
                     </>
                   )}
@@ -1234,6 +1454,7 @@ export default function App() {
             </div>
           </div>
           
+          {/* KHUNG BÁN HÀNG VÀ SẢN PHẨM */}
           <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: "10px" }}>
             <div className="glass" style={{ padding: "12px" }}>
               <div style={{ display: "flex", gap: "15px", marginBottom: "15px", alignItems: "center" }}>
@@ -1417,26 +1638,11 @@ export default function App() {
               </div>
               <div className="glass" style={{ padding: "15px", height: "35vh", display: "flex", flexDirection: "column" }}>
                 
-                {/* THANH CÔNG CỤ LỌC NHẬT KÝ */}
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
                   <div style={{ display: "flex", gap: "8px", flex: 1 }}>
-                     <input 
-                        placeholder="🔍 Tìm giao dịch (Tên/SĐT)..." 
-                        value={logSearchTerm}
-                        onChange={e => setLogSearchTerm(e.target.value)}
-                        style={{ padding: "6px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px", flex: 1 }}
-                     />
-                     <select 
-                        value={logTypeFilter}
-                        onChange={e => setLogTypeFilter(e.target.value)}
-                        style={{ padding: "6px", borderRadius: "6px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px", fontWeight: "bold", color: "#1e293b", backgroundColor: "#f8fafc" }}
-                     >
-                        <option value="Tất cả">Tất cả</option>
-                        <option value="BÁN">Bán hàng</option>
-                        <option value="NHẬP">Nhập hàng</option>
-                        <option value="TRẢ HÀNG">Trả hàng</option>
-                        <option value="GHI NỢ">Ghi nợ</option>
-                        <option value="THU NỢ">Thu nợ</option>
+                     <input placeholder="🔍 Tìm giao dịch (Tên/SĐT)..." value={logSearchTerm} onChange={e => setLogSearchTerm(e.target.value)} style={{ padding: "6px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px", flex: 1 }} />
+                     <select value={logTypeFilter} onChange={e => setLogTypeFilter(e.target.value)} style={{ padding: "6px", borderRadius: "6px", border: "1px solid #cbd5e1", outline: "none", fontSize: "12px", fontWeight: "bold", color: "#1e293b", backgroundColor: "#f8fafc" }}>
+                        <option value="Tất cả">Tất cả</option><option value="BÁN">Bán hàng</option><option value="NHẬP">Nhập hàng</option><option value="TRẢ HÀNG">Trả hàng</option><option value="GHI NỢ">Ghi nợ</option><option value="THU NỢ">Thu nợ</option>
                      </select>
                   </div>
                 </div>
@@ -1446,8 +1652,7 @@ export default function App() {
                     {Object.keys(groupedHistory).map((date) => (
                       <div key={date}>
                         <div onClick={() => toggleDateGroup(date)} style={{backgroundColor: "#ffedd5", padding: "6px 10px", fontSize: "11px", fontWeight: "bold", border: "1px solid #fed7aa", borderRadius: "4px", marginTop: "6px", display: "flex", justifyContent: "space-between", cursor: "pointer"}}>
-                            <span>📅 {date}</span>
-                            <span>{expandedDates[date] ?? true ? "▼" : "▶"}</span>
+                            <span>📅 {date}</span><span>{expandedDates[date] ?? true ? "▼" : "▶"}</span>
                         </div>
                         {(expandedDates[date] ?? true) && (
                           <div style={{ padding: "0 4px" }}>
