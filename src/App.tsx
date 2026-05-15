@@ -21,14 +21,10 @@ export default function App(){
   const [expName,setExpName]=useState(""),[expAmount,setExpAmount]=useState(""),[supName,setSupName]=useState(""),[supPhone,setSupPhone]=useState(""),[supItem,setSupItem]=useState(""),[marketingTier,setMarketingTier]=useState("Tất cả"),[marketingMsg,setMarketingMsg]=useState("");
   const [cart,setCart]=useState<any[]>([]),[barcodeInput,setBarcodeInput]=useState("");
   
-  const [customers,setCustomers]=useState<any>({});
-  const [heldOrders,setHeldOrders]=useState<any[]>([]);
-  const [auditLogs,setAuditLogs]=useState<any[]>([]);
-  const [expenses,setExpenses]=useState<any[]>([]);
-  const [suppliers,setSuppliers]=useState<any[]>([]);
-  const [history,setHistory]=useState<any[]>([]);
+  const [customers,setCustomers]=useState<any>(()=>{const s=localStorage.getItem("mart_customers");return s?JSON.parse(s):{}}),[heldOrders,setHeldOrders]=useState<any[]>(()=>{const s=localStorage.getItem("mart_held_orders");return s?JSON.parse(s):[]}),[auditLogs,setAuditLogs]=useState<any[]>(()=>{const s=localStorage.getItem("mart_audit");return s?JSON.parse(s):[]}),[expenses,setExpenses]=useState<any[]>(()=>{const s=localStorage.getItem("mart_expenses");return s?JSON.parse(s):[]}),[suppliers,setSuppliers]=useState<any[]>(()=>{const s=localStorage.getItem("mart_suppliers");return s?JSON.parse(s):[]});
+  const [history,setHistory]=useState<any[]>(()=>{const s=localStorage.getItem("mart_history");return s?JSON.parse(s):[]});
 
-  const loadCloudData=async()=>{try{const[rCust,rHist,rExp,rSup,rAud,rHold]=await Promise.all([supabase.from('customers').select('*'),supabase.from('history').select('*').order('id',{ascending:false}).limit(1500),supabase.from('expenses').select('*').order('id',{ascending:false}),supabase.from('suppliers').select('*').order('id',{ascending:false}),supabase.from('audit_logs').select('*').order('id',{ascending:false}).limit(300),supabase.from('held_orders').select('*')]);if(rCust.data){const cObj:any={};rCust.data.forEach((c:any)=>cObj[c.phone]=c);setCustomers(cObj);}if(rHist.data)setHistory(rHist.data);if(rExp.data)setExpenses(rExp.data);if(rSup.data)setSuppliers(rSup.data);if(rAud.data)setAuditLogs(rAud.data);if(rHold.data)setHeldOrders(rHold.data);}catch(err){console.error("Lỗi:",err);}};
+  const loadCloudData=async()=>{try{const[rCust,rHist,rExp,rSup,rAud,rHold]=await Promise.all([supabase.from('customers').select('*'),supabase.from('history').select('*').order('id',{ascending:false}).limit(1500),supabase.from('expenses').select('*').order('id',{ascending:false}),supabase.from('suppliers').select('*').order('id',{ascending:false}),supabase.from('audit_logs').select('*').order('id',{ascending:false}).limit(300),supabase.from('held_orders').select('*')]);if(rCust.data&&rCust.data.length>0){const cObj:any={};rCust.data.forEach((c:any)=>cObj[c.phone]=c);setCustomers(cObj);}if(rHist.data&&rHist.data.length>0)setHistory(rHist.data);if(rExp.data&&rExp.data.length>0)setExpenses(rExp.data);if(rSup.data&&rSup.data.length>0)setSuppliers(rSup.data);if(rAud.data&&rAud.data.length>0)setAuditLogs(rAud.data);if(rHold.data&&rHold.data.length>0)setHeldOrders(rHold.data);}catch(err){console.error("Lỗi tải Cloud:",err);}};
 
   const [isCheckoutOpen,setIsCheckoutOpen]=useState(false),[checkoutStep,setCheckoutStep]=useState(1),[customerInput,setCustomerInput]=useState(""),[custPhone,setCustPhone]=useState(""),[custName,setCustName]=useState(""),[useWallet,setUseWallet]=useState(false),[voucherInput,setVoucherInput]=useState(""),[appliedVoucherAmount,setAppliedVoucherAmount]=useState<number>(0),[customerGiven,setCustomerGiven]=useState<number|"">(""),[lastOrder,setLastOrder]=useState<any>(null);
   const [expandedDates,setExpandedDates]=useState<Record<string,boolean>>({}),[logSearchTerm,setLogSearchTerm]=useState(""),[logTypeFilter,setLogTypeFilter]=useState("Tất cả");
@@ -42,12 +38,12 @@ export default function App(){
   
   const fetchProducts=async()=>{const{data}=await supabase.from("products").select("*").order("created_at",{ascending:false});if(data)setProducts(data)};
   const findProductByCode=(code:string)=>{const rawCode=code.trim();let matches=products.filter(prod=>prod.product_code===rawCode||prod.product_code.startsWith(`${rawCode}-`));let available=matches.filter(p=>p.stock>0);if(available.length>0){available.sort((a,b)=>{if(!a.expiry_date)return 1;if(!b.expiry_date)return -1;return new Date(a.expiry_date).getTime()-new Date(b.expiry_date).getTime()});return available[0]}return matches.length>0?matches[0]:null};
-  const getOldestAvailableBatch=(p:any)=>{const baseCode=p.product_code.split('-')[0];let availableMatches=products.filter(prod=>(prod.product_code===baseCode||prod.product_code.startsWith(`${baseCode}-`))&&prod.stock>0);if(availableMatches.length===0)return p;availableMatches.sort((a,b)=>{if(!a.expiry_date)return 1;if(!b.expiry_date)return -1;return new Date(a.expiry_date).getTime()-new Date(b.expiry_date).getTime()});return availableMatches[0]};
-
+  
   useEffect(()=>{const timer=setInterval(()=>setCurrentTime(new Date()),1000);return()=>clearInterval(timer)},[]);
+  useEffect(()=>{localStorage.setItem("mart_history",JSON.stringify(history));localStorage.setItem("mart_customers",JSON.stringify(customers));localStorage.setItem("mart_held_orders",JSON.stringify(heldOrders));localStorage.setItem("mart_audit",JSON.stringify(auditLogs));localStorage.setItem("mart_expenses",JSON.stringify(expenses));localStorage.setItem("mart_suppliers",JSON.stringify(suppliers))},[history,customers,heldOrders,auditLogs,expenses,suppliers]);
   useEffect(()=>{if(isLoggedIn){fetchProducts();loadCloudData();const channel=supabase.channel("db_changes").on("postgres_changes",{event:"*",schema:"public",table:"products"},()=>fetchProducts()).subscribe();const script=document.createElement("script");script.src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js";script.onload=()=>{ (window as any).emailjs.init(EMAILJS_PUBLIC_KEY); };document.head.appendChild(script);return()=>{supabase.removeChannel(channel)}}},[isLoggedIn]);
   useEffect(()=>{if(scannerMode!==null){let scanner:any;let lastScanTime=0;const loadScanner=()=>{if((window as any).Html5QrcodeScanner){scanner=new(window as any).Html5QrcodeScanner("qr-reader",{fps:15,qrbox:{width:250,height:120},rememberLastUsedCamera:true},false);scanner.render((text:string)=>{const now=Date.now();if(now-lastScanTime<1500)return;lastScanTime=now;setScannedCodeObj({code:text,time:now})},undefined)}};if(!(window as any).Html5QrcodeScanner){const script=document.createElement("script");script.src="https://unpkg.com/html5-qrcode";script.onload=loadScanner;document.head.appendChild(script)}else loadScanner();return()=>{if(scanner)scanner.clear().catch(()=>{})}}},[scannerMode]);
-
+  
   const handleSelectSuggest=(p_input:any)=>{
     const baseCode=p_input.product_code.split('-')[0];
     const totalStock=products.filter(p=>p.product_code===baseCode||p.product_code.startsWith(`${baseCode}-`)).reduce((s,p)=>s+p.stock,0);
@@ -240,7 +236,7 @@ export default function App(){
   };
 
   const printCustomerCard=(phone:string)=>{setPrintCustomer({phone,...customers[phone]});setPrintMode('customer_card');setTimeout(()=>window.print(),1000)};
-  const shareToZalo=(phone:string)=>{const cust=customers[phone];const code=cust.cardCode||phone;navigator.clipboard.writeText(`Chào ${cust.name},\nCảm ơn bạn đã đồng hành cùng Hải Lê Mart!\n💳 Mã Thẻ VIP của bạn là: ${code}`).then(()=>{alert(`💡 Đã copy. Mở Zalo...`);window.open(`https://zalo.me/${phone}`,'_blank')}).catch(()=>{window.open(`https://zalo.me/${phone}`,'_blank')})};
+  const shareToZalo=(phone:string)=>{const cust=customers[phone];const code=cust.cardCode||phone;navigator.clipboard.writeText(`Chào ${cust.name},\nCảm ơn bạn đã đồng hành cùng Hải Lê Mart!\n💳 Mã Thẻ VIP của bạn là: ${code}`).then(()=>{alert(`💡 Đã copy lời chào. Đang mở Zalo...`);window.open(`https://zalo.me/${phone}`,'_blank')}).catch(()=>{window.open(`https://zalo.me/${phone}`,'_blank')})};
 
   const handleCodeChange=(e:React.ChangeEvent<HTMLInputElement>)=>{const code=e.target.value;setNewCode(code);const p=products.find((x:any)=>x.product_code===code);if(p){setNewName(cleanName(p.name));setNewCategory(p.category||"Khác");setNewImportPrice(p.import_price?.toString()||"");setNewPrice(p.sale_price.toString());setNewPromoPrice(p.promo_price?.toString()||"");setNewExpiry(p.expiry_date||"");const gift=parseGift(p.gift_info);setNewGiftCondition(gift.cond.toString());setNewGiftInfo(gift.text)}};
   
