@@ -18,10 +18,8 @@ export default function App() {
   const [authUsername, setAuthUsername] = useState("");
   const [authPassword, setAuthPassword] = useState("");
 
-  // ĐỒNG HỒ THỜI GIAN THỰC
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // STATES: CÀI ĐẶT HỆ THỐNG
   const [adminPass, setAdminPass] = useState(() => localStorage.getItem("mart_admin_pass") || "haile88");
   const [staffPass, setStaffPass] = useState(() => localStorage.getItem("mart_staff_pass") || "123");
   const [bankBin, setBankBin] = useState(() => localStorage.getItem("mart_bank_bin") || "970422");
@@ -112,7 +110,7 @@ export default function App() {
   const [logSearchTerm, setLogSearchTerm] = useState("");
   const [logTypeFilter, setLogTypeFilter] = useState("Tất cả");
 
-  // ================= 3. HÀM LÕI (PURE HELPERS) =================
+  // ================= 3. HÀM LÕI =================
   const playSound = (type: 'success' | 'error') => {
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -145,6 +143,14 @@ export default function App() {
     if ((currentHour >= 20 || currentHour < 6) && (p.category === 'Đồ ăn liền' || p.category === 'Bánh Kẹo')) { price = price * 0.8; p.isHappyHour = true; } 
     else { p.isHappyHour = false; }
     return Math.round(price);
+  };
+
+  // 🏆 TÍNH TOÁN HẠNG THẺ (TIER) - CẬP NHẬT MỨC MỚI
+  const getCustomerTier = (totalSpent = 0) => {
+      if (totalSpent >= 500000000) return { name: "💎 KIM CƯƠNG", discountRate: 0.10, color: "#a855f7", bg: "#faf5ff", border: "#e9d5ff" };
+      if (totalSpent >= 200000000) return { name: "🥇 VÀNG", discountRate: 0.05, color: "#ca8a04", bg: "#fefce8", border: "#fef08a" };
+      if (totalSpent >= 50000000)  return { name: "🥈 BẠC", discountRate: 0.02, color: "#475569", bg: "#f8fafc", border: "#cbd5e1" };
+      return { name: "🥉 ĐỒNG", discountRate: 0, color: "#b45309", bg: "#fffbeb", border: "#fde68a" };
   };
 
   const fetchProducts = async () => {
@@ -347,8 +353,16 @@ export default function App() {
   }, [history, logSearchTerm, logTypeFilter]);
 
   const totalValue = Math.round(products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
+  
+  // TÍNH TOÁN TIỀN THANH TOÁN (Kèm chiết khấu Hạng thẻ)
   const cartTotalAmountDisplay = cart.reduce((sum, item) => sum + item.total, 0);
-  const finalToPay = Math.round(Math.max(0, cartTotalAmountDisplay - appliedVoucherAmount - (useWallet ? Math.min(customers[custPhone]?.wallet||0, Math.max(0, cartTotalAmountDisplay - appliedVoucherAmount)) : 0)));
+  
+  const currentTier = getCustomerTier(customers[custPhone]?.totalSpent || 0);
+  const tierDiscountAmount = custPhone ? Math.round(cartTotalAmountDisplay * currentTier.discountRate) : 0;
+  const amountAfterTierAndVoucher = Math.max(0, cartTotalAmountDisplay - appliedVoucherAmount - tierDiscountAmount);
+  
+  const walletUsedAmount = useWallet ? Math.min(customers[custPhone]?.wallet||0, amountAfterTierAndVoucher) : 0;
+  const finalToPay = amountAfterTierAndVoucher - walletUsedAmount;
 
   const uniqueNames = useMemo(() => Array.from(new Set(products.map(p => cleanName(p.name)))).sort(), [products]);
   const uniqueStocks = useMemo(() => Array.from(new Set(products.map(p => p.stock))).sort((a,b)=>a-b), [products]);
@@ -388,7 +402,6 @@ export default function App() {
     }
     return filtered;
   }, [products, searchTerm, selectedCategory, sortConfig, filters]);
-
 
   // ================= 6. EVENT HANDLERS =================
   const handleLogin = (e: React.FormEvent) => {
@@ -632,8 +645,14 @@ export default function App() {
     const wallet = customers[custPhone]?.wallet || 0;
     const walletDiscount = useWallet && payMethod !== 'GHI NỢ' ? Math.round(Math.min(wallet, totalAfterVoucher)) : 0; 
     
-    const finalTotal = totalAfterVoucher - walletDiscount;
-    const totalDiscount = vDiscount + walletDiscount; 
+    // TÍNH TOÁN CHIẾT KHẤU HẠNG THẺ (Trừ trực tiếp)
+    const tier = getCustomerTier(customers[custPhone]?.totalSpent || 0);
+    const tierDiscountAmount = custPhone ? Math.round(cartTotalAmountDisplay * tier.discountRate) : 0;
+
+    const amountAfterTierAndVoucher = Math.max(0, totalAfterVoucher - tierDiscountAmount);
+    const finalTotal = amountAfterTierAndVoucher - walletDiscount;
+    const totalDiscount = vDiscount + walletDiscount + tierDiscountAmount; 
+    
     const earned = payMethod === 'GHI NỢ' ? 0 : Math.round(finalTotal * 0.02);
 
     for (const item of cart) {
@@ -649,7 +668,7 @@ export default function App() {
     if (totalDiscount > 0) {
        logs.push({ 
           id: Date.now() + Math.random(), shift: shift, type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", 
-          name: "Giảm giá Voucher/Ví", qty: 1, total: -totalDiscount, profit: -totalDiscount, 
+          name: "Giảm giá / Ví / VIP", qty: 1, total: -totalDiscount, profit: -totalDiscount, 
           customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: 'DISCOUNT', refunded_qty: 0, paymentMethod: payMethod 
       });
     }
@@ -661,6 +680,7 @@ export default function App() {
             name: custName, 
             wallet: payMethod === 'GHI NỢ' ? (prev[custPhone]?.wallet || 0) : Math.round((prev[custPhone]?.wallet || 0) - walletDiscount + earned), 
             debt: (prev[custPhone]?.debt || 0) + (payMethod === 'GHI NỢ' ? finalTotal : 0), 
+            totalSpent: (prev[custPhone]?.totalSpent || 0) + (payMethod !== 'GHI NỢ' ? finalTotal : 0),
             email: prev[custPhone]?.email || "",
             cardCode: prev[custPhone]?.cardCode || "" 
         } 
@@ -672,7 +692,7 @@ export default function App() {
     setLastOrder({ 
       orderId: "HD" + Date.now().toString().slice(-6), shift: shift, cart: [...cart], 
       subTotal, vatTotal, finalTotal: payMethod === 'GHI NỢ' ? 0 : finalTotal, debtAmount: payMethod === 'GHI NỢ' ? finalTotal : 0, 
-      discount: totalDiscount, earnedWallet: custPhone ? earned : 0, custName: custPhone ? custName : null, custPhone: custPhone ? custPhone : null, time: new Date().toLocaleString('vi-VN'), paymentMethod: payMethod,
+      discount: totalDiscount, tierDiscountAmount: tierDiscountAmount, earnedWallet: custPhone ? earned : 0, custName: custPhone ? custName : null, custPhone: custPhone ? custPhone : null, time: new Date().toLocaleString('vi-VN'), paymentMethod: payMethod,
       customerGiven: payMethod === 'TIỀN MẶT' ? Number(customerGiven) : 0
     });
     setCheckoutStep(3); fetchProducts(); setLoading(false);
@@ -1398,7 +1418,7 @@ export default function App() {
           <div className="glass" style={{ padding: "25px", width: "600px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #cbd5e1", paddingBottom: "10px", marginBottom: "10px" }}>
               <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                <h2 style={{ margin: 0, color: "#334155" }}>🕵️ LỊCH SỬ THAO TÁC</h2>
+                <h2 style={{ margin: 0, color: "#334155" }}>🕵️ NHẬT KÝ THAO TÁC HỆ THỐNG</h2>
                 <button onClick={exportAuditToCSV} style={{ fontSize: "10px", padding: "4px 8px", background: "#10b981", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>📥 XUẤT FILE</button>
               </div>
               <button onClick={() => setShowAuditModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
@@ -1444,40 +1464,47 @@ export default function App() {
         </div>
       )}
 
-      {/* TÍNH NĂNG IN THẺ VÀ GỬI THẺ VIP */}
+      {/* 🏆 GIAO DIỆN QUẢN LÝ KHÁCH HÀNG KÈM HIỂN THỊ HẠNG THẺ */}
       {showCustomerModal && (
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
-          <div className="glass" style={{ padding: "25px", width: "550px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+          <div className="glass" style={{ padding: "25px", width: "600px", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #c7d2fe", paddingBottom: "10px", marginBottom: "10px" }}>
-              <h2 style={{ margin: 0, color: "#4f46e5" }}>🤝 QUẢN LÝ KHÁCH HÀNG</h2>
+              <h2 style={{ margin: 0, color: "#4f46e5" }}>🤝 QUẢN LÝ KHÁCH HÀNG & HẠNG THẺ</h2>
               <button onClick={() => setShowCustomerModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
             </div>
             <div style={{ overflowY: "auto", flex: 1 }}>
               {Object.keys(customers).length === 0 && <div style={{textAlign: "center", color: "#94a3b8", marginTop: "20px"}}>Chưa có dữ liệu khách hàng.</div>}
-              {Object.keys(customers).map(phone => (
-                <div key={phone} style={{ padding: "10px", borderBottom: "1px dashed #cbd5e1", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+              {Object.keys(customers).map(phone => {
+                const c = customers[phone];
+                const tier = getCustomerTier(c.totalSpent || 0);
+
+                return (
+                <div key={phone} style={{ padding: "12px", borderBottom: "1px dashed #cbd5e1", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", backgroundColor: tier.bg, borderRadius: "8px", marginBottom: "8px", border: `1px solid ${tier.border}` }}>
                   <div style={{flex: 1, minWidth: "200px"}}>
-                    <div style={{ fontWeight: "bold", color: "#1e293b", cursor: "pointer" }} onClick={() => {
-                      const newName = window.prompt("Sửa tên khách hàng:", customers[phone].name);
-                      if(newName) { setCustomers((prev:any) => ({...prev, [phone]: {...prev[phone], name: newName}})); logAudit("SỬA KHÁCH HÀNG", `Đổi tên KH ${phone} thành ${newName}`); }
-                    }} title="Bấm để sửa tên">{customers[phone].name} ✏️</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <div style={{ fontWeight: "bold", color: "#1e293b", cursor: "pointer", fontSize: "15px" }} onClick={() => {
+                        const newName = window.prompt("Sửa tên khách hàng:", c.name);
+                        if(newName) { setCustomers((prev:any) => ({...prev, [phone]: {...prev[phone], name: newName}})); logAudit("SỬA KHÁCH HÀNG", `Đổi tên KH ${phone} thành ${newName}`); }
+                        }} title="Bấm để sửa tên">{c.name} ✏️</div>
+                        <span style={{ fontSize: "10px", fontWeight: "900", color: tier.color, border: `1px solid ${tier.color}`, padding: "2px 6px", borderRadius: "12px", backgroundColor: "#fff" }}>{tier.name}</span>
+                    </div>
                     
                     <div style={{ fontSize: "11px", color: "#64748b", marginTop: "4px" }}>
                       {phone} 
                       <span style={{cursor: "pointer", color: "#3b82f6", fontWeight: "bold", marginLeft: "6px"}} onClick={() => {
-                          const newEmail = window.prompt("Sửa Email khách hàng:", customers[phone].email || "");
+                          const newEmail = window.prompt("Sửa Email khách hàng:", c.email || "");
                           if(newEmail !== null) { setCustomers((prev:any) => ({...prev, [phone]: {...prev[phone], email: newEmail.trim()}})); logAudit("SỬA EMAIL KH", `Cập nhật Email KH ${phone}`); }
                       }} title="Bấm để cập nhật Email">
-                        {customers[phone].email ? `📧 ${customers[phone].email}` : `📧 +Thêm Mail`}
+                        {c.email ? `📧 ${c.email}` : `📧 +Thêm Mail`}
                       </span>
                     </div>
 
                     <div style={{ fontSize: "11px", color: "#64748b", marginTop: "6px", display: "flex", alignItems: "center", gap: "6px" }}>
                       <span onClick={() => {
-                          const newCard = window.prompt("Nhập/Sửa mã Thẻ cứng của khách:", customers[phone].cardCode || "");
+                          const newCard = window.prompt("Nhập/Sửa mã Thẻ cứng của khách:", c.cardCode || "");
                           if(newCard !== null) { setCustomers((prev:any) => ({...prev, [phone]: {...prev[phone], cardCode: newCard.trim()}})); logAudit("SỬA MÃ THẺ", `Cập nhật mã thẻ KH ${phone}`); }
                       }} style={{cursor: "pointer", color: "#ea580c", fontWeight: "bold", marginRight: "10px"}} title="Cài đặt mã Thẻ thành viên (Barcode)">
-                          {customers[phone].cardCode ? `💳 Mã: ${customers[phone].cardCode}` : `💳 +Gán Mã Thẻ`}
+                          {c.cardCode ? `💳 Mã: ${c.cardCode}` : `💳 +Gán Mã Thẻ`}
                       </span>
                       <button onClick={() => printCustomerCard(phone)} style={{ padding: "4px 6px", backgroundColor: "#dc2626", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="In thẻ cứng (Cỡ thẻ ATM)">🖨️ In Thẻ</button>
                       <button onClick={() => sendCardEmail(phone)} style={{ padding: "4px 6px", backgroundColor: "#3b82f6", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="Gửi thẻ điện tử tự động qua Email">📧 Mail</button>
@@ -1486,11 +1513,12 @@ export default function App() {
 
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ color: "#10b981", fontWeight: "bold", fontSize: "12px" }}>Ví: {(customers[phone].wallet || 0).toLocaleString()}đ</div>
-                    <div style={{ color: "#ef4444", fontWeight: "bold", fontSize: "12px" }}>Nợ: {(customers[phone].debt || 0).toLocaleString()}đ</div>
+                    <div style={{ color: "#475569", fontSize: "10px", marginBottom: "4px" }}>Đã chi tiêu: <b style={{color: "#0f172a"}}>{(c.totalSpent || 0).toLocaleString()}đ</b></div>
+                    <div style={{ color: "#10b981", fontWeight: "bold", fontSize: "12px" }}>Ví: {(c.wallet || 0).toLocaleString()}đ</div>
+                    <div style={{ color: "#ef4444", fontWeight: "bold", fontSize: "12px" }}>Nợ: {(c.debt || 0).toLocaleString()}đ</div>
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           </div>
         </div>
@@ -1524,21 +1552,21 @@ export default function App() {
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "450px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #fed7aa", paddingBottom: "10px", marginBottom: "15px" }}>
-              <h2 style={{ margin: 0, color: "#3b82f6" }}>📊 THỐNG KÊ NHANH</h2>
+              <h2 style={{ margin: 0, color: "#3b82f6" }}>📊 BÁO CÁO NHANH</h2>
               <button onClick={() => setShowStatsModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
             </div>
             
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", marginBottom: "20px" }}>
               <div style={{ backgroundColor: "#fef2f2", padding: "10px", borderRadius: "8px", border: "1px solid #fecaca", textAlign: "center" }}>
-                <div style={{ fontSize: "10px", color: "#ef4444", fontWeight: "bold" }}>TỔNG BÁN RA</div>
+                <div style={{ fontSize: "10px", color: "#ef4444", fontWeight: "bold" }}>TỔNG BÁN RA (Cả Nợ)</div>
                 <div style={{ fontSize: "14px", fontWeight: "bold", color: "#b91c1c", marginTop: "4px" }}>{todayStats.totalSales.toLocaleString()}đ</div>
               </div>
               <div style={{ backgroundColor: "#eff6ff", padding: "10px", borderRadius: "8px", border: "1px solid #bfdbfe", textAlign: "center" }}>
-                <div style={{ fontSize: "10px", color: "#3b82f6", fontWeight: "bold" }}>THỰC THU</div>
+                <div style={{ fontSize: "10px", color: "#3b82f6", fontWeight: "bold" }}>THỰC THU (Mặt+CK)</div>
                 <div style={{ fontSize: "14px", fontWeight: "bold", color: "#1e3a8a", marginTop: "4px" }}>{todayStats.rev.toLocaleString()}đ</div>
               </div>
               <div style={{ backgroundColor: "#f0fdf4", padding: "10px", borderRadius: "8px", border: "1px solid #bbf7d0", textAlign: "center" }}>
-                <div style={{ fontSize: "10px", color: "#16a34a", fontWeight: "bold" }}>TỔNG LÃI</div>
+                <div style={{ fontSize: "10px", color: "#16a34a", fontWeight: "bold" }}>TỔNG LÃI GỘP</div>
                 <div style={{ fontSize: "14px", fontWeight: "bold", color: "#14532d", marginTop: "4px" }}>{todayStats.prof.toLocaleString()}đ</div>
               </div>
             </div>
@@ -1603,8 +1631,13 @@ export default function App() {
                 {custPhone && (
                   <div style={{ marginTop: "10px", padding: "12px", backgroundColor: "#fff7ed", borderRadius: "8px", border: "1px dashed #f97316" }}>
                     {customers[custPhone] ? (
-                      <div><div style={{ color: "#b91c1c", fontWeight: "bold" }}>⭐ {customers[custPhone].name}</div>
-                        <div>Ví điểm: <b>{Math.round(customers[custPhone].wallet || 0).toLocaleString()}đ</b> | Nợ: <b style={{color:"#ef4444"}}>{(customers[custPhone].debt || 0).toLocaleString()}đ</b></div>
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <div style={{ color: "#b91c1c", fontWeight: "bold" }}>⭐ {customers[custPhone].name}</div>
+                            <span style={{ fontSize: "9px", fontWeight: "900", color: getCustomerTier(customers[custPhone].totalSpent).color, border: `1px solid ${getCustomerTier(customers[custPhone].totalSpent).color}`, padding: "2px 4px", borderRadius: "8px", backgroundColor: "#fff" }}>{getCustomerTier(customers[custPhone].totalSpent).name}</span>
+                        </div>
+                        <div style={{ fontSize: "11px", color: "#059669", marginTop: "4px", fontWeight: "bold" }}>⚡ Giảm trực tiếp: {getCustomerTier(customers[custPhone].totalSpent).discountRate * 100}%</div>
+                        <div style={{ marginTop: "4px" }}>Ví điểm: <b>{Math.round(customers[custPhone].wallet || 0).toLocaleString()}đ</b> | Nợ: <b style={{color:"#ef4444"}}>{(customers[custPhone].debt || 0).toLocaleString()}đ</b></div>
                         {(customers[custPhone].wallet || 0) > 0 && <label style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "10px", cursor: "pointer", color: "#ea580c", fontWeight: "bold" }}><input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} /> Dùng điểm lì xì!</label>}
                       </div>
                     ) : <input type="text" placeholder="Tên khách mới..." value={custName} onChange={e => setCustName(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: "8px", outline: "none", border: "1px solid #fdba74", boxSizing: "border-box" }} />}
@@ -1667,10 +1700,8 @@ export default function App() {
 
         <div style={{ maxWidth: "1500px", margin: "0 auto", minWidth: "1000px" }}>
           
-          {/* CẢI TIẾN GIAO DIỆN HEADER 2 HÀNG */}
           <div className="glass" style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: "12px", marginBottom: "12px", borderBottom: "4px solid #ef4444" }}>
             
-            {/* DÒNG 1: LOGO & THỐNG KÊ */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <HeaderLogo />
 
@@ -1695,10 +1726,8 @@ export default function App() {
               </div>
             </div>
 
-            {/* DÒNG 2: THANH MENU NÚT BẤM & TIỆN ÍCH */}
-            <div style={{ display: "flex", borderTop: "1px dashed #cbd5e1", paddingTop: "12px", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", gap: "8px", borderTop: "1px dashed #cbd5e1", paddingTop: "12px", alignItems: "center", justifyContent: "space-between" }}>
                
-               {/* Khối bên trái: Các nút chức năng (Đã gọt ngắn chữ) */}
                <div style={{ display: "flex", gap: "8px" }}>
                  {role === 'admin' && (
                     <>
@@ -1718,7 +1747,6 @@ export default function App() {
                   <button onClick={() => setShowDebtModal(true)} style={{ padding: "8px 16px", background: "#fef2f2", color: "#ef4444", border: "1px solid #fecaca", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s" }}>📓 SỔ NỢ</button>
                </div>
                 
-               {/* Khối bên phải: Tiện ích hệ thống */}
                <div style={{ display: "flex", gap: "15px", alignItems: "center", fontSize: "12px", fontWeight: "bold", color: "#64748b" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#f8fafc", padding: "6px 12px", borderRadius: "6px", border: "1px solid #e2e8f0" }}>
                       <span style={{ fontSize: "14px" }}>⏱️</span> 
