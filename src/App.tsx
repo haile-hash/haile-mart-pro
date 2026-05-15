@@ -1245,3 +1245,641 @@ export default function App() {
     </div>
   );
 }
+const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader();
+    reader.onload = async (event) => {
+      setLoading(true);
+      try {
+        const text = event.target?.result as string; const lines = text.split('\n').filter(line => line.trim() !== '');
+        if (lines.length <= 1) { alert("File rỗng!"); setLoading(false); return; }
+        let successCount = 0; let importLogs: any[] = [];
+        
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, '')); if (cols.length < 5) continue; 
+          const pCode = cols[0]; const pName = cols[1]; const pCategory = cols[2] || "Khác"; const pImpPrice = parseInt(cols[3]) || 0; const pSalePrice = parseInt(cols[4]) || 0; const pPromoPrice = parseInt(cols[5]) || 0; const pGift = cols[6] || null; const pStock = parseInt(cols[7]) || 0; const pExpiry = cols[8] || null;
+          if (!pCode || !pName || pSalePrice <= 0) continue;
+          
+          const baseCode = pCode.trim(); const allVariants = products.filter(p => p.product_code === baseCode || p.product_code.startsWith(`${baseCode}-`));
+          if (allVariants.length > 0 && allVariants[0].sale_price !== pSalePrice) {
+              await Promise.all(allVariants.map(v => supabase.from("products").update({ sale_price: pSalePrice, promo_price: pPromoPrice }).eq("id", v.id)));
+              if(!importLogs.find(l => l.name === `Đồng bộ giá ${baseCode}`)) importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "HỆ THỐNG", name: `Đồng bộ giá ${baseCode}`, qty: 0, total: 0 });
+          }
+          const exist = allVariants.find(p => p.product_code === baseCode);
+          if (exist) {
+             if (exist.stock <= 0) await supabase.from("products").update({ name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry, created_at: new Date().toISOString() }).eq("id", exist.id);
+             else {
+                 if (exist.import_price !== pImpPrice || (exist.expiry_date || "") !== (pExpiry || "")) {
+                     const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}${i}`; const batchName = `${pName} [Lô ${pExpiry ? new Date(pExpiry).toLocaleDateString('vi-VN') : 'Mới'}]`;
+                     await supabase.from("products").insert([{ product_code: batchCode, name: batchName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]);
+                 } else await supabase.from("products").update({ stock: exist.stock + pStock, created_at: new Date().toISOString() }).eq("id", exist.id);
+             }
+          } else await supabase.from("products").insert([{ product_code: baseCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]);
+          if (pStock > 0) importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "NHẬP", name: cleanName(pName), qty: pStock, total: 0 }); successCount++;
+        }
+        if (importLogs.length > 0) setHistory(prev => [...importLogs, ...prev]); logAudit("NHẬP FILE", `Nhập ${successCount} mã`); alert(`Nhập thành công ${successCount} SP!`); fetchProducts();
+      } catch (err) { alert("Lỗi xử lý file CSV."); } setLoading(false);
+    }; reader.readAsText(file); e.target.value = '';
+  };
+
+  const handleDelete = async (id: any, name: any) => { if (window.confirm(`Xóa vĩnh viễn ${name}?`)) { await supabase.from("products").delete().eq("id", id); logAudit("XÓA SP", `Xóa: ${name}`); fetchProducts(); } };
+  
+  const handleEdit = async (id: any, field: string, old: any, isText: boolean = false) => {
+    let label = field; if (field === 'category') label = 'Danh mục'; if (field === 'sale_price') label = 'Giá bán'; if (field === 'promo_price') label = 'Giá KM'; if (field === 'gift_info') label = 'Quà tặng'; if (field === 'expiry_date') label = 'HSD';
+    const val = window.prompt(`Sửa ${label}:`, old || "");
+    if (val !== null) { let updateData: any = isText ? val : (parseInt(val) || 0); if (field === 'gift_info' && val.trim() === '') updateData = null; await supabase.from("products").update({ [field]: updateData }).eq("id", id); logAudit("SỬA", `ID ${id}, ${label} -> ${val}`); fetchProducts(); }
+  };
+
+  const handlePrintBarcode = (p: any) => { const q = window.prompt(`Số lượng tem in: ${cleanName(p.name)}`, "30"); if (q && parseInt(q) > 0) { setPrintBarcodeProduct(p); setBarcodeCount(parseInt(q)); setPrintMode('barcode'); setTimeout(() => window.print(), 1500); } };
+  
+  const downloadSampleCSV = () => { const csv = "\uFEFFMã SP,Tên SP,Danh Mục,Giá Nhập,Giá Bán,Giá KM,Quà Tặng,Số Lượng,Hạn Sử Dụng (YYYY-MM-DD)\nSP001,Mì Hảo Hảo,Đồ ăn liền,3000,5000,0,,100,2026-12-31\nSP002,Nước suối TH,Đồ uống,4000,6000,0,24;;;1 Ly Thủy Tinh,50,2026-06-15"; const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Mau_Nhap_Kho.csv`; link.click(); };
+  
+  const exportToCSV = () => {
+    if (history.length === 0) return alert("Chưa có lịch sử!"); let csv = "\uFEFFGiờ,Ca Làm Việc,Loại,Hình thức,Khách,Sản phẩm,SL,Tổng(VAT),Lợi nhuận\n";
+    history.forEach(log => { csv += `${new Date(Math.floor(log.id)).toLocaleString('vi-VN')},${log.shift || ""},${log.type},${log.paymentMethod || ""},${log.customer || "Khách lẻ"},${log.name},${log.qty},${Math.round(log.total)},${Math.round(log.profit || 0)}\n`; });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Bao_Cao.csv`; link.click();
+  };
+
+  const exportAuditToCSV = () => {
+    if (auditLogs.length === 0) return alert("Chưa có nhật ký!"); let csv = "\uFEFFThời gian,Người dùng,Ca,Hành động,Chi tiết\n";
+    auditLogs.forEach(log => { csv += `${log.time},${log.user},${log.shift},${log.action},"${(log.detail || "").replace(/"/g, '""')}"\n`; });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Audit.csv`; link.click();
+  };
+
+  const handleSendEmailReport = () => {
+    const logs = history.filter(log => new Date(Math.floor(log.id)).toLocaleDateString('vi-VN') === todayStrStr); if (logs.length === 0) return alert("Chưa có giao dịch!");
+    let cash = 0, transfer = 0, prof = 0, sold = 0; logs.forEach(l => { if(l.type==='BÁN') sold += l.qty; if(l.type==='BÁN' || l.type==='THU NỢ' || l.type==='TRẢ HÀNG') { if (l.paymentMethod === 'CHUYỂN KHOẢN') transfer += l.total; else if (l.paymentMethod === 'TIỀN MẶT') cash += l.total; } prof += (l.profit||0); });
+    const sub = encodeURIComponent(`Báo Cáo - ${todayStrStr}`); const body = encodeURIComponent(`Báo cáo TỔNG:\n- Đã bán: ${sold} món\n- TIỀN MẶT: ${Math.round(cash).toLocaleString()}đ\n- CHUYỂN KHOẢN: ${Math.round(transfer).toLocaleString()}đ\n- Lợi nhuận: ${Math.round(prof).toLocaleString()}đ`);
+    window.location.href = `mailto:lehonghaikt6@gmail.com?subject=${sub}&body=${body}`;
+  };
+
+  const requestSort = (key: string) => { if (sortConfig && sortConfig.key === key) { if (sortConfig.direction === 'asc') setSortConfig({ key, direction: 'desc' }); else setSortConfig(null); } else { setSortConfig({ key, direction: 'asc' }); } };
+  const handleFilterCheck = (col: string, val: any) => { setFilters(prev => { const cur = prev[col] || []; if (cur.includes(val)) return { ...prev, [col]: cur.filter(v => v !== val) }; return { ...prev, [col]: [...cur, val] }; }); };
+  const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
+
+  // ================= 7. RENDER HELPERS =================
+  const renderHeaderIcon = (colKey: string) => {
+    const isFiltered = filters[colKey]?.length > 0; const isSortedAsc = sortConfig?.key === colKey && sortConfig.direction === 'asc'; const isSortedDesc = sortConfig?.key === colKey && sortConfig.direction === 'desc';
+    let icon = '🔽'; if (isSortedAsc) icon = '🔼'; if (isSortedDesc) icon = '🔽';
+    return ( <span onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === colKey ? null : colKey); }} style={{ cursor: "pointer", color: isFiltered || sortConfig?.key === colKey ? '#ef4444' : '#94a3b8', fontSize: "10px", padding: "2px", marginLeft: "4px", border: isFiltered ? "1px dashed #ef4444" : "1px solid transparent", borderRadius: "2px" }} title="Lọc">{icon}</span> );
+  };
+
+  const renderFilterPopup = (colKey: string, title: string, uniqueValues: any[], formatVal?: (v:any)=>string) => {
+    if (openFilter !== colKey) return null;
+    return (
+        <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: colKey==='name' ? "0" : "50%", transform: colKey==='name' ? "none" : "translateX(-50%)", backgroundColor: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px", zIndex: 999, boxShadow: "0 10px 25px -5px rgba(0,0,0,0.2)", minWidth: "160px", textAlign: "left", color: "#1e293b", fontWeight: "normal", fontSize: "12px", display: "flex", flexDirection: "column" }}>
+           <div style={{ marginTop: "10px", fontWeight: "bold", color: "#64748b", fontSize: "10px", marginBottom: "6px" }}>LỌC {title}:</div>
+           <div style={{ overflowY: "auto", flex: 1, maxHeight: "150px", border: "1px solid #e2e8f0", borderRadius: "4px", padding: "4px" }}>
+               <label style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px", cursor: "pointer", borderBottom: "1px dashed #f1f5f9", backgroundColor: (!filters[colKey] || filters[colKey].length === 0) ? "#eff6ff" : "transparent" }}>
+                  <input type="checkbox" checked={!filters[colKey] || filters[colKey].length === 0} onChange={() => setFilters(prev => ({...prev, [colKey]: []}))} /><span style={{color: "#3b82f6", fontWeight: "bold"}}>Tất cả</span>
+               </label>
+               {uniqueValues.map((v, i) => (
+                   <label key={i} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px", cursor: "pointer", borderBottom: "1px dashed #f1f5f9", backgroundColor: filters[colKey]?.includes(v) ? "#f0fdf4" : "transparent" }}>
+                      <input type="checkbox" checked={filters[colKey]?.includes(v) || false} onChange={() => handleFilterCheck(colKey, v)} /><span>{formatVal ? formatVal(v) : v}</span>
+                   </label>
+               ))}
+           </div>
+           {filters[colKey]?.length > 0 && <div style={{ marginTop: "8px", textAlign: "center", cursor: "pointer", color: "#ef4444", fontWeight: "bold", fontSize: "11px", padding: "4px" }} onClick={() => setFilters(prev => ({...prev, [colKey]: []}))}>❌ Bỏ lọc</div>}
+        </div>
+    );
+  };
+
+  const HeaderLogo = () => (
+    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+      <div className="logo-icon" style={{ backgroundColor: "#dc2626", padding: "8px", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(220, 38, 38, 0.2)" }}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        <h1 style={{ margin: 0, fontSize: "20px", fontWeight: "900", letterSpacing: "0.5px", color: "#0f172a", lineHeight: "1" }}>HẢI LÊ <span style={{color: "#dc2626"}}>MART</span></h1>
+        <span style={{ fontSize: "9px", color: "#64748b", fontWeight: "800", letterSpacing: "3px", textTransform: "uppercase", marginTop: "4px" }}>ERP System</span>
+      </div>
+    </div>
+  );
+
+  // ================= 8. STYLES CSS =================
+  const styles = `
+    @keyframes float { 0% { transform: translateY(0); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0); } }
+    @keyframes pulse-fast { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    @keyframes logo-pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1) rotate(5deg); } 100% { transform: scale(1); } }
+    .logo-icon { animation: logo-pulse 2s infinite ease-in-out; }
+    
+    .spring-bg { position: fixed; width: 400px; height: 400px; border-radius: 50%; filter: blur(100px); z-index: -1; opacity: 0.3; animation: float 10s infinite ease-in-out; }
+    .glass { background: rgba(255, 255, 255, 0.98); border: 1px solid #fed7aa; border-radius: 12px; box-shadow: 0 4px 15px rgba(251, 146, 60, 0.08); }
+    body { background-color: #fff7ed; margin: 0; font-family: 'Inter', sans-serif; color: #431407; }
+    .tab-btn { padding: 6px 12px; border-radius: 20px; border: 1px solid #fed7aa; background: #fff; cursor: pointer; font-size: 12px; font-weight: bold; color: #9a3412; white-space: nowrap; }
+    .tab-btn.active { background: #ef4444; color: #fff; border-color: #ef4444; }
+    
+    .chart-container-scroll { display: flex; align-items: flex-end; height: 120px; margin-top: 15px; padding-top: 10px; border-top: 1px dashed #cbd5e1; overflow-x: auto; padding-bottom: 5px; gap: 4px; }
+    .chart-bar-group { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 20px; }
+    .chart-bar { width: 8px; background: linear-gradient(0deg, #ef4444 0%, #fca5a5 100%); border-radius: 4px 4px 0 0; transition: height 0.5s; min-height: 2px; }
+    .chart-label { font-size: 8px; color: #64748b; margin-top: 4px; font-weight: bold; white-space: nowrap; }
+    .chart-val { font-size: 8px; color: #b91c1c; font-weight: bold; margin-bottom: 2px; }
+    
+    .noti-bell { position: relative; display: inline-block; cursor: pointer; }
+    .noti-badge { position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; border-radius: 50%; padding: 2px 6px; font-size: 9px; font-weight: bold; animation: pulse-fast 1s infinite; }
+    
+    @media print { 
+      body * { visibility: hidden; } .print-only, .print-only * { visibility: visible; }
+      .print-only.print-receipt { position: absolute; left: 0; top: 0; display: block !important; width: 80mm; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 5mm; box-sizing: border-box; font-size: 12px; line-height: 1.4; }
+      .print-only.print-customer-card { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex !important; justify-content: center; align-items: center; }
+      @page { margin: 0; } 
+    }
+    .print-only { display: none; }
+    .qty-input { width: 28px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; outline: none; font-size: 11px; font-weight: bold; color: #1e293b; padding: 3px 0; background: #fff; }
+    .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .qty-input[type=number] { -moz-appearance: textfield; }
+    .add-to-cart-btn { padding: 8px 16px; background-color: #fbbf24; color: #78350f; border: none; border-radius: 6px; font-weight: 900; cursor: pointer; font-size: 12px; transition: transform 0.1s, background-color 0.2s; box-shadow: 0 2px 4px rgba(251, 191, 36, 0.3); }
+    .add-to-cart-btn:hover { background-color: #f59e0b; transform: scale(1.05); }
+    .add-to-cart-btn:active { transform: scale(0.95); }
+    .input-label { font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; }
+    .input-label-red { font-size: 10px; font-weight: bold; color: #ef4444; text-transform: uppercase; }
+    .input-label-green { font-size: 10px; font-weight: bold; color: #10b981; text-transform: uppercase; }
+  `;
+
+  // ================= 9. GIAO DIỆN ĐĂNG NHẬP =================
+  if (!isLoggedIn) {
+     return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", position: "relative", overflow: "hidden" }}>
+        <style>{styles}</style>
+        <div className="spring-bg" style={{ background: "#ef4444", top: "-10%", left: "-10%" }}></div>
+        <div className="spring-bg" style={{ background: "#fbbf24", bottom: "-10%", right: "-10%" }}></div>
+        <div className="glass" style={{ padding: "40px", width: "100%", maxWidth: "380px", textAlign: "center", border: "4px solid #ef4444" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "30px" }}>
+            <div className="logo-icon" style={{ backgroundColor: "#dc2626", padding: "16px", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 10px 25px rgba(220, 38, 38, 0.3)", marginBottom: "15px" }}>
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+            </div>
+            <h1 style={{ margin: 0, fontSize: "32px", fontWeight: "900", letterSpacing: "1px", color: "#0f172a", textTransform: "uppercase" }}>HẢI LÊ <span style={{color: "#dc2626"}}>MART</span></h1>
+            <span style={{ fontSize: "11px", color: "#64748b", fontWeight: "800", letterSpacing: "4px", textTransform: "uppercase", marginTop: "5px" }}>Professional POS</span>
+          </div>
+          <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+            <select value={shift} onChange={e => setShift(e.target.value)} style={{ padding: "14px", borderRadius: "10px", border: "1px solid #cbd5e1", outline: "none", fontWeight: "bold", color: "#1e293b", backgroundColor: "#f8fafc" }}><option value="Ca Sáng">🌅 Ca Sáng (06:00 - 14:00)</option><option value="Ca Chiều">🌇 Ca Chiều (14:00 - 22:00)</option><option value="Ca Tối">🌙 Ca Tối (22:00 - 06:00)</option></select>
+            <input placeholder="Tên đăng nhập" value={authUsername} onChange={e => setAuthUsername(e.target.value)} style={{ padding: "14px", borderRadius: "10px", border: "1px solid #cbd5e1", outline: "none" }} />
+            <input type="password" placeholder="Mật khẩu" value={authPassword} onChange={e => setAuthPassword(e.target.value)} style={{ padding: "14px", borderRadius: "10px", border: "1px solid #cbd5e1", outline: "none" }} />
+            <button type="submit" style={{ padding: "14px", backgroundColor: "#dc2626", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "bold", cursor: "pointer", boxShadow: "0 4px 6px rgba(220, 38, 38, 0.3)" }}>MỞ CỬA BÁN HÀNG 🚀</button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false); }}>
+      <style>{styles}</style>
+
+      {showExpenseModal && (
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div className="glass" style={{ padding: "25px", width: "450px", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #cbd5e1", paddingBottom: "10px", marginBottom: "15px" }}>
+              <h2 style={{ margin: 0, color: "#ea580c" }}>💸 QUẢN LÝ CHI PHÍ VẬN HÀNH</h2>
+              <button onClick={() => setShowExpenseModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
+            </div>
+            <div style={{ display: "flex", gap: "10px", marginBottom: "15px" }}>
+               <input placeholder="Tên (Điện, nước, rác...)" value={expName} onChange={e=>setExpName(e.target.value)} style={{flex: 2, padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1"}}/>
+               <input placeholder="Số tiền..." type="number" value={expAmount} onChange={e=>setExpAmount(e.target.value)} style={{flex: 1, padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1"}}/>
+               <button onClick={addExpense} style={{padding: "8px 15px", background: "#10b981", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer"}}>+</button>
+            </div>
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              {expenses.map(e => (
+                 <div key={e.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px", borderBottom: "1px dashed #cbd5e1" }}>
+                    <div><b style={{color: "#1e293b"}}>{e.name}</b> <span style={{fontSize: "10px", color: "#64748b"}}>({e.date})</span></div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}><b style={{color: "#ef4444"}}>-{e.amount.toLocaleString()}đ</b> <button onClick={()=>deleteExpense(e.id)} style={{border: "none", background: "none", color: "#ef4444", cursor: "pointer"}}>🗑️</button></div>
+                 </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSupplierModal && (
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div className="glass" style={{ padding: "25px", width: "500px", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #cbd5e1", paddingBottom: "10px", marginBottom: "15px" }}>
+              <h2 style={{ margin: 0, color: "#3b82f6" }}>🏭 NHÀ CUNG CẤP & MỐI HÀNG</h2>
+              <button onClick={() => setShowSupplierModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
+            </div>
+            <div style={{ display: "flex", gap: "10px", marginBottom: "15px", flexWrap: "wrap" }}>
+               <input placeholder="Tên Cty/Sale..." value={supName} onChange={e=>setSupName(e.target.value)} style={{flex: 1, padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1"}}/>
+               <input placeholder="Số điện thoại..." value={supPhone} onChange={e=>setSupPhone(e.target.value)} style={{flex: 1, padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1"}}/>
+               <input placeholder="Mặt hàng cung cấp..." value={supItem} onChange={e=>setSupItem(e.target.value)} style={{flex: "1 1 100%", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1"}}/>
+               <button onClick={addSupplier} style={{width: "100%", padding: "10px", background: "#3b82f6", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer"}}>LƯU THÔNG TIN</button>
+            </div>
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              {suppliers.map(s => (
+                 <div key={s.id} style={{ padding: "10px", borderBottom: "1px dashed #cbd5e1", backgroundColor: "#f8fafc", borderRadius: "8px", marginBottom: "8px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold", color: "#1e293b", fontSize: "14px" }}><span>{s.name}</span> <span style={{color: "#3b82f6"}}>📞 {s.phone}</span></div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "4px" }}>
+                       <span style={{ fontSize: "12px", color: "#64748b" }}>📦 {s.item}</span>
+                       <button onClick={()=>deleteSupplier(s.id)} style={{border: "none", background: "none", color: "#ef4444", cursor: "pointer"}}>🗑️ Xóa</button>
+                    </div>
+                 </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showMarketingModal && (
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div className="glass" style={{ padding: "25px", width: "450px" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #cbd5e1", paddingBottom: "10px", marginBottom: "15px" }}>
+              <h2 style={{ margin: 0, color: "#8b5cf6" }}>📢 GỬI EMAIL MARKETING</h2>
+              <button onClick={() => setShowMarketingModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
+            </div>
+            <div style={{ backgroundColor: "#fef2f2", padding: "10px", borderRadius: "8px", fontSize: "11px", color: "#b91c1c", marginBottom: "15px", border: "1px dashed #ef4444" }}>
+              <b>⚠️ Cảnh báo:</b> Hệ thống EmailJS miễn phí chỉ cho phép gửi tối đa 200 mail/tháng. Chỉ nên dùng cho tệp khách hàng Kim Cương hoặc Vàng.
+            </div>
+            <label style={{fontSize: "12px", fontWeight: "bold", color: "#475569"}}>Gửi đến nhóm khách hàng:</label>
+            <select value={marketingTier} onChange={e=>setMarketingTier(e.target.value)} style={{width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", marginTop: "5px", marginBottom: "15px"}}>
+               <option value="Tất cả">Tất cả khách hàng (Có Email)</option>
+               <option value="KIM CƯƠNG">Chỉ khách hàng Hạng Kim Cương</option>
+               <option value="VÀNG">Chỉ khách hàng Hạng Vàng</option>
+               <option value="BẠC">Chỉ khách hàng Hạng Bạc</option>
+            </select>
+            <label style={{fontSize: "12px", fontWeight: "bold", color: "#475569"}}>Nội dung tin nhắn:</label>
+            <textarea value={marketingMsg} onChange={e=>setMarketingMsg(e.target.value)} rows={5} placeholder="Ví dụ: Siêu thị Hải Lê giảm giá 50% thịt bò Kobe vào cuối tuần này..." style={{width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", marginTop: "5px", marginBottom: "20px", boxSizing: "border-box", fontFamily: "inherit"}}></textarea>
+            <button onClick={sendMarketingEmails} disabled={loading} style={{width: "100%", padding: "12px", backgroundColor: "#8b5cf6", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer"}}>{loading ? "Đang gửi..." : "🚀 GỬI CHIẾN DỊCH NGAY"}</button>
+          </div>
+        </div>
+      )}
+
+      {showSettings && role === 'admin' && (
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div className="glass" style={{ padding: "25px", width: "450px", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #cbd5e1", paddingBottom: "10px", marginBottom: "15px" }}>
+              <h2 style={{ margin: 0, color: "#334155" }}>⚙️ CÀI ĐẶT HỆ THỐNG</h2>
+              <button onClick={() => setShowSettings(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
+            </div>
+            <div style={{ overflowY: "auto", flex: 1, paddingRight: "5px" }}>
+              <h3 style={{fontSize: "14px", color: "#ef4444", borderBottom: "1px dashed #ef4444", paddingBottom: "4px"}}>1. ĐỔI MẬT KHẨU</h3>
+              <div style={{marginBottom: "10px"}}><label style={{fontSize: "11px", fontWeight: "bold", color: "#64748b"}}>Mật khẩu Quản lý (admin):</label><input value={newAdminPass} onChange={e => setNewAdminPass(e.target.value)} style={{width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", boxSizing: "border-box", marginTop: "4px"}} /></div>
+              <div style={{marginBottom: "20px"}}><label style={{fontSize: "11px", fontWeight: "bold", color: "#64748b"}}>Mật khẩu Thu ngân (nhanvien):</label><input value={newStaffPass} onChange={e => setNewStaffPass(e.target.value)} style={{width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", boxSizing: "border-box", marginTop: "4px"}} /></div>
+              <h3 style={{fontSize: "14px", color: "#10b981", borderBottom: "1px dashed #10b981", paddingBottom: "4px"}}>2. CẤU HÌNH QR THANH TOÁN</h3>
+              <div style={{marginBottom: "10px"}}><label style={{fontSize: "11px", fontWeight: "bold", color: "#64748b"}}>Ngân hàng nhận tiền:</label><select value={newBankBin} onChange={e => setNewBankBin(e.target.value)} style={{width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", boxSizing: "border-box", marginTop: "4px", backgroundColor: "#fff"}}><option value="970422">MBBank (Ngân hàng Quân Đội)</option><option value="970436">Vietcombank</option><option value="970407">Techcombank</option><option value="970415">VietinBank</option><option value="970418">BIDV</option><option value="970405">Agribank</option><option value="970416">ACB (Á Châu)</option><option value="970432">VPBank</option><option value="970423">TPBank (Tiên Phong)</option><option value="970403">Sacombank</option><option value="970441">VIB (Quốc Tế)</option><option value="970437">HDBank</option><option value="970440">SeABank</option><option value="970426">MSB (Hàng Hải)</option><option value="970443">SHB</option><option value="970449">LienVietPostBank (LPB)</option><option value="970448">OCB (Phương Đông)</option><option value="970431">Eximbank</option></select></div>
+              <div style={{marginBottom: "10px"}}><label style={{fontSize: "11px", fontWeight: "bold", color: "#64748b"}}>Số tài khoản:</label><input value={newBankAcc} onChange={e => setNewBankAcc(e.target.value)} style={{width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", boxSizing: "border-box", marginTop: "4px"}} /></div>
+              <div style={{marginBottom: "20px"}}><label style={{fontSize: "11px", fontWeight: "bold", color: "#64748b"}}>Tên chủ tài khoản (Không dấu):</label><input value={newBankNameStr} onChange={e => setNewBankNameStr(e.target.value.toUpperCase())} style={{width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", boxSizing: "border-box", marginTop: "4px"}} /></div>
+              <button onClick={saveSettings} style={{width: "100%", padding: "12px", backgroundColor: "#3b82f6", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer"}}>💾 LƯU CÀI ĐẶT</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showStatsModal && (
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div className="glass" style={{ padding: "25px", width: "500px" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #fed7aa", paddingBottom: "10px", marginBottom: "15px" }}>
+              <h2 style={{ margin: 0, color: "#3b82f6" }}>📊 BÁO CÁO TÀI CHÍNH & TỒN KHO</h2>
+              <button onClick={() => setShowStatsModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
+            </div>
+            
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", marginBottom: "15px" }}>
+              <div style={{ backgroundColor: "#eff6ff", padding: "10px", borderRadius: "8px", border: "1px solid #bfdbfe", textAlign: "center" }}>
+                <div style={{ fontSize: "10px", color: "#3b82f6", fontWeight: "bold" }}>TỔNG DOANH THU</div>
+                <div style={{ fontSize: "14px", fontWeight: "bold", color: "#1e3a8a", marginTop: "4px" }}>{todayStats.totalSales.toLocaleString()}đ</div>
+              </div>
+              <div style={{ backgroundColor: "#fef2f2", padding: "10px", borderRadius: "8px", border: "1px solid #fecaca", textAlign: "center" }}>
+                <div style={{ fontSize: "10px", color: "#ef4444", fontWeight: "bold" }}>TỔNG CHI PHÍ</div>
+                <div style={{ fontSize: "14px", fontWeight: "bold", color: "#b91c1c", marginTop: "4px" }}>-{todayStats.expenses.toLocaleString()}đ</div>
+              </div>
+              <div style={{ backgroundColor: "#f0fdf4", padding: "10px", borderRadius: "8px", border: "1px solid #bbf7d0", textAlign: "center" }}>
+                <div style={{ fontSize: "10px", color: "#16a34a", fontWeight: "bold" }}>LỢI NHUẬN RÒNG</div>
+                <div style={{ fontSize: "14px", fontWeight: "bold", color: "#14532d", marginTop: "4px" }}>{todayStats.netProfit.toLocaleString()}đ</div>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: "20px" }}>
+               <h3 style={{ fontSize: "12px", color: "#475569", margin: "0 0 5px 0" }}>📈 Biểu đồ doanh thu 30 ngày qua</h3>
+               <div className="chart-container-scroll">
+                  {chartData.map((d, i) => (
+                      <div key={i} className="chart-bar-group">
+                         <div className="chart-val" style={{ visibility: d.showLabel && d.total > 0 ? 'visible' : 'hidden' }}>{(d.total/1000).toFixed(0)}k</div>
+                         <div className="chart-bar" style={{ height: d.height }}></div>
+                         <div className="chart-label" style={{ visibility: d.showLabel ? 'visible' : 'hidden' }}>{d.label}</div>
+                      </div>
+                  ))}
+               </div>
+            </div>
+
+            <div style={{ display: "flex", gap: "20px" }}>
+               <div style={{ flex: 1 }}>
+                  <h3 style={{ fontSize: "12px", color: "#1e293b", margin: "0 0 8px 0" }}>🏆 Top Bán Chạy</h3>
+                  {topSelling.map((item, idx) => (
+                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px dashed #e2e8f0", fontSize: "11px" }}>
+                      <span style={{overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "120px"}}>{idx + 1}. {cleanName(item[0])}</span><span style={{fontWeight: "bold", color: "#10b981"}}>{item[1]}</span>
+                    </div>
+                  ))}
+               </div>
+               <div style={{ flex: 1 }}>
+                  <h3 style={{ fontSize: "12px", color: "#b91c1c", margin: "0 0 8px 0" }}>📉 Sắp hết hàng</h3>
+                  {products.filter(p=>p.stock > 0 && p.stock < 10).slice(0,5).map((p, idx) => (
+                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px dashed #e2e8f0", fontSize: "11px" }}>
+                      <span style={{overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "120px"}}>{cleanName(p.name)}</span><span style={{fontWeight: "bold", color: "#ef4444"}}>Còn {p.stock}</span>
+                    </div>
+                  ))}
+               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showHandoverModal && (
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div className="glass" style={{ padding: "30px", width: "350px", textAlign: "center" }} onClick={e => e.stopPropagation()}>
+            <h2 style={{ margin: "0 0 15px 0", color: "#ef4444", fontSize: "22px" }}>📋 BIÊN BẢN CHỐT CA</h2>
+            <div style={{ backgroundColor: "#fff7ed", padding: "15px", borderRadius: "10px", border: "1px dashed #fdba74", textAlign: "left", fontSize: "14px", lineHeight: "1.8" }}>
+              <div>👤 Người trực: <b>{role === 'admin' ? "Quản lý" : "Thu ngân"}</b></div>
+              <div>⏰ Ca làm việc: <b style={{color: "#b91c1c"}}>{shift}</b></div>
+              <div style={{ borderTop: "1px solid #fed7aa", margin: "10px 0" }}></div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span>💵 Tổng thu ca này:</span><b style={{color: "#059669", fontSize: "16px"}}>{currentShiftStats.rev.toLocaleString()}đ</b></div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color:"#64748b" }}><span>- Tiền mặt:</span><b>{currentShiftStats.cash.toLocaleString()}đ</b></div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color:"#64748b", marginBottom: "8px" }}><span>- Chuyển khoản:</span><b>{currentShiftStats.transfer.toLocaleString()}đ</b></div>
+              {role === 'admin' && <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px dashed #fed7aa", paddingTop: "8px" }}><span>📈 Lợi nhuận ca này:</span><b style={{color: "#3b82f6"}}>{currentShiftStats.prof.toLocaleString()}đ</b></div>}
+            </div>
+            <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+              <button onClick={() => setShowHandoverModal(false)} style={{ flex: 1, padding: "12px", borderRadius: "8px", border: "none", background: "#e2e8f0", fontWeight: "bold", cursor: "pointer" }}>Hủy</button>
+              <button onClick={confirmHandover} style={{ flex: 2, padding: "12px", backgroundColor: "#ef4444", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>✔️ ĐĂNG XUẤT</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCustomerModal && (
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div className="glass" style={{ padding: "25px", width: "600px", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #c7d2fe", paddingBottom: "10px", marginBottom: "10px" }}>
+              <h2 style={{ margin: 0, color: "#4f46e5" }}>🤝 QUẢN LÝ KHÁCH HÀNG & HẠNG THẺ</h2>
+              <button onClick={() => setShowCustomerModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
+            </div>
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              {Object.keys(customers).length === 0 && <div style={{textAlign: "center", color: "#94a3b8", marginTop: "20px"}}>Chưa có dữ liệu khách hàng.</div>}
+              {Object.keys(customers).map(phone => {
+                const c = customers[phone]; const tier = getCustomerTier(c.totalSpent || 0);
+                return (
+                <div key={phone} style={{ padding: "12px", borderBottom: "1px dashed #cbd5e1", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", backgroundColor: tier.bg, borderRadius: "8px", marginBottom: "8px", border: `1px solid ${tier.border}` }}>
+                  <div style={{flex: 1, minWidth: "200px"}}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <div style={{ fontWeight: "bold", color: "#1e293b", cursor: "pointer", fontSize: "15px" }} onClick={() => { const newName = window.prompt("Sửa tên khách hàng:", c.name); if(newName) { setCustomers((prev:any) => ({...prev, [phone]: {...prev[phone], name: newName}})); logAudit("SỬA KHÁCH HÀNG", `Đổi tên KH ${phone} thành ${newName}`); } }} title="Bấm để sửa tên">{c.name} ✏️</div>
+                        <span style={{ fontSize: "10px", fontWeight: "900", color: tier.color, border: `1px solid ${tier.color}`, padding: "2px 6px", borderRadius: "12px", backgroundColor: "#fff" }}>{tier.name}</span>
+                    </div>
+                    <div style={{ fontSize: "11px", color: "#64748b", marginTop: "4px" }}>
+                      <span onClick={() => handleEditPhone(phone)} style={{cursor: "pointer", fontWeight: "bold"}} title="Bấm để Đổi số điện thoại">📞 {phone} ✏️</span>
+                      <span style={{cursor: "pointer", color: "#3b82f6", fontWeight: "bold", marginLeft: "10px"}} onClick={() => { const newEmail = window.prompt("Sửa Email khách hàng:", c.email || ""); if(newEmail !== null) { setCustomers((prev:any) => ({...prev, [phone]: {...prev[phone], email: newEmail.trim()}})); logAudit("SỬA EMAIL KH", `Cập nhật Email KH ${phone}`); } }} title="Bấm để cập nhật Email">{c.email ? `📧 ${c.email}` : `📧 +Thêm Mail`}</span>
+                    </div>
+                    <div style={{ fontSize: "11px", color: "#64748b", marginTop: "6px", display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span onClick={() => { const newCard = window.prompt("Nhập/Sửa mã Thẻ cứng của khách:", c.cardCode || ""); if(newCard !== null) { setCustomers((prev:any) => ({...prev, [phone]: {...prev[phone], cardCode: newCard.trim()}})); logAudit("SỬA MÃ THẺ", `Cập nhật mã thẻ KH ${phone}`); } }} style={{cursor: "pointer", color: "#ea580c", fontWeight: "bold", marginRight: "10px"}} title="Cài đặt mã Thẻ thành viên (Barcode)">{c.cardCode ? `💳 Mã: ${c.cardCode}` : `💳 +Gán Mã Thẻ`}</span>
+                      <button onClick={() => printCustomerCard(phone)} style={{ padding: "4px 6px", backgroundColor: "#dc2626", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="In thẻ cứng (Cỡ thẻ ATM)">🖨️ In Thẻ</button>
+                      <button onClick={() => sendCardEmail(phone)} style={{ padding: "4px 6px", backgroundColor: "#3b82f6", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="Gửi thẻ điện tử tự động qua Email">📧 Mail</button>
+                      <button onClick={() => shareToZalo(phone)} style={{ padding: "4px 6px", backgroundColor: "#059669", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="Copy ảnh và mở Zalo">💬 Zalo</button>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ color: "#475569", fontSize: "10px", marginBottom: "4px" }}>Đã chi tiêu: <b style={{color: "#0f172a"}}>{(c.totalSpent || 0).toLocaleString()}đ</b></div>
+                    <div style={{ color: "#10b981", fontWeight: "bold", fontSize: "12px" }}>Ví: {(c.wallet || 0).toLocaleString()}đ</div>
+                    <div style={{ color: "#ef4444", fontWeight: "bold", fontSize: "12px" }}>Nợ: {(c.debt || 0).toLocaleString()}đ</div>
+                  </div>
+                </div>
+              )})}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDebtModal && (
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div className="glass" style={{ padding: "25px", width: "400px", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #fed7aa", paddingBottom: "10px", marginBottom: "10px" }}>
+              <h2 style={{ margin: 0, color: "#ef4444" }}>📓 SỔ GHI NỢ</h2>
+              <button onClick={() => setShowDebtModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
+            </div>
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              {Object.keys(customers).filter(p => (customers[p].debt || 0) > 0).map(phone => (
+                <div key={phone} style={{ padding: "10px", borderBottom: "1px dashed #cbd5e1", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontWeight: "bold", color: "#1e293b" }}>{customers[phone].name}</div>
+                    <div style={{ fontSize: "11px", color: "#64748b" }}>{phone}</div>
+                    <div style={{ color: "#ef4444", fontWeight: "bold" }}>Nợ: {(customers[phone].debt || 0).toLocaleString()}đ</div>
+                  </div>
+                  <button onClick={() => handlePayDebt(phone)} style={{ padding: "6px 12px", background: "#10b981", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "11px" }}>THU TIỀN</button>
+                </div>
+              ))}
+              {Object.keys(customers).filter(p => (customers[p].debt || 0) > 0).length === 0 && <div style={{textAlign: "center", color: "#94a3b8", marginTop: "20px"}}>Không có khoản nợ nào.</div>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAuditModal && (
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div className="glass" style={{ padding: "25px", width: "600px", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #cbd5e1", paddingBottom: "10px", marginBottom: "10px" }}>
+              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                <h2 style={{ margin: 0, color: "#334155" }}>🕵️ LỊCH SỬ THAO TÁC</h2>
+                <button onClick={exportAuditToCSV} style={{ fontSize: "10px", padding: "4px 8px", background: "#10b981", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>📥 XUẤT FILE</button>
+              </div>
+              <button onClick={() => setShowAuditModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
+            </div>
+            <div style={{ overflowY: "auto", flex: 1, fontSize: "12px" }}>
+              {auditLogs.length === 0 && <div style={{textAlign: "center", color: "#94a3b8", marginTop: "20px"}}>Chưa có bản ghi nào.</div>}
+              {auditLogs.map((log, idx) => (
+                <div key={idx} style={{ padding: "8px", borderBottom: "1px dashed #e2e8f0", backgroundColor: idx % 2 === 0 ? "#f8fafc" : "#fff" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+                    <span style={{ fontWeight: "bold", color: "#b91c1c" }}>[{log.action}]</span>
+                    <span style={{ color: "#64748b" }}>{log.time}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span>{log.detail}</span>
+                    <span style={{ fontWeight: "bold", color: "#3b82f6" }}>{log.user} ({log.shift})</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showHoldModal && (
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div className="glass" style={{ padding: "25px", width: "400px", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #fed7aa", paddingBottom: "10px", marginBottom: "10px" }}>
+              <h2 style={{ margin: 0, color: "#f59e0b" }}>📂 ĐƠN CHỜ THANH TOÁN</h2>
+              <button onClick={() => setShowHoldModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
+            </div>
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              {heldOrders.length === 0 && <div style={{textAlign: "center", color: "#94a3b8", marginTop: "20px"}}>Không có đơn hàng nào lưu tạm.</div>}
+              {heldOrders.map((order, idx) => (
+                <div key={order.id} style={{ padding: "10px", borderBottom: "1px dashed #cbd5e1", display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "#fffbeb", borderRadius: "8px", marginBottom: "8px" }}>
+                  <div>
+                    <div style={{ fontWeight: "bold", color: "#1e293b" }}>Đơn #{idx + 1}</div>
+                    <div style={{ fontSize: "11px", color: "#64748b" }}>⏰ Lưu lúc: {order.time}</div>
+                    <div style={{ fontSize: "11px", color: "#b91c1c", fontWeight: "bold" }}>Gồm {order.cart.reduce((s:any,i:any)=>s+(Number(i.qty)||0),0)} sản phẩm</div>
+                  </div>
+                  <div style={{ display: "flex", gap: "4px" }}>
+                    <button onClick={() => restoreOrder(order)} style={{ padding: "6px 10px", background: "#10b981", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "11px" }}>MỞ LẠI</button>
+                    <button onClick={() => deleteHeldOrder(order.id)} style={{ padding: "6px", background: "#fee2e2", color: "#ef4444", border: "1px solid #fca5a5", borderRadius: "6px", cursor: "pointer", fontSize: "11px" }}>🗑️</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {scannerMode !== null && (
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.9)", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", zIndex: 10000 }}>
+          <div style={{ background: "#fff", padding: "10px", borderRadius: "12px", width: "90%", maxWidth: "400px", position: "relative" }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ margin: "0 0 10px 0", textAlign: "center", color: "#b91c1c" }}>{scannerMode === 'voucher' ? '📷 Quét mã Voucher' : (scannerMode === 'customer' ? '📷 Quét Thẻ VIP' : '📷 Đưa mã vạch vào khung')}</h3>
+            {scanMessage && <div style={{ position: "absolute", top: "50px", left: "50%", transform: "translateX(-50%)", padding: "8px 16px", backgroundColor: scanMessage.type === 'success' ? "#10b981" : "#ef4444", color: "#fff", fontWeight: "bold", borderRadius: "20px", zIndex: 10001, boxShadow: "0 4px 6px rgba(0,0,0,0.3)", animation: "float 0.5s ease-out" }}>{scanMessage.text}</div>}
+            <div id="qr-reader" style={{ width: "100%" }}></div>
+            <button onClick={() => setScannerMode(null)} style={{ width: "100%", padding: "12px", marginTop: "15px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" }}>ĐÓNG CAMERA</button>
+          </div>
+        </div>
+      )}
+
+      {/* 💳 POPUP THANH TOÁN */}
+      {isCheckoutOpen && (
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          {checkoutStep === 1 && (
+            <div className="glass" style={{ padding: "25px", width: "350px" }} onClick={e => e.stopPropagation()}>
+              <h3 style={{ color: "#ef4444", margin: "0", textAlign: "center" }}>🧧 THANH TOÁN</h3>
+              
+              <div style={{ display: "flex", position: "relative", marginTop: "15px" }}>
+                <input type="text" placeholder="👉 Quẹt mã Voucher hoặc nhập số tiền (đ)..." value={voucherInput} onChange={(e) => setVoucherInput(e.target.value)} onKeyDown={handleVoucherSubmit} style={{ flex: 1, padding: "12px", borderRadius: "10px 0 0 10px", border: "2px dashed #f59e0b", outline: "none", boxSizing: "border-box", backgroundColor: "#fffbeb" }} />
+                <button onClick={() => setScannerMode('voucher')} style={{ padding: "0 15px", backgroundColor: "#f59e0b", border: "none", borderRadius: "0 10px 10px 0", cursor: "pointer", color: "white", fontSize: "18px" }}>📷</button>
+              </div>
+              {appliedVoucherAmount > 0 && <div style={{ color: "#059669", fontSize: "12px", fontWeight: "bold", marginTop: "4px", textAlign: "center" }}>✅ Đã áp dụng giảm: {appliedVoucherAmount.toLocaleString()}đ</div>}
+
+              {/* Ô NHẬP KHÁCH HÀNG MỚI - QUẸT THẺ VIP */}
+              <div style={{ display: "flex", position: "relative", marginTop: "10px" }}>
+                <input type="text" placeholder="👉 Quẹt Thẻ VIP / SĐT khách..." value={customerInput} onChange={handleCustomerInputChange} style={{ flex: 1, padding: "12px", borderRadius: "10px 0 0 10px", border: "2px solid #ef4444", outline: "none", boxSizing: "border-box", fontWeight: "bold", color: "#b91c1c" }} />
+                <button onClick={() => setScannerMode('customer')} style={{ padding: "0 15px", backgroundColor: "#ef4444", border: "none", borderRadius: "0 10px 10px 0", cursor: "pointer", color: "white", fontSize: "18px" }}>📷</button>
+              </div>
+              
+              {custPhone && (
+                <div style={{ marginTop: "10px", padding: "12px", backgroundColor: "#fff7ed", borderRadius: "8px", border: "1px dashed #f97316" }}>
+                  {customers[custPhone] ? (
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <div style={{ color: "#b91c1c", fontWeight: "bold" }}>⭐ {customers[custPhone].name}</div>
+                          <span style={{ fontSize: "9px", fontWeight: "900", color: getCustomerTier(customers[custPhone].totalSpent).color, border: `1px solid ${getCustomerTier(customers[custPhone].totalSpent).color}`, padding: "2px 4px", borderRadius: "8px", backgroundColor: "#fff" }}>{getCustomerTier(customers[custPhone].totalSpent).name}</span>
+                      </div>
+                      <div style={{ fontSize: "11px", color: "#059669", marginTop: "4px", fontWeight: "bold" }}>⚡ Giảm trực tiếp: {getCustomerTier(customers[custPhone].totalSpent).discountRate * 100}%</div>
+                      <div style={{ marginTop: "4px" }}>Ví điểm: <b>{Math.round(customers[custPhone].wallet || 0).toLocaleString()}đ</b> | Nợ: <b style={{color:"#ef4444"}}>{(customers[custPhone].debt || 0).toLocaleString()}đ</b></div>
+                      {(customers[custPhone].wallet || 0) > 0 && <label style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "10px", cursor: "pointer", color: "#ea580c", fontWeight: "bold" }}><input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} /> Dùng điểm lì xì!</label>}
+                    </div>
+                  ) : <input type="text" placeholder="Tên khách mới..." value={custName} onChange={e => setCustName(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: "8px", outline: "none", border: "1px solid #fdba74", boxSizing: "border-box" }} />}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+                <button onClick={() => setIsCheckoutOpen(false)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "#e2e8f0", fontWeight: "bold", cursor: "pointer" }}>Hủy</button>
+                <button onClick={handleNextToQR} style={{ flex: 2, padding: "10px", backgroundColor: "#ef4444", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>TIẾP TỤC 👉</button>
+              </div>
+            </div>
+          )}
+          
+          {checkoutStep === 2 && (
+            <div className="glass" style={{ padding: "25px", width: "350px", textAlign: "center" }} onClick={e => e.stopPropagation()}>
+              <h3 style={{ color: "#ef4444", margin: "0" }}>📱 THANH TOÁN QUẦY</h3>
+              <div style={{ color: "#ef4444", fontSize: "28px", fontWeight: "900", margin: "10px 0" }}>{finalToPay.toLocaleString()}đ</div>
+              
+              <div style={{ position: "relative" }}>
+                 <img src={`https://img.vietqr.io/image/${bankBin}-${bankAcc}-compact2.png?amount=${finalToPay}&addInfo=Thanh toan&accountName=${encodeURIComponent(bankNameStr)}`} style={{ width: "160px", margin: "0 auto 10px auto", border: "2px solid #ef4444", borderRadius: "10px", display: "block" }} alt="QR Code" />
+                 <div style={{ animation: "pulse-fast 1.5s infinite", color: "#b45309", fontSize: "11px", fontWeight: "bold", marginBottom: "5px" }}>⏳ Đang chờ nhận tiền...</div>
+                 <div style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontSize: "10px", padding: "6px", borderRadius: "4px", border: "1px dashed #ef4444", marginBottom: "15px", textAlign: "left", lineHeight: "1.4" }}><b>⚠️ CHÚ Ý:</b> KHÔNG NHÌN MÀN HÌNH KHÁCH. CHỈ BẤM <b>[CHUYỂN KHOẢN]</b> KHI APP NGÂN HÀNG BÁO CÓ TIỀN!</div>
+              </div>
+              
+              <div style={{ marginBottom: "15px", textAlign: "left", borderTop: "1px dashed #cbd5e1", paddingTop: "10px" }}>
+                <div style={{ fontSize: "12px", color: "#64748b", fontWeight: "bold", marginBottom: "5px" }}>Tiền mặt khách đưa (Chỉ dùng nếu trả Tiền mặt):</div>
+                <input type="number" placeholder="Nhập số tiền..." value={customerGiven} onChange={e => setCustomerGiven(Number(e.target.value) || "")} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", boxSizing: "border-box", fontSize: "14px", fontWeight: "bold" }} />
+                <div style={{ display: "flex", gap: "5px", marginTop: "8px", flexWrap: "wrap" }}>
+                  <button onClick={()=>setCustomerGiven(finalToPay)} style={{flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid #cbd5e1", cursor: "pointer"}}>Vừa đủ</button>
+                  <button onClick={()=>setCustomerGiven(50000)} style={{flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid #cbd5e1", cursor: "pointer"}}>50k</button>
+                  <button onClick={()=>setCustomerGiven(100000)} style={{flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid #cbd5e1", cursor: "pointer"}}>100k</button>
+                  <button onClick={()=>setCustomerGiven(200000)} style={{flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid #cbd5e1", cursor: "pointer"}}>200k</button>
+                  <button onClick={()=>setCustomerGiven(500000)} style={{flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid #cbd5e1", cursor: "pointer"}}>500k</button>
+                </div>
+                {customerGiven !== "" && Number(customerGiven) >= finalToPay && <div style={{ marginTop: "10px", padding: "10px", backgroundColor: "#ecfdf5", border: "1px dashed #10b981", borderRadius: "8px", color: "#059669", fontWeight: "bold", fontSize: "16px", textAlign: "center" }}>THỐI LẠI: {(Number(customerGiven) - finalToPay).toLocaleString()}đ</div>}
+              </div>
+
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                <button onClick={() => setCheckoutStep(1)} style={{ flex: "1 1 100%", padding: "8px", borderRadius: "8px", border: "none", background: "#e2e8f0", cursor: "pointer", fontWeight: "bold" }}>Quay lại</button>
+                <button onClick={() => confirmCheckout('GHI NỢ')} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#f59e0b", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer", fontSize: "11px" }}>📝 GHI NỢ</button>
+                <button onClick={() => confirmCheckout('CHUYỂN KHOẢN')} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#3b82f6", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer", fontSize: "11px" }}>💳 CHUYỂN KHOẢN</button>
+                <button onClick={() => {
+                    if (finalToPay > 0 && (customerGiven === "" || Number(customerGiven) < finalToPay)) { playSound('error'); alert(`Khách đưa chưa đủ tiền mặt! Cần thanh toán: ${finalToPay.toLocaleString()}đ`); return; }
+                    confirmCheckout('TIỀN MẶT');
+                }} disabled={loading} style={{ flex: 1, padding: "10px", backgroundColor: "#10b981", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer", fontSize: "11px" }}>💵 TIỀN MẶT</button>
+              </div>
+            </div>
+          )}
+          {checkoutStep === 3 && (
+            <div className="glass" style={{ padding: "30px", width: "350px", textAlign: "center" }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontSize: "40px" }}>🌸</div><h3 style={{ color: "#10b981", margin: "10px 0" }}>Thành công!</h3>
+              <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+                <button onClick={() => { setPrintMode('receipt'); setTimeout(()=>window.print(), 300); }} style={{ flex: 1, padding: "12px", backgroundColor: "#ef4444", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer", fontSize: "12px" }}>🖨️ In Hóa Đơn</button>
+                <button onClick={sendReceiptEmail} disabled={loading} style={{ flex: 1, padding: "12px", backgroundColor: "#3b82f6", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer", fontSize: "12px" }}>{loading ? "Đang gửi..." : "📧 Gửi Email"}</button>
+                <button onClick={closeCheckout} style={{ flex: 1, padding: "12px", backgroundColor: "#e2e8f0", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer", fontSize: "12px", color: "#1e293b" }}>Đóng</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 🖨️ BIÊN LAI BÁN HÀNG VÀ TEM MÃ VẠCH (SẼ CHẠY KHI IN) */}
+      {lastOrder && printMode === 'receipt' && (
+        <div className="print-only print-receipt">
+          <div className="print-header">
+            <h2>HẢI LÊ MART</h2>
+            <p>Tòa Nhà ATS, 252 Hoàng Quốc Việt, HN</p>
+            <p>Hotline: 0902 613 899</p>
+          </div>
+          <div className="print-divider"></div>
+          <div className="print-info">
+            <div><div><b>HĐ:</b> {lastOrder.orderId}</div><div><b>Ngày:</b> {lastOrder.time.split(' ')[1]} {lastOrder.time.split(' ')[0]}</div></div>
+            <div style={{ textAlign: "right" }}><div><b>Ca:</b> {shift}</div><div><b>TN:</b> {role}</div></div>
+          </div>
+          <div className="print-divider"></div>
+          <div style={{ width: "100%" }}>
+            {lastOrder.cart.map((item: any, idx: number) => {
+              const price = Math.round(getActualPrice(item.product));
+              const itemTotal = Math.round((Number(item.qty)||0) * price);
+              const gift = parseGift(item.product.gift_info);
+              const hasGift = gift.text && (Number(item.qty)||0) >= gift.cond;
+              return (
+                <div key={idx} style={{ borderBottom: "1px dotted #ccc" }}>
+                  <div className="print-item-name">{cleanName(item.product.name)} {item.product.isHappyHour && <span style={{fontSize:"9px", fontStyle:"italic"}}>[Giờ Vàng]</span>}</div>
+                  <div className="print-item-details"><span>{item.qty} x {price.toLocaleString()}</span><span style={{ fontWeight: "bold" }}>{itemTotal.toLocaleString()}</span></div>
+                  {hasGift && <div className="print-gift">+ 🎁 Tặng: {gift.text}</div>}
+                </div>
+              );
+            })}
+          </div>
+          <div className="print-divider"></div>
+          <div className="print-totals">
+            <div className="print-totals-row"><span>Cộng tiền hàng:</span><span>{Math.round(lastOrder.subTotal).toLocaleString()}đ</span></div>
+            <div className="print-totals-row"><span>Thuế GTGT ({VAT_RATE * 100}%):</span><span>{Math.round(lastOrder.vatTotal).toLocaleString()}đ</span></div>
+            {lastOrder.discount > 0 && <div className="print-totals-row"><span>Giảm giá/Ví:</span><span>-{Math.round(lastOrder.discount).toLocaleString()}đ</span></div>}
+            <div className="print-grand-total"><span>{lastOrder.debtAmount > 0 ? "KHÁCH NỢ:" : "TỔNG CỘNG:"}</span><span>{Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</span></div>
+            {lastOrder.paymentMethod === 'TIỀN MẶT' && lastOrder.customerGiven > 0 && (
+              <div style={{ marginTop: '8px', borderTop: '1px dotted #ccc', paddingTop: '5px' }}>
+                <div className="print-totals-row"><span>Tiền khách đưa:</span><span>{Math.round(lastOrder.customerGiven).toLocaleString()}đ</span></div>
+                <div className="print-totals-row"><span><b>Tiền trả lại:</b></span><span><b>{Math.round(lastOrder.customerGiven - lastOrder.finalTotal).toLocaleString()}đ</b></span></div>
+              </div>
+            )}
+            {lastOrder.paymentMethod === 'CHUYỂN KHOẢN' && ( <div style={{ marginTop: '8px', borderTop: '1px dotted #ccc', paddingTop: '5px' }}><div className="print-totals-row"><span>Hình thức TT:</span><span>Chuyển khoản (VietQR)</span></div></div> )}
+          </div>
+          <div className="print-footer"><div><b>CẢM ƠN QUÝ KHÁCH & HẸN GẶP LẠI!</b></div><div style={{ marginTop: "5px", fontSize: "10px", color: "#666" }}><i>Powered by Hải Lê POS</i></div></div>
+        </div>
+      )}
+      {printMode === 'barcode' && printBarcodeProduct && (
+        <div className="print-only print-barcode-sheet">
+          {Array.from({length: barcodeCount}).map((_, i) => (
+            <div key={i} className="barcode-sticker">
+              <div style={{fontSize: "11px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"}}>{cleanName(printBarcodeProduct.name)}</div>
+              <img src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(printBarcodeProduct.product_code)}&scale=2&height=10&includetext=false`} onError={(e) => { e.currentTarget.src = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(printBarcodeProduct.product_code)}&code=Code128&translate-esc=on`; }} style={{maxWidth: "100%", height: "40px", marginTop: "4px"}} alt={printBarcodeProduct.product_code} />
+              <div style={{fontSize: "10px", fontFamily: "monospace", letterSpacing: "1px", color: "#333"}}>{printBarcodeProduct.product_code}</div>
+              <div style={{fontSize: "14px", fontWeight: "900", color: "#000", marginTop: "2px"}}>{getActualPrice(printBarcodeProduct).toLocaleString()}đ</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
