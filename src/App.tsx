@@ -3,7 +3,7 @@
 import React,{useEffect,useState,useMemo}from "react";
 import {supabase}from "./supabaseClient";
 
-const styles=`@keyframes wave{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}@keyframes float{0%{transform:translateY(0)}50%{transform:translateY(-20px)}100%{transform:translateY(0)}}@keyframes pulse-fast{0%{opacity:1}50%{opacity:.5}100%{opacity:1}}@keyframes logo-glow{0%,100%{box-shadow:0 0 10px rgba(250,204,21,0.2), 0 0 20px rgba(250,204,21,0.2) inset; transform: scale(1)}50%{box-shadow:0 0 25px rgba(250,204,21,1), 0 0 40px rgba(250,204,21,0.8), 0 0 20px rgba(250,204,21,0.5) inset; transform: scale(1.05)}}.logo-icon{animation:logo-glow 2s infinite ease-in-out;background-color:#dc2626;padding:8px;border-radius:10px;display:flex;align-items:center;justify-content:center}.spring-bg{position:fixed;width:400px;height:400px;border-radius:50%;filter:blur(100px);z-index:-1;opacity:.3;animation:float 10s infinite ease-in-out}.glass{background:rgba(255,255,255,.98);border:1px solid #fed7aa;border-radius:12px;box-shadow:0 4px 15px rgba(251,146,60,.08)}body{background-color:#fff7ed;margin:0;font-family:'Inter',sans-serif;color:#431407}.tab-btn{padding:6px 12px;border-radius:20px;border:1px solid #fed7aa;background:#fff;cursor:pointer;font-size:12px;font-weight:bold;color:#9a3412;white-space:nowrap}.tab-btn.active{background:#ef4444;color:#fff;border-color:#ef4444}.chart-container-scroll{display:flex;align-items:flex-end;height:120px;margin-top:15px;padding-top:10px;border-top:1px dashed #cbd5e1;overflow-x:auto;padding-bottom:5px;gap:4px}.chart-bar-group{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:20px}.chart-bar{width:8px;background:linear-gradient(0deg,#ef4444 0%,#fca5a5 100%);border-radius:4px 4px 0 0;transition:height .5s;min-height:2px}.chart-label{font-size:8px;color:#64748b;margin-top:4px;font-weight:bold;white-space:nowrap}.chart-val{font-size:8px;color:#b91c1c;font-weight:bold;margin-bottom:2px}.noti-bell{position:relative;display:inline-block;cursor:pointer}.noti-badge{position:absolute;top:-5px;right:-5px;background:#ef4444;color:white;border-radius:50%;padding:2px 6px;font-size:9px;font-weight:bold;animation:pulse-fast 1s infinite}@media print{.no-print{display:none!important}.print-only{display:block!important;width:100%;padding:0 5mm;box-sizing:border-box}.print-flex{display:flex!important;width:100%}body{background:#fff!important;margin:0;padding:0}@page{margin:0}}.print-only,.print-flex{display:none}.qty-input{width:28px;text-align:center;border:1px solid #cbd5e1;border-radius:4px;outline:none;font-size:11px;font-weight:bold;color:#1e293b;padding:3px 0;background:#fff}.qty-input::-webkit-outer-spin-button,.qty-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}.qty-input[type=number]{-moz-appearance:textfield}.add-to-cart-btn{padding:8px 16px;background-color:#fbbf24;color:#78350f;border:none;border-radius:6px;font-weight:900;cursor:pointer;font-size:12px;transition:transform .1s,background-color .2s;box-shadow:0 2px 4px rgba(251,191,36,.3)}.add-to-cart-btn:hover{background-color:#f59e0b;transform:scale(1.05)}.add-to-cart-btn:active{transform:scale(.95)}.input-label{font-size:10px;font-weight:bold;color:#64748b;text-transform:uppercase}.input-label-red{font-size:10px;font-weight:bold;color:#ef4444;text-transform:uppercase}.input-label-green{font-size:10px;font-weight:bold;color:#10b981;text-transform:uppercase}`;
+const styles=`@keyframes wave{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}@keyframes float{0%{transform:translateY(0)}50%{transform:translateY(-20px)}100%{transform:translateY(0)}}@keyframes pulse-fast{0%{opacity:1}50%{opacity:.5}100%{opacity:1}}@keyframes logo-glow{0%,100%{box-shadow:0 0 10px rgba(250,204,21,0.2), 0 0 20px rgba(250,204,21,0.2) inset; transform: scale(1)}50%{box-shadow:0 0 25px rgba(250,204,21,1), 0 0 40px rgba(250,204,21,0.8), 0 0 20px rgba(250,204,21,0.5) inset; transform: scale(1.05)}}.logo-icon{animation:logo-glow 2s infinite ease-in-out;background-color:#dc2626;padding:8px;border-radius:10px;display:flex;align-items:center;justify-content:center}.spring-bg{position:fixed;width:400px;height:400px;border-radius:50%;filter:blur(100px);z-index:-1;opacity:.3;animation:float 10s infinite ease-in-out}.glass{background:rgba(255,255,255,.98);border:1px solid #fed7aa;border-radius:12px;box-shadow:0 4px 15px rgba(251,146,60,.08)}body{background-color:#fff7ed;margin:0;font-family:'Inter',sans-serif;color:#431407}.tab-btn{padding:6px 12px;border-radius:20px;border:1px solid #fed7aa;background:#fff;cursor:pointer;font-size:12px;font-weight:bold;color:#9a3412;white-space:nowrap}.tab-btn.active{background:#ef4444;color:#fff;border-color:#ef4444}.chart-container-scroll{display:flex;align-items:flex-end;height:120px;margin-top:15px;padding-top:10px;border-top:1px dashed #cbd5e1;overflow-x:auto;padding-bottom:5px;gap:4px}.chart-bar-group{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:20px}.chart-bar{width:8px;background:linear-gradient(0deg,#ef4444 0%,#fca5a5 100%);border-radius:4px 4px 0 0;transition:height .5s;min-height:2px}.chart-label{font-size:8px;color:#64748b;margin-top:4px;font-weight:bold;white-space:nowrap}.chart-val{font-size:8px;color:#b91c1c;font-weight:bold;margin-bottom:2px}.noti-bell{position:relative;display:inline-block;cursor:pointer}.noti-badge{position:absolute;top:-5px;right:-5px;background:#ef4444;color:white;border-radius:50%;padding:2px 6px;font-size:9px;font-weight:bold;animation:pulse-fast 1s infinite}@media print{.no-print{display:none!important}.print-only{display:block!important;position:absolute!important;left:50%!important;transform:translateX(-50%)!important;width:80mm!important;padding:5mm!important;box-sizing:border-box!important}.print-flex{display:flex!important;width:100%}body{background:#fff!important;margin:0;padding:0}@page{margin:0}}.print-only,.print-flex{display:none}.qty-input{width:28px;text-align:center;border:1px solid #cbd5e1;border-radius:4px;outline:none;font-size:11px;font-weight:bold;color:#1e293b;padding:3px 0;background:#fff}.qty-input::-webkit-outer-spin-button,.qty-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}.qty-input[type=number]{-moz-appearance:textfield}.add-to-cart-btn{padding:8px 16px;background-color:#fbbf24;color:#78350f;border:none;border-radius:6px;font-weight:900;cursor:pointer;font-size:12px;transition:transform .1s,background-color .2s;box-shadow:0 2px 4px rgba(251,191,36,.3)}.add-to-cart-btn:hover{background-color:#f59e0b;transform:scale(1.05)}.add-to-cart-btn:active{transform:scale(.95)}.input-label{font-size:10px;font-weight:bold;color:#64748b;text-transform:uppercase}.input-label-red{font-size:10px;font-weight:bold;color:#ef4444;text-transform:uppercase}.input-label-green{font-size:10px;font-weight:bold;color:#10b981;text-transform:uppercase}`;
 
 export default function App(){
   const VAT_RATE=0.1;const EMAILJS_SERVICE_ID="service_7ie990l",EMAILJS_TEMPLATE_ID="template_t91erhg",EMAILJS_TEMPLATE_VIP_ID="template_m1j9i7k",EMAILJS_PUBLIC_KEY="5ric0kxuwNPlUleAv";
@@ -20,9 +20,7 @@ export default function App(){
   const [newCode,setNewCode]=useState(""),[newName,setNewName]=useState(""),[newImportPrice,setNewImportPrice]=useState(""),[newPrice,setNewPrice]=useState(""),[newPromoPrice,setNewPromoPrice]=useState(""),[newGiftCondition,setNewGiftCondition]=useState("1"),[newGiftInfo,setNewGiftInfo]=useState(""),[newStock,setNewStock]=useState(""),[newExpiry,setNewExpiry]=useState(""),[newCategory,setNewCategory]=useState("Đồ uống");
   const [expName,setExpName]=useState(""),[expAmount,setExpAmount]=useState(""),[supName,setSupName]=useState(""),[supPhone,setSupPhone]=useState(""),[supItem,setSupItem]=useState(""),[marketingTier,setMarketingTier]=useState("Tất cả"),[marketingMsg,setMarketingMsg]=useState("");
   const [cart,setCart]=useState<any[]>([]),[barcodeInput,setBarcodeInput]=useState("");
-  const [isCheckoutOpen,setIsCheckoutOpen]=useState(false),[checkoutStep,setCheckoutStep]=useState(1),[customerInput,setCustomerInput]=useState(""),[custPhone,setCustPhone]=useState(""),[custName,setCustName]=useState(""),[useWallet,setUseWallet]=useState(false),[voucherInput,setVoucherInput]=useState(""),[appliedVoucherAmount,setAppliedVoucherAmount]=useState<number>(0),[customerGiven,setCustomerGiven]=useState<number|"">(""),[lastOrder,setLastOrder]=useState<any>(null);
-  const [expandedDates,setExpandedDates]=useState<Record<string,boolean>>({}),[logSearchTerm,setLogSearchTerm]=useState(""),[logTypeFilter,setLogTypeFilter]=useState("Tất cả");
-
+  
   // DỮ LIỆU ĐÁM MÂY (CLOUD)
   const [customers,setCustomers]=useState<any>({});
   const [heldOrders,setHeldOrders]=useState<any[]>([]);
@@ -50,6 +48,9 @@ export default function App(){
     } catch (err) { console.error("Lỗi tải Cloud:", err); }
   };
 
+  const [isCheckoutOpen,setIsCheckoutOpen]=useState(false),[checkoutStep,setCheckoutStep]=useState(1),[customerInput,setCustomerInput]=useState(""),[custPhone,setCustPhone]=useState(""),[custName,setCustName]=useState(""),[useWallet,setUseWallet]=useState(false),[voucherInput,setVoucherInput]=useState(""),[appliedVoucherAmount,setAppliedVoucherAmount]=useState<number>(0),[customerGiven,setCustomerGiven]=useState<number|"">(""),[lastOrder,setLastOrder]=useState<any>(null);
+  const [expandedDates,setExpandedDates]=useState<Record<string,boolean>>({}),[logSearchTerm,setLogSearchTerm]=useState(""),[logTypeFilter,setLogTypeFilter]=useState("Tất cả");
+
   const playSound=(type:'success'|'error')=>{try{const ctx=new(window.AudioContext||(window as any).webkitAudioContext)();const osc=ctx.createOscillator();const gain=ctx.createGain();osc.connect(gain);gain.connect(ctx.destination);if(type==='success'){osc.frequency.value=800;gain.gain.setValueAtTime(0.1,ctx.currentTime);osc.start(ctx.currentTime);osc.stop(ctx.currentTime+0.1)}else{osc.frequency.value=250;osc.type='square';gain.gain.setValueAtTime(0.1,ctx.currentTime);osc.start(ctx.currentTime);osc.stop(ctx.currentTime+0.3)}}catch(e){}};
   
   const logAudit=async(action:string,detail:string)=>{
@@ -65,20 +66,59 @@ export default function App(){
   
   const fetchProducts=async()=>{const{data}=await supabase.from("products").select("*").order("created_at",{ascending:false});if(data)setProducts(data)};
   const findProductByCode=(code:string)=>{const rawCode=code.trim();let matches=products.filter(prod=>prod.product_code===rawCode||prod.product_code.startsWith(`${rawCode}-`));let available=matches.filter(p=>p.stock>0);if(available.length>0){available.sort((a,b)=>{if(!a.expiry_date)return 1;if(!b.expiry_date)return -1;return new Date(a.expiry_date).getTime()-new Date(b.expiry_date).getTime()});return available[0]}return matches.length>0?matches[0]:null};
-  const getOldestAvailableBatch=(p:any)=>{const baseCode=p.product_code.split('-')[0];let availableMatches=products.filter(prod=>(prod.product_code===baseCode||prod.product_code.startsWith(`${baseCode}-`))&&prod.stock>0);if(availableMatches.length===0)return p;availableMatches.sort((a,b)=>{if(!a.expiry_date)return 1;if(!b.expiry_date)return -1;return new Date(a.expiry_date).getTime()-new Date(b.expiry_date).getTime()});return availableMatches[0]};
-
+  
   useEffect(()=>{const timer=setInterval(()=>setCurrentTime(new Date()),1000);return()=>clearInterval(timer)},[]);
   useEffect(()=>{if(isLoggedIn){fetchProducts();loadCloudData();const channel=supabase.channel("db_changes").on("postgres_changes",{event:"*",schema:"public",table:"products"},()=>fetchProducts()).subscribe();const script=document.createElement("script");script.src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js";script.onload=()=>{ (window as any).emailjs.init(EMAILJS_PUBLIC_KEY); };document.head.appendChild(script);return()=>{supabase.removeChannel(channel)}}},[isLoggedIn]);
   useEffect(()=>{if(scannerMode!==null){let scanner:any;let lastScanTime=0;const loadScanner=()=>{if((window as any).Html5QrcodeScanner){scanner=new(window as any).Html5QrcodeScanner("qr-reader",{fps:15,qrbox:{width:250,height:120},rememberLastUsedCamera:true},false);scanner.render((text:string)=>{const now=Date.now();if(now-lastScanTime<1500)return;lastScanTime=now;setScannedCodeObj({code:text,time:now})},undefined)}};if(!(window as any).Html5QrcodeScanner){const script=document.createElement("script");script.src="https://unpkg.com/html5-qrcode";script.onload=loadScanner;document.head.appendChild(script)}else loadScanner();return()=>{if(scanner)scanner.clear().catch(()=>{})}}},[scannerMode]);
   
+  const handleSelectSuggest=(p_input:any)=>{
+    let soundType='success';
+    setCart(prev=>{
+        const baseCode=p_input.product_code.split('-')[0];
+        let availableMatches=products.filter(prod=>{
+            const inCart=prev.find(item=>item.product.id===prod.id)?.qty||0;
+            return (prod.product_code===baseCode||prod.product_code.startsWith(`${baseCode}-`))&&(prod.stock-inCart>0);
+        });
+        let p=p_input;
+        if(availableMatches.length>0){
+            availableMatches.sort((a,b)=>{if(!a.expiry_date)return 1;if(!b.expiry_date)return -1;return new Date(a.expiry_date).getTime()-new Date(b.expiry_date).getTime()});
+            p=availableMatches[0];
+        }
+        const inCartNow=prev.find(item=>item.product.id===p.id)?.qty||0;
+        if(inCartNow>=p.stock){
+            soundType='error';
+            return prev;
+        }
+        setTimeout(()=>{
+            if(p.id!==p_input.id) setScanMessage({text:`⚡ Tự động lấy Lô cũ nhất`,type:'success'});
+            else setScanMessage({text:`✅ Đã thêm vào giỏ`,type:'success'});
+            setTimeout(()=>setScanMessage(null),2000);
+        },10);
+        const price=getActualPrice(p);
+        const exist=prev.find(item=>item.product.id===p.id);
+        if(exist){
+            const newQty=exist.qty+1;
+            return prev.map(i=>i.product.id===p.id?{...i,qty:newQty,total:Math.round(newQty*price*(1+VAT_RATE)),profit:Math.round(newQty*(price-(p.import_price||0)))}:i);
+        }else{
+            return[...prev,{product:p,qty:1,total:Math.round(price*(1+VAT_RATE)),profit:Math.round(price-(p.import_price||0))}];
+        }
+    });
+    setTimeout(()=>{
+        playSound(soundType as any);
+        if(soundType==='error') alert("Kho đã cạn! Không thể thêm nữa.");
+    },10);
+    setBarcodeInput("");setShowSuggestions(false);
+  };
+
   useEffect(()=>{
     if(scannedCodeObj){
       if(scannerMode==='product'){const p=findProductByCode(scannedCodeObj.code);if(p)handleSelectSuggest(p);else{const matchedPhone=Object.keys(customers).find(phone=>phone===scannedCodeObj.code.trim()||customers[phone].cardCode===scannedCodeObj.code.trim());if(matchedPhone){playSound('success');setCustomerInput(customers[matchedPhone].cardCode||matchedPhone);setCustPhone(matchedPhone);setCustName(customers[matchedPhone].name);setScanMessage({text:`✅ KH VIP: ${customers[matchedPhone].name}`,type:'success'})}else{playSound('error');setScanMessage({text:`❌ Lỗi mã`,type:'error'})}setTimeout(()=>setScannerMode(null),1500)}}
       else if(scannerMode==='voucher'){const code=scannedCodeObj.code.trim().toUpperCase();const VOUCHERS:Record<string,number>={"VC50K":50000,"VC100K":100000,"VIP200K":200000,"KM10K":10000};if(VOUCHERS[code]){setAppliedVoucherAmount(VOUCHERS[code]);setVoucherInput(code);playSound('success');setScanMessage({text:`✅ Giảm ${VOUCHERS[code].toLocaleString()}đ`,type:'success'})}else if(!isNaN(Number(code))&&Number(code)>0){setAppliedVoucherAmount(Number(code));setVoucherInput(code);playSound('success');setScanMessage({text:`✅ Giảm ${Number(code).toLocaleString()}đ`,type:'success'})}else{playSound('error');alert("Mã Voucher không hợp lệ!");setAppliedVoucherAmount(0)}setTimeout(()=>setScannerMode(null),1000)}
-      else if(scannerMode==='customer'){const val=scannedCodeObj.code.trim();setCustomerInput(val);const matchedPhone=Object.keys(customers).find(phone=>phone===val||customers[phone].cardCode===val);if(matchedPhone){setCustPhone(matchedPhone);setCustName(customers[matchedPhone].name);playSound('success');setScanMessage({text:`✅ Nhận diện VIP: ${customers[matchedPhone].name}`,type:'success'})}else{setCustPhone(val);setCustName("");playSound('success');setScanMessage({text:`✅ Khách mới`,type:'success'})}setTimeout(()=>setScannerMode(null),1000)}
+      else if(scannerMode==='customer'){const val=scannedCodeObj.code.trim();setCustomerInput(val);const matchedPhone=Object.keys(customers).find(phone=>phone===val||customers[phone].cardCode===val);if(matchedPhone){setCustPhone(matchedPhone);setCustName(customers[matchedPhone].name);playSound('success');setScanMessage({text:`✅ Nhận diện VIP: ${customers[matchedPhone].name}`,type:'success'})}else{setCustPhone(val);setCustName("");playSound('success');setScanMessage({text:`✅ Đã quét mã (Khách mới)`,type:'success'})}setTimeout(()=>setScannerMode(null),1000)}
       setScannedCodeObj(null);setTimeout(()=>setScanMessage(null),1500)
     }
-  },[scannedCodeObj, products, scannerMode]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[scannedCodeObj]);
 
   useEffect(()=>{const handleAfterPrint=()=>setPrintMode(null);window.addEventListener("afterprint",handleAfterPrint);return()=>window.removeEventListener("afterprint",handleAfterPrint)},[]);
 
@@ -153,14 +193,6 @@ export default function App(){
     setHeldOrders(prev=>prev.filter(o=>o.id!==id)); await supabase.from('held_orders').delete().eq('id',id); logAudit("XÓA ĐƠN",`Xóa đơn lưu tạm`);
   };
 
-  const handleSelectSuggest=(p_input:any)=>{
-    const p=getOldestAvailableBatch(p_input);if(p.stock<=0){playSound('error');return alert("Đã hết hàng!");}
-    if(p.id!==p_input.id)setScanMessage({text:`⚡ Xuất Lô cũ`,type:'success'});else setScanMessage({text:`✅ Thêm: ${cleanName(p.name)}`,type:'success'});
-    const price=getActualPrice(p);
-    setCart(prev=>{const exist=prev.find(item=>item.product.id===p.id);if(exist){const newQty=exist.qty+1;if(newQty>p.stock){playSound('error');return prev}playSound('success');return prev.map(i=>i.product.id===p.id?{...i,qty:newQty,total:Math.round(newQty*price*(1+VAT_RATE)),profit:Math.round(newQty*(price-(p.import_price||0)))}:i)}else{playSound('success');return[...prev,{product:p,qty:1,total:Math.round(price*(1+VAT_RATE)),profit:Math.round(price-(p.import_price||0))}]}});
-    setBarcodeInput("");setShowSuggestions(false);setTimeout(()=>setScanMessage(null),2000)
-  };
-
   const handleBarcodeSubmit=(e:React.KeyboardEvent<HTMLInputElement>)=>{if(e.key==='Enter'){e.preventDefault();const p=findProductByCode(barcodeInput);if(p)handleSelectSuggest(p);else{const matchedPhone=Object.keys(customers).find(phone=>phone===barcodeInput.trim()||customers[phone].cardCode===barcodeInput.trim());if(matchedPhone){playSound('success');setCustomerInput(customers[matchedPhone].cardCode||matchedPhone);setCustPhone(matchedPhone);setCustName(customers[matchedPhone].name);setBarcodeInput("")}else{playSound('error');alert("Mã sai!")}}}};
   const addToCart=(p_input:any)=>{handleSelectSuggest(p_input)};
   const adjustCartQty=(productId:any,delta:number)=>{let exceedStock=false;setCart(prev=>{const updated=prev.map(item=>{if(item.product.id===productId){const newQty=item.qty+delta;if(newQty>item.product.stock){exceedStock=true;return item}const price=getActualPrice(item.product);return{...item,qty:newQty,total:Math.round(newQty*price*(1+VAT_RATE)),profit:Math.round(newQty*(price-(item.product.import_price||0)))}}return item});return updated.filter(item=>item.qty>0)});if(exceedStock)playSound('error');else if(delta>0)playSound('success')};
@@ -226,7 +258,7 @@ export default function App(){
   };
 
   const printCustomerCard=(phone:string)=>{setPrintCustomer({phone,...customers[phone]});setPrintMode('customer_card');setTimeout(()=>window.print(),1000)};
-  const shareToZalo=(phone:string)=>{const cust=customers[phone];const code=cust.cardCode||phone;navigator.clipboard.writeText(`Chào ${cust.name},\nCảm ơn bạn đã đồng hành cùng Hải Lê Mart!\n💳 Mã Thẻ VIP của bạn là: ${code}`).then(()=>{alert(`💡 Đã copy. Mở Zalo...`);window.open(`https://zalo.me/${phone}`,'_blank')}).catch(()=>{window.open(`https://zalo.me/${phone}`,'_blank')})};
+  const shareToZalo=(phone:string)=>{const cust=customers[phone];const code=cust.cardCode||phone;navigator.clipboard.writeText(`Chào ${cust.name},\nCảm ơn bạn đã đồng hành cùng Hải Lê Mart!\n💳 Mã Thẻ VIP của bạn là: ${code}`).then(()=>{alert(`💡 Đã copy lời chào. Đang mở Zalo...`);window.open(`https://zalo.me/${phone}`,'_blank')}).catch(()=>{window.open(`https://zalo.me/${phone}`,'_blank')})};
 
   const handleCodeChange=(e:React.ChangeEvent<HTMLInputElement>)=>{const code=e.target.value;setNewCode(code);const p=products.find((x:any)=>x.product_code===code);if(p){setNewName(cleanName(p.name));setNewCategory(p.category||"Khác");setNewImportPrice(p.import_price?.toString()||"");setNewPrice(p.sale_price.toString());setNewPromoPrice(p.promo_price?.toString()||"");setNewExpiry(p.expiry_date||"");const gift=parseGift(p.gift_info);setNewGiftCondition(gift.cond.toString());setNewGiftInfo(gift.text)}};
   
