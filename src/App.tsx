@@ -44,6 +44,7 @@ export default function App() {
   const [filters, setFilters] = useState<Record<string, any[]>>({});
   const [showSuggestions, setShowSuggestions] = useState(false);
 
+  const [showMainMenu, setShowMainMenu] = useState(false); // Nút Menu Mới
   const [showDebtModal, setShowDebtModal] = useState(false);
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false); 
@@ -53,7 +54,6 @@ export default function App() {
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [showMarketingModal, setShowMarketingModal] = useState(false);
-  const [showAdvancedMenu, setShowAdvancedMenu] = useState(false); // Sửa lỗi không gập được menu
   
   const [scannerMode, setScannerMode] = useState<'product' | 'voucher' | 'customer' | null>(null);
   const [scannedCodeObj, setScannedCodeObj] = useState<any>(null);
@@ -339,13 +339,15 @@ export default function App() {
     return { rev: cash + transfer, cash, transfer, prof, totalSales, expenses: todayExp, netProfit: prof - todayExp };
   }, [history, expenses, todayStrStr]);
 
+  // BIỂU ĐỒ DOANH THU 30 NGÀY QUA (1 THÁNG)
   const chartData = useMemo(() => {
     const data = [];
-    for(let i=6; i>=0; i--) {
+    for(let i=29; i>=0; i--) {
         const d = new Date(); d.setDate(d.getDate() - i);
         const dStr = d.toLocaleDateString('vi-VN');
         const dayTotal = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === dStr && (h.type === 'BÁN' || h.type === 'GHI NỢ')).reduce((s, h) => s + h.total, 0);
-        data.push({ label: `${d.getDate()}/${d.getMonth()+1}`, total: dayTotal });
+        // Chỉ hiện nhãn cho mỗi 3 ngày để không bị rối mắt
+        data.push({ label: `${d.getDate()}/${d.getMonth()+1}`, total: dayTotal, showLabel: (i % 3 === 0 || i === 0) });
     }
     const maxVal = Math.max(...data.map(d => d.total), 1); 
     return data.map(d => ({ ...d, height: `${(d.total / maxVal) * 100}%` }));
@@ -453,6 +455,31 @@ export default function App() {
     logAudit("CHỐT CA", `Doanh thu bàn giao: ${currentShiftStats.rev.toLocaleString()}đ (TM: ${currentShiftStats.cash.toLocaleString()}đ, CK: ${currentShiftStats.transfer.toLocaleString()}đ)`);
     setIsLoggedIn(false); setShowHandoverModal(false);
     localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role");
+  };
+
+  // CHỈNH SỬA SỐ ĐIỆN THOẠI KHÁCH HÀNG
+  const handleEditPhone = (oldPhone: string) => {
+      const newPhone = window.prompt("Nhập số điện thoại mới cho khách hàng:", oldPhone);
+      if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) {
+          if (customers[newPhone]) {
+              return alert("❌ Số điện thoại này đã tồn tại trong hệ thống!");
+          }
+          setCustomers((prev: any) => {
+              const updated = { ...prev };
+              updated[newPhone] = { ...updated[oldPhone] };
+              delete updated[oldPhone];
+              return updated;
+          });
+          // Cập nhật lại lịch sử các giao dịch cũ
+          setHistory((prev: any) => prev.map((h: any) => {
+              if (h.customer && h.customer.includes(oldPhone)) {
+                  return { ...h, customer: h.customer.replace(oldPhone, newPhone) };
+              }
+              return h;
+          }));
+          logAudit("SỬA SĐT KHÁCH", `Đổi từ ${oldPhone} sang ${newPhone}`);
+          alert("✅ Đã cập nhật số điện thoại thành công!");
+      }
   };
 
   const addSupplier = () => {
@@ -842,7 +869,7 @@ export default function App() {
 
   const HeaderLogo = () => (
     <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-      <div style={{ backgroundColor: "#dc2626", padding: "8px", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(220, 38, 38, 0.2)" }}>
+      <div className="logo-icon" style={{ backgroundColor: "#dc2626", padding: "8px", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(220, 38, 38, 0.2)" }}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
       </div>
       <div style={{ display: "flex", flexDirection: "column" }}>
@@ -856,18 +883,25 @@ export default function App() {
   const styles = `
     @keyframes float { 0% { transform: translateY(0); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0); } }
     @keyframes pulse-fast { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    @keyframes logo-pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1) rotate(5deg); } 100% { transform: scale(1); } }
+    .logo-icon { animation: logo-pulse 2s infinite ease-in-out; }
+    
     .spring-bg { position: fixed; width: 400px; height: 400px; border-radius: 50%; filter: blur(100px); z-index: -1; opacity: 0.3; animation: float 10s infinite ease-in-out; }
     .glass { background: rgba(255, 255, 255, 0.98); border: 1px solid #fed7aa; border-radius: 12px; box-shadow: 0 4px 15px rgba(251, 146, 60, 0.08); }
     body { background-color: #fff7ed; margin: 0; font-family: 'Inter', sans-serif; color: #431407; }
     .tab-btn { padding: 6px 12px; border-radius: 20px; border: 1px solid #fed7aa; background: #fff; cursor: pointer; font-size: 12px; font-weight: bold; color: #9a3412; white-space: nowrap; }
     .tab-btn.active { background: #ef4444; color: #fff; border-color: #ef4444; }
-    .chart-container { display: flex; align-items: flex-end; justify-content: space-around; height: 120px; margin-top: 15px; padding-top: 10px; border-top: 1px dashed #cbd5e1; }
-    .chart-bar-group { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; flex: 1; }
-    .chart-bar { width: 24px; background: linear-gradient(0deg, #ef4444 0%, #fca5a5 100%); border-radius: 4px 4px 0 0; transition: height 0.5s; min-height: 2px; }
-    .chart-label { font-size: 9px; color: #64748b; margin-top: 4px; font-weight: bold; }
-    .chart-val { font-size: 9px; color: #b91c1c; font-weight: bold; margin-bottom: 2px; }
+    
+    /* Biểu đồ 30 ngày (cuộn ngang) */
+    .chart-container-scroll { display: flex; align-items: flex-end; height: 120px; margin-top: 15px; padding-top: 10px; border-top: 1px dashed #cbd5e1; overflow-x: auto; padding-bottom: 5px; gap: 4px; }
+    .chart-bar-group { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 20px; }
+    .chart-bar { width: 8px; background: linear-gradient(0deg, #ef4444 0%, #fca5a5 100%); border-radius: 4px 4px 0 0; transition: height 0.5s; min-height: 2px; }
+    .chart-label { font-size: 8px; color: #64748b; margin-top: 4px; font-weight: bold; white-space: nowrap; }
+    .chart-val { font-size: 8px; color: #b91c1c; font-weight: bold; margin-bottom: 2px; }
+    
     .noti-bell { position: relative; display: inline-block; cursor: pointer; }
     .noti-badge { position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; border-radius: 50%; padding: 2px 6px; font-size: 9px; font-weight: bold; animation: pulse-fast 1s infinite; }
+    
     @media print { 
       body * { visibility: hidden; } .print-only, .print-only * { visibility: visible; }
       .print-only.print-receipt { position: absolute; left: 0; top: 0; display: block !important; width: 80mm; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 5mm; box-sizing: border-box; font-size: 12px; line-height: 1.4; }
@@ -895,7 +929,7 @@ export default function App() {
         <div className="spring-bg" style={{ background: "#fbbf24", bottom: "-10%", right: "-10%" }}></div>
         <div className="glass" style={{ padding: "40px", width: "100%", maxWidth: "380px", textAlign: "center", border: "4px solid #ef4444" }}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "30px" }}>
-            <div style={{ backgroundColor: "#dc2626", padding: "16px", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 10px 25px rgba(220, 38, 38, 0.3)", marginBottom: "15px" }}>
+            <div className="logo-icon" style={{ backgroundColor: "#dc2626", padding: "16px", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 10px 25px rgba(220, 38, 38, 0.3)", marginBottom: "15px" }}>
               <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
             </div>
             <h1 style={{ margin: 0, fontSize: "32px", fontWeight: "900", letterSpacing: "1px", color: "#0f172a", textTransform: "uppercase" }}>HẢI LÊ <span style={{color: "#dc2626"}}>MART</span></h1>
@@ -914,7 +948,7 @@ export default function App() {
 
   // ================= 10. GIAO DIỆN CHÍNH APP =================
   return (
-    <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowAdvancedMenu(false); }}>
+    <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false); }}>
       <style>{styles}</style>
 
       {/* MODALS QUẢN LÝ NÂNG CAO (Marketing, Chi phí, NCC) */}
@@ -1038,14 +1072,15 @@ export default function App() {
               </div>
             </div>
 
+            {/* BIỂU ĐỒ 30 NGÀY BẰNG CSS */}
             <div style={{ marginBottom: "20px" }}>
-               <h3 style={{ fontSize: "12px", color: "#475569", margin: "0 0 5px 0" }}>📈 Biểu đồ doanh thu 7 ngày qua</h3>
-               <div className="chart-container">
+               <h3 style={{ fontSize: "12px", color: "#475569", margin: "0 0 5px 0" }}>📈 Biểu đồ doanh thu 30 ngày qua</h3>
+               <div className="chart-container-scroll">
                   {chartData.map((d, i) => (
                       <div key={i} className="chart-bar-group">
-                         <div className="chart-val">{d.total > 0 ? (d.total/1000).toFixed(0) + 'k' : ''}</div>
+                         <div className="chart-val" style={{ visibility: d.showLabel && d.total > 0 ? 'visible' : 'hidden' }}>{(d.total/1000).toFixed(0)}k</div>
                          <div className="chart-bar" style={{ height: d.height }}></div>
-                         <div className="chart-label">{d.label}</div>
+                         <div className="chart-label" style={{ visibility: d.showLabel ? 'visible' : 'hidden' }}>{d.label}</div>
                       </div>
                   ))}
                </div>
@@ -1073,7 +1108,6 @@ export default function App() {
         </div>
       )}
 
-      {/* CÁC MODAL KHÁC GIỮ NGUYÊN HOÀN TOÀN CỦA PHIÊN BẢN TRƯỚC */}
       {showHandoverModal && (
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "30px", width: "350px", textAlign: "center" }} onClick={e => e.stopPropagation()}>
@@ -1113,9 +1147,13 @@ export default function App() {
                         <div style={{ fontWeight: "bold", color: "#1e293b", cursor: "pointer", fontSize: "15px" }} onClick={() => { const newName = window.prompt("Sửa tên khách hàng:", c.name); if(newName) { setCustomers((prev:any) => ({...prev, [phone]: {...prev[phone], name: newName}})); logAudit("SỬA KHÁCH HÀNG", `Đổi tên KH ${phone} thành ${newName}`); } }} title="Bấm để sửa tên">{c.name} ✏️</div>
                         <span style={{ fontSize: "10px", fontWeight: "900", color: tier.color, border: `1px solid ${tier.color}`, padding: "2px 6px", borderRadius: "12px", backgroundColor: "#fff" }}>{tier.name}</span>
                     </div>
+                    
+                    {/* CẢI TIẾN CHỈNH SỬA SĐT */}
                     <div style={{ fontSize: "11px", color: "#64748b", marginTop: "4px" }}>
-                      {phone} <span style={{cursor: "pointer", color: "#3b82f6", fontWeight: "bold", marginLeft: "6px"}} onClick={() => { const newEmail = window.prompt("Sửa Email khách hàng:", c.email || ""); if(newEmail !== null) { setCustomers((prev:any) => ({...prev, [phone]: {...prev[phone], email: newEmail.trim()}})); logAudit("SỬA EMAIL KH", `Cập nhật Email KH ${phone}`); } }} title="Bấm để cập nhật Email">{c.email ? `📧 ${c.email}` : `📧 +Thêm Mail`}</span>
+                      <span onClick={() => handleEditPhone(phone)} style={{cursor: "pointer", fontWeight: "bold"}} title="Bấm để Đổi số điện thoại">📞 {phone} ✏️</span>
+                      <span style={{cursor: "pointer", color: "#3b82f6", fontWeight: "bold", marginLeft: "10px"}} onClick={() => { const newEmail = window.prompt("Sửa Email khách hàng:", c.email || ""); if(newEmail !== null) { setCustomers((prev:any) => ({...prev, [phone]: {...prev[phone], email: newEmail.trim()}})); logAudit("SỬA EMAIL KH", `Cập nhật Email KH ${phone}`); } }} title="Bấm để cập nhật Email">{c.email ? `📧 ${c.email}` : `📧 +Thêm Mail`}</span>
                     </div>
+
                     <div style={{ fontSize: "11px", color: "#64748b", marginTop: "6px", display: "flex", alignItems: "center", gap: "6px" }}>
                       <span onClick={() => { const newCard = window.prompt("Nhập/Sửa mã Thẻ cứng của khách:", c.cardCode || ""); if(newCard !== null) { setCustomers((prev:any) => ({...prev, [phone]: {...prev[phone], cardCode: newCard.trim()}})); logAudit("SỬA MÃ THẺ", `Cập nhật mã thẻ KH ${phone}`); } }} style={{cursor: "pointer", color: "#ea580c", fontWeight: "bold", marginRight: "10px"}} title="Cài đặt mã Thẻ thành viên (Barcode)">{c.cardCode ? `💳 Mã: ${c.cardCode}` : `💳 +Gán Mã Thẻ`}</span>
                       <button onClick={() => printCustomerCard(phone)} style={{ padding: "4px 6px", backgroundColor: "#dc2626", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }} title="In thẻ cứng (Cỡ thẻ ATM)">🖨️ In Thẻ</button>
@@ -1159,7 +1197,7 @@ export default function App() {
         </div>
       )}
 
-      {showAuditModal && role === 'admin' && (
+      {showAuditModal && (
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "600px", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #cbd5e1", paddingBottom: "10px", marginBottom: "10px" }}>
@@ -1242,7 +1280,7 @@ export default function App() {
               {/* Ô NHẬP KHÁCH HÀNG MỚI - QUẸT THẺ VIP */}
               <div style={{ display: "flex", position: "relative", marginTop: "10px" }}>
                 <input type="text" placeholder="👉 Quẹt Thẻ VIP / SĐT khách..." value={customerInput} onChange={handleCustomerInputChange} style={{ flex: 1, padding: "12px", borderRadius: "10px 0 0 10px", border: "2px solid #ef4444", outline: "none", boxSizing: "border-box", fontWeight: "bold", color: "#b91c1c" }} />
-                <button onClick={() => setScannerMode('customer')} style={{ padding: "0 15px", backgroundColor: "#ef4444", border: "none", borderRadius: "0 10px 10px 0", cursor: "pointer", color: "white", fontSize: "18px" }} title="Quét thẻ VIP bằng Camera">📷</button>
+                <button onClick={() => setScannerMode('customer')} style={{ padding: "0 15px", backgroundColor: "#ef4444", border: "none", borderRadius: "0 10px 10px 0", cursor: "pointer", color: "white", fontSize: "18px" }}>📷</button>
               </div>
               
               {custPhone && (
@@ -1377,20 +1415,12 @@ export default function App() {
       {/* --- GIAO DIỆN CHÍNH APP --- */}
       <div className="no-print" style={{ padding: "15px", position: "relative", minHeight: "100vh", overflowX: "auto" }}>
         
-        {/* HEADER 2 HÀNG CẢI TIẾN */}
+        {/* HEADER 2 HÀNG */}
         <div style={{ maxWidth: "1500px", margin: "0 auto", minWidth: "1000px" }}>
           <div className="glass" style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: "12px", marginBottom: "12px", borderBottom: "4px solid #ef4444" }}>
             
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  <div style={{ backgroundColor: "#dc2626", padding: "8px", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column" }}>
-                    <h1 style={{ margin: 0, fontSize: "20px", fontWeight: "900", letterSpacing: "0.5px", color: "#0f172a", lineHeight: "1" }}>HẢI LÊ <span style={{color: "#dc2626"}}>MART</span></h1>
-                    <span style={{ fontSize: "9px", color: "#64748b", fontWeight: "800", letterSpacing: "3px", textTransform: "uppercase", marginTop: "4px" }}>ERP System</span>
-                  </div>
-              </div>
+              <HeaderLogo />
 
               <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
                 {(new Date().getHours() >= 20 || new Date().getHours() < 6) && <span style={{fontSize:"11px", backgroundColor:"#fef08a", color:"#b45309", padding:"4px 8px", borderRadius:"4px", fontWeight:"bold"}}>🌙 HAPPY HOUR</span>}
@@ -1412,27 +1442,31 @@ export default function App() {
             </div>
 
             <div style={{ display: "flex", borderTop: "1px dashed #cbd5e1", paddingTop: "12px", alignItems: "center", justifyContent: "space-between" }}>
-               <div style={{ display: "flex", gap: "8px" }}>
-                 {role === 'admin' && (
-                    <>
-                      <button onClick={() => setShowStatsModal(true)} style={{ padding: "8px 16px", background: "#eff6ff", color: "#3b82f6", border: "1px solid #bfdbfe", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer" }}>📊 THỐNG KÊ KHO</button>
-                      <button onClick={() => setShowCustomerModal(true)} style={{ padding: "8px 16px", background: "#fdf4ff", color: "#4f46e5", border: "1px solid #c7d2fe", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer" }}>🤝 KHÁCH HÀNG</button>
-                      <button onClick={() => setShowAuditModal(true)} style={{ padding: "8px 16px", background: "#f8fafc", color: "#334155", border: "1px solid #cbd5e1", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer" }}>🕵️ LỊCH SỬ</button>
-                      
-                      <div className="dropdown" style={{ position: "relative", display: "inline-block" }}>
-                         <button onClick={(e) => { e.stopPropagation(); setShowAdvancedMenu(!showAdvancedMenu); }} style={{ padding: "8px 16px", background: "#fdf2f8", color: "#db2777", border: "1px solid #fbcfe8", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer" }}>🚀 QUẢN LÝ NÂNG CAO ▼</button>
-                         {showAdvancedMenu && (
-                             <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: 0, backgroundColor: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", minWidth: "200px", boxShadow: "0 10px 15px rgba(0,0,0,0.1)", zIndex: 100, display: "flex", flexDirection: "column", marginTop: "5px", padding: "5px" }}>
-                                <div onClick={() => { setShowAdvancedMenu(false); setShowExpenseModal(true); }} style={{ padding: "10px", cursor: "pointer", fontSize: "12px", fontWeight: "bold", borderBottom: "1px dashed #e2e8f0" }}>💸 Nhập Chi Phí (Điện/Nước...)</div>
-                                <div onClick={() => { setShowAdvancedMenu(false); setShowSupplierModal(true); }} style={{ padding: "10px", cursor: "pointer", fontSize: "12px", fontWeight: "bold", borderBottom: "1px dashed #e2e8f0" }}>🏭 Quản Lý Nhà Cung Cấp</div>
-                                <div onClick={() => { setShowAdvancedMenu(false); setShowMarketingModal(true); }} style={{ padding: "10px", cursor: "pointer", fontSize: "12px", fontWeight: "bold", borderBottom: "1px dashed #e2e8f0", color: "#8b5cf6" }}>📢 Gửi Email Marketing</div>
-                                <div onClick={() => { setShowAdvancedMenu(false); setNewAdminPass(adminPass); setNewStaffPass(staffPass); setNewBankBin(bankBin); setNewBankAcc(bankAcc); setNewBankNameStr(bankNameStr); setShowSettings(true); }} style={{ padding: "10px", cursor: "pointer", fontSize: "12px", fontWeight: "bold", color: "#475569" }}>⚙️ Cài Đặt Hệ Thống</div>
-                             </div>
-                         )}
-                      </div>
-                    </>
-                  )}
-                  <button onClick={() => setShowDebtModal(true)} style={{ padding: "8px 16px", background: "#fef2f2", color: "#ef4444", border: "1px solid #fecaca", borderRadius: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer" }}>📓 SỔ NỢ</button>
+               
+               {/* 🍔 NÚT MENU TỔNG HỢP (THAY THẾ TOÀN BỘ CÁC NÚT CŨ) */}
+               <div style={{ position: "relative" }}>
+                   <button onClick={(e) => { e.stopPropagation(); setShowMainMenu(!showMainMenu); }} style={{ padding: "10px 20px", background: "#1e293b", color: "#fff", border: "none", borderRadius: "8px", fontSize: "14px", fontWeight: "bold", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", boxShadow: "0 4px 6px rgba(0,0,0,0.1)" }}>
+                     <span style={{fontSize: "18px"}}>🍔</span> MENU CHỨC NĂNG ▼
+                   </button>
+
+                   {showMainMenu && (
+                       <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: "110%", left: 0, backgroundColor: "#fff", border: "1px solid #cbd5e1", borderRadius: "10px", minWidth: "250px", boxShadow: "0 10px 25px rgba(0,0,0,0.15)", zIndex: 1000, display: "flex", flexDirection: "column", padding: "8px" }}>
+                          
+                          {role === 'admin' && <div onClick={() => {setShowMainMenu(false); setShowStatsModal(true);}} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "10px" }}><span style={{fontSize: "16px"}}>📊</span> Thống Kê Kho & Doanh Thu</div>}
+                          {role === 'admin' && <div onClick={() => {setShowMainMenu(false); setShowCustomerModal(true);}} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "10px" }}><span style={{fontSize: "16px"}}>🤝</span> Quản Lý Khách Hàng Thân Thiết</div>}
+                          <div onClick={() => {setShowMainMenu(false); setShowDebtModal(true);}} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "10px", color: "#b91c1c" }}><span style={{fontSize: "16px"}}>📓</span> Sổ Nợ Khách Hàng</div>
+                          {role === 'admin' && <div onClick={() => {setShowMainMenu(false); setShowAuditModal(true);}} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px dashed #cbd5e1", display: "flex", alignItems: "center", gap: "10px" }}><span style={{fontSize: "16px"}}>🕵️</span> Lịch Sử Thao Tác Hệ Thống</div>}
+                          
+                          {role === 'admin' && (
+                            <>
+                              <div onClick={() => { setShowMainMenu(false); setShowExpenseModal(true); }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "10px" }}><span style={{fontSize: "16px"}}>💸</span> Nhập Chi Phí Vận Hành</div>
+                              <div onClick={() => { setShowMainMenu(false); setShowSupplierModal(true); }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "10px" }}><span style={{fontSize: "16px"}}>🏭</span> Quản Lý Nhà Cung Cấp</div>
+                              <div onClick={() => { setShowMainMenu(false); setShowMarketingModal(true); }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px dashed #cbd5e1", color: "#8b5cf6", display: "flex", alignItems: "center", gap: "10px" }}><span style={{fontSize: "16px"}}>📢</span> Gửi Email Marketing Khuyến Mãi</div>
+                              <div onClick={() => { setShowMainMenu(false); setNewAdminPass(adminPass); setNewStaffPass(staffPass); setNewBankBin(bankBin); setNewBankAcc(bankAcc); setNewBankNameStr(bankNameStr); setShowSettings(true); }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", color: "#475569", display: "flex", alignItems: "center", gap: "10px" }}><span style={{fontSize: "16px"}}>⚙️</span> Cài Đặt (Mật khẩu & QR)</div>
+                            </>
+                          )}
+                       </div>
+                   )}
                </div>
                 
                <div style={{ display: "flex", gap: "15px", alignItems: "center", fontSize: "12px", fontWeight: "bold", color: "#64748b" }}>
@@ -1454,7 +1488,6 @@ export default function App() {
             </div>
           </div>
           
-          {/* KHUNG BÁN HÀNG VÀ SẢN PHẨM */}
           <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: "10px" }}>
             <div className="glass" style={{ padding: "12px" }}>
               <div style={{ display: "flex", gap: "15px", marginBottom: "15px", alignItems: "center" }}>
