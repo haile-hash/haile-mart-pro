@@ -4,35 +4,32 @@ import React, { useEffect, useState, useMemo } from "react";
 import { supabase } from "./supabaseClient";
 
 const styles = `
-  @keyframes wave { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-5px) } }
+  @keyframes wave { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }
   @keyframes float { 0% { transform: translateY(0) } 50% { transform: translateY(-20px) } 100% { transform: translateY(0) } }
   @keyframes pulse-fast { 0% { opacity: 1 } 50% { opacity: .5 } 100% { opacity: 1 } }
+  @keyframes logo-glow { 0%, 100% { box-shadow: 0 0 10px rgba(250,204,21,0.2), 0 0 20px rgba(250,204,21,0.2) inset; transform: scale(1) } 50% { box-shadow: 0 0 25px rgba(250,204,21,1), 0 0 40px rgba(250,204,21,0.8), 0 0 20px rgba(250,204,21,0.5) inset; transform: scale(1.05) } }
   
-  .logo-icon { background-color: #dc2626; padding: 8px; border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(220,38,38,0.4); border: 1px solid rgba(255,255,255,0.2); }
-  .text-wave { animation: wave 2.5s ease-in-out infinite; }
+  .logo-icon { animation: logo-glow 2s infinite ease-in-out; background-color: #dc2626; padding: 8px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
   .spring-bg { position: fixed; width: 400px; height: 400px; border-radius: 50%; filter: blur(100px); z-index: -1; opacity: .3; animation: float 10s infinite ease-in-out; }
   .glass { background: rgba(255,255,255,.98); border: 1px solid #fed7aa; border-radius: 12px; box-shadow: 0 4px 15px rgba(251,146,60,.08); }
   
   body { background-color: #fff7ed; margin: 0; font-family: 'Inter', sans-serif; color: #431407; }
   .tab-btn { padding: 6px 12px; border-radius: 20px; border: 1px solid #fed7aa; background: #fff; cursor: pointer; font-size: 12px; font-weight: bold; color: #9a3412; white-space: nowrap; }
   .tab-btn.active { background: #ef4444; color: #fff; border-color: #ef4444; }
-  
   .chart-container-scroll { display: flex; align-items: flex-end; height: 120px; margin-top: 15px; padding-top: 10px; border-top: 1px dashed #cbd5e1; overflow-x: auto; padding-bottom: 5px; gap: 4px; }
   .chart-bar-group { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 20px; }
   .chart-bar { width: 8px; background: linear-gradient(0deg, #ef4444 0%, #fca5a5 100%); border-radius: 4px 4px 0 0; transition: height .5s; min-height: 2px; }
   .chart-label { font-size: 8px; color: #64748b; margin-top: 4px; font-weight: bold; white-space: nowrap; }
   .chart-val { font-size: 8px; color: #b91c1c; font-weight: bold; margin-bottom: 2px; }
-  
   .noti-bell { position: relative; display: inline-block; cursor: pointer; }
   .noti-badge { position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; border-radius: 50%; padding: 2px 6px; font-size: 9px; font-weight: bold; animation: pulse-fast 1s infinite; }
-  
   .qty-input { width: 32px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; outline: none; font-size: 13px; font-weight: bold; color: #1e293b; padding: 4px 0; background: #fff; }
   .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .qty-input[type=number] { -moz-appearance: textfield; }
-  
   .add-to-cart-btn { padding: 8px 16px; background-color: #fbbf24; color: #78350f; border: none; border-radius: 6px; font-weight: 900; cursor: pointer; font-size: 12px; transition: transform .1s, background-color .2s; box-shadow: 0 2px 4px rgba(251,191,36,.3); }
   .add-to-cart-btn:hover { background-color: #f59e0b; transform: scale(1.05); }
   .add-to-cart-btn:active { transform: scale(.95); }
+  .qty-btn { cursor: pointer; border: 1px solid #ccc; background: #fff; width: 24px; height: 24px; border-radius: 4px; display: flex; justify-content: center; align-items: center; font-weight: bold; }
   
   .input-label { font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; }
   .input-label-red { font-size: 10px; font-weight: bold; color: #ef4444; text-transform: uppercase; }
@@ -40,8 +37,8 @@ const styles = `
 
   @media print {
     .no-print { display: none !important; }
-    body, html { background: #fff !important; margin: 0; padding: 0; }
-    .print-receipt-container { display: block !important; width: 80mm !important; margin: 0 auto !important; padding: 5mm !important; font-family: Arial, sans-serif; color: #000; font-size: 12px; line-height: 1.5; box-sizing: border-box; }
+    body, html { background: #fff !important; margin: 0; padding: 0; display: flex; justify-content: center; width: 100%; }
+    .print-receipt-container { display: block !important; width: 80mm !important; max-width: 80mm !important; margin: 0 auto !important; padding: 5mm !important; box-sizing: border-box !important; font-family: Arial, sans-serif; color: #000; font-size: 12px; line-height: 1.5; }
     .print-flex { display: flex !important; width: 100%; justify-content: center; flex-wrap: wrap; }
     @page { margin: 0; size: 80mm auto; }
   }
@@ -169,10 +166,10 @@ export default function App() {
       if (rCust.data && rCust.data.length > 0) {
         setCustomers((prev: any) => { const merged = { ...prev }; rCust.data.forEach((c: any) => merged[c.phone] = c); return merged; });
       }
-      if (rHist.data && rHist.data.length > 0) setHistory(prev => prev.length > 0 ? prev : rHist.data);
-      if (rExp.data && rExp.data.length > 0) setExpenses(prev => prev.length > 0 ? prev : rExp.data);
-      if (rSup.data && rSup.data.length > 0) setSuppliers(prev => prev.length > 0 ? prev : rSup.data);
-      if (rAud.data && rAud.data.length > 0) setAuditLogs(prev => prev.length > 0 ? prev : rAud.data);
+      if (rHist.data && rHist.data.length > 0) setHistory((prev: any) => prev.length > 0 ? prev : rHist.data);
+      if (rExp.data && rExp.data.length > 0) setExpenses((prev: any) => prev.length > 0 ? prev : rExp.data);
+      if (rSup.data && rSup.data.length > 0) setSuppliers((prev: any) => prev.length > 0 ? prev : rSup.data);
+      if (rAud.data && rAud.data.length > 0) setAuditLogs((prev: any) => prev.length > 0 ? prev : rAud.data);
     } catch (err) { console.error("Lỗi tải Cloud:", err); }
   };
 
@@ -193,9 +190,9 @@ export default function App() {
   };
 
   const logAudit = async (action: string, detail: string) => {
-    const id = Math.floor(Date.now() + Math.random() * 100);
+    const id = Math.floor(Date.now() + Math.random() * 1000);
     const newLog = { id, time: new Date().toLocaleString('vi-VN'), user_name: role === 'admin' ? 'Quản lý' : 'Thu ngân', shift, action, detail };
-    setAuditLogs(prev => [newLog, ...prev].slice(0, 300));
+    setAuditLogs((prev: any) => [newLog, ...prev].slice(0, 300));
     try { await supabase.from('audit_logs').insert([newLog]); } catch(e) {}
   };
 
@@ -298,13 +295,13 @@ export default function App() {
     const price = getActualPrice(p_input);
     const repName = cleanName(p_input.name);
     
-    setCart(prev => {
-      const exist = prev.find(item => cleanName(item.product.name) === repName);
+    setCart((prev: any) => {
+      const exist = prev.find((item: any) => cleanName(item.product.name) === repName);
       if (exist) {
         const newQty = Number(exist.qty) + 1;
         if (newQty > totalStock) { playSound('error'); return prev; }
         playSound('success');
-        return prev.map(i => cleanName(i.product.name) === repName ? { ...i, qty: newQty, total: Math.round(newQty * price * (1 + VAT_RATE)) } : i);
+        return prev.map((i: any) => cleanName(i.product.name) === repName ? { ...i, qty: newQty, total: Math.round(newQty * price * (1 + VAT_RATE)) } : i);
       } else {
         playSound('success');
         return [...prev, { product: p_input, qty: 1, total: Math.round(price * (1 + VAT_RATE)) }];
@@ -359,19 +356,20 @@ export default function App() {
 
   const todayStrStr = new Date().toLocaleDateString('vi-VN');
 
-  // ĐÃ SỬA: LỖI CỘNG DỒN THÀNH CHUỖI GÂY VỐN 50 TỶ
+  // FIXED MATH BUGS
   const currentShiftStats = useMemo(() => {
     let cash = 0; let transfer = 0; let prof = 0; let totalSales = 0;
-    history.forEach(h => {
-      let d = h.time ? h.time.split(' ')[1] : new Date(Number(h.id)).toLocaleDateString('vi-VN');
-      if (d === todayStrStr && h.shift === shift) {
-        if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += Number(h.total || 0);
-        if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') {
-          if (h.paymentMethod === 'CHUYỂN KHOẢN') transfer += Number(h.total || 0);
-          else if (h.paymentMethod === 'TIỀN MẶT') cash += Number(h.total || 0);
-        }
-        if (h.type !== 'NHẬP') prof += Number(h.profit || 0);
+    const shiftLogs = history.filter(h => {
+        let d = h.time ? h.time.split(' ')[1] : new Date(Number(h.id)).toLocaleDateString('vi-VN');
+        return d === todayStrStr && h.shift === shift;
+    });
+    shiftLogs.forEach(h => {
+      if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += Number(h.total || 0);
+      if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') {
+        if (h.paymentMethod === 'CHUYỂN KHOẢN') transfer += Number(h.total || 0);
+        else if (h.paymentMethod === 'TIỀN MẶT') cash += Number(h.total || 0);
       }
+      if(h.type !== 'NHẬP') prof += Number(h.profit || 0);
     });
     return { rev: cash + transfer, cash, transfer, prof, totalSales };
   }, [history, shift, todayStrStr]);
@@ -394,8 +392,8 @@ export default function App() {
     for (let i = 29; i >= 0; i--) {
       const d = new Date(); d.setDate(d.getDate() - i); const dStr = d.toLocaleDateString('vi-VN');
       const dayTotal = history.filter(h => {
-        let logD = h.time ? h.time.split(' ')[1] : new Date(Number(h.id)).toLocaleDateString('vi-VN');
-        return logD === dStr && (h.type === 'BÁN' || h.type === 'GHI NỢ');
+          let logD = h.time ? h.time.split(' ')[1] : new Date(Number(h.id)).toLocaleDateString('vi-VN');
+          return logD === dStr && (h.type === 'BÁN' || h.type === 'GHI NỢ');
       }).reduce((s, h) => s + Number(h.total || 0), 0);
       data.push({ label: `${d.getDate()}/${d.getMonth() + 1}`, total: dayTotal, showLabel: (i % 3 === 0 || i === 0) });
     }
@@ -446,13 +444,21 @@ export default function App() {
   const finalToPay = amountAfterTierAndVoucher - walletUsedAmount;
 
   const uniqueNames = useMemo(() => Array.from(new Set(products.map(p => cleanName(p.name)))).sort(), [products]);
+  const uniqueStocks = useMemo(() => Array.from(new Set(products.map(p => p.stock))).sort((a:any, b:any) => a - b), [products]);
+  const uniqueImportPrices = useMemo(() => Array.from(new Set(products.map(p => p.import_price || 0))).sort((a:any, b:any) => a - b), [products]);
+  const uniqueSalePrices = useMemo(() => Array.from(new Set(products.map(p => p.sale_price))).sort((a:any, b:any) => a - b), [products]);
+  const uniqueExpiries = useMemo(() => Array.from(new Set(products.map(p => p.expiry_date).filter(Boolean))).sort(), [products]);
   const categories = ["Tất cả", ...Array.from(new Set(products.map(p => p.category || "Khác")))];
-  
+
   const sortedAndFilteredProducts = useMemo(() => {
     const todayTime = new Date().getTime();
     let filtered = products.filter(p => (selectedCategory === "Tất cả" || (p.category || "Khác") === selectedCategory))
       .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(searchTerm.toLowerCase())));
     if (filters['name']?.length > 0) filtered = filtered.filter(p => filters['name'].includes(cleanName(p.name)));
+    if (filters['stock']?.length > 0) filtered = filtered.filter(p => filters['stock'].includes(p.stock));
+    if (filters['import_price']?.length > 0) filtered = filtered.filter(p => filters['import_price'].includes(p.import_price || 0));
+    if (filters['sale_price']?.length > 0) filtered = filtered.filter(p => filters['sale_price'].includes(p.sale_price));
+    if (filters['expiry_date']?.length > 0) filtered = filtered.filter(p => filters['expiry_date'].includes(p.expiry_date));
     
     if (sortConfig !== null) {
       filtered.sort((a, b) => {
@@ -500,7 +506,7 @@ export default function App() {
     if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) {
       if (customers[newPhone]) return alert("❌ SĐT đã tồn tại!");
       const cData = customers[oldPhone]; const newC = { ...cData, phone: newPhone };
-      setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = newC; delete updated[oldPhone]; return updated });
+      setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = newC; delete updated[oldPhone]; return updated; });
       try { await supabase.from('customers').insert([{ phone: newPhone, name: cData.name, email: cData.email, cardCode: cData.cardCode, totalSpent: cData.totalSpent, wallet: cData.wallet, debt: cData.debt }]); await supabase.from('customers').delete().eq('phone', oldPhone); } catch(e){}
       setHistory((prev: any) => prev.map((h: any) => { if (h.customer && h.customer.includes(oldPhone)) { return { ...h, customer: h.customer.replace(oldPhone, newPhone) } } return h }));
       logAudit("SỬA SĐT KH", `Đổi ${oldPhone} -> ${newPhone}`); alert("✅ Cập nhật thành công!");
@@ -525,10 +531,10 @@ export default function App() {
     setLoading(false);
   };
 
-  const addSupplier = async () => { if (!supName || !supPhone) return alert("Nhập đủ Tên/SĐT"); const newS = { id: Date.now(), name: supName, phone: supPhone, item: supItem }; setSuppliers(prev => [newS, ...prev]); try{await supabase.from('suppliers').insert([newS]);}catch(e){} setSupName(""); setSupPhone(""); setSupItem(""); alert("✅ Thêm NCC thành công!"); };
-  const deleteSupplier = async (id: any) => { setSuppliers(prev => prev.filter(s => s.id !== id)); try{await supabase.from('suppliers').delete().eq('id', id);}catch(e){} };
-  const addExpense = async () => { if (!expName || !expAmount) return alert("Nhập chi phí!"); const newE = { id: Date.now(), date: new Date().toLocaleDateString('vi-VN'), name: expName, amount: Number(expAmount) }; setExpenses(prev => [newE, ...prev]); try{await supabase.from('expenses').insert([newE]);}catch(e){} setExpName(""); setExpAmount(""); alert("✅ Đã ghi nhận!"); };
-  const deleteExpense = async (id: any) => { setExpenses(prev => prev.filter(e => e.id !== id)); try{await supabase.from('expenses').delete().eq('id', id);}catch(e){} };
+  const addSupplier = async () => { if (!supName || !supPhone) return alert("Nhập đủ Tên/SĐT"); const newS = { id: Date.now(), name: supName, phone: supPhone, item: supItem }; setSuppliers((prev:any) => [newS, ...prev]); try{await supabase.from('suppliers').insert([newS]);}catch(e){} setSupName(""); setSupPhone(""); setSupItem(""); alert("✅ Thêm NCC thành công!"); };
+  const deleteSupplier = async (id: any) => { setSuppliers((prev:any) => prev.filter((s:any) => s.id !== id)); try{await supabase.from('suppliers').delete().eq('id', id);}catch(e){} };
+  const addExpense = async () => { if (!expName || !expAmount) return alert("Nhập chi phí!"); const newE = { id: Date.now(), date: new Date().toLocaleDateString('vi-VN'), name: expName, amount: Number(expAmount) }; setExpenses((prev:any) => [newE, ...prev]); try{await supabase.from('expenses').insert([newE]);}catch(e){} setExpName(""); setExpAmount(""); alert("✅ Đã ghi nhận!"); };
+  const deleteExpense = async (id: any) => { setExpenses((prev:any) => prev.filter((e:any) => e.id !== id)); try{await supabase.from('expenses').delete().eq('id', id);}catch(e){} };
   
   const sendMarketingEmails = async () => {
     if (!marketingMsg) return alert("Nhập nội dung!"); if (!window.confirm("Giới hạn 200 mail/tháng. Gửi?")) return;
@@ -555,21 +561,21 @@ export default function App() {
   const handleHoldOrder = async () => {
     if (cart.length === 0) return;
     const newO = { id: Date.now(), time: new Date().toLocaleTimeString('vi-VN'), cart: [...cart] };
-    setHeldOrders(prev => [...prev, newO]); try{await supabase.from('held_orders').insert([newO]);}catch(e){}
+    setHeldOrders((prev:any) => [...prev, newO]); try{await supabase.from('held_orders').insert([newO]);}catch(e){}
     logAudit("LƯU TẠM", `Lưu giỏ ${cart.length} món`); setCart([]); setCustPhone(""); setCustName(""); setCustomerInput("");
   };
   const restoreOrder = async (order: any) => {
     if (cart.length > 0) return alert("Thanh toán giỏ hiện tại trước!");
-    setCart(order.cart); setHeldOrders(prev => prev.filter(o => o.id !== order.id)); try{await supabase.from('held_orders').delete().eq('id', order.id);}catch(e){} setShowHoldModal(false);
+    setCart(order.cart); setHeldOrders((prev:any) => prev.filter((o:any) => o.id !== order.id)); try{await supabase.from('held_orders').delete().eq('id', order.id);}catch(e){} setShowHoldModal(false);
   };
-  const deleteHeldOrder = async (id: any) => { setHeldOrders(prev => prev.filter(o => o.id !== id)); try{await supabase.from('held_orders').delete().eq('id', id);}catch(e){} logAudit("XÓA ĐƠN", `Xóa đơn lưu tạm`); };
+  const deleteHeldOrder = async (id: any) => { setHeldOrders((prev:any) => prev.filter((o:any) => o.id !== id)); try{await supabase.from('held_orders').delete().eq('id', id);}catch(e){} logAudit("XÓA ĐƠN", `Xóa đơn lưu tạm`); };
 
   const addToCart = (p_input: any) => { handleSelectSuggest(p_input) };
 
   const adjustCartQty = (productId: any, delta: number) => {
     let exceedStock = false;
-    setCart(prev => {
-      const updated = prev.map(item => {
+    setCart((prev:any) => {
+      const updated = prev.map((item:any) => {
         if (item.product.id === productId) {
           const baseCode = item.product.product_code.split('-')[0];
           const totalStock = products.filter(p => p.product_code === baseCode || p.product_code.startsWith(`${baseCode}-`)).reduce((s, p) => s + Number(p.stock || 0), 0);
@@ -580,17 +586,17 @@ export default function App() {
         }
         return item;
       });
-      return updated.filter(item => item.qty > 0);
+      return updated.filter((item:any) => item.qty > 0);
     });
     if (exceedStock) playSound('error'); else if (delta > 0) playSound('success');
   };
 
   const handleDirectQtyChange = (productId: any, val: string) => {
-    setCart(prev => {
-      if (val === '') return prev.map(i => i.product.id === productId ? { ...i, qty: '' as any, total: 0, profit: 0 } : i);
+    setCart((prev:any) => {
+      if (val === '') return prev.map((i:any) => i.product.id === productId ? { ...i, qty: '' as any, total: 0, profit: 0 } : i);
       let num = parseInt(val); if (isNaN(num) || num < 0) return prev;
       let exceedStock = false;
-      const updated = prev.map(i => {
+      const updated = prev.map((i:any) => {
         if (i.product.id === productId) {
           const baseCode = i.product.product_code.split('-')[0];
           const totalStock = products.filter(p => p.product_code === baseCode || p.product_code.startsWith(`${baseCode}-`)).reduce((s, p) => s + Number(p.stock || 0), 0);
@@ -607,15 +613,20 @@ export default function App() {
 
   const handleDirectQtyBlur = (productId: any, val: string) => {
     if (val === '' || parseInt(val) <= 0 || isNaN(parseInt(val))) {
-      setCart(prev => prev.map(i => {
+      setCart((prev:any) => prev.map((i:any) => {
         if (i.product.id === productId) { const price = getActualPrice(i.product); return { ...i, qty: 1, total: Math.round(1 * price * (1 + VAT_RATE)), profit: Math.round(1 * (price - Number(i.product.import_price || 0))) } }
         return i;
       }));
     }
   };
 
-  const removeFromCart = (productId: any) => { setCart(cart.filter(item => item.product.id !== productId)) };
+  const removeFromCart = (productId: any) => { setCart((prev:any)=>prev.filter((item:any) => item.product.id !== productId)) };
   const clearCart = () => { if (window.confirm("Hủy toàn bộ?")) { setCart([]); setCustName(""); setCustPhone(""); setCustomerInput(""); } };
+
+  return (
+    <>
+      {/* DÒNG NÀY ĐỂ KẾT NỐI 2 PHẦN: */}
+  {(() => {
 
   const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 'GHI NỢ') => {
     if (cart.some(i => !i.qty || i.qty <= 0)) { playSound('error'); return alert("Lỗi Số Lượng!") }
@@ -659,7 +670,7 @@ export default function App() {
       setCustomers((prev: any) => ({ ...prev, [custPhone]: updatedCust }));
       try{await supabase.from('customers').upsert([{ phone: custPhone, ...updatedCust }]);}catch(e){}
     }
-    setHistory(prev => [...logs, ...prev]);
+    setHistory((prev:any) => [...logs, ...prev]);
     setLastOrder({ orderId: "HD" + Math.floor(Date.now() / 1000).toString().slice(-6), shift, cart: [...cart], subTotal, vatTotal, finalTotal: payMethod === 'GHI NỢ' ? 0 : finalTotal, debtAmount: payMethod === 'GHI NỢ' ? finalTotal : 0, discount: totalDiscount, time: new Date().toLocaleString('vi-VN'), paymentMethod: payMethod, customerGiven: payMethod === 'TIỀN MẶT' ? Number(customerGiven) : 0 });
     setCheckoutStep(3); fetchProducts(); setLoading(false);
   };
@@ -684,7 +695,7 @@ export default function App() {
       setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], debt: newD } }));
       try{await supabase.from('customers').upsert([{ phone, name: customers[phone].name, debt: newD, wallet: customers[phone].wallet, totalSpent: customers[phone].totalSpent, email: customers[phone].email, cardCode: customers[phone].cardCode }]);}catch(e){}
       const dLog = { id: Math.floor(Date.now() + Math.random() * 1000), shift, type: "THU NỢ", name: "Thanh toán công nợ", qty: 1, total: amt, profit: 0, customer: `${customers[phone].name} (${phone})`, paymentMethod: pMethod, time: new Date().toLocaleString('vi-VN') };
-      setHistory(prev => [dLog, ...prev]); try{await supabase.from('history').insert([dLog]);}catch(e){}
+      setHistory((prev:any) => [dLog, ...prev]); try{await supabase.from('history').insert([dLog]);}catch(e){}
       logAudit("THU NỢ", `Thu ${amt}đ`); alert("Thành công!")
     }
   };
@@ -707,22 +718,22 @@ export default function App() {
     if (exist) {
       if (Number(exist.stock) <= 0) {
         await supabase.from("products").update({ name: newName, category: newCategory || "Khác", import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null, created_at: new Date().toISOString() }).eq("id", exist.id);
-        if (added > 0) { const lg = { id: Math.floor(Date.now() + Math.random() * 1000), shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }; setHistory(prev => [lg, ...prev]); try{await supabase.from('history').insert([lg]);}catch(e){} } logAudit("NHẬP ĐÈ CŨ", `${newName}`); alert(`Đã nhập hàng!${priceUpdatedMsg}`)
+        if (added > 0) { const lg = { id: Math.floor(Date.now() + Math.random() * 1000), shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }; setHistory((prev:any) => [lg, ...prev]); try{await supabase.from('history').insert([lg]);}catch(e){} } logAudit("NHẬP ĐÈ CŨ", `${newName}`); alert(`Đã nhập hàng!${priceUpdatedMsg}`)
       } else {
         if (Number(exist.import_price) !== impPrice || (exist.expiry_date || "") !== (newExpiry || "")) {
           const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}`; const batchName = `${newName} [Lô ${newExpiry ? new Date(newExpiry).toLocaleDateString('vi-VN') : 'Mới'}]`;
           if (window.confirm(`Tạo LÔ MỚI (${batchCode})?`)) {
             await supabase.from("products").insert([{ product_code: batchCode, name: batchName, category: newCategory || "Khác", import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null }]);
-            if (added > 0) { const lg = { id: Math.floor(Date.now() + Math.random() * 1000), shift, type: "NHẬP", name: batchName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }; setHistory(prev => [lg, ...prev]); try{await supabase.from('history').insert([lg]);}catch(e){} } logAudit("TÁCH LÔ", `${batchName}`); if (!priceUpdatedMsg) alert(`Đã tạo mới!`)
+            if (added > 0) { const lg = { id: Math.floor(Date.now() + Math.random() * 1000), shift, type: "NHẬP", name: batchName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }; setHistory((prev:any) => [lg, ...prev]); try{await supabase.from('history').insert([lg]);}catch(e){} } logAudit("TÁCH LÔ", `${batchName}`); if (!priceUpdatedMsg) alert(`Đã tạo mới!`)
           } else { setLoading(false); return }
         } else {
           await supabase.from("products").update({ stock: Number(exist.stock) + added, created_at: new Date().toISOString() }).eq("id", exist.id);
-          if (added > 0) { const lg = { id: Math.floor(Date.now() + Math.random() * 1000), shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }; setHistory(prev => [lg, ...prev]); try{await supabase.from('history').insert([lg]);}catch(e){} } logAudit("CỘNG DỒN", `${newName}`); alert(`Cộng dồn thành công!${priceUpdatedMsg}`)
+          if (added > 0) { const lg = { id: Math.floor(Date.now() + Math.random() * 1000), shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }; setHistory((prev:any) => [lg, ...prev]); try{await supabase.from('history').insert([lg]);}catch(e){} } logAudit("CỘNG DỒN", `${newName}`); alert(`Cộng dồn thành công!${priceUpdatedMsg}`)
         }
       }
     } else {
       await supabase.from("products").insert([{ product_code: baseCode, name: newName, category: newCategory || "Khác", import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null }]);
-      if (added > 0) { const lg = { id: Math.floor(Date.now() + Math.random() * 1000), shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }; setHistory(prev => [lg, ...prev]); try{await supabase.from('history').insert([lg]);}catch(e){} } logAudit("NHẬP MỚI", `${newName}`); if (priceUpdatedMsg) alert(`Nhập thành công!${priceUpdatedMsg}`)
+      if (added > 0) { const lg = { id: Math.floor(Date.now() + Math.random() * 1000), shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }; setHistory((prev:any) => [lg, ...prev]); try{await supabase.from('history').insert([lg]);}catch(e){} } logAudit("NHẬP MỚI", `${newName}`); if (priceUpdatedMsg) alert(`Nhập thành công!${priceUpdatedMsg}`)
     }
     setNewCode(""); setNewName(""); setNewCategory("Đồ uống"); setNewImportPrice(""); setNewPrice(""); setNewPromoPrice(""); setNewGiftCondition("1"); setNewGiftInfo(""); setNewStock(""); setNewExpiry(""); fetchProducts(); setLoading(false); setShowInputForm(false)
   };
@@ -737,10 +748,150 @@ export default function App() {
           const baseCode = pCode.trim(); const allVariants = products.filter(p => p.product_code === baseCode || p.product_code.startsWith(`${baseCode}-`)); if (allVariants.length > 0 && Number(allVariants[0].sale_price) !== pSalePrice) { await Promise.all(allVariants.map(v => supabase.from("products").update({ sale_price: pSalePrice, promo_price: pPromoPrice }).eq("id", v.id))); if (!importLogs.find(l => l.name === `Đồng bộ giá ${baseCode}`)) importLogs.push({ id: Math.floor(Date.now() + Math.random() * 1000), shift, type: "HỆ THỐNG", name: `Đồng bộ giá ${baseCode}`, qty: 0, total: 0, time: new Date().toLocaleString('vi-VN') }) }
           const exist = allVariants.find(p => p.product_code === baseCode); if (exist) { if (Number(exist.stock) <= 0) await supabase.from("products").update({ name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry, created_at: new Date().toISOString() }).eq("id", exist.id); else { if (Number(exist.import_price) !== pImpPrice || (exist.expiry_date || "") !== (pExpiry || "")) { const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}${i}`; const batchName = `${pName} [Lô ${pExpiry ? new Date(pExpiry).toLocaleDateString('vi-VN') : 'Mới'}]`; await supabase.from("products").insert([{ product_code: batchCode, name: batchName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); } else await supabase.from("products").update({ stock: Number(exist.stock) + pStock, created_at: new Date().toISOString() }).eq("id", exist.id) } } else await supabase.from("products").insert([{ product_code: baseCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); if (pStock > 0) importLogs.push({ id: Math.floor(Date.now() + Math.random() * 1000), shift, type: "NHẬP", name: cleanName(pName), qty: pStock, total: 0, time: new Date().toLocaleString('vi-VN') }); successCount++
         }
-        if (importLogs.length > 0) { setHistory(prev => [...importLogs, ...prev]); try{await supabase.from('history').insert(importLogs);}catch(e){} } logAudit("NHẬP FILE", `Nhập ${successCount} mã`); alert(`Nhập thành công ${successCount} SP!`); fetchProducts()
+        if (importLogs.length > 0) { setHistory((prev:any) => [...importLogs, ...prev]); try{await supabase.from('history').insert(importLogs);}catch(e){} } logAudit("NHẬP FILE", `Nhập ${successCount} mã`); alert(`Nhập thành công ${successCount} SP!`); fetchProducts()
       } catch (err) { alert("Lỗi file CSV."); } setLoading(false)
     }; reader.readAsText(file); e.target.value = ''
   };
 
   const renderHeaderIcon = (colKey: string) => { const isFiltered = filters[colKey]?.length > 0; return (<span onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === colKey ? null : colKey) }} style={{ cursor: "pointer", color: isFiltered || sortConfig?.key === colKey ? '#ef4444' : '#94a3b8', fontSize: "10px", padding: "2px", marginLeft: "4px", border: isFiltered ? "1px dashed #ef4444" : "1px solid transparent", borderRadius: "2px" }} title="Lọc">🔽</span>) };
-  const renderFilterPopup = (colKey: string, title: string, uniqueValues: any[], formatVal?: (v: any) => string) => { if (openFilter !== colKey) return null; return (<div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: colKey === 'name' ? "0" : "50%", transform: colKey === 'name' ? "none" : "translateX(-50%)", background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px", zIndex: 999, boxShadow: "0 10px 25px rgba(0,0,0,0.2)", minWidth: "160px", textAlign: "left", color: "#1e293b", fontWeight: "normal", fontSize: "12px" }}><div style={{ fontWeight: "bold", color: "#64748b", fontSize: "10px", marginBottom: "6px" }}>LỌC {title}:</div><div style={{ overflowY: "auto", maxHeight: "150px" }}>{uniqueValues.map((v, i) => (<label key={i} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px", cursor: "pointer" }}><input type="checkbox" checked={filters[colKey]?.includes(v) || false} onChange={() => { setFilters(prev => { const cur = prev[colKey] || []; if (cur.includes(v)) return { ...prev, [colKey]: cur.filter(x => x !== v) }; return { ...prev, [colKey]: [...cur, v] } }) }} /><span>{formatVal ? formatVal(v) : v}</span></label>))}</div>{filters[colKey]?.length > 0 && <div style={{ marginTop: "8px", textAlign: "center", cursor: "pointer", color: "#ef4444", fontWeight: "bold", fontSize: "11px" }} onClick={() => setFilters(prev => ({ ...prev, [colKey]: [] }))}>❌ Bỏ lọc</div>}</div>) };
+  const renderFilterPopup = (colKey: string, title: string, uniqueValues: any[], formatVal?: (v: any) => string) => { if (openFilter !== colKey) return null; return (<div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: colKey === 'name' ? "0" : "50%", transform: colKey === 'name' ? "none" : "translateX(-50%)", background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px", zIndex: 999, boxShadow: "0 10px 25px rgba(0,0,0,0.2)", minWidth: "160px", textAlign: "left", color: "#1e293b", fontWeight: "normal", fontSize: "12px" }}><div style={{ fontWeight: "bold", color: "#64748b", fontSize: "10px", marginBottom: "6px" }}>LỌC {title}:</div><div style={{ overflowY: "auto", maxHeight: "150px" }}>{uniqueValues.map((v, i) => (<label key={i} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px", cursor: "pointer" }}><input type="checkbox" checked={filters[colKey]?.includes(v) || false} onChange={() => { setFilters((prev:any) => { const cur = prev[colKey] || []; if (cur.includes(v)) return { ...prev, [colKey]: cur.filter((x:any) => x !== v) }; return { ...prev, [colKey]: [...cur, v] } }) }} /><span>{formatVal ? formatVal(v) : v}</span></label>))}</div>{filters[colKey]?.length > 0 && <div style={{ marginTop: "8px", textAlign: "center", cursor: "pointer", color: "#ef4444", fontWeight: "bold", fontSize: "11px" }} onClick={() => setFilters((prev:any) => ({ ...prev, [colKey]: [] }))}>❌ Bỏ lọc</div>}</div>) };
+
+  return (
+    <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
+      <div className="no-print" style={{ padding: "15px", position: "relative", minHeight: "100vh", overflowX: "auto" }}>
+        <div style={{ maxWidth: "1500px", margin: "0 auto", minWidth: "1000px" }}>
+          
+          {/* HEADER CHÍNH */}
+          <div className="glass" style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: "12px", marginBottom: "12px", borderBottom: "4px solid #ef4444" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <HeaderLogo />
+              <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+                <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
+                  {role === 'admin' && <div style={{ textAlign: "center" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>VỐN</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#475569" }}>{totalValue.toLocaleString()}đ</div></div>}
+                  <div style={{ textAlign: "center" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>TIỀN MẶT</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#059669" }}>{currentShiftStats.cash.toLocaleString()}đ</div></div>
+                  <div style={{ textAlign: "center" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>CK</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#2563eb" }}>{currentShiftStats.transfer.toLocaleString()}đ</div></div>
+                </div>
+                <button onClick={() => setShowHandoverModal(true)} style={{ padding: "10px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}>ĐĂNG XUẤT</button>
+              </div>
+            </div>
+            
+            <div style={{ display: "flex", borderTop: "1px dashed #cbd5e1", paddingTop: "12px", justifyContent: "space-between", alignItems: "center" }}>
+               <div style={{ position: "relative" }}>
+                   <button onClick={(e) => { e.stopPropagation(); setShowMainMenu(!showMainMenu) }} style={{ padding: "8px 24px", background: "#1e3a8a", color: "#fff", border: "none", borderRadius: "8px", fontSize: "14px", fontWeight: "900", cursor: "pointer" }}>MENU</button>
+                   {showMainMenu && <div style={{ position: "absolute", top: "110%", left: 0, background: "#fff", border: "1px solid #cbd5e1", borderRadius: "10px", minWidth: "250px", zIndex: 1000, padding: "8px", display: "flex", flexDirection: "column" }}>
+                      <div onClick={() => { setShowMainMenu(false); setShowDebtModal(true) }} style={{ padding: "12px", cursor: "pointer", borderBottom: "1px solid #f1f5f9", color: "#b91c1c", fontWeight: "bold" }}>📓 Sổ Nợ Khách Hàng</div>
+                      {role === 'admin' && <div onClick={() => { setShowMainMenu(false); setShowCustomerModal(true) }} style={{ padding: "12px", cursor: "pointer", borderBottom: "1px solid #f1f5f9", fontWeight: "bold" }}>🤝 Khách Hàng VIP</div>}
+                      {role === 'admin' && <div onClick={() => { setShowMainMenu(false); setShowSettings(true) }} style={{ padding: "12px", cursor: "pointer", fontWeight: "bold" }}>⚙️ Cài Đặt Hệ Thống</div>}
+                   </div>}
+               </div>
+               <div style={{ display: "flex", gap: "15px", fontSize: "12px", fontWeight: "bold" }}>
+                  <div style={{ background: "#f8fafc", padding: "6px 12px", borderRadius: "6px", border: "1px solid #e2e8f0" }}>⏱️ {currentTime.toLocaleTimeString('vi-VN')}</div>
+                  <div style={{ background: "#ecfdf5", padding: "6px 12px", borderRadius: "6px", border: "1px solid #a7f3d0", color: "#059669" }}>Online</div>
+               </div>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: "10px" }}>
+            
+            {/* CỘT TRÁI: SẢN PHẨM */}
+            <div className="glass" style={{ padding: "12px" }}>
+              <div style={{ display: "flex", gap: "15px", marginBottom: "15px" }}>
+                <input placeholder="TÌM MÃ SP/ TÊN SP..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1", outline: "none" }} />
+              </div>
+              <div style={{ maxHeight: "calc(100vh - 220px)", overflowY: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ fontSize: "10px", borderBottom: "2px solid #fed7aa", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}>
+                      <th style={{ textAlign: "left", padding: "10px 4px" }}>SẢN PHẨM</th>
+                      <th style={{ textAlign: "center", padding: "10px 4px" }}>TỒN</th>
+                      <th style={{ textAlign: "center", padding: "10px 4px" }}>GIÁ BÁN</th>
+                      <th style={{ textAlign: "center", padding: "10px 4px" }}>HSD</th>
+                      <th style={{ textAlign: "right", padding: "10px 4px" }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedAndFilteredProducts.map(p => {
+                      const isP = p.promo_price > 0; const g = parseGift(p.gift_info);
+                      return (
+                        <tr key={p.id} style={{ borderBottom: "1px solid #fed7aa" }}>
+                          <td style={{ padding: "12px 4px" }}>
+                            <b>{cleanName(p.name)}</b>
+                            <div style={{ fontSize: "10px", color: "#94a3b8" }}>{p.product_code}</div>
+                            {g.text && <div style={{ fontSize: "10px", color: "#059669", fontWeight: "bold" }}>🎁 Tặng: {g.text} (Mua ≥{g.cond})</div>}
+                          </td>
+                          <td style={{ textAlign: "center", fontWeight: "bold" }}>{p.stock}</td>
+                          <td style={{ textAlign: "center" }}>
+                            <div style={{ textDecoration: isP ? "line-through" : "none", fontWeight: "bold", fontSize: isP ? "11px" : "14px" }}>{Number(p.sale_price).toLocaleString()}đ</div>
+                            {isP && <div style={{ color: "#ef4444", fontWeight: "900" }}>🔥 {Number(p.promo_price).toLocaleString()}đ</div>}
+                          </td>
+                          <td style={{ textAlign: "center", fontSize: "11px" }}>{p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : "---"}</td>
+                          <td style={{ textAlign: "right" }}><button className="add-to-cart-btn" onClick={() => handleSelectSuggest(p)}>+ GIỎ</button></td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* CỘT PHẢI: GIỎ HÀNG VÀ LỊCH SỬ */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <div className="glass" style={{ padding: "15px", flex: 1.5, display: "flex", flexDirection: "column" }}>
+                <h3 style={{ color: "#ef4444", margin: 0 }}>🛒 GIỎ HÀNG ({cart.reduce((s, i) => s + i.qty, 0)})</h3>
+                {custName && <div style={{ color: "#059669", fontWeight: "bold", fontSize: "11px", marginTop: "4px" }}>👤 VIP: {custName} <span style={{ cursor: "pointer", color: "red" }} onClick={() => { setCustName(""); setCustPhone(""); }}>✖</span></div>}
+                {cartTotalAmountDisplay > 0 && <div style={{ background: "#fef2f2", padding: "12px", borderRadius: "8px", marginTop: "10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ fontSize: "24px", fontWeight: "900", color: "#ef4444" }}>{cartTotalAmountDisplay.toLocaleString()}đ</div>
+                  <button onClick={() => setIsCheckoutOpen(true)} style={{ padding: "10px 20px", background: "#ef4444", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>THANH TOÁN</button>
+                </div>}
+                <div style={{ flex: 1, overflowY: "auto", marginTop: "10px" }}>
+                  {cart.map((item, idx) => {
+                    const g = parseGift(item.product.gift_info), gQ = g.cond > 0 ? Math.floor(item.qty / g.cond) : 0;
+                    return (
+                      <div key={idx} style={{ padding: "8px 0", borderBottom: "1px dashed #fed7aa", fontSize: "12px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}>
+                          <b>{cleanName(item.product.name)}</b>
+                          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                            <button className="qty-btn" onClick={() => adjustCartQty(item.product.id, -1)}>-</button>
+                            <input className="qty-input" value={item.qty} readOnly />
+                            <button className="qty-btn" onClick={() => adjustCartQty(item.product.id, 1)}>+</button>
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginTop: "4px" }}>
+                          <span>{g.text && gQ > 0 && <span style={{ color: "#10b981", fontWeight: "bold" }}>+ 🎁 {gQ} x {g.text}</span>}</span>
+                          <b>{Number(item.total).toLocaleString()}đ</b>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="glass" style={{ padding: "15px", height: "35vh", display: "flex", flexDirection: "column" }}>
+                <input placeholder="Tìm giao dịch..." value={logSearchTerm} onChange={e => setLogSearchTerm(e.target.value)} style={{ padding: "6px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12px", outline: "none" }} />
+                <div style={{ flex: 1, overflowY: "auto", marginTop: "10px" }}>
+                  {Object.keys(groupedHistory).map(d => (
+                    <div key={d}>
+                      <div style={{ background: "#ffedd5", padding: "4px 8px", fontSize: "11px", fontWeight: "bold", color: "#b45309" }}>{d}</div>
+                      {groupedHistory[d].map((log: any) => (
+                        <div key={log.id} style={{ fontSize: "11px", padding: "4px 0", borderBottom: "1px dashed #eee" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between" }}>
+                            <span><b>[{log.type}]</b> {cleanName(log.name)} x{log.qty}</span>
+                            <b>{Number(log.total || 0).toLocaleString()}</b>
+                          </div>
+                          <div style={{ color: "#94a3b8" }}>{log.customer} - {log.t}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+  }})()}
+  </>
+  );
+}
