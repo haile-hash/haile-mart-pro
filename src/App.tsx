@@ -4,28 +4,32 @@ import React, { useEffect, useState, useMemo } from "react";
 import { supabase } from "./supabaseClient";
 
 const styles = `
-  @keyframes wave { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }
+  @keyframes wave { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-5px) } }
   @keyframes float { 0% { transform: translateY(0) } 50% { transform: translateY(-20px) } 100% { transform: translateY(0) } }
   @keyframes pulse-fast { 0% { opacity: 1 } 50% { opacity: .5 } 100% { opacity: 1 } }
-  @keyframes logo-glow { 0%, 100% { box-shadow: 0 0 10px rgba(250,204,21,0.2), 0 0 20px rgba(250,204,21,0.2) inset; transform: scale(1) } 50% { box-shadow: 0 0 25px rgba(250,204,21,1), 0 0 40px rgba(250,204,21,0.8), 0 0 20px rgba(250,204,21,0.5) inset; transform: scale(1.05) } }
   
-  .logo-icon { animation: logo-glow 2s infinite ease-in-out; background-color: #dc2626; padding: 8px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+  .logo-icon { background-color: #dc2626; padding: 8px; border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(220,38,38,0.4); border: 1px solid rgba(255,255,255,0.2); }
+  .text-wave { animation: wave 2.5s ease-in-out infinite; }
   .spring-bg { position: fixed; width: 400px; height: 400px; border-radius: 50%; filter: blur(100px); z-index: -1; opacity: .3; animation: float 10s infinite ease-in-out; }
   .glass { background: rgba(255,255,255,.98); border: 1px solid #fed7aa; border-radius: 12px; box-shadow: 0 4px 15px rgba(251,146,60,.08); }
   
   body { background-color: #fff7ed; margin: 0; font-family: 'Inter', sans-serif; color: #431407; }
   .tab-btn { padding: 6px 12px; border-radius: 20px; border: 1px solid #fed7aa; background: #fff; cursor: pointer; font-size: 12px; font-weight: bold; color: #9a3412; white-space: nowrap; }
   .tab-btn.active { background: #ef4444; color: #fff; border-color: #ef4444; }
+  
   .chart-container-scroll { display: flex; align-items: flex-end; height: 120px; margin-top: 15px; padding-top: 10px; border-top: 1px dashed #cbd5e1; overflow-x: auto; padding-bottom: 5px; gap: 4px; }
   .chart-bar-group { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 20px; }
   .chart-bar { width: 8px; background: linear-gradient(0deg, #ef4444 0%, #fca5a5 100%); border-radius: 4px 4px 0 0; transition: height .5s; min-height: 2px; }
   .chart-label { font-size: 8px; color: #64748b; margin-top: 4px; font-weight: bold; white-space: nowrap; }
   .chart-val { font-size: 8px; color: #b91c1c; font-weight: bold; margin-bottom: 2px; }
+  
   .noti-bell { position: relative; display: inline-block; cursor: pointer; }
   .noti-badge { position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; border-radius: 50%; padding: 2px 6px; font-size: 9px; font-weight: bold; animation: pulse-fast 1s infinite; }
-  .qty-input { width: 28px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; outline: none; font-size: 11px; font-weight: bold; color: #1e293b; padding: 3px 0; background: #fff; }
+  
+  .qty-input { width: 32px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; outline: none; font-size: 13px; font-weight: bold; color: #1e293b; padding: 4px 0; background: #fff; }
   .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .qty-input[type=number] { -moz-appearance: textfield; }
+  
   .add-to-cart-btn { padding: 8px 16px; background-color: #fbbf24; color: #78350f; border: none; border-radius: 6px; font-weight: 900; cursor: pointer; font-size: 12px; transition: transform .1s, background-color .2s; box-shadow: 0 2px 4px rgba(251,191,36,.3); }
   .add-to-cart-btn:hover { background-color: #f59e0b; transform: scale(1.05); }
   .add-to-cart-btn:active { transform: scale(.95); }
@@ -36,12 +40,12 @@ const styles = `
 
   @media print {
     .no-print { display: none !important; }
-    body { background: #fff !important; margin: 0; padding: 0; display: flex; justify-content: center; }
-    .print-only { display: block !important; position: relative !important; width: 80mm !important; margin: 0 auto !important; padding: 5mm !important; box-sizing: border-box !important; }
+    body, html { background: #fff !important; margin: 0; padding: 0; }
+    .print-receipt-container { display: block !important; width: 80mm !important; margin: 0 auto !important; padding: 5mm !important; font-family: Arial, sans-serif; color: #000; font-size: 12px; line-height: 1.5; box-sizing: border-box; }
     .print-flex { display: flex !important; width: 100%; justify-content: center; flex-wrap: wrap; }
     @page { margin: 0; size: 80mm auto; }
   }
-  .print-only, .print-flex { display: none; }
+  .print-receipt-container, .print-flex { display: none; }
 `;
 
 export default function App() {
@@ -50,6 +54,11 @@ export default function App() {
   const EMAILJS_TEMPLATE_ID = "template_t91erhg";
   const EMAILJS_TEMPLATE_VIP_ID = "template_m1j9i7k";
   const EMAILJS_PUBLIC_KEY = "5ric0kxuwNPlUleAv";
+
+  const safeGetLS = (k: string, d: any) => { 
+    try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d } 
+    catch (e) { return d } 
+  };
 
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem("mart_logged_in") === "true");
   const [role, setRole] = useState(() => localStorage.getItem("mart_role") || "staff");
@@ -82,6 +91,14 @@ export default function App() {
   const [filters, setFilters] = useState<Record<string, any[]>>({});
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showMainMenu, setShowMainMenu] = useState(false);
+
+  // GIỮ NGUYÊN DỮ LIỆU TỪ MÁY TÍNH
+  const [customers, setCustomers] = useState<any>(() => safeGetLS("mart_customers", {}));
+  const [heldOrders, setHeldOrders] = useState<any[]>(() => safeGetLS("mart_held_orders", []));
+  const [auditLogs, setAuditLogs] = useState<any[]>(() => safeGetLS("mart_audit", []));
+  const [expenses, setExpenses] = useState<any[]>(() => safeGetLS("mart_expenses", []));
+  const [suppliers, setSuppliers] = useState<any[]>(() => safeGetLS("mart_suppliers", []));
+  const [history, setHistory] = useState<any[]>(() => safeGetLS("mart_history", []));
 
   const [showDebtModal, setShowDebtModal] = useState(false);
   const [showStatsModal, setShowStatsModal] = useState(false);
@@ -123,39 +140,6 @@ export default function App() {
   const [cart, setCart] = useState<any[]>([]);
   const [barcodeInput, setBarcodeInput] = useState("");
 
-  const [customers, setCustomers] = useState<any>(() => { const s = localStorage.getItem("mart_customers"); return s ? JSON.parse(s) : {} });
-  const [heldOrders, setHeldOrders] = useState<any[]>(() => { const s = localStorage.getItem("mart_held_orders"); return s ? JSON.parse(s) : [] });
-  const [auditLogs, setAuditLogs] = useState<any[]>(() => { const s = localStorage.getItem("mart_audit"); return s ? JSON.parse(s) : [] });
-  const [expenses, setExpenses] = useState<any[]>(() => { const s = localStorage.getItem("mart_expenses"); return s ? JSON.parse(s) : [] });
-  const [suppliers, setSuppliers] = useState<any[]>(() => { const s = localStorage.getItem("mart_suppliers"); return s ? JSON.parse(s) : [] });
-  const [history, setHistory] = useState<any[]>(() => { const s = localStorage.getItem("mart_history"); return s ? JSON.parse(s) : [] });
-
-  // SỬA LỖI ĐÈ DỮ LIỆU CLOUD TRỐNG
-  const loadCloudData = async () => {
-    try {
-      const [rCust, rHist, rExp, rSup, rAud, rHold] = await Promise.all([
-        supabase.from('customers').select('*'),
-        supabase.from('history').select('*').order('id', { ascending: false }).limit(1500),
-        supabase.from('expenses').select('*').order('id', { ascending: false }),
-        supabase.from('suppliers').select('*').order('id', { ascending: false }),
-        supabase.from('audit_logs').select('*').order('id', { ascending: false }).limit(300),
-        supabase.from('held_orders').select('*')
-      ]);
-      if (rCust.data && rCust.data.length > 0) {
-        const cObj: any = {};
-        rCust.data.forEach((c: any) => cObj[c.phone] = c);
-        setCustomers(cObj);
-      }
-      if (rHist.data && rHist.data.length > 0) setHistory(rHist.data);
-      if (rExp.data && rExp.data.length > 0) setExpenses(rExp.data);
-      if (rSup.data && rSup.data.length > 0) setSuppliers(rSup.data);
-      if (rAud.data && rAud.data.length > 0) setAuditLogs(rAud.data);
-      if (rHold.data && rHold.data.length > 0) setHeldOrders(rHold.data);
-    } catch (err) {
-      console.error("Lỗi tải Cloud:", err);
-    }
-  };
-
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState(1);
   const [customerInput, setCustomerInput] = useState("");
@@ -170,6 +154,27 @@ export default function App() {
   const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
   const [logSearchTerm, setLogSearchTerm] = useState("");
   const [logTypeFilter, setLogTypeFilter] = useState("Tất cả");
+
+  // HÀM TẢI CLOUD: CHỈ THÊM VÀO, KHÔNG GHI ĐÈ XÓA DỮ LIỆU CŨ
+  const loadCloudData = async () => {
+    try {
+      const [rCust, rHist, rExp, rSup, rAud] = await Promise.all([
+        supabase.from('customers').select('*'),
+        supabase.from('history').select('*').order('id', { ascending: false }).limit(1500),
+        supabase.from('expenses').select('*').order('id', { ascending: false }),
+        supabase.from('suppliers').select('*').order('id', { ascending: false }),
+        supabase.from('audit_logs').select('*').order('id', { ascending: false }).limit(300)
+      ]);
+      
+      if (rCust.data && rCust.data.length > 0) {
+        setCustomers((prev: any) => { const merged = { ...prev }; rCust.data.forEach((c: any) => merged[c.phone] = c); return merged; });
+      }
+      if (rHist.data && rHist.data.length > 0) setHistory(prev => prev.length > 0 ? prev : rHist.data);
+      if (rExp.data && rExp.data.length > 0) setExpenses(prev => prev.length > 0 ? prev : rExp.data);
+      if (rSup.data && rSup.data.length > 0) setSuppliers(prev => prev.length > 0 ? prev : rSup.data);
+      if (rAud.data && rAud.data.length > 0) setAuditLogs(prev => prev.length > 0 ? prev : rAud.data);
+    } catch (err) { console.error("Lỗi tải Cloud:", err); }
+  };
 
   const playSound = (type: 'success' | 'error') => {
     try {
@@ -188,9 +193,10 @@ export default function App() {
   };
 
   const logAudit = async (action: string, detail: string) => {
-    const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user_name: role === 'admin' ? 'Quản lý' : 'Thu ngân', shift, action, detail };
+    const id = Math.floor(Date.now() + Math.random() * 100);
+    const newLog = { id, time: new Date().toLocaleString('vi-VN'), user_name: role === 'admin' ? 'Quản lý' : 'Thu ngân', shift, action, detail };
     setAuditLogs(prev => [newLog, ...prev].slice(0, 300));
-    try { await supabase.from('audit_logs').insert([newLog]); } catch(e){}
+    try { await supabase.from('audit_logs').insert([newLog]); } catch(e) {}
   };
 
   const parseGift = (giftStr: string | null) => {
@@ -204,14 +210,13 @@ export default function App() {
 
   const cleanName = (name: string) => name ? name.split(' [Lô')[0] : '';
 
+  // ÉP KIỂU SỐ ĐỂ TRÁNH LỖI CỘNG DỒN THÀNH CHUỖI
   const getActualPrice = (p: any) => {
     let price = (p.promo_price && Number(p.promo_price) > 0) ? Number(p.promo_price) : Number(p.sale_price);
     const currentHour = new Date().getHours();
     if ((currentHour >= 20 || currentHour < 6) && (p.category === 'Đồ ăn liền' || p.category === 'Bánh Kẹo')) {
       price = price * 0.8; p.isHappyHour = true;
-    } else {
-      p.isHappyHour = false;
-    }
+    } else { p.isHappyHour = false; }
     return Math.round(price);
   };
 
@@ -258,13 +263,10 @@ export default function App() {
 
   useEffect(() => {
     if (isLoggedIn) {
-      fetchProducts();
-      loadCloudData();
+      fetchProducts(); loadCloudData();
       const channel = supabase.channel("db_changes").on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts()).subscribe();
-      const script = document.createElement("script");
-      script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js";
-      script.onload = () => { (window as any).emailjs.init(EMAILJS_PUBLIC_KEY); };
-      document.head.appendChild(script);
+      const script = document.createElement("script"); script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js";
+      script.onload = () => { (window as any).emailjs.init(EMAILJS_PUBLIC_KEY); }; document.head.appendChild(script);
       return () => { supabase.removeChannel(channel); }
     }
   }, [isLoggedIn]);
@@ -282,10 +284,7 @@ export default function App() {
         }
       };
       if (!(window as any).Html5QrcodeScanner) {
-        const script = document.createElement("script");
-        script.src = "https://unpkg.com/html5-qrcode";
-        script.onload = loadScanner;
-        document.head.appendChild(script);
+        const script = document.createElement("script"); script.src = "https://unpkg.com/html5-qrcode"; script.onload = loadScanner; document.head.appendChild(script);
       } else loadScanner();
       return () => { if (scanner) scanner.clear().catch(() => { }) }
     }
@@ -312,9 +311,8 @@ export default function App() {
       }
     });
     setScanMessage({ text: `✅ Thêm: ${repName}`, type: 'success' });
-    setBarcodeInput("");
-    setShowSuggestions(false);
-    setTimeout(() => setScanMessage(null), 2000);
+    setBarcodeInput(""); setShowSuggestions(false);
+    setTimeout(() => setScanMessage(null), 1500);
   };
 
   useEffect(() => {
@@ -326,9 +324,7 @@ export default function App() {
           const matchedPhone = Object.keys(customers).find(phone => phone === scannedCodeObj.code.trim() || customers[phone].cardCode === scannedCodeObj.code.trim());
           if (matchedPhone) {
             playSound('success'); setCustomerInput(customers[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setScanMessage({ text: `✅ KH VIP: ${customers[matchedPhone].name}`, type: 'success' });
-          } else {
-            playSound('error'); setScanMessage({ text: `❌ Lỗi mã`, type: 'error' });
-          }
+          } else { playSound('error'); setScanMessage({ text: `❌ Lỗi mã`, type: 'error' }); }
           setTimeout(() => setScannerMode(null), 1500);
         }
       } else if (scannerMode === 'voucher') {
@@ -338,9 +334,7 @@ export default function App() {
           setAppliedVoucherAmount(VOUCHERS[code]); setVoucherInput(code); playSound('success'); setScanMessage({ text: `✅ Giảm ${VOUCHERS[code].toLocaleString()}đ`, type: 'success' });
         } else if (!isNaN(Number(code)) && Number(code) > 0) {
           setAppliedVoucherAmount(Number(code)); setVoucherInput(code); playSound('success'); setScanMessage({ text: `✅ Giảm ${Number(code).toLocaleString()}đ`, type: 'success' });
-        } else {
-          playSound('error'); alert("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0);
-        }
+        } else { playSound('error'); alert("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0); }
         setTimeout(() => setScannerMode(null), 1000);
       } else if (scannerMode === 'customer') {
         const val = scannedCodeObj.code.trim();
@@ -364,21 +358,20 @@ export default function App() {
   }, []);
 
   const todayStrStr = new Date().toLocaleDateString('vi-VN');
-  
-  // FIXED MATH BUGS
+
+  // ĐÃ SỬA: LỖI CỘNG DỒN THÀNH CHUỖI GÂY VỐN 50 TỶ
   const currentShiftStats = useMemo(() => {
     let cash = 0; let transfer = 0; let prof = 0; let totalSales = 0;
-    const shiftLogs = history.filter(h => {
-        let d = h.time ? h.time.split(' ')[1] : new Date(Number(h.id)).toLocaleDateString('vi-VN');
-        return d === todayStrStr && h.shift === shift;
-    });
-    shiftLogs.forEach(h => {
-      if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += Number(h.total || 0);
-      if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') {
-        if (h.paymentMethod === 'CHUYỂN KHOẢN') transfer += Number(h.total || 0);
-        else if (h.paymentMethod === 'TIỀN MẶT') cash += Number(h.total || 0);
+    history.forEach(h => {
+      let d = h.time ? h.time.split(' ')[1] : new Date(Number(h.id)).toLocaleDateString('vi-VN');
+      if (d === todayStrStr && h.shift === shift) {
+        if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += Number(h.total || 0);
+        if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') {
+          if (h.paymentMethod === 'CHUYỂN KHOẢN') transfer += Number(h.total || 0);
+          else if (h.paymentMethod === 'TIỀN MẶT') cash += Number(h.total || 0);
+        }
+        if (h.type !== 'NHẬP') prof += Number(h.profit || 0);
       }
-      if(h.type !== 'NHẬP') prof += Number(h.profit || 0);
     });
     return { rev: cash + transfer, cash, transfer, prof, totalSales };
   }, [history, shift, todayStrStr]);
@@ -387,9 +380,9 @@ export default function App() {
     let totalSales = 0; let prof = 0;
     history.forEach(h => {
       let d = h.time ? h.time.split(' ')[1] : new Date(Number(h.id)).toLocaleDateString('vi-VN');
-      if(d === todayStrStr) {
-          if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += Number(h.total || 0);
-          if (h.type !== 'NHẬP') prof += Number(h.profit || 0);
+      if (d === todayStrStr) {
+        if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += Number(h.total || 0);
+        if (h.type !== 'NHẬP') prof += Number(h.profit || 0);
       }
     });
     const todayExp = expenses.filter(e => e.date === todayStrStr).reduce((sum, e) => sum + Number(e.amount || 0), 0);
@@ -401,8 +394,8 @@ export default function App() {
     for (let i = 29; i >= 0; i--) {
       const d = new Date(); d.setDate(d.getDate() - i); const dStr = d.toLocaleDateString('vi-VN');
       const dayTotal = history.filter(h => {
-          let logD = h.time ? h.time.split(' ')[1] : new Date(Number(h.id)).toLocaleDateString('vi-VN');
-          return logD === dStr && (h.type === 'BÁN' || h.type === 'GHI NỢ');
+        let logD = h.time ? h.time.split(' ')[1] : new Date(Number(h.id)).toLocaleDateString('vi-VN');
+        return logD === dStr && (h.type === 'BÁN' || h.type === 'GHI NỢ');
       }).reduce((s, h) => s + Number(h.total || 0), 0);
       data.push({ label: `${d.getDate()}/${d.getMonth() + 1}`, total: dayTotal, showLabel: (i % 3 === 0 || i === 0) });
     }
@@ -439,28 +432,27 @@ export default function App() {
   const totalValue = Math.round(products.reduce((sum, p) => sum + (Number(p.import_price || 0) * Number(p.stock || 0)), 0));
   const lowStockCount = products.filter(p => Number(p.stock) > 0 && Number(p.stock) < 10).length;
   const cartTotalAmountDisplay = cart.reduce((sum, item) => sum + Number(item.total || 0), 0);
-  const currentTier = getCustomerTier(customers[custPhone]?.totalSpent || 0);
-  const tierDiscountAmount = custPhone ? Math.round(cartTotalAmountDisplay * currentTier.discountRate) : 0;
+  
+  const getCustomerTierDiscount = (totalSpent = 0) => {
+    if (totalSpent >= 500000000) return 0.10;
+    if (totalSpent >= 200000000) return 0.05;
+    if (totalSpent >= 50000000) return 0.02;
+    return 0;
+  };
+  
+  const tierDiscountAmount = custPhone ? Math.round(cartTotalAmountDisplay * getCustomerTierDiscount(customers[custPhone]?.totalSpent || 0)) : 0;
   const amountAfterTierAndVoucher = Math.max(0, cartTotalAmountDisplay - appliedVoucherAmount - tierDiscountAmount);
   const walletUsedAmount = useWallet ? Math.min(Number(customers[custPhone]?.wallet || 0), amountAfterTierAndVoucher) : 0;
   const finalToPay = amountAfterTierAndVoucher - walletUsedAmount;
 
   const uniqueNames = useMemo(() => Array.from(new Set(products.map(p => cleanName(p.name)))).sort(), [products]);
-  const uniqueStocks = useMemo(() => Array.from(new Set(products.map(p => p.stock))).sort((a:any, b:any) => a - b), [products]);
-  const uniqueImportPrices = useMemo(() => Array.from(new Set(products.map(p => p.import_price || 0))).sort((a:any, b:any) => a - b), [products]);
-  const uniqueSalePrices = useMemo(() => Array.from(new Set(products.map(p => p.sale_price))).sort((a:any, b:any) => a - b), [products]);
-  const uniqueExpiries = useMemo(() => Array.from(new Set(products.map(p => p.expiry_date).filter(Boolean))).sort(), [products]);
   const categories = ["Tất cả", ...Array.from(new Set(products.map(p => p.category || "Khác")))];
-
+  
   const sortedAndFilteredProducts = useMemo(() => {
     const todayTime = new Date().getTime();
     let filtered = products.filter(p => (selectedCategory === "Tất cả" || (p.category || "Khác") === selectedCategory))
       .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(searchTerm.toLowerCase())));
     if (filters['name']?.length > 0) filtered = filtered.filter(p => filters['name'].includes(cleanName(p.name)));
-    if (filters['stock']?.length > 0) filtered = filtered.filter(p => filters['stock'].includes(p.stock));
-    if (filters['import_price']?.length > 0) filtered = filtered.filter(p => filters['import_price'].includes(p.import_price || 0));
-    if (filters['sale_price']?.length > 0) filtered = filtered.filter(p => filters['sale_price'].includes(p.sale_price));
-    if (filters['expiry_date']?.length > 0) filtered = filtered.filter(p => filters['expiry_date'].includes(p.expiry_date));
     
     if (sortConfig !== null) {
       filtered.sort((a, b) => {
@@ -508,7 +500,7 @@ export default function App() {
     if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) {
       if (customers[newPhone]) return alert("❌ SĐT đã tồn tại!");
       const cData = customers[oldPhone]; const newC = { ...cData, phone: newPhone };
-      setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = newC; delete updated[oldPhone]; return updated; });
+      setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = newC; delete updated[oldPhone]; return updated });
       try { await supabase.from('customers').insert([{ phone: newPhone, name: cData.name, email: cData.email, cardCode: cData.cardCode, totalSpent: cData.totalSpent, wallet: cData.wallet, debt: cData.debt }]); await supabase.from('customers').delete().eq('phone', oldPhone); } catch(e){}
       setHistory((prev: any) => prev.map((h: any) => { if (h.customer && h.customer.includes(oldPhone)) { return { ...h, customer: h.customer.replace(oldPhone, newPhone) } } return h }));
       logAudit("SỬA SĐT KH", `Đổi ${oldPhone} -> ${newPhone}`); alert("✅ Cập nhật thành công!");
@@ -711,13 +703,13 @@ export default function App() {
 
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault(); setLoading(true); const added = parseInt(newStock || "0"); const impPrice = parseInt(newImportPrice); const salePrice = parseInt(newPrice); const promo = parseInt(newPromoPrice) || 0; const finalGiftInfo = newGiftInfo.trim() !== "" ? `${newGiftCondition};;;${newGiftInfo}` : null; const baseCode = newCode.trim(); const allVariants = products.filter(p => p.product_code === baseCode || p.product_code.startsWith(`${baseCode}-`)); const exist = allVariants.find(p => p.product_code === baseCode); let priceUpdatedMsg = "";
-    if (allVariants.length > 0 && allVariants[0].sale_price !== salePrice) { await Promise.all(allVariants.map(v => supabase.from("products").update({ sale_price: salePrice, promo_price: promo }).eq("id", v.id))); priceUpdatedMsg = `\n💡 Đã ĐỒNG BỘ GIÁ lô cũ!`; logAudit("ĐỒNG BỘ GIÁ", `Mã ${baseCode}`); }
+    if (allVariants.length > 0 && Number(allVariants[0].sale_price) !== salePrice) { await Promise.all(allVariants.map(v => supabase.from("products").update({ sale_price: salePrice, promo_price: promo }).eq("id", v.id))); priceUpdatedMsg = `\n💡 Đã ĐỒNG BỘ GIÁ lô cũ!`; logAudit("ĐỒNG BỘ GIÁ", `Mã ${baseCode}`); }
     if (exist) {
       if (Number(exist.stock) <= 0) {
         await supabase.from("products").update({ name: newName, category: newCategory || "Khác", import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null, created_at: new Date().toISOString() }).eq("id", exist.id);
         if (added > 0) { const lg = { id: Math.floor(Date.now() + Math.random() * 1000), shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }; setHistory(prev => [lg, ...prev]); try{await supabase.from('history').insert([lg]);}catch(e){} } logAudit("NHẬP ĐÈ CŨ", `${newName}`); alert(`Đã nhập hàng!${priceUpdatedMsg}`)
       } else {
-        if (exist.import_price !== impPrice || (exist.expiry_date || "") !== (newExpiry || "")) {
+        if (Number(exist.import_price) !== impPrice || (exist.expiry_date || "") !== (newExpiry || "")) {
           const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}`; const batchName = `${newName} [Lô ${newExpiry ? new Date(newExpiry).toLocaleDateString('vi-VN') : 'Mới'}]`;
           if (window.confirm(`Tạo LÔ MỚI (${batchCode})?`)) {
             await supabase.from("products").insert([{ product_code: batchCode, name: batchName, category: newCategory || "Khác", import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null }]);
@@ -742,8 +734,8 @@ export default function App() {
         const text = event.target?.result as string; const lines = text.split('\n').filter(line => line.trim() !== ''); if (lines.length <= 1) { alert("File rỗng!"); setLoading(false); return } let successCount = 0; let importLogs: any[] = [];
         for (let i = 1; i < lines.length; i++) {
           const cols = lines[i].split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, '')); if (cols.length < 5) continue; const pCode = cols[0]; const pName = cols[1]; const pCategory = cols[2] || "Khác"; const pImpPrice = parseInt(cols[3]) || 0; const pSalePrice = parseInt(cols[4]) || 0; const pPromoPrice = parseInt(cols[5]) || 0; const pGift = cols[6] || null; const pStock = parseInt(cols[7]) || 0; const pExpiry = cols[8] || null; if (!pCode || !pName || pSalePrice <= 0) continue;
-          const baseCode = pCode.trim(); const allVariants = products.filter(p => p.product_code === baseCode || p.product_code.startsWith(`${baseCode}-`)); if (allVariants.length > 0 && allVariants[0].sale_price !== pSalePrice) { await Promise.all(allVariants.map(v => supabase.from("products").update({ sale_price: pSalePrice, promo_price: pPromoPrice }).eq("id", v.id))); if (!importLogs.find(l => l.name === `Đồng bộ giá ${baseCode}`)) importLogs.push({ id: Math.floor(Date.now() + Math.random() * 1000), shift, type: "HỆ THỐNG", name: `Đồng bộ giá ${baseCode}`, qty: 0, total: 0, time: new Date().toLocaleString('vi-VN') }) }
-          const exist = allVariants.find(p => p.product_code === baseCode); if (exist) { if (Number(exist.stock) <= 0) await supabase.from("products").update({ name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry, created_at: new Date().toISOString() }).eq("id", exist.id); else { if (exist.import_price !== pImpPrice || (exist.expiry_date || "") !== (pExpiry || "")) { const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}${i}`; const batchName = `${pName} [Lô ${pExpiry ? new Date(pExpiry).toLocaleDateString('vi-VN') : 'Mới'}]`; await supabase.from("products").insert([{ product_code: batchCode, name: batchName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); } else await supabase.from("products").update({ stock: Number(exist.stock) + pStock, created_at: new Date().toISOString() }).eq("id", exist.id) } } else await supabase.from("products").insert([{ product_code: baseCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); if (pStock > 0) importLogs.push({ id: Math.floor(Date.now() + Math.random() * 1000), shift, type: "NHẬP", name: cleanName(pName), qty: pStock, total: 0, time: new Date().toLocaleString('vi-VN') }); successCount++
+          const baseCode = pCode.trim(); const allVariants = products.filter(p => p.product_code === baseCode || p.product_code.startsWith(`${baseCode}-`)); if (allVariants.length > 0 && Number(allVariants[0].sale_price) !== pSalePrice) { await Promise.all(allVariants.map(v => supabase.from("products").update({ sale_price: pSalePrice, promo_price: pPromoPrice }).eq("id", v.id))); if (!importLogs.find(l => l.name === `Đồng bộ giá ${baseCode}`)) importLogs.push({ id: Math.floor(Date.now() + Math.random() * 1000), shift, type: "HỆ THỐNG", name: `Đồng bộ giá ${baseCode}`, qty: 0, total: 0, time: new Date().toLocaleString('vi-VN') }) }
+          const exist = allVariants.find(p => p.product_code === baseCode); if (exist) { if (Number(exist.stock) <= 0) await supabase.from("products").update({ name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry, created_at: new Date().toISOString() }).eq("id", exist.id); else { if (Number(exist.import_price) !== pImpPrice || (exist.expiry_date || "") !== (pExpiry || "")) { const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}${i}`; const batchName = `${pName} [Lô ${pExpiry ? new Date(pExpiry).toLocaleDateString('vi-VN') : 'Mới'}]`; await supabase.from("products").insert([{ product_code: batchCode, name: batchName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); } else await supabase.from("products").update({ stock: Number(exist.stock) + pStock, created_at: new Date().toISOString() }).eq("id", exist.id) } } else await supabase.from("products").insert([{ product_code: baseCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); if (pStock > 0) importLogs.push({ id: Math.floor(Date.now() + Math.random() * 1000), shift, type: "NHẬP", name: cleanName(pName), qty: pStock, total: 0, time: new Date().toLocaleString('vi-VN') }); successCount++
         }
         if (importLogs.length > 0) { setHistory(prev => [...importLogs, ...prev]); try{await supabase.from('history').insert(importLogs);}catch(e){} } logAudit("NHẬP FILE", `Nhập ${successCount} mã`); alert(`Nhập thành công ${successCount} SP!`); fetchProducts()
       } catch (err) { alert("Lỗi file CSV."); } setLoading(false)
