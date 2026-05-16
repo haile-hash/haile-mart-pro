@@ -910,8 +910,7 @@ const handleEditPhone = async (oldPhone: string) => {
     </div>
   );
 // DÒNG NÀY ĐỂ KẾT NỐI:
-  }
-if (!isLoggedIn) return (
+  if (!isLoggedIn) return (
     <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", position: "relative", overflow: "hidden" }}>
       <style>{styles}</style>
       <div className="spring-bg" style={{ background: "#ef4444", top: "-10%", left: "-10%" }}></div>
