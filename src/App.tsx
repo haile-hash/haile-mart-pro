@@ -320,7 +320,6 @@ export default function App() {
     return { rev: cash + transfer - startingCash, cash, transfer, prof, totalSales } 
   }, [history, shift, todayStrStr, startingCash]);
   
-  // Tính toán báo cáo theo khoảng thời gian
   const filteredStats = useMemo(() => { 
     const start = new Date(reportStartDate + "T00:00:00").getTime();
     const end = new Date(reportEndDate + "T23:59:59").getTime();
@@ -637,8 +636,18 @@ export default function App() {
   const closeCheckout = () => { setCart([]); setIsCheckoutOpen(false); setCheckoutStep(1); setCustPhone(""); setCustName(""); setCustomerInput(""); setUseWallet(false); setVoucherInput(""); setAppliedVoucherAmount(0); setCustomerGiven(""); setLastOrder(null) };
   
   const sendReceiptEmail = async () => {
-    if (!lastOrder) return; const savedEmail = (lastOrder.custPhone && customers[lastOrder.custPhone] && customers[lastOrder.custPhone].email) ? customers[lastOrder.custPhone].email : ""; const email = window.prompt("Nhập Email khách hàng:", savedEmail);
-    if (!email) return; if (lastOrder.custPhone) { setCustomers((prev: any) => ({ ...prev, [lastOrder.custPhone]: { ...prev[lastOrder.custPhone], email: email } })); }
+    if (!lastOrder) return; 
+    let savedEmail = (lastOrder.custPhone && customers[lastOrder.custPhone] && customers[lastOrder.custPhone].email) ? customers[lastOrder.custPhone].email : ""; 
+    let email = window.prompt("Nhập Email khách hàng:", savedEmail);
+    if (!email) return; 
+    
+    email = email.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        return alert("❌ Lỗi: Địa chỉ Email không hợp lệ! Vui lòng kiểm tra lại (vd: ten@gmail.com).");
+    }
+    
+    if (lastOrder.custPhone) { setCustomers((prev: any) => ({ ...prev, [lastOrder.custPhone]: { ...prev[lastOrder.custPhone], email: email } })); }
     setLoading(true); let itemsTable = ""; 
     lastOrder.cart.forEach((item: any) => { 
         const priceToUse = item.priceIncludingVat !== undefined ? item.priceIncludingVat : Math.round(getActualPrice(item.product) * (1 + VAT_RATE));
@@ -662,8 +671,17 @@ export default function App() {
   };
   
   const sendCardEmail = async (phone: string) => {
-    const cust = customers[phone]; const email = cust.email || window.prompt(`Nhập Email của ${cust.name}:`, "");
-    if (!email) return; if (!cust.email) { setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], email } })); }
+    const cust = customers[phone]; 
+    let email = cust.email || window.prompt(`Nhập Email của ${cust.name}:`, "");
+    if (!email) return; 
+    
+    email = email.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        return alert("❌ Lỗi: Địa chỉ Email không hợp lệ! Vui lòng kiểm tra lại (vd: ten@gmail.com).");
+    }
+    
+    if (!cust.email) { setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], email } })); }
     setLoading(true); const code = cust.cardCode || phone; const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=10&includetext=true`; const emailData = { to_email: email, order_id: "THẺ THÀNH VIÊN", time: new Date().toLocaleString('vi-VN'), items_list: `💳 MÃ THẺ CỦA BẠN LÀ: ${code}\n(Vui lòng xuất trình Thẻ/Mã vạch bên dưới khi thanh toán)`, total_amount: "Ưu đãi Đặc Quyền", payment_method: "VIP Member", change_amount: "0đ", barcode_url: barcodeUrl }; 
     try { 
         await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, emailData); 
@@ -803,8 +821,14 @@ export default function App() {
         prof += (l.profit || 0) 
     });
     
-    const adminEmail = window.prompt("Nhập Email Quản lý để nhận báo cáo:", "");
+    let adminEmail = window.prompt("Nhập Email Quản lý để nhận báo cáo:", "");
     if(!adminEmail) return;
+
+    adminEmail = adminEmail.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(adminEmail)) {
+        return alert("❌ Lỗi: Địa chỉ Email không hợp lệ! Vui lòng kiểm tra lại (vd: ten@gmail.com).");
+    }
     
     setLoading(true);
     const reportStr = `\n📅 Từ ${reportStartDate} đến ${reportEndDate}\n- Tổng SP đã bán: ${sold} món\n- Doanh thu Tiền Mặt: ${Math.round(cash).toLocaleString()}đ\n- Doanh thu C/K: ${Math.round(transfer).toLocaleString()}đ\n`;
@@ -825,6 +849,15 @@ export default function App() {
   };
 
   const sendInventoryAlertEmail = async () => {
+    let adminEmail = window.prompt("Nhập Email Quản lý để nhận cảnh báo:", "");
+    if(!adminEmail) return;
+
+    adminEmail = adminEmail.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(adminEmail)) {
+        return alert("❌ Lỗi: Địa chỉ Email không hợp lệ! Vui lòng kiểm tra lại (vd: ten@gmail.com).");
+    }
+
     setLoading(true);
     const lowStock = products.filter(p => p.stock > 0 && p.stock < 10);
     const today = new Date().getTime();
@@ -834,9 +867,6 @@ export default function App() {
     lowStock.forEach(p => msg += `- ${cleanName(p.name)}: Còn ${p.stock} sản phẩm\n`);
     msg += `\n⏳ SẮP HẾT HẠN TRONG 15 NGÀY TỚI (${expiring.length} món):\n`;
     expiring.forEach(p => msg += `- ${cleanName(p.name)}: HSD ${new Date(p.expiry_date).toLocaleDateString('vi-VN')}\n`);
-
-    const adminEmail = window.prompt("Nhập Email Quản lý để nhận cảnh báo:", "");
-    if(!adminEmail) { setLoading(false); return; }
 
     const emailData = { to_email: adminEmail, title: "CẢNH BÁO TỒN KHO HẢI LÊ MART", order_id: "HỆ THỐNG", time: new Date().toLocaleString('vi-VN'), items_list: msg, label_total: "Tình trạng:", total_amount: "Cần chú ý", label_payment: "Gửi từ:", payment_method: "ERP Bot", label_change: "", change_amount: "" }; 
     try { 
