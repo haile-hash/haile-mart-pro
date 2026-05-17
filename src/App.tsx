@@ -3,6 +3,27 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "./supabaseClient";
 
+// ==========================================
+// THIẾT BỊ CHỐNG SẬP (BẢO VỆ MÀN HÌNH TRẮNG)
+// ==========================================
+if (typeof window !== 'undefined') {
+  window.onerror = function (message, source, lineno, colno, error) {
+    document.body.innerHTML = `
+      <div style="padding: 40px; background: #fef2f2; color: #b91c1c; font-family: sans-serif; min-height: 100vh;">
+        <h2>🚨 HỆ THỐNG GẶP LỖI KHỞI ĐỘNG!</h2>
+        <p>Giao diện không thể tải lên do một lỗi kỹ thuật (Không phải màn hình trắng nữa).</p>
+        <div style="background: #fff; padding: 15px; border: 1px solid #fca5a5; border-radius: 8px; margin: 20px 0;">
+          <b>Chi tiết lỗi:</b><br/>
+          <pre style="white-space: pre-wrap;">${message}</pre>
+          <p style="font-size: 12px; color: #666;">Vị trí: ${source} (Dòng ${lineno})</p>
+        </div>
+        <button onclick="localStorage.clear(); window.location.reload();" style="padding: 12px 24px; background: #ef4444; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">DỌN RÁC BỘ NHỚ VÀ THỬ LẠI</button>
+      </div>
+    `;
+    return true;
+  };
+}
+
 const styles = `
   @keyframes wave{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
   @keyframes float{0%{transform:translateY(0)}50%{transform:translateY(-20px)}100%{transform:translateY(0)}}
@@ -48,7 +69,7 @@ const styles = `
   }
 `;
 
-// CÁC HÀM TIỆN ÍCH HOISTING (Chống sập web)
+// HÀM TIỆN ÍCH HOISTING & BỌC THÉP
 const safeArray = (arr: any) => Array.isArray(arr) ? arr : [];
 const safeObject = (obj: any) => (obj && typeof obj === 'object' && !Array.isArray(obj)) ? obj : {};
 const parseLocal = (key: string, defaultVal: any) => { try { const s = localStorage.getItem(key); return s && s !== "undefined" ? JSON.parse(s) : defaultVal; } catch(e) { return defaultVal; } };
@@ -166,6 +187,8 @@ function MainApp() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
   const isInitialMount = useRef(true);
+
+  // KẾT THÚC KHAI BÁO STATE ==========================
 
   const logAudit = async (action: string, detail: string, extraData: any = null) => { 
     const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user_name: role === 'admin' ? 'Quản lý' : 'Thu ngân', shift, action, detail, extra_data: extraData ? JSON.stringify(extraData) : null }; 
@@ -913,6 +936,28 @@ function MainApp() {
     </div>
   );
 
+  if (!isLoggedIn) return (
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", position: "relative", overflow: "hidden" }}>
+      <style>{styles}</style>
+      <div className="spring-bg" style={{ background: "#ef4444", top: "-10%", left: "-10%" }}></div>
+      <div className="spring-bg" style={{ background: "#fbbf24", bottom: "-10%", right: "-10%" }}></div>
+      <div className="glass" style={{ padding: "40px", width: "100%", maxWidth: "380px", textAlign: "center", border: "4px solid #ef4444" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "30px" }}><HeaderLogo /></div>
+        <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+          <select value={shift} onChange={e => setShift(e.target.value)} style={{ padding: "14px", borderRadius: "10px", outline: "none", fontWeight: "bold" }}>
+            <option value="Ca Sáng">🌅 Ca Sáng (06:00 - 14:00)</option>
+            <option value="Ca Chiều">🌇 Ca Chiều (14:00 - 22:00)</option>
+            <option value="Ca Tối">🌙 Ca Tối (22:00 - 06:00)</option>
+          </select>
+          <input type="number" placeholder="Tiền lẻ đầu ca (để thối)..." value={startingCash || ""} onChange={e => setStartingCash(Number(e.target.value))} style={{ padding: "14px", borderRadius: "10px", outline: "none", fontWeight: "bold", color: "#059669" }} />
+          <input placeholder="Tên đăng nhập" value={authUsername} onChange={e => setAuthUsername(e.target.value)} style={{ padding: "14px", borderRadius: "10px", outline: "none" }} />
+          <input type="password" placeholder="Mật khẩu" value={authPassword} onChange={e => setAuthPassword(e.target.value)} style={{ padding: "14px", borderRadius: "10px", outline: "none" }} />
+          <button type="submit" style={{ padding: "14px", background: "#dc2626", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "bold", cursor: "pointer", boxShadow: "0 4px 6px rgba(220,38,38,0.3)" }}>MỞ CỬA BÁN HÀNG 🚀</button>
+        </form>
+      </div>
+    </div>
+  );
+
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
       <style>{styles}</style>
@@ -1492,8 +1537,8 @@ function MainApp() {
               <div key={i} className="barcode-sticker">
                 <div style={{ fontSize: "11px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: "100%", textAlign: "center" }}>{cleanName(String(printBarcodeProduct.name || ""))}</div>
                 <img src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(printBarcodeProduct.product_code)}&scale=2&height=10&includetext=false`} onError={(e) => { e.currentTarget.src = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(printBarcodeProduct.product_code)}&code=Code128&translate-esc=on`; }} alt={printBarcodeProduct.product_code} />
-                <div style={{ fontSize: "10px", fontFamily: "monospace", letterSpacing: "1px" }}>{printBarcodeProduct.product_code}</div>
-                <div style={{ fontSize: "14px", fontWeight: "900", marginTop: "2px" }}>{getActualPrice(printBarcodeProduct).toLocaleString()}đ</div>
+                <div style={{ fontSize: "10px", fontFamily: "monospace", letterSpacing: "1px", color: "#333" }}>{printBarcodeProduct.product_code}</div>
+                <div style={{ fontSize: "14px", fontWeight: "900", color: "#000", marginTop: "2px" }}>{getActualPrice(printBarcodeProduct).toLocaleString()}đ</div>
               </div>
             ))}
           </div>
@@ -1539,7 +1584,15 @@ class ErrorBoundary extends React.Component<any, any> {
   }
 }
 
-// XUẤT RA APP CHUẨN ĐỂ VERCEL KHÔNG BÁO LỖI
+// XUẤT RA 2 TÊN ĐỂ CHỐNG LỖI INDEX.TSX
+export function AppWrapper() {
+  return (
+    <ErrorBoundary>
+      <MainApp />
+    </ErrorBoundary>
+  );
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
@@ -1547,3 +1600,4 @@ export default function App() {
     </ErrorBoundary>
   );
 }
+// KẾT THÚC FILE
