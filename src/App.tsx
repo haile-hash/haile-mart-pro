@@ -165,7 +165,30 @@ export default function App(){
   const findProductByCode=(code:string)=>{const rawCode=code.trim();let matches=products.filter(prod=>prod.product_code===rawCode||prod.product_code.startsWith(`${rawCode}-`));let available=matches.filter(p=>p.stock>0);if(available.length>0){available.sort((a,b)=>{if(!a.expiry_date)return 1;if(!b.expiry_date)return -1;return new Date(a.expiry_date).getTime()-new Date(b.expiry_date).getTime()});return available[0]}return matches.length>0?matches[0]:null};
   
   useEffect(()=>{const timer=setInterval(()=>setCurrentTime(new Date()),1000);return()=>clearInterval(timer)},[]);
-  useEffect(()=>{if(isLoggedIn){fetchProducts();loadCloudData();const channel=supabase.channel("db_changes").on("postgres_changes",{event:"*",schema:"public",table:"products"},()=>fetchProducts()).subscribe();const script=document.createElement("script");script.src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js";script.onload=()=>{ (window as any).emailjs.init(EMAILJS_PUBLIC_KEY); };document.head.appendChild(script);return()=>{supabase.removeChannel(channel)}}},[isLoggedIn]);
+  
+  useEffect(()=>{
+    if(isLoggedIn){
+      fetchProducts();
+      loadCloudData();
+      
+      // 📡 Kênh lắng nghe Realtime: Bắt tín hiệu thay đổi từ tất cả các bảng
+      const channel = supabase.channel("db_changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts())
+        .on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData())
+        .on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData())
+        .on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData())
+        .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData())
+        .subscribe();
+
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js";
+      script.onload = () => { (window as any).emailjs.init(EMAILJS_PUBLIC_KEY); };
+      document.head.appendChild(script);
+      
+      return () => { supabase.removeChannel(channel) };
+    }
+  },[isLoggedIn]);
+
   useEffect(()=>{if(scannerMode!==null){let scanner:any;let lastScanTime=0;const loadScanner=()=>{if((window as any).Html5QrcodeScanner){scanner=new(window as any).Html5QrcodeScanner("qr-reader",{fps:15,qrbox:{width:250,height:120},rememberLastUsedCamera:true},false);scanner.render((text:string)=>{const now=Date.now();if(now-lastScanTime<1500)return;lastScanTime=now;setScannedCodeObj({code:text,time:now})},undefined)}};if(!(window as any).Html5QrcodeScanner){const script=document.createElement("script");script.src="https://unpkg.com/html5-qrcode";script.onload=loadScanner;document.head.appendChild(script)}else loadScanner();return()=>{if(scanner)scanner.clear().catch(()=>{})}}},[scannerMode]);
   
   const handleSelectSuggest=(p_input:any)=>{
@@ -323,13 +346,59 @@ export default function App(){
   };
 
   const handleRefund=async(logId:any)=>{
-    const logIndex=history.findIndex(l=>l.id===logId);if(logIndex===-1)return;const log=history[logIndex];if(log.type!=='BÁN')return alert("Chỉ hoàn đơn BÁN!");
-    const maxRefund=log.qty-(log.refunded_qty||0);if(maxRefund<=0)return alert("Đã hoàn toàn bộ!");const qStr=window.prompt(`SP: ${cleanName(log.name)}\nĐã mua: ${log.qty} | Có thể hoàn: ${maxRefund}\nNhập SL:`,maxRefund.toString());
-    if(!qStr)return;const refundQty=parseInt(qStr);if(isNaN(refundQty)||refundQty<=0||refundQty>maxRefund){playSound('error');return alert("Lỗi SL!");}if(!window.confirm(`Hoàn ${refundQty}?`))return;
-    const unitTotal=log.total/log.qty;const unitProfit=log.profit/log.qty;const refundTotal=Math.round(unitTotal*refundQty);const refundProfit=Math.round(unitProfit*refundQty);const p=products.find(x=>x.id===log.product_id);if(p&&navigator.onLine)await supabase.from("products").update({stock:p.stock+refundQty}).eq("id",p.id);
-    let refundedToWallet=false;if(log.customer&&log.customer!=="Khách lẻ"){const phoneMatch=log.customer.match(/\((.*?)\)/);if(phoneMatch&&phoneMatch[1]){const phone=phoneMatch[1];if(customers[phone]&&window.confirm(`Hoàn ${refundTotal.toLocaleString()}đ vào VÍ ĐIỂM?\n- OK: VÍ\n- Cancel: TIỀN MẶT`)){const newW = (customers[phone].wallet||0)+refundTotal; setCustomers((prev:any)=>({...prev,[phone]:{...prev[phone],wallet:newW}})); logAudit("HOÀN VÍ",`Hoàn ${refundTotal.toLocaleString()}đ`);refundedToWallet=true}}}
-    const refundLog = {id:Date.now(),shift:shift,type:"TRẢ HÀNG",name:log.name+(refundedToWallet?" (Ví)":" (TM)"),qty:refundQty,total:-refundTotal,profit:-refundProfit,customer:log.customer,paymentMethod:refundedToWallet?'VÍ ĐIỂM':'TIỀN MẶT', time:new Date().toLocaleString('vi-VN')};
-    const updatedHistory=[...history];updatedHistory[logIndex].refunded_qty=(log.refunded_qty||0)+refundQty;updatedHistory.unshift(refundLog);setHistory(updatedHistory);if(navigator.onLine)fetchProducts();logAudit("TRẢ HÀNG",`Hoàn ${refundQty}`);playSound('success');alert(`Thành công!`);
+    const logIndex=history.findIndex(l=>l.id===logId);if(logIndex===-1)return;
+    const log=history[logIndex];if(log.type!=='BÁN')return alert("Chỉ hoàn đơn BÁN!");
+    
+    const maxRefund=log.qty-(log.refunded_qty||0);if(maxRefund<=0)return alert("Đã hoàn toàn bộ!");
+    const qStr=window.prompt(`SP: ${cleanName(log.name)}\nĐã mua: ${log.qty} | Có thể hoàn: ${maxRefund}\nNhập số lượng cần hoàn:`,maxRefund.toString());
+    if(!qStr)return;
+    const refundQty=parseInt(qStr);
+    if(isNaN(refundQty)||refundQty<=0||refundQty>maxRefund){playSound('error');return alert("Lỗi số lượng!");}
+    if(!window.confirm(`Xác nhận hoàn ${refundQty} sản phẩm này?`))return;
+
+    const unitTotal=log.total/log.qty;const unitProfit=log.profit/log.qty;
+    const refundTotal=Math.round(unitTotal*refundQty);const refundProfit=Math.round(unitProfit*refundQty);
+    
+    const p=products.find(x=>x.id===log.product_id);
+    if(p&&navigator.onLine)await supabase.from("products").update({stock:p.stock+refundQty}).eq("id",p.id);
+
+    let refundedToWallet=false;
+    let pMethod = 'TIỀN MẶT';
+    let methodSuffix = " (TM)";
+
+    if(log.customer&&log.customer!=="Khách lẻ"){
+      const phoneMatch=log.customer.match(/\((.*?)\)/);
+      if(phoneMatch&&phoneMatch[1]){
+        const phone=phoneMatch[1];
+        if(customers[phone]&&window.confirm(`Khách VIP: Hoàn ${refundTotal.toLocaleString()}đ vào VÍ ĐIỂM?\n- [OK]: Trả vào Ví\n- [Cancel]: Trả tiền ngoài`)){
+          const newW = (customers[phone].wallet||0)+refundTotal; 
+          setCustomers((prev:any)=>({...prev,[phone]:{...prev[phone],wallet:newW}})); 
+          logAudit("HOÀN VÍ",`Hoàn ${refundTotal.toLocaleString()}đ`);
+          refundedToWallet=true;
+          pMethod = 'VÍ ĐIỂM';
+          methodSuffix = " (Ví)";
+        }
+      }
+    }
+
+    if(!refundedToWallet) {
+        const isTransfer = window.confirm(`Hoàn ${refundTotal.toLocaleString()}đ bằng hình thức nào?\n- [OK]: CHUYỂN KHOẢN\n- [Cancel]: TIỀN MẶT`);
+        if(isTransfer) {
+            pMethod = 'CHUYỂN KHOẢN';
+            methodSuffix = " (CK)";
+        }
+    }
+
+    const refundLog = {id:Date.now(),shift:shift,type:"TRẢ HÀNG",name:log.name+methodSuffix,qty:refundQty,total:-refundTotal,profit:-refundProfit,customer:log.customer,paymentMethod:pMethod, time:new Date().toLocaleString('vi-VN')};
+    
+    const updatedHistory=[...history];
+    updatedHistory[logIndex].refunded_qty=(log.refunded_qty||0)+refundQty;
+    updatedHistory.unshift(refundLog);
+    
+    setHistory(updatedHistory);
+    if(navigator.onLine)fetchProducts();
+    logAudit("TRẢ HÀNG",`Hoàn ${refundQty} (${pMethod})`);
+    playSound('success');alert(`Thành công! Đã hoàn qua ${pMethod}`);
   };
 
   const handlePayDebt=async(phone:string)=>{
@@ -362,10 +431,70 @@ export default function App(){
   const handleCodeChange=(e:React.ChangeEvent<HTMLInputElement>)=>{const code=e.target.value;setNewCode(code);const p=products.find((x:any)=>x.product_code===code);if(p){setNewName(cleanName(p.name));setNewCategory(p.category||"Khác");setNewImportPrice(p.import_price?.toString()||"");setNewPrice(p.sale_price.toString());setNewPromoPrice(p.promo_price?.toString()||"");setNewExpiry(p.expiry_date||"");const gift=parseGift(p.gift_info);setNewGiftCondition(gift.cond.toString());setNewGiftInfo(gift.text)}};
   
   const handleAddProduct=async(e:React.FormEvent)=>{
-    e.preventDefault();if(!navigator.onLine) return alert("Cần có mạng để thao tác Kho!"); setLoading(true);const added=parseInt(newStock||"0");const impPrice=parseInt(newImportPrice);const salePrice=parseInt(newPrice);const promo=parseInt(newPromoPrice)||0;const finalGiftInfo=newGiftInfo.trim()!==""?`${newGiftCondition};;;${newGiftInfo}`:null;const baseCode=newCode.trim();const allVariants=products.filter(p=>p.product_code===baseCode||p.product_code.startsWith(`${baseCode}-`));const exist=allVariants.find(p=>p.product_code===baseCode);let priceUpdatedMsg="";
-    if(allVariants.length>0&&allVariants[0].sale_price!==salePrice){await Promise.all(allVariants.map(v=>supabase.from("products").update({sale_price:salePrice,promo_price:promo}).eq("id",v.id)));priceUpdatedMsg=`\n💡 Đã ĐỒNG BỘ GIÁ lô cũ!`;logAudit("ĐỒNG BỘ GIÁ",`Mã ${baseCode}`);}
-    if(exist){if(exist.stock<=0){await supabase.from("products").update({name:newName,category:newCategory||"Khác",import_price:impPrice,sale_price:salePrice,promo_price:promo,gift_info:finalGiftInfo,stock:added,expiry_date:newExpiry||null,created_at:new Date().toISOString()}).eq("id",exist.id);if(added>0){ const lg={id:Date.now(),shift:shift,type:"NHẬP",name:newName,qty:added,total:0,time:new Date().toLocaleString('vi-VN')}; setHistory(prev=>[lg,...prev]); } logAudit("NHẬP ĐÈ CŨ",`${newName}`);alert(`Đã nhập hàng!${priceUpdatedMsg}`)}else{if(exist.import_price!==impPrice||(exist.expiry_date||"")!==(newExpiry||"")){const batchCode=`${baseCode}-${Date.now().toString().slice(-4)}`;const batchName=`${newName} [Lô ${newExpiry?new Date(newExpiry).toLocaleDateString('vi-VN'):'Mới'}]`;if(window.confirm(`Tạo LÔ MỚI (${batchCode})?`)){await supabase.from("products").insert([{product_code:batchCode,name:batchName,category:newCategory||"Khác",import_price:impPrice,sale_price:salePrice,promo_price:promo,gift_info:finalGiftInfo,stock:added,expiry_date:newExpiry||null}]);if(added>0){ const lg={id:Date.now(),shift:shift,type:"NHẬP",name:batchName,qty:added,total:0,time:new Date().toLocaleString('vi-VN')}; setHistory(prev=>[lg,...prev]); } logAudit("TÁCH LÔ",`${batchName}`);if(!priceUpdatedMsg)alert(`Đã tạo mới!`)}else{setLoading(false);return}}else{await supabase.from("products").update({stock:exist.stock+added,created_at:new Date().toISOString()}).eq("id",exist.id);if(added>0){ const lg={id:Date.now(),shift:shift,type:"NHẬP",name:newName,qty:added,total:0,time:new Date().toLocaleString('vi-VN')}; setHistory(prev=>[lg,...prev]); } logAudit("CỘNG DỒN",`${newName}`);alert(`Cộng dồn thành công!${priceUpdatedMsg}`)}}}else{await supabase.from("products").insert([{product_code:baseCode,name:newName,category:newCategory||"Khác",import_price:impPrice,sale_price:salePrice,promo_price:promo,gift_info:finalGiftInfo,stock:added,expiry_date:newExpiry||null}]);if(added>0){ const lg={id:Date.now(),shift:shift,type:"NHẬP",name:newName,qty:added,total:0,time:new Date().toLocaleString('vi-VN')}; setHistory(prev=>[lg,...prev]); } logAudit("NHẬP MỚI",`${newName}`);if(priceUpdatedMsg)alert(`Nhập thành công!${priceUpdatedMsg}`)}
-    setNewCode("");setNewName("");setNewCategory("Đồ uống");setNewImportPrice("");setNewPrice("");setNewPromoPrice("");setNewGiftCondition("1");setNewGiftInfo("");setNewStock("");setNewExpiry("");fetchProducts();setLoading(false);setShowInputForm(false)
+    e.preventDefault();
+    if(!navigator.onLine) return alert("Cần có mạng để thao tác Kho!"); 
+    setLoading(true);
+
+    const added=parseInt(newStock||"0");
+    const impPrice=parseInt(newImportPrice);
+    const salePrice=parseInt(newPrice);
+    const promo=parseInt(newPromoPrice)||0;
+    const finalGiftInfo=newGiftInfo.trim()!==""?`${newGiftCondition};;;${newGiftInfo}`:null;
+    const baseCode=newCode.trim();
+    
+    const allVariants=products.filter(p=>p.product_code===baseCode||p.product_code.startsWith(`${baseCode}-`));
+    const exist=allVariants.find(p=>p.product_code===baseCode);
+    let syncMsg="";
+
+    if(allVariants.length>0){
+      const needSync = allVariants.some(v => v.sale_price !== salePrice || v.promo_price !== promo || v.gift_info !== finalGiftInfo);
+      if(needSync) {
+          await Promise.all(allVariants.map(v => 
+              supabase.from("products").update({
+                  sale_price: salePrice,
+                  promo_price: promo,
+                  gift_info: finalGiftInfo
+              }).eq("id", v.id)
+          ));
+          syncMsg = `\n💡 Đã ĐỒNG BỘ GIÁ & QUÀ TẶNG cho các lô cũ!`;
+          logAudit("ĐỒNG BỘ HỆ THỐNG", `Mã ${baseCode} (Giá/Quà)`);
+      }
+    }
+
+    if(exist){
+      if(exist.stock<=0){
+        await supabase.from("products").update({name:newName,category:newCategory||"Khác",import_price:impPrice,sale_price:salePrice,promo_price:promo,gift_info:finalGiftInfo,stock:added,expiry_date:newExpiry||null,created_at:new Date().toISOString()}).eq("id",exist.id);
+        if(added>0){ const lg={id:Date.now(),shift:shift,type:"NHẬP",name:newName,qty:added,total:0,time:new Date().toLocaleString('vi-VN')}; setHistory(prev=>[lg,...prev]); } 
+        logAudit("NHẬP ĐÈ CŨ",`${newName}`);
+        alert(`Đã nhập hàng!${syncMsg}`);
+      }else{
+        if(exist.import_price!==impPrice||(exist.expiry_date||"")!==(newExpiry||"")){
+          const batchCode=`${baseCode}-${Date.now().toString().slice(-4)}`;
+          const batchName=`${newName} [Lô ${newExpiry?new Date(newExpiry).toLocaleDateString('vi-VN'):'Mới'}]`;
+          if(window.confirm(`Tạo LÔ MỚI (${batchCode})?\n(Lô cũ sẽ tự động được áp dụng Giá & Quà tặng mới)`)){
+            await supabase.from("products").insert([{product_code:batchCode,name:batchName,category:newCategory||"Khác",import_price:impPrice,sale_price:salePrice,promo_price:promo,gift_info:finalGiftInfo,stock:added,expiry_date:newExpiry||null}]);
+            if(added>0){ const lg={id:Date.now(),shift:shift,type:"NHẬP",name:batchName,qty:added,total:0,time:new Date().toLocaleString('vi-VN')}; setHistory(prev=>[lg,...prev]); } 
+            logAudit("TÁCH LÔ",`${batchName}`);
+            alert(`Đã tạo lô mới!${syncMsg}`);
+          }else{
+            setLoading(false);return;
+          }
+        }else{
+          await supabase.from("products").update({stock:exist.stock+added,created_at:new Date().toISOString()}).eq("id",exist.id);
+          if(added>0){ const lg={id:Date.now(),shift:shift,type:"NHẬP",name:newName,qty:added,total:0,time:new Date().toLocaleString('vi-VN')}; setHistory(prev=>[lg,...prev]); } 
+          logAudit("CỘNG DỒN",`${newName}`);
+          alert(`Cộng dồn thành công!${syncMsg}`);
+        }
+      }
+    }else{
+      await supabase.from("products").insert([{product_code:baseCode,name:newName,category:newCategory||"Khác",import_price:impPrice,sale_price:salePrice,promo_price:promo,gift_info:finalGiftInfo,stock:added,expiry_date:newExpiry||null}]);
+      if(added>0){ const lg={id:Date.now(),shift:shift,type:"NHẬP",name:newName,qty:added,total:0,time:new Date().toLocaleString('vi-VN')}; setHistory(prev=>[lg,...prev]); } 
+      logAudit("NHẬP MỚI",`${newName}`);
+      alert(`Nhập thành công!${syncMsg}`);
+    }
+    
+    setNewCode("");setNewName("");setNewCategory("Đồ uống");setNewImportPrice("");setNewPrice("");setNewPromoPrice("");setNewGiftCondition("1");setNewGiftInfo("");setNewStock("");setNewExpiry("");
+    fetchProducts();setLoading(false);setShowInputForm(false);
   };
 
   const handleFileUpload=async(e:React.ChangeEvent<HTMLInputElement>)=>{
@@ -374,7 +503,7 @@ export default function App(){
     reader.onload=async(event)=>{
       setLoading(true);try{const text=event.target?.result as string;const lines=text.split('\n').filter(line=>line.trim()!=='');if(lines.length<=1){alert("File rỗng!");setLoading(false);return}let successCount=0;let importLogs:any[]=[];
         for(let i=1;i<lines.length;i++){const cols=lines[i].split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c=>c.trim().replace(/^"|"$/g,''));if(cols.length<5)continue;const pCode=cols[0];const pName=cols[1];const pCategory=cols[2]||"Khác";const pImpPrice=parseInt(cols[3])||0;const pSalePrice=parseInt(cols[4])||0;const pPromoPrice=parseInt(cols[5])||0;const pGift=cols[6]||null;const pStock=parseInt(cols[7])||0;const pExpiry=cols[8]||null;if(!pCode||!pName||pSalePrice<=0)continue;
-          const baseCode=pCode.trim();const allVariants=products.filter(p=>p.product_code===baseCode||p.product_code.startsWith(`${baseCode}-`));if(allVariants.length>0&&allVariants[0].sale_price!==pSalePrice){await Promise.all(allVariants.map(v=>supabase.from("products").update({sale_price:pSalePrice,promo_price:pPromoPrice}).eq("id",v.id)));if(!importLogs.find(l=>l.name===`Đồng bộ giá ${baseCode}`))importLogs.push({id:Date.now()+Math.random(),shift:shift,type:"HỆ THỐNG",name:`Đồng bộ giá ${baseCode}`,qty:0,total:0,time:new Date().toLocaleString('vi-VN')})}
+          const baseCode=pCode.trim();const allVariants=products.filter(p=>p.product_code===baseCode||p.product_code.startsWith(`${baseCode}-`));if(allVariants.length>0&&allVariants[0].sale_price!==pSalePrice){await Promise.all(allVariants.map(v=>supabase.from("products").update({sale_price:pSalePrice,promo_price:pPromoPrice,gift_info:pGift}).eq("id",v.id)));if(!importLogs.find(l=>l.name===`Đồng bộ giá/quà ${baseCode}`))importLogs.push({id:Date.now()+Math.random(),shift:shift,type:"HỆ THỐNG",name:`Đồng bộ giá/quà ${baseCode}`,qty:0,total:0,time:new Date().toLocaleString('vi-VN')})}
           const exist=allVariants.find(p=>p.product_code===baseCode);if(exist){if(exist.stock<=0)await supabase.from("products").update({name:pName,category:pCategory,import_price:pImpPrice,sale_price:pSalePrice,promo_price:pPromoPrice,gift_info:pGift,stock:pStock,expiry_date:pExpiry,created_at:new Date().toISOString()}).eq("id",exist.id);else{if(exist.import_price!==pImpPrice||(exist.expiry_date||"")!==(pExpiry||"")){const batchCode=`${baseCode}-${Date.now().toString().slice(-4)}${i}`;const batchName=`${pName} [Lô ${pExpiry?new Date(pExpiry).toLocaleDateString('vi-VN'):'Mới'}]`;await supabase.from("products").insert([{product_code:batchCode,name:batchName,category:pCategory,import_price:pImpPrice,sale_price:pSalePrice,promo_price:pPromoPrice,gift_info:pGift,stock:pStock,expiry_date:pExpiry}]);}else await supabase.from("products").update({stock:exist.stock+pStock,created_at:new Date().toISOString()}).eq("id",exist.id)}}else await supabase.from("products").insert([{product_code:baseCode,name:pName,category:pCategory,import_price:pImpPrice,sale_price:pSalePrice,promo_price:pPromoPrice,gift_info:pGift,stock:pStock,expiry_date:pExpiry}]);if(pStock>0)importLogs.push({id:Date.now()+Math.random(),shift:shift,type:"NHẬP",name:cleanName(pName),qty:pStock,total:0,time:new Date().toLocaleString('vi-VN')});successCount++}
         if(importLogs.length>0){ setHistory(prev=>[...importLogs,...prev]); } logAudit("NHẬP FILE",`Nhập ${successCount} mã`);alert(`Nhập thành công ${successCount} SP!`);fetchProducts()}catch(err){alert("Lỗi file CSV.");}setLoading(false)};reader.readAsText(file);e.target.value=''
   };
@@ -400,7 +529,7 @@ export default function App(){
       return (
         <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#fef2f2", padding: "6px 12px", borderRadius: "6px", border: "1px solid #fca5a5", color: "#ef4444" }}>
           <span style={{ height: "8px", width: "8px", background: "#ef4444", borderRadius: "50%", display: "inline-block" }}></span> 
-          Mất mạng (Lưu Offline máy lẻ)
+          Mất mạng (Lưu Offline)
         </div>
       );
     }
@@ -408,7 +537,7 @@ export default function App(){
       return (
         <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#eff6ff", padding: "6px 12px", borderRadius: "6px", border: "1px solid #bfdbfe", color: "#3b82f6" }}>
           <span style={{ height: "8px", width: "8px", background: "#3b82f6", borderRadius: "50%", display: "inline-block", animation: "pulse-fast 1s infinite" }}></span> 
-          Đang đồng bộ đám mây...
+          Đang đồng bộ mây...
         </div>
       );
     }
@@ -416,7 +545,7 @@ export default function App(){
       return (
         <div onClick={syncAllOfflineData} style={{ display: "flex", alignItems: "center", gap: "6px", background: "#fff7ed", padding: "6px 12px", borderRadius: "6px", border: "1px solid #fed7aa", color: "#ea580c", cursor: "pointer" }} title="Bấm để thử lại">
           <span style={{ height: "8px", width: "8px", background: "#ea580c", borderRadius: "50%", display: "inline-block" }}></span> 
-          Lỗi kết nối đám mây 🔄
+          Lỗi Đám mây 🔄
         </div>
       );
     }
@@ -538,7 +667,7 @@ export default function App(){
                 <div style={{display:"flex",justifyContent:"space-between",marginBottom:"12px",alignItems:"center",flexWrap:"wrap",gap:"10px"}}><div style={{display:"flex",gap:"8px",flex:1}}><input placeholder="🔍 Tìm giao dịch (Tên/SĐT)..." value={logSearchTerm} onChange={e=>setLogSearchTerm(e.target.value)} style={{padding:"6px 10px",borderRadius:"6px",border:"1px solid #cbd5e1",outline:"none",fontSize:"12px",flex:1}}/><select value={logTypeFilter} onChange={e=>setLogTypeFilter(e.target.value)} style={{padding:"6px",borderRadius:"6px",border:"1px solid #cbd5e1",outline:"none",fontSize:"12px",fontWeight:"bold",color:"#1e293b",background:"#f8fafc"}}><option value="Tất cả">Tất cả</option><option value="BÁN">Bán hàng</option><option value="NHẬP">Nhập hàng</option><option value="TRẢ HÀNG">Trả hàng</option><option value="GHI NỢ">Ghi nợ</option><option value="THU NỢ">Thu nợ</option></select></div></div>
                 <div style={{flex:1,overflowY:"auto",paddingRight:"4px"}}>
                     {Object.keys(groupedHistory).length===0&&<div style={{textAlign:"center",color:"#94a3b8",fontSize:"11px",marginTop:"15px"}}>Không tìm thấy dữ liệu phù hợp</div>}
-                    {Object.keys(groupedHistory).map((date)=>(<div key={date}><div onClick={()=>toggleDateGroup(date)} style={{background:"#ffedd5",padding:"6px 10px",fontSize:"11px",fontWeight:"bold",border:"1px solid #fed7aa",borderRadius:"4px",marginTop:"6px",display:"flex",justifyContent:"space-between",cursor:"pointer"}}><span>📅 {date}</span><span>{expandedDates[date]??true?"▼":"▶"}</span></div>{(expandedDates[date]??true)&&(<div style={{padding:"0 4px"}}>{groupedHistory[date].map((log:any)=>(<div key={log.id} style={{fontSize:"11px",padding:"6px 0",borderBottom:"1px dashed #eee",display:"flex",flexDirection:"column"}}><div style={{display:"flex",justifyContent:"space-between",width:"100%"}}><span><b style={{color:log.type==='TRẢ HÀNG'?'#ef4444':'#1e293b'}}>[{log.type}]</b> {cleanName(log.name)} x{log.qty} {log.refunded_qty>0&&<span style={{color:"#ef4444",fontSize:"9px"}}>(Đã hoàn {log.refunded_qty})</span>}</span>{log.type==="BÁN"&&<span style={{color:"#059669",fontWeight:"bold"}}>+{Math.round(log.total).toLocaleString()} <span style={{fontSize:"9px",color:"#94a3b8",fontWeight:"normal"}}>({log.paymentMethod==='CHUYỂN KHOẢN'?'CK':'TM'})</span></span>}{log.type==="TRẢ HÀNG"&&<span style={{color:"#ef4444",fontWeight:"bold"}}>{Math.round(log.total).toLocaleString()} <span style={{fontSize:"9px",color:"#94a3b8",fontWeight:"normal"}}>({log.paymentMethod==='VÍ ĐIỂM'?'VÍ':'TM'})</span></span>}{log.type==="GHI NỢ"&&<span style={{color:"#ea580c",fontWeight:"bold"}}>Nợ: {Math.round(log.total).toLocaleString()}</span>}{log.type==="THU NỢ"&&<span style={{color:"#10b981",fontWeight:"bold"}}>+{Math.round(log.total).toLocaleString()} <span style={{fontSize:"9px",color:"#94a3b8",fontWeight:"normal"}}>({log.paymentMethod==='CHUYỂN KHOẢN'?'CK':'TM'})</span></span>}</div><div style={{display:"flex",justifyContent:"space-between",color:"#94a3b8",marginTop:"4px",width:"100%"}}><span>{log.customer}</span><div style={{display:"flex",gap:"8px",alignItems:"center"}}><span>{log.t}</span>{log.type==='BÁN'&&log.product_id!=='DISCOUNT'&&<button onClick={()=>handleRefund(log.id)} disabled={(log.refunded_qty||0)>=log.qty} style={{fontSize:"9px",padding:"2px 6px",border:"1px solid #cbd5e1",background:(log.refunded_qty||0)>=log.qty?"#f1f5f9":"#fff",color:(log.refunded_qty||0)>=log.qty?"#94a3b8":"#000",cursor:(log.refunded_qty||0)>=log.qty?"not-allowed":"pointer",borderRadius:"4px"}}>{(log.refunded_qty||0)>=log.qty?"Đã hoàn":`↩️ Hoàn ${log.qty-(log.refunded_qty||0)}`}</button>}</div></div></div>))}</div>)}</div>))}
+                    {Object.keys(groupedHistory).map((date)=>(<div key={date}><div onClick={()=>toggleDateGroup(date)} style={{background:"#ffedd5",padding:"6px 10px",fontSize:"11px",fontWeight:"bold",border:"1px solid #fed7aa",borderRadius:"4px",marginTop:"6px",display:"flex",justifyContent:"space-between",cursor:"pointer"}}><span>📅 {date}</span><span>{expandedDates[date]??true?"▼":"▶"}</span></div>{(expandedDates[date]??true)&&(<div style={{padding:"0 4px"}}>{groupedHistory[date].map((log:any)=>(<div key={log.id} style={{fontSize:"11px",padding:"6px 0",borderBottom:"1px dashed #eee",display:"flex",flexDirection:"column"}}><div style={{display:"flex",justifyContent:"space-between",width:"100%"}}><span><b style={{color:log.type==='TRẢ HÀNG'?'#ef4444':'#1e293b'}}>[{log.type}]</b> {cleanName(log.name)} x{log.qty} {log.refunded_qty>0&&<span style={{color:"#ef4444",fontSize:"9px"}}>(Đã hoàn {log.refunded_qty})</span>}</span>{log.type==="BÁN"&&<span style={{color:"#059669",fontWeight:"bold"}}>+{Math.round(log.total).toLocaleString()} <span style={{fontSize:"9px",color:"#94a3b8",fontWeight:"normal"}}>({log.paymentMethod==='CHUYỂN KHOẢN'?'CK':'TM'})</span></span>}{log.type==="TRẢ HÀNG"&&<span style={{color:"#ef4444",fontWeight:"bold"}}>{Math.round(log.total).toLocaleString()} <span style={{fontSize:"9px",color:"#94a3b8",fontWeight:"normal"}}>({log.paymentMethod==='VÍ ĐIỂM'?'VÍ':(log.paymentMethod==='CHUYỂN KHOẢN'?'CK':'TM')})</span></span>}{log.type==="GHI NỢ"&&<span style={{color:"#ea580c",fontWeight:"bold"}}>Nợ: {Math.round(log.total).toLocaleString()}</span>}{log.type==="THU NỢ"&&<span style={{color:"#10b981",fontWeight:"bold"}}>+{Math.round(log.total).toLocaleString()} <span style={{fontSize:"9px",color:"#94a3b8",fontWeight:"normal"}}>({log.paymentMethod==='CHUYỂN KHOẢN'?'CK':'TM'})</span></span>}</div><div style={{display:"flex",justifyContent:"space-between",color:"#94a3b8",marginTop:"4px",width:"100%"}}><span>{log.customer}</span><div style={{display:"flex",gap:"8px",alignItems:"center"}}><span>{log.t}</span>{log.type==='BÁN'&&log.product_id!=='DISCOUNT'&&<button onClick={()=>handleRefund(log.id)} disabled={(log.refunded_qty||0)>=log.qty} style={{fontSize:"9px",padding:"2px 6px",border:"1px solid #cbd5e1",background:(log.refunded_qty||0)>=log.qty?"#f1f5f9":"#fff",color:(log.refunded_qty||0)>=log.qty?"#94a3b8":"#000",cursor:(log.refunded_qty||0)>=log.qty?"not-allowed":"pointer",borderRadius:"4px"}}>{(log.refunded_qty||0)>=log.qty?"Đã hoàn":`↩️ Hoàn ${log.qty-(log.refunded_qty||0)}`}</button>}</div></div></div>))}</div>)}</div>))}
                 </div>
               </div>
             </div>
