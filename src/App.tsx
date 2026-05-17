@@ -29,7 +29,7 @@ const styles = `
     body{background:#fff!important;margin:0;padding:0}
     @page{margin:0}
     .print-barcode-sheet{display:flex!important;flex-wrap:wrap!important;justify-content:flex-start!important;gap:2mm!important;padding:5mm!important}
-    .barcode-sticker{width:36mm!important;height:22mm!important;page-break-inside:avoid!important;border:1px dashed #ccc!important;padding:2mm!important;box-sizing:border-box!important;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;background:#fff!important;color:#000!important}
+    .barcode-sticker{width:35mm!important;height:22mm!important;page-break-inside:avoid!important;border:1px dashed #ccc!important;padding:1mm!important;box-sizing:border-box!important;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;background:#fff!important;color:#000!important}
     .print-a4-container { width: 100%; background: #fff !important; color: #000 !important; padding: 20mm; box-sizing: border-box; }
   }
   .print-only,.print-flex{display:none}
@@ -320,7 +320,7 @@ export default function App() {
     return { rev: cash + transfer - startingCash, cash, transfer, prof, totalSales } 
   }, [history, shift, todayStrStr, startingCash]);
   
-  // Tính toán báo cáo theo khoảng thời gian (Thay thế todayStats)
+  // Tính toán báo cáo theo khoảng thời gian
   const filteredStats = useMemo(() => { 
     const start = new Date(reportStartDate + "T00:00:00").getTime();
     const end = new Date(reportEndDate + "T23:59:59").getTime();
@@ -433,7 +433,7 @@ export default function App() {
       try {
         await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { to_email: c.email, order_id: "THÔNG BÁO ƯU ĐÃI", time: new Date().toLocaleString('vi-VN'), items_list: `💌 Lời nhắn từ Hải Lê Mart:\n\n${marketingMsg}`, total_amount: "Quà Tặng", payment_method: "Khách VIP", change_amount: "0đ", barcode_url: "" });
         successCount++
-      } catch (e) { }
+      } catch (error: any) { console.error("EmailJS Error", error); }
     }
     logAudit("GỬI MAIL MKT", `Gửi ${successCount} mail cho tập ${marketingTier}`);
     setLoading(false); setShowMarketingModal(false); alert(`✅ Đã gửi ${successCount} mail!`)
@@ -618,10 +618,10 @@ export default function App() {
      const reconstructedCart = logsInBill.map(l => ({
         qty: l.qty,
         product: { name: l.name, gift_info: null, isHappyHour: l.name.includes('[Giờ Vàng]') },
-        unitPrice: Math.round((l.total / l.qty) / (1 + VAT_RATE))
+        priceIncludingVat: l.total / l.qty
      }));
      
-     const subTotal = reconstructedCart.reduce((s, i) => s + (i.qty * i.unitPrice), 0);
+     const subTotal = reconstructedCart.reduce((s, i) => s + (i.qty * (i.priceIncludingVat / (1 + VAT_RATE))), 0);
      const vatTotal = Math.round(subTotal * VAT_RATE);
      const discount = discountLog ? Math.abs(discountLog.total) : 0;
      const finalTotal = subTotal + vatTotal - discount;
@@ -639,20 +639,40 @@ export default function App() {
   const sendReceiptEmail = async () => {
     if (!lastOrder) return; const savedEmail = (lastOrder.custPhone && customers[lastOrder.custPhone] && customers[lastOrder.custPhone].email) ? customers[lastOrder.custPhone].email : ""; const email = window.prompt("Nhập Email khách hàng:", savedEmail);
     if (!email) return; if (lastOrder.custPhone) { setCustomers((prev: any) => ({ ...prev, [lastOrder.custPhone]: { ...prev[lastOrder.custPhone], email: email } })); }
-    setLoading(true); let itemsTable = ""; lastOrder.cart.forEach((item: any) => { itemsTable += `- ${cleanName(item.product.name)} x ${item.qty} = ${Math.round(item.qty * (item.unitPrice || Math.round(getActualPrice(item.product))) * (1 + VAT_RATE)).toLocaleString()}đ\n` }); 
+    setLoading(true); let itemsTable = ""; 
+    lastOrder.cart.forEach((item: any) => { 
+        const priceToUse = item.priceIncludingVat !== undefined ? item.priceIncludingVat : Math.round(getActualPrice(item.product) * (1 + VAT_RATE));
+        itemsTable += `- ${cleanName(item.product.name)} x ${item.qty} = ${(priceToUse * item.qty).toLocaleString()}đ\n` 
+    }); 
     const emailData = { 
         to_email: email, title: "HÓA ĐƠN MUA HÀNG - HẢI LÊ MART", order_id: lastOrder.orderId, time: lastOrder.time, items_list: itemsTable, 
         label_total: "TỔNG THANH TOÁN:", total_amount: Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString() + "đ", 
         label_payment: "Hình thức TT:", payment_method: lastOrder.paymentMethod, 
         label_change: lastOrder.paymentMethod === 'TIỀN MẶT' ? "Tiền thối lại:" : "", change_amount: lastOrder.paymentMethod === 'TIỀN MẶT' ? Math.round(lastOrder.customerGiven - lastOrder.finalTotal).toLocaleString() + "đ" : "" 
     }; 
-    try { await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, emailData); alert("🚀 Đã gửi HĐ cho khách!"); logAudit("GỬI HĐ MAIL", `Gửi tới ${email}`);} catch (error) { alert("❌ Lỗi gửi mail."); } setLoading(false)
+    try { 
+        await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, emailData); 
+        alert("🚀 Đã gửi HĐ cho khách!"); 
+        logAudit("GỬI HĐ MAIL", `Gửi tới ${email}`);
+    } catch (error: any) { 
+        console.error(error);
+        alert(`❌ Lỗi EmailJS: ${error?.text || error?.message || 'Hãy kiểm tra lại Key EmailJS hoặc hạn mức (Quota) miễn phí 200 mail/tháng đã hết!'}`); 
+    } 
+    setLoading(false)
   };
   
   const sendCardEmail = async (phone: string) => {
     const cust = customers[phone]; const email = cust.email || window.prompt(`Nhập Email của ${cust.name}:`, "");
     if (!email) return; if (!cust.email) { setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], email } })); }
-    setLoading(true); const code = cust.cardCode || phone; const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=10&includetext=true`; const emailData = { to_email: email, order_id: "THẺ THÀNH VIÊN", time: new Date().toLocaleString('vi-VN'), items_list: `💳 MÃ THẺ CỦA BẠN LÀ: ${code}\n(Vui lòng xuất trình Thẻ/Mã vạch bên dưới khi thanh toán)`, total_amount: "Ưu đãi Đặc Quyền", payment_method: "VIP Member", change_amount: "0đ", barcode_url: barcodeUrl }; try { await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, emailData); alert("🚀 Đã gửi Thẻ VIP!"); logAudit("GỬI THẺ VIP", `Gửi tới ${email}`);} catch (error) { alert("❌ Lỗi gửi mail."); } setLoading(false)
+    setLoading(true); const code = cust.cardCode || phone; const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=10&includetext=true`; const emailData = { to_email: email, order_id: "THẺ THÀNH VIÊN", time: new Date().toLocaleString('vi-VN'), items_list: `💳 MÃ THẺ CỦA BẠN LÀ: ${code}\n(Vui lòng xuất trình Thẻ/Mã vạch bên dưới khi thanh toán)`, total_amount: "Ưu đãi Đặc Quyền", payment_method: "VIP Member", change_amount: "0đ", barcode_url: barcodeUrl }; 
+    try { 
+        await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, emailData); 
+        alert("🚀 Đã gửi Thẻ VIP!"); logAudit("GỬI THẺ VIP", `Gửi tới ${email}`);
+    } catch (error: any) { 
+        console.error(error);
+        alert(`❌ Lỗi EmailJS: ${error?.text || error?.message || 'Hãy kiểm tra lại Key EmailJS hoặc hạn mức (Quota) miễn phí đã hết!'}`); 
+    } 
+    setLoading(false)
   };
 
   const printCustomerCard = (phone: string) => { setPrintCustomer({ phone, ...customers[phone] }); setPrintMode('customer_card'); setTimeout(() => window.print(), 1000) };
@@ -797,7 +817,10 @@ export default function App() {
     try {
         await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, emailData);
         logAudit("GỬI BÁO CÁO", `Đã gửi báo cáo tới ${adminEmail}`); alert("🚀 Đã gửi Báo cáo thành công!");
-    } catch (error) { alert("❌ Lỗi gửi mail. Vui lòng thử lại."); }
+    } catch (error: any) { 
+        console.error(error);
+        alert(`❌ Lỗi EmailJS: ${error?.text || error?.message || 'Hãy kiểm tra lại Key EmailJS hoặc hạn mức (Quota) miễn phí 200 mail/tháng đã hết!'}`); 
+    }
     setLoading(false);
   };
 
@@ -819,7 +842,10 @@ export default function App() {
     try { 
       await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, emailData); 
       alert("🚀 Đã gửi cảnh báo kho thành công!"); logAudit("CẢNH BÁO KHO", "Gửi email báo cáo tồn kho");
-    } catch (e) { alert("❌ Lỗi gửi mail."); }
+    } catch (error: any) { 
+        console.error(error);
+        alert(`❌ Lỗi EmailJS: ${error?.text || error?.message || 'Hãy kiểm tra lại Key EmailJS hoặc hạn mức (Quota) miễn phí 200 mail/tháng đã hết!'}`); 
+    }
     setLoading(false);
   };
 
@@ -1302,20 +1328,29 @@ export default function App() {
 
       {selectedAuditLog && (
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 10000 }} onClick={() => setSelectedAuditLog(null)}>
-           <div className="glass" style={{ padding: "20px", width: "400px", maxWidth: "90%", background: "var(--bg-glass)" }} onClick={e => e.stopPropagation()}>
+           <div className="glass" style={{ padding: "20px", width: "450px", maxWidth: "90%", background: "var(--bg-glass)" }} onClick={e => e.stopPropagation()}>
               <h3 style={{ margin: "0 0 10px 0", color: "#ef4444", borderBottom: "1px dashed var(--border-glass)", paddingBottom: "5px" }}>Chi tiết thao tác</h3>
               <div style={{ fontSize: "13px", lineHeight: "1.6" }}>
                  <p style={{ margin: "5px 0" }}><b>Hành động:</b> {selectedAuditLog.action}</p>
                  <p style={{ margin: "5px 0" }}><b>Người thực hiện:</b> {selectedAuditLog.user_name} - {selectedAuditLog.shift}</p>
                  <p style={{ margin: "5px 0" }}><b>Thời gian:</b> {selectedAuditLog.time}</p>
-                 <p style={{ margin: "5px 0" }}><b>Nội dung tóm tắt:</b> <span style={{ color: "#3b82f6" }}>{selectedAuditLog.detail}</span></p>
+                 <p style={{ margin: "5px 0" }}><b>Tóm tắt:</b> <span style={{ color: "#3b82f6" }}>{selectedAuditLog.detail}</span></p>
                  
                  {selectedAuditLog.extra_data && (
-                    <div style={{ marginTop: "10px", padding: "10px", background: "var(--bg-input)", border: "1px solid var(--border-glass)", borderRadius: "6px" }}>
-                       <b style={{ color: "#059669", fontSize: "11px", display: "block", marginBottom: "5px" }}>Dữ liệu hệ thống (JSON):</b>
-                       <pre style={{ margin: 0, whiteSpace: "pre-wrap", wordWrap: "break-word", fontSize: "11px", color: "var(--text-main)", maxHeight: "200px", overflowY: "auto" }}>
-                          {JSON.stringify(JSON.parse(selectedAuditLog.extra_data), null, 2)}
-                       </pre>
+                    <div style={{ marginTop: "10px" }}>
+                       <b style={{ color: "#059669", fontSize: "12px", display: "block", marginBottom: "5px" }}>Dữ liệu chi tiết:</b>
+                       <div style={{ background: "var(--bg-input)", border: "1px solid var(--border-glass)", borderRadius: "6px", maxHeight: "250px", overflowY: "auto", padding: "10px" }}>
+                         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
+                           <tbody>
+                             {Object.entries(JSON.parse(selectedAuditLog.extra_data)).map(([k, v]) => (
+                               <tr key={k} style={{ borderBottom: "1px dashed var(--border-glass)" }}>
+                                 <td style={{ padding: "6px 4px", fontWeight: "bold", color: "var(--text-muted)", width: "35%", verticalAlign: "top" }}>{k}</td>
+                                 <td style={{ padding: "6px 4px", color: "var(--text-main)", wordBreak: "break-word" }}>{typeof v === 'object' ? JSON.stringify(v) : String(v)}</td>
+                               </tr>
+                             ))}
+                           </tbody>
+                         </table>
+                       </div>
                     </div>
                  )}
               </div>
@@ -1513,7 +1548,9 @@ export default function App() {
             <table style={{ width: "100%", fontSize: "12px", borderCollapse: "collapse" }}>
               <tbody>
                 {lastOrder.cart.map((i: any, x: number) => {
-                  const p = Math.round(getActualPrice(i.product)); const t = Math.round((Number(i.qty) || 0) * p); const g = parseGift(i.product.gift_info); const gQty = g.cond > 0 ? Math.floor(i.qty / g.cond) : 0;
+                  const p = i.priceIncludingVat !== undefined ? Math.round(i.priceIncludingVat / (1 + VAT_RATE)) : Math.round(getActualPrice(i.product)); 
+                  const t = i.priceIncludingVat !== undefined ? Math.round(i.priceIncludingVat * i.qty) : Math.round((Number(i.qty) || 0) * p * (1 + VAT_RATE)); 
+                  const g = parseGift(i.product.gift_info); const gQty = g.cond > 0 ? Math.floor(i.qty / g.cond) : 0;
                   return (
                     <React.Fragment key={x}>
                       <tr><td colSpan={2} style={{ fontWeight: "bold", paddingTop: "4px" }}>{cleanName(i.product.name)} {i.product.isHappyHour && <span style={{ fontSize: "9px", fontStyle: "italic" }}>[Giờ Vàng]</span>}</td></tr>
@@ -1593,14 +1630,15 @@ export default function App() {
               </thead>
               <tbody>
                 {lastOrder.cart.map((item: any, index: number) => {
-                  const price = Math.round(getActualPrice(item.product));
+                  const p = item.priceIncludingVat !== undefined ? Math.round(item.priceIncludingVat / (1 + VAT_RATE)) : Math.round(getActualPrice(item.product)); 
+                  const t = item.priceIncludingVat !== undefined ? Math.round(item.priceIncludingVat * item.qty) : Math.round((Number(item.qty) || 0) * p * (1 + VAT_RATE)); 
                   return (
                     <tr key={index}>
                       <td style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>{index + 1}</td>
                       <td style={{ border: "1px solid #000", padding: "10px" }}>{cleanName(item.product.name)}</td>
                       <td style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>{item.qty}</td>
-                      <td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{price.toLocaleString()}đ</td>
-                      <td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{(price * item.qty).toLocaleString()}đ</td>
+                      <td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{p.toLocaleString()}đ</td>
+                      <td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{t.toLocaleString()}đ</td>
                     </tr>
                   );
                 })}
@@ -1630,10 +1668,10 @@ export default function App() {
           <div className="print-barcode-sheet">
             {Array.from({ length: barcodeCount }).map((_, i) => (
               <div key={i} className="barcode-sticker">
-                <div style={{ fontSize: "11px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{cleanName(printBarcodeProduct.name)}</div>
-                <img src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(printBarcodeProduct.product_code)}&scale=2&height=10&includetext=false`} onError={(e) => { e.currentTarget.src = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(printBarcodeProduct.product_code)}&code=Code128&translate-esc=on`; }} style={{ maxWidth: "100%", height: "40px", marginTop: "4px" }} alt={printBarcodeProduct.product_code} />
-                <div style={{ fontSize: "10px", fontFamily: "monospace", letterSpacing: "1px", color: "#333" }}>{printBarcodeProduct.product_code}</div>
-                <div style={{ fontSize: "14px", fontWeight: "900", color: "#000", marginTop: "2px" }}>{getActualPrice(printBarcodeProduct).toLocaleString()}đ</div>
+                <div style={{ fontSize: "9px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: "100%", textAlign: "center" }}>{cleanName(printBarcodeProduct.name)}</div>
+                <img src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(printBarcodeProduct.product_code)}&scale=2&height=10&includetext=false`} onError={(e) => { e.currentTarget.src = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(printBarcodeProduct.product_code)}&code=Code128&translate-esc=on`; }} style={{ maxWidth: "100%", height: "24px", margin: "2px 0" }} alt={printBarcodeProduct.product_code} />
+                <div style={{ fontSize: "8px", fontFamily: "monospace", letterSpacing: "1px", color: "#333", lineHeight: "1" }}>{printBarcodeProduct.product_code}</div>
+                <div style={{ fontSize: "12px", fontWeight: "900", color: "#000", lineHeight: "1.2" }}>{getActualPrice(printBarcodeProduct).toLocaleString()}đ</div>
               </div>
             ))}
           </div>
