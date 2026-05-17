@@ -48,14 +48,16 @@ const styles = `
   }
 `;
 
-// HÀM TIỆN ÍCH HOISTING (Kéo lên trên cùng để tránh lỗi)
+// HÀM TIỆN ÍCH HOISTING & BỌC THÉP
+const safeArray = (arr: any) => Array.isArray(arr) ? arr : [];
+const safeObject = (obj: any) => (obj && typeof obj === 'object' && !Array.isArray(obj)) ? obj : {};
+const parseLocal = (key: string, defaultVal: any) => { try { const s = localStorage.getItem(key); return s && s !== "undefined" ? JSON.parse(s) : defaultVal; } catch(e) { return defaultVal; } };
 const formatCategoryStr = (str: string) => { if (!str) return "Khác"; const t = str.trim(); return t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : "Khác"; };
 const parseGift = (giftStr: string | null) => { if (!giftStr) return { cond: 0, text: "" }; if (giftStr.includes(';;;')) { const parts = giftStr.split(';;;'); return { cond: parseInt(parts[0]) || 1, text: parts[1] || "" } } return { cond: 1, text: giftStr } };
 const cleanName = (name: string) => name ? name.split(' [Lô')[0] : '';
-const getActualPrice = (p: any) => { let price = (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price; const currentHour = new Date().getHours(); if ((currentHour >= 20 || currentHour < 6) && (p.category === 'Đồ ăn liền' || p.category === 'Bánh Kẹo')) { price = price * 0.8; p.isHappyHour = true } else { p.isHappyHour = false } return Math.round(price) };
+const getActualPrice = (p: any) => { if (!p) return 0; let price = (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price; const currentHour = new Date().getHours(); if ((currentHour >= 20 || currentHour < 6) && (p.category === 'Đồ ăn liền' || p.category === 'Bánh Kẹo')) { price = price * 0.8; p.isHappyHour = true } else { p.isHappyHour = false } return Math.round(price) };
 const getCustomerTier = (totalSpent = 0) => { if (totalSpent >= 500000000) return { name: "💎 KIM CƯƠNG", discountRate: 0.10, color: "#a855f7", bg: "#faf5ff", border: "#e9d5ff" }; if (totalSpent >= 200000000) return { name: "🥇 VÀNG", discountRate: 0.05, color: "#ca8a04", bg: "#fefce8", border: "#fef08a" }; if (totalSpent >= 50000000) return { name: "🥈 BẠC", discountRate: 0.02, color: "#475569", bg: "#f8fafc", border: "#cbd5e1" }; return { name: "🥉 ĐỒNG", discountRate: 0, color: "#b45309", bg: "#fffbeb", border: "#fde68a" } };
 const playSound = (type: 'success' | 'error') => { try { const ctx = new (window.AudioContext || (window as any).webkitAudioContext)(); const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.connect(gain); gain.connect(ctx.destination); if (type === 'success') { osc.frequency.value = 800; gain.gain.setValueAtTime(0.1, ctx.currentTime); osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.1) } else { osc.frequency.value = 250; osc.type = 'square'; gain.gain.setValueAtTime(0.1, ctx.currentTime); osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3) } } catch (e) { } };
-
 
 export default function App() {
   const VAT_RATE = 0.1;
@@ -139,13 +141,13 @@ export default function App() {
   const [cart, setCart] = useState<any[]>([]);
   const [barcodeInput, setBarcodeInput] = useState("");
   
-  // DỮ LIỆU LOCAL
-  const [customers, setCustomers] = useState<any>(() => { const s = localStorage.getItem("mart_customers"); return s ? JSON.parse(s) : {} });
-  const [heldOrders, setHeldOrders] = useState<any[]>(() => { const s = localStorage.getItem("mart_held_orders"); return s ? JSON.parse(s) : [] });
-  const [auditLogs, setAuditLogs] = useState<any[]>(() => { const s = localStorage.getItem("mart_audit"); return s ? JSON.parse(s) : [] });
-  const [expenses, setExpenses] = useState<any[]>(() => { const s = localStorage.getItem("mart_expenses"); return s ? JSON.parse(s) : [] });
-  const [suppliers, setSuppliers] = useState<any[]>(() => { const s = localStorage.getItem("mart_suppliers"); return s ? JSON.parse(s) : [] });
-  const [history, setHistory] = useState<any[]>(() => { const s = localStorage.getItem("mart_history"); return s ? JSON.parse(s) : [] });
+  // DỮ LIỆU LOCAL (Được Bọc Thép)
+  const [customers, setCustomers] = useState<any>(() => safeObject(parseLocal("mart_customers", {})));
+  const [heldOrders, setHeldOrders] = useState<any[]>(() => safeArray(parseLocal("mart_held_orders", [])));
+  const [auditLogs, setAuditLogs] = useState<any[]>(() => safeArray(parseLocal("mart_audit", [])));
+  const [expenses, setExpenses] = useState<any[]>(() => safeArray(parseLocal("mart_expenses", [])));
+  const [suppliers, setSuppliers] = useState<any[]>(() => safeArray(parseLocal("mart_suppliers", [])));
+  const [history, setHistory] = useState<any[]>(() => safeArray(parseLocal("mart_history", [])));
 
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState(1);
@@ -165,9 +167,11 @@ export default function App() {
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
   const isInitialMount = useRef(true);
 
+  // KẾT THÚC KHAI BÁO STATE ==========================
+
   const logAudit = async (action: string, detail: string, extraData: any = null) => { 
     const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user_name: role === 'admin' ? 'Quản lý' : 'Thu ngân', shift, action, detail, extra_data: extraData ? JSON.stringify(extraData) : null }; 
-    setAuditLogs(prev => [newLog, ...prev].slice(0, 300)); 
+    setAuditLogs(prev => [newLog, ...safeArray(prev)].slice(0, 300)); 
   };
 
   // Cài đặt Dark Mode
@@ -203,7 +207,11 @@ export default function App() {
     try {
       setSyncStatus('syncing');
       let formattedData = [];
-      if (isObject) { formattedData = Object.keys(dataArray).map(key => ({ phone: key, ...dataArray[key] })); } else { formattedData = dataArray; }
+      if (isObject) { 
+        formattedData = Object.keys(dataArray || {}).map(key => ({ phone: key, ...dataArray[key] })); 
+      } else { 
+        formattedData = safeArray(dataArray); 
+      }
       if (formattedData.length === 0) { setSyncStatus('synced'); return true; }
       const { error } = await supabase.from(tableName).upsert(formattedData, { onConflict: tableName === 'customers' ? 'phone' : 'id' });
       if (error) throw error;
@@ -215,46 +223,121 @@ export default function App() {
   const syncAllOfflineData = async () => {
     if (!navigator.onLine) return;
     setSyncStatus('syncing');
-    await Promise.all([ syncToCloud('history', history), syncToCloud('customers', customers, true), syncToCloud('held_orders', heldOrders), syncToCloud('audit_logs', auditLogs), syncToCloud('expenses', expenses), syncToCloud('suppliers', suppliers) ]);
+    await Promise.all([ 
+      syncToCloud('history', history), 
+      syncToCloud('customers', customers, true), 
+      syncToCloud('held_orders', heldOrders), 
+      syncToCloud('audit_logs', auditLogs), 
+      syncToCloud('expenses', expenses), 
+      syncToCloud('suppliers', suppliers) 
+    ]);
   };
 
   const loadCloudData = async () => {
     try {
       setSyncStatus('syncing');
       const [rCust, rHist, rExp, rSup, rAud, rHold] = await Promise.all([
-        supabase.from('customers').select('*'), supabase.from('history').select('*').order('id', { ascending: false }).limit(1500),
-        supabase.from('expenses').select('*').order('id', { ascending: false }), supabase.from('suppliers').select('*').order('id', { ascending: false }),
-        supabase.from('audit_logs').select('*').order('id', { ascending: false }).limit(300), supabase.from('held_orders').select('*')
+        supabase.from('customers').select('*'), 
+        supabase.from('history').select('*').order('id', { ascending: false }).limit(1500),
+        supabase.from('expenses').select('*').order('id', { ascending: false }), 
+        supabase.from('suppliers').select('*').order('id', { ascending: false }),
+        supabase.from('audit_logs').select('*').order('id', { ascending: false }).limit(300), 
+        supabase.from('held_orders').select('*')
       ]);
 
-      if (rCust.data && rCust.data.length > 0) { setCustomers((prev: any) => { const updated = { ...prev }; rCust.data.forEach((c: any) => { updated[c.phone] = { ...updated[c.phone], ...c }; }); return updated; }); }
-      if (rHist.data) { setHistory(prev => { const cloudIds = new Set(rHist.data.map(h => h.id)); const localOnly = prev.filter(h => !cloudIds.has(h.id)); return [...localOnly, ...rHist.data].sort((a, b) => b.id - a.id); }); }
-      if (rExp.data) { setExpenses(prev => { const cloudIds = new Set(rExp.data.map(e => e.id)); const localOnly = prev.filter(e => !cloudIds.has(e.id)); return [...localOnly, ...rExp.data].sort((a, b) => b.id - a.id); }); }
-      if (rSup.data) { setSuppliers(prev => { const cloudIds = new Set(rSup.data.map(s => s.id)); const localOnly = prev.filter(s => !cloudIds.has(s.id)); return [...localOnly, ...rSup.data].sort((a, b) => b.id - a.id); }); }
-      if (rAud.data) { setAuditLogs(prev => { const cloudIds = new Set(rAud.data.map(a => a.id)); const localOnly = prev.filter(a => !cloudIds.has(a.id)); return [...localOnly, ...rAud.data].sort((a, b) => b.id - a.id); }); }
-      if (rHold.data) { setHeldOrders(prev => { const cloudIds = new Set(rHold.data.map(o => o.id)); const localOnly = prev.filter(o => !cloudIds.has(o.id)); return [...localOnly, ...rHold.data].sort((a, b) => b.id - a.id); }); }
+      if (rCust.data && rCust.data.length > 0) { 
+        setCustomers((prev: any) => { 
+          const updated = { ...safeObject(prev) }; 
+          rCust.data.forEach((c: any) => { updated[c.phone] = { ...updated[c.phone], ...c }; }); 
+          return updated; 
+        }); 
+      }
+      if (rHist.data) { 
+        setHistory(prev => { 
+          const cloudIds = new Set(rHist.data.map(h => h.id)); 
+          const localOnly = safeArray(prev).filter(h => !cloudIds.has(h.id)); 
+          return [...localOnly, ...rHist.data].sort((a, b) => b.id - a.id); 
+        }); 
+      }
+      if (rExp.data) { 
+        setExpenses(prev => { 
+          const cloudIds = new Set(rExp.data.map(e => e.id)); 
+          const localOnly = safeArray(prev).filter(e => !cloudIds.has(e.id)); 
+          return [...localOnly, ...rExp.data].sort((a, b) => b.id - a.id); 
+        }); 
+      }
+      if (rSup.data) { 
+        setSuppliers(prev => { 
+          const cloudIds = new Set(rSup.data.map(s => s.id)); 
+          const localOnly = safeArray(prev).filter(s => !cloudIds.has(s.id)); 
+          return [...localOnly, ...rSup.data].sort((a, b) => b.id - a.id); 
+        }); 
+      }
+      if (rAud.data) { 
+        setAuditLogs(prev => { 
+          const cloudIds = new Set(rAud.data.map(a => a.id)); 
+          const localOnly = safeArray(prev).filter(a => !cloudIds.has(a.id)); 
+          return [...localOnly, ...rAud.data].sort((a, b) => b.id - a.id); 
+        }); 
+      }
+      if (rHold.data) { 
+        setHeldOrders(prev => { 
+          const cloudIds = new Set(rHold.data.map(o => o.id)); 
+          const localOnly = safeArray(prev).filter(o => !cloudIds.has(o.id)); 
+          return [...localOnly, ...rHold.data].sort((a, b) => b.id - a.id); 
+        }); 
+      }
       setSyncStatus('synced');
     } catch (err) { setSyncStatus('error'); }
   };
 
   useEffect(() => {
-    localStorage.setItem("mart_history", JSON.stringify(history)); localStorage.setItem("mart_customers", JSON.stringify(customers)); localStorage.setItem("mart_held_orders", JSON.stringify(heldOrders));
-    localStorage.setItem("mart_audit", JSON.stringify(auditLogs)); localStorage.setItem("mart_expenses", JSON.stringify(expenses)); localStorage.setItem("mart_suppliers", JSON.stringify(suppliers));
+    localStorage.setItem("mart_history", JSON.stringify(history)); 
+    localStorage.setItem("mart_customers", JSON.stringify(customers)); 
+    localStorage.setItem("mart_held_orders", JSON.stringify(heldOrders));
+    localStorage.setItem("mart_audit", JSON.stringify(auditLogs)); 
+    localStorage.setItem("mart_expenses", JSON.stringify(expenses)); 
+    localStorage.setItem("mart_suppliers", JSON.stringify(suppliers));
     if (isInitialMount.current) { isInitialMount.current = false; return; }
     const delaySync = setTimeout(() => {
-      if (isLoggedIn) { syncToCloud('history', history); syncToCloud('customers', customers, true); syncToCloud('held_orders', heldOrders); syncToCloud('audit_logs', auditLogs); syncToCloud('expenses', expenses); syncToCloud('suppliers', suppliers); }
+      if (isLoggedIn) { 
+        syncToCloud('history', history); 
+        syncToCloud('customers', customers, true); 
+        syncToCloud('held_orders', heldOrders); 
+        syncToCloud('audit_logs', auditLogs); 
+        syncToCloud('expenses', expenses); 
+        syncToCloud('suppliers', suppliers); 
+      }
     }, 2000);
     return () => clearTimeout(delaySync);
   }, [history, customers, heldOrders, auditLogs, expenses, suppliers, isLoggedIn]);
 
-  const fetchProducts = async () => { const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false }); if (data) setProducts(data) };
-  const findProductByCode = (code: string) => { const rawCode = code.trim(); let matches = products.filter(prod => prod.product_code === rawCode || prod.product_code.startsWith(`${rawCode}-`)); let available = matches.filter(p => p.stock > 0); if (available.length > 0) { available.sort((a, b) => { if (!a.expiry_date) return 1; if (!b.expiry_date) return -1; return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime() }); return available[0] } return matches.length > 0 ? matches[0] : null };
+  const fetchProducts = async () => { 
+    const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false }); 
+    if (data) setProducts(data); 
+  };
+  
+  const findProductByCode = (code: string) => { 
+    const rawCode = code.trim(); 
+    let matches = safeArray(products).filter(prod => prod.product_code === rawCode || prod.product_code.startsWith(`${rawCode}-`)); 
+    let available = matches.filter(p => p.stock > 0); 
+    if (available.length > 0) { 
+      available.sort((a, b) => { 
+        if (!a.expiry_date) return 1; 
+        if (!b.expiry_date) return -1; 
+        return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime() 
+      }); 
+      return available[0]; 
+    } 
+    return matches.length > 0 ? matches[0] : null; 
+  };
   
   useEffect(() => { const timer = setInterval(() => setCurrentTime(new Date()), 1000); return () => clearInterval(timer) }, []);
   
   useEffect(() => {
     if (isLoggedIn) {
-      fetchProducts(); loadCloudData();
+      fetchProducts(); 
+      loadCloudData();
       const channel = supabase.channel("db_changes")
         .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts())
         .on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData())
@@ -284,25 +367,60 @@ export default function App() {
   
   const handleSelectSuggest = (p_input: any) => {
     const baseCode = p_input.product_code.split('-')[0];
-    const totalStock = products.filter(p => p.product_code === baseCode || p.product_code.startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0);
+    const totalStock = safeArray(products).filter(p => p.product_code === baseCode || p.product_code.startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0);
     if (totalStock <= 0) { playSound('error'); return alert("Đã hết hàng!"); }
     const price = getActualPrice(p_input); const repName = cleanName(p_input.name);
     setCart(prev => {
-      const exist = prev.find(item => cleanName(item.product.name) === repName);
+      const exist = safeArray(prev).find(item => cleanName(item.product.name) === repName);
       if (exist) {
         const newQty = exist.qty + 1;
         if (newQty > totalStock) { playSound('error'); return prev; }
-        playSound('success'); return prev.map(i => cleanName(i.product.name) === repName ? { ...i, qty: newQty, total: Math.round(newQty * price * (1 + VAT_RATE)) } : i);
-      } else { playSound('success'); return [...prev, { product: p_input, qty: 1, total: Math.round(price * (1 + VAT_RATE)) }]; }
+        playSound('success'); 
+        return prev.map(i => cleanName(i.product.name) === repName ? { ...i, qty: newQty, total: Math.round(newQty * price * (1 + VAT_RATE)) } : i);
+      } else { 
+        playSound('success'); 
+        return [...prev, { product: p_input, qty: 1, total: Math.round(price * (1 + VAT_RATE)) }]; 
+      }
     });
     setScanMessage({ text: `✅ Thêm: ${repName}`, type: 'success' }); setBarcodeInput(""); setShowSuggestions(false); setTimeout(() => setScanMessage(null), 2000);
   };
 
   useEffect(() => {
     if (scannedCodeObj) {
-      if (scannerMode === 'product') { const p = findProductByCode(scannedCodeObj.code); if (p) handleSelectSuggest(p); else { const matchedPhone = Object.keys(customers).find(phone => phone === scannedCodeObj.code.trim() || customers[phone].cardCode === scannedCodeObj.code.trim()); if (matchedPhone) { playSound('success'); setCustomerInput(customers[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setScanMessage({ text: `✅ KH VIP: ${customers[matchedPhone].name}`, type: 'success' }) } else { playSound('error'); setScanMessage({ text: `❌ Lỗi mã`, type: 'error' }) } setTimeout(() => setScannerMode(null), 1500) } }
-      else if (scannerMode === 'voucher') { const code = scannedCodeObj.code.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); setVoucherInput(code); playSound('success'); setScanMessage({ text: `✅ Giảm ${VOUCHERS[code].toLocaleString()}đ`, type: 'success' }) } else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); setVoucherInput(code); playSound('success'); setScanMessage({ text: `✅ Giảm ${Number(code).toLocaleString()}đ`, type: 'success' }) } else { playSound('error'); alert("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0) } setTimeout(() => setScannerMode(null), 1000) }
-      else if (scannerMode === 'customer') { const val = scannedCodeObj.code.trim(); setCustomerInput(val); const matchedPhone = Object.keys(customers).find(phone => phone === val || customers[phone].cardCode === val); if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); playSound('success'); setScanMessage({ text: `✅ Nhận diện VIP: ${customers[matchedPhone].name}`, type: 'success' }) } else { setCustPhone(val); setCustName(""); playSound('success'); setScanMessage({ text: `✅ Đã quét mã (Khách mới)`, type: 'success' }) } setTimeout(() => setScannerMode(null), 1000) }
+      if (scannerMode === 'product') { 
+        const p = findProductByCode(scannedCodeObj.code); 
+        if (p) handleSelectSuggest(p); 
+        else { 
+          const matchedPhone = Object.keys(customers || {}).find(phone => phone === scannedCodeObj.code.trim() || customers[phone].cardCode === scannedCodeObj.code.trim()); 
+          if (matchedPhone) { 
+            playSound('success'); setCustomerInput(customers[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setScanMessage({ text: `✅ KH VIP: ${customers[matchedPhone].name}`, type: 'success' }) 
+          } else { 
+            playSound('error'); setScanMessage({ text: `❌ Lỗi mã`, type: 'error' }) 
+          } 
+          setTimeout(() => setScannerMode(null), 1500) 
+        } 
+      }
+      else if (scannerMode === 'voucher') { 
+        const code = scannedCodeObj.code.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; 
+        if (VOUCHERS[code]) { 
+          setAppliedVoucherAmount(VOUCHERS[code]); setVoucherInput(code); playSound('success'); setScanMessage({ text: `✅ Giảm ${VOUCHERS[code].toLocaleString()}đ`, type: 'success' }) 
+        } else if (!isNaN(Number(code)) && Number(code) > 0) { 
+          setAppliedVoucherAmount(Number(code)); setVoucherInput(code); playSound('success'); setScanMessage({ text: `✅ Giảm ${Number(code).toLocaleString()}đ`, type: 'success' }) 
+        } else { 
+          playSound('error'); alert("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0) 
+        } 
+        setTimeout(() => setScannerMode(null), 1000) 
+      }
+      else if (scannerMode === 'customer') { 
+        const val = scannedCodeObj.code.trim(); setCustomerInput(val); 
+        const matchedPhone = Object.keys(customers || {}).find(phone => phone === val || customers[phone].cardCode === val); 
+        if (matchedPhone) { 
+          setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); playSound('success'); setScanMessage({ text: `✅ Nhận diện VIP: ${customers[matchedPhone].name}`, type: 'success' }) 
+        } else { 
+          setCustPhone(val); setCustName(""); playSound('success'); setScanMessage({ text: `✅ Đã quét mã (Khách mới)`, type: 'success' }) 
+        } 
+        setTimeout(() => setScannerMode(null), 1000) 
+      }
       setScannedCodeObj(null); setTimeout(() => setScanMessage(null), 1500)
     }
   }, [scannedCodeObj, products, scannerMode]);
@@ -313,7 +431,7 @@ export default function App() {
   
   // CHI TIẾT BÁO CÁO KẾ TOÁN (CASHFLOW)
   const currentShiftStats = useMemo(() => { 
-    const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStrStr && h.shift === shift); 
+    const shiftLogs = safeArray(history).filter(h => h.time && h.time.includes(todayStrStr) && h.shift === shift); 
     let cashIn = 0, cashOut = 0, transferIn = 0, transferOut = 0, prof = 0, totalSales = 0; 
     
     shiftLogs.forEach(h => { 
@@ -333,19 +451,48 @@ export default function App() {
       }
     }); 
     
-    const shiftExp = expenses.filter(e => e.date === todayStrStr).reduce((s, e) => s + e.amount, 0); 
+    const shiftExp = safeArray(expenses).filter(e => e.date === todayStrStr).reduce((s, e) => s + e.amount, 0); 
     const expectedCash = startingCash + cashIn - cashOut - shiftExp;
     const totalRev = cashIn + transferIn - cashOut - transferOut;
 
     return { startingCash, cashIn, cashOut, transferIn, transferOut, expectedCash, prof, totalSales, shiftExp, rev: totalRev } 
   }, [history, shift, todayStrStr, startingCash, expenses]);
   
-  const todayStats = useMemo(() => { const todayHistory = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStrStr); let cash = 0; let transfer = 0; let prof = 0; let totalSales = 0; todayHistory.forEach(h => { if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += h.total; if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') { if (h.paymentMethod === 'CHUYỂN KHOẢN') transfer += h.total; else if (h.paymentMethod === 'TIỀN MẶT' || h.paymentMethod === 'KẾT HỢP') { if(h.paymentMethod === 'KẾT HỢP' && h.split_cash) { cash += h.split_cash; transfer += (h.total - h.split_cash); } else { cash += h.total; } } } prof += (h.profit || 0) }); const todayExp = expenses.filter(e => e.date === todayStrStr).reduce((sum, e) => sum + e.amount, 0); return { rev: cash + transfer, cash, transfer, prof, totalSales, expenses: todayExp, netProfit: prof - todayExp } }, [history, expenses, todayStrStr]);
-  const chartData = useMemo(() => { const data = []; for (let i = 29; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); const dStr = d.toLocaleDateString('vi-VN'); const dayTotal = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === dStr && (h.type === 'BÁN' || h.type === 'GHI NỢ')).reduce((s, h) => s + h.total, 0); data.push({ label: `${d.getDate()}/${d.getMonth() + 1}`, total: dayTotal, showLabel: (i % 3 === 0 || i === 0) }) } const maxVal = Math.max(...data.map(d => d.total), 1); return data.map(d => ({ ...d, height: `${(d.total / maxVal) * 100}%` })) }, [history]);
+  const todayStats = useMemo(() => { 
+    const todayHistory = safeArray(history).filter(h => h.time && h.time.includes(todayStrStr)); 
+    let cash = 0; let transfer = 0; let prof = 0; let totalSales = 0; 
+    todayHistory.forEach(h => { 
+      if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += h.total; 
+      if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') { 
+        if (h.paymentMethod === 'CHUYỂN KHOẢN') transfer += h.total; 
+        else if (h.paymentMethod === 'TIỀN MẶT' || h.paymentMethod === 'KẾT HỢP') { 
+          if(h.paymentMethod === 'KẾT HỢP' && h.split_cash) { 
+            cash += h.split_cash; transfer += (h.total - h.split_cash); 
+          } else { 
+            cash += h.total; 
+          } 
+        } 
+      } 
+      prof += (h.profit || 0) 
+    }); 
+    const todayExp = safeArray(expenses).filter(e => e.date === todayStrStr).reduce((sum, e) => sum + e.amount, 0); 
+    return { rev: cash + transfer, cash, transfer, prof, totalSales, expenses: todayExp, netProfit: prof - todayExp } 
+  }, [history, expenses, todayStrStr]);
+  
+  const chartData = useMemo(() => { 
+    const data = []; 
+    for (let i = 29; i >= 0; i--) { 
+      const d = new Date(); d.setDate(d.getDate() - i); const dStr = d.toLocaleDateString('vi-VN'); 
+      const dayTotal = safeArray(history).filter(h => h.time && h.time.includes(dStr) && (h.type === 'BÁN' || h.type === 'GHI NỢ')).reduce((s, h) => s + h.total, 0); 
+      data.push({ label: `${d.getDate()}/${d.getMonth() + 1}`, total: dayTotal, showLabel: (i % 3 === 0 || i === 0) }) 
+    } 
+    const maxVal = Math.max(...data.map(d => d.total), 1); 
+    return data.map(d => ({ ...d, height: `${(d.total / maxVal) * 100}%` })) 
+  }, [history]);
   
   const topSelling = useMemo(() => { 
     const sales: Record<string, number> = {}; 
-    history.forEach(log => { 
+    safeArray(history).forEach(log => { 
       if ((log.type === 'BÁN' || log.type === 'GHI NỢ') && log.product_id !== 'DISCOUNT') {
         const baseName = cleanName(log.name); sales[baseName] = (sales[baseName] || 0) + log.qty 
       }
@@ -353,27 +500,41 @@ export default function App() {
     return Object.entries(sales).sort((a, b) => b[1] - a[1]).slice(0, 5) 
   }, [history]);
   
-  const groupedHistory = useMemo(() => { let filtered = history; if (logTypeFilter !== "Tất cả") filtered = filtered.filter(log => log.type === logTypeFilter); if (logSearchTerm.trim() !== "") { const term = logSearchTerm.toLowerCase(); filtered = filtered.filter(log => (log.name && log.name.toLowerCase().includes(term)) || (log.customer && log.customer.toLowerCase().includes(term)) || (log.id.toString().includes(term))) } return filtered.reduce((groups: any, log: any) => { const date = new Date(Math.floor(log.id)).toLocaleDateString('vi-VN'); if (!groups[date]) groups[date] = []; groups[date].push({ ...log, t: new Date(Math.floor(log.id)).toLocaleTimeString('vi-VN') }); return groups }, {}) }, [history, logSearchTerm, logTypeFilter]);
+  const groupedHistory = useMemo(() => { 
+    let filtered = safeArray(history); 
+    if (logTypeFilter !== "Tất cả") filtered = filtered.filter(log => log.type === logTypeFilter); 
+    if (logSearchTerm.trim() !== "") { 
+      const term = logSearchTerm.toLowerCase(); 
+      filtered = filtered.filter(log => (log.name && log.name.toLowerCase().includes(term)) || (log.customer && log.customer.toLowerCase().includes(term)) || (log.id.toString().includes(term))) 
+    } 
+    return filtered.reduce((groups: any, log: any) => { 
+      const dateStr = log.time ? log.time.split(' ')[1] || log.time : "Không rõ";
+      if (!groups[dateStr]) groups[dateStr] = []; 
+      const timeOnly = log.time ? log.time.split(' ')[0] : "";
+      groups[dateStr].push({ ...log, t: timeOnly }); 
+      return groups 
+    }, {}) 
+  }, [history, logSearchTerm, logTypeFilter]);
 
-  const totalValue = Math.round(products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
-  const lowStockCount = products.filter(p => p.stock > 0 && p.stock < 10).length;
-  const cartTotalAmountDisplay = cart.reduce((sum, item) => sum + item.total, 0);
+  const totalValue = Math.round(safeArray(products).reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
+  const lowStockCount = safeArray(products).filter(p => p.stock > 0 && p.stock < 10).length;
+  const cartTotalAmountDisplay = safeArray(cart).reduce((sum, item) => sum + item.total, 0);
   const currentTier = getCustomerTier(customers[custPhone]?.totalSpent || 0);
   const tierDiscountAmount = custPhone ? Math.round(cartTotalAmountDisplay * currentTier.discountRate) : 0;
   const amountAfterTierAndVoucher = Math.max(0, cartTotalAmountDisplay - appliedVoucherAmount - tierDiscountAmount);
   const walletUsedAmount = useWallet ? Math.min(customers[custPhone]?.wallet || 0, amountAfterTierAndVoucher) : 0;
   const finalToPay = amountAfterTierAndVoucher - walletUsedAmount;
 
-  const uniqueNames = useMemo(() => Array.from(new Set(products.map(p => cleanName(p.name)))).sort(), [products]);
-  const uniqueStocks = useMemo(() => Array.from(new Set(products.map(p => p.stock))).sort((a, b) => a - b), [products]);
-  const uniqueImportPrices = useMemo(() => Array.from(new Set(products.map(p => p.import_price || 0))).sort((a, b) => a - b), [products]);
-  const uniqueSalePrices = useMemo(() => Array.from(new Set(products.map(p => p.sale_price))).sort((a, b) => a - b), [products]);
-  const uniqueExpiries = useMemo(() => Array.from(new Set(products.map(p => p.expiry_date).filter(Boolean))).sort(), [products]);
-  const categories = ["Tất cả", ...Array.from(new Set(products.map(p => formatCategoryStr(p.category))))];
+  const uniqueNames = useMemo(() => Array.from(new Set(safeArray(products).map(p => cleanName(p.name)))).sort(), [products]);
+  const uniqueStocks = useMemo(() => Array.from(new Set(safeArray(products).map(p => p.stock))).sort((a, b) => a - b), [products]);
+  const uniqueImportPrices = useMemo(() => Array.from(new Set(safeArray(products).map(p => p.import_price || 0))).sort((a, b) => a - b), [products]);
+  const uniqueSalePrices = useMemo(() => Array.from(new Set(safeArray(products).map(p => p.sale_price))).sort((a, b) => a - b), [products]);
+  const uniqueExpiries = useMemo(() => Array.from(new Set(safeArray(products).map(p => p.expiry_date).filter(Boolean))).sort(), [products]);
+  const categories = ["Tất cả", ...Array.from(new Set(safeArray(products).map(p => formatCategoryStr(p.category))))];
   
   const sortedAndFilteredProducts = useMemo(() => {
     const todayTime = new Date().getTime();
-    let filtered = products.filter(p => (selectedCategory === "Tất cả" || formatCategoryStr(p.category) === selectedCategory)).filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(searchTerm.toLowerCase())));
+    let filtered = safeArray(products).filter(p => (selectedCategory === "Tất cả" || formatCategoryStr(p.category) === selectedCategory)).filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(searchTerm.toLowerCase())));
     if (filters['name']?.length > 0) filtered = filtered.filter(p => filters['name'].includes(cleanName(p.name)));
     if (filters['stock']?.length > 0) filtered = filtered.filter(p => filters['stock'].includes(p.stock));
     if (filters['import_price']?.length > 0) filtered = filtered.filter(p => filters['import_price'].includes(p.import_price || 0));
@@ -408,17 +569,17 @@ export default function App() {
       setStartingCash(0);
   };
   
-  const handleEditPhone = async (oldPhone: string) => { const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customers[newPhone]) return alert("❌ SĐT đã tồn tại!"); const cData = customers[oldPhone]; const newC = { ...cData, phone: newPhone }; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = newC; delete updated[oldPhone]; return updated }); setHistory((prev: any) => prev.map((h: any) => { if (h.customer && h.customer.includes(oldPhone)) { return { ...h, customer: h.customer.replace(oldPhone, newPhone) } } return h })); logAudit("SỬA SĐT KH", `Đổi ${oldPhone} -> ${newPhone}`); alert("✅ Cập nhật thành công! (Sẽ tự động đồng bộ lên Cloud)"); } };
-  const addSupplier = async () => { if (!supName || !supPhone) return alert("Nhập đủ Tên/SĐT"); const newS = { id: Date.now(), name: supName, phone: supPhone, item: supItem }; setSuppliers(prev => [newS, ...prev]); setSupName(""); setSupPhone(""); setSupItem(""); logAudit("THÊM NCC", `${supName} - ${supPhone}`); alert("✅ Thêm NCC thành công!"); };
-  const deleteSupplier = async (id: any) => { setSuppliers(prev => prev.filter(s => s.id !== id)); if (navigator.onLine) await supabase.from('suppliers').delete().eq('id', id); };
-  const addExpense = async () => { if (!expName || !expAmount) return alert("Nhập chi phí!"); const newE = { id: Date.now(), date: new Date().toLocaleDateString('vi-VN'), name: expName, amount: Number(expAmount) }; setExpenses(prev => [newE, ...prev]); setExpName(""); setExpAmount(""); logAudit("GHI CHI PHÍ", `${expName}: ${expAmount}đ`, newE); alert("✅ Đã ghi nhận!"); };
-  const deleteExpense = async (id: any) => { setExpenses(prev => prev.filter(e => e.id !== id)); if (navigator.onLine) await supabase.from('expenses').delete().eq('id', id); };
+  const handleEditPhone = async (oldPhone: string) => { const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customers[newPhone]) return alert("❌ SĐT đã tồn tại!"); const cData = customers[oldPhone]; const newC = { ...cData, phone: newPhone }; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = newC; delete updated[oldPhone]; return updated }); setHistory((prev: any) => safeArray(prev).map((h: any) => { if (h.customer && h.customer.includes(oldPhone)) { return { ...h, customer: h.customer.replace(oldPhone, newPhone) } } return h })); logAudit("SỬA SĐT KH", `Đổi ${oldPhone} -> ${newPhone}`); alert("✅ Cập nhật thành công! (Sẽ tự động đồng bộ lên Cloud)"); } };
+  const addSupplier = async () => { if (!supName || !supPhone) return alert("Nhập đủ Tên/SĐT"); const newS = { id: Date.now(), name: supName, phone: supPhone, item: supItem }; setSuppliers(prev => [newS, ...safeArray(prev)]); setSupName(""); setSupPhone(""); setSupItem(""); logAudit("THÊM NCC", `${supName} - ${supPhone}`); alert("✅ Thêm NCC thành công!"); };
+  const deleteSupplier = async (id: any) => { setSuppliers(prev => safeArray(prev).filter(s => s.id !== id)); if (navigator.onLine) await supabase.from('suppliers').delete().eq('id', id); };
+  const addExpense = async () => { if (!expName || !expAmount) return alert("Nhập chi phí!"); const newE = { id: Date.now(), date: new Date().toLocaleDateString('vi-VN'), name: expName, amount: Number(expAmount) }; setExpenses(prev => [newE, ...safeArray(prev)]); setExpName(""); setExpAmount(""); logAudit("GHI CHI PHÍ", `${expName}: ${expAmount}đ`, newE); alert("✅ Đã ghi nhận!"); };
+  const deleteExpense = async (id: any) => { setExpenses(prev => safeArray(prev).filter(e => e.id !== id)); if (navigator.onLine) await supabase.from('expenses').delete().eq('id', id); };
   
   const sendMarketingEmails = async () => {
     if (!marketingMsg) return alert("Nhập nội dung!");
     if (!window.confirm("Giới hạn 200 mail/tháng. Gửi?")) return;
     setLoading(true);
-    const targetCustomers = Object.keys(customers).filter(phone => {
+    const targetCustomers = Object.keys(customers || {}).filter(phone => {
       const c = customers[phone];
       if (!c.email) return false;
       if (marketingTier === "Tất cả") return true;
@@ -439,20 +600,20 @@ export default function App() {
   
   const saveSettings = () => { if (!newAdminPass || !newStaffPass || !newBankBin || !newBankAcc || !newBankNameStr) return alert("Điền đủ!"); setAdminPass(newAdminPass); localStorage.setItem("mart_admin_pass", newAdminPass); setStaffPass(newStaffPass); localStorage.setItem("mart_staff_pass", newStaffPass); setBankBin(newBankBin); localStorage.setItem("mart_bank_bin", newBankBin); setBankAcc(newBankAcc); localStorage.setItem("mart_bank_acc", newBankAcc); setBankNameStr(newBankNameStr); localStorage.setItem("mart_bank_name", newBankNameStr); logAudit("CÀI ĐẶT", "Cập nhật Cấu hình"); alert("✅ Đã lưu!"); setShowSettings(false) };
   
-  const handleHoldOrder = async () => { if (cart.length === 0) return; const newO = { id: Date.now(), time: new Date().toLocaleTimeString('vi-VN'), cart: [...cart] }; setHeldOrders(prev => [...prev, newO]); logAudit("LƯU TẠM", `Lưu giỏ ${cart.length} món`); setCart([]); setCustPhone(""); setCustName(""); setCustomerInput("") };
-  const restoreOrder = async (order: any) => { if (cart.length > 0) return alert("Thanh toán giỏ hiện tại trước!"); setCart(order.cart); setHeldOrders(prev => prev.filter(o => o.id !== order.id)); if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', order.id); setShowHoldModal(false); };
-  const deleteHeldOrder = async (id: any) => { setHeldOrders(prev => prev.filter(o => o.id !== id)); logAudit("XÓA ĐƠN", `Xóa đơn lưu tạm`); if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', id); };
+  const handleHoldOrder = async () => { if (cart.length === 0) return; const newO = { id: Date.now(), time: new Date().toLocaleTimeString('vi-VN'), cart: [...cart] }; setHeldOrders(prev => [...safeArray(prev), newO]); logAudit("LƯU TẠM", `Lưu giỏ ${cart.length} món`); setCart([]); setCustPhone(""); setCustName(""); setCustomerInput("") };
+  const restoreOrder = async (order: any) => { if (cart.length > 0) return alert("Thanh toán giỏ hiện tại trước!"); setCart(order.cart); setHeldOrders(prev => safeArray(prev).filter(o => o.id !== order.id)); if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', order.id); setShowHoldModal(false); };
+  const deleteHeldOrder = async (id: any) => { setHeldOrders(prev => safeArray(prev).filter(o => o.id !== id)); logAudit("XÓA ĐƠN", `Xóa đơn lưu tạm`); if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', id); };
 
-  const handleBarcodeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => { document.getElementById('search-barcode')?.focus(); if (e.key === 'Enter') { e.preventDefault(); const p = findProductByCode(barcodeInput); if (p) handleSelectSuggest(p); else { const matchedPhone = Object.keys(customers).find(phone => phone === barcodeInput.trim() || customers[phone].cardCode === barcodeInput.trim()); if (matchedPhone) { playSound('success'); setCustomerInput(customers[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setBarcodeInput("") } else { playSound('error'); alert("Mã sai!") } } } };
+  const handleBarcodeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => { document.getElementById('search-barcode')?.focus(); if (e.key === 'Enter') { e.preventDefault(); const p = findProductByCode(barcodeInput); if (p) handleSelectSuggest(p); else { const matchedPhone = Object.keys(customers || {}).find(phone => phone === barcodeInput.trim() || customers[phone].cardCode === barcodeInput.trim()); if (matchedPhone) { playSound('success'); setCustomerInput(customers[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setBarcodeInput("") } else { playSound('error'); alert("Mã sai!") } } } };
   const addToCart = (p_input: any) => { handleSelectSuggest(p_input) };
   
   const adjustCartQty = (productId: any, delta: number) => {
     let exceedStock = false;
     setCart(prev => {
-      const updated = prev.map(item => {
+      const updated = safeArray(prev).map(item => {
         if (item.product.id === productId) {
           const baseCode = item.product.product_code.split('-')[0];
-          const totalStock = products.filter(p => p.product_code === baseCode || p.product_code.startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0);
+          const totalStock = safeArray(products).filter(p => p.product_code === baseCode || p.product_code.startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0);
           const newQty = item.qty + delta;
           if (newQty > totalStock) { exceedStock = true; return item; }
           const price = getActualPrice(item.product);
@@ -467,13 +628,13 @@ export default function App() {
   
   const handleDirectQtyChange = (productId: any, val: string) => {
     setCart(prev => {
-      if (val === '') return prev.map(i => i.product.id === productId ? { ...i, qty: '' as any, total: 0 } : i);
+      if (val === '') return safeArray(prev).map(i => i.product.id === productId ? { ...i, qty: '' as any, total: 0 } : i);
       let num = parseInt(val); if (isNaN(num) || num < 0) return prev;
       let exceedStock = false;
-      const updated = prev.map(i => {
+      const updated = safeArray(prev).map(i => {
         if (i.product.id === productId) {
           const baseCode = i.product.product_code.split('-')[0];
-          const totalStock = products.filter(p => p.product_code === baseCode || p.product_code.startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0);
+          const totalStock = safeArray(products).filter(p => p.product_code === baseCode || p.product_code.startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0);
           if (num > totalStock) { exceedStock = true; num = totalStock; }
           const price = getActualPrice(i.product);
           return { ...i, qty: num, total: Math.round(num * price * (1 + VAT_RATE)) };
@@ -485,15 +646,15 @@ export default function App() {
     });
   };
   
-  const handleDirectQtyBlur = (productId: any, val: string) => { if (val === '' || parseInt(val) <= 0 || isNaN(parseInt(val))) { setCart(prev => prev.map(i => { if (i.product.id === productId) { const price = getActualPrice(i.product); return { ...i, qty: 1, total: Math.round(1 * price * (1 + VAT_RATE)) } } return i })) } };
-  const removeFromCart = (productId: any) => { setCart(cart.filter(item => item.product.id !== productId)) };
+  const handleDirectQtyBlur = (productId: any, val: string) => { if (val === '' || parseInt(val) <= 0 || isNaN(parseInt(val))) { setCart(prev => safeArray(prev).map(i => { if (i.product.id === productId) { const price = getActualPrice(i.product); return { ...i, qty: 1, total: Math.round(1 * price * (1 + VAT_RATE)) } } return i })) } };
+  const removeFromCart = (productId: any) => { setCart(safeArray(cart).filter(item => item.product.id !== productId)) };
   const clearCart = () => { if (window.confirm("Hủy toàn bộ?")) { setCart([]); setCustName(""); setCustPhone(""); setCustomerInput("") } };
   const handleVoucherSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); const code = voucherInput.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); playSound('success') } else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); playSound('success') } else { playSound('error'); alert("Mã Voucher lỗi!"); setAppliedVoucherAmount(0) } } };
-  const handleCustomerInputChange = (e: React.ChangeEvent<HTMLInputElement>) => { const val = e.target.value; setCustomerInput(val); const matchedPhone = Object.keys(customers).find(phone => phone === val.trim() || customers[phone].cardCode === val.trim()); if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setUseWallet(false) } else { setCustPhone(val); setCustName(""); setUseWallet(false) } };
+  const handleCustomerInputChange = (e: React.ChangeEvent<HTMLInputElement>) => { const val = e.target.value; setCustomerInput(val); const matchedPhone = Object.keys(customers || {}).find(phone => phone === val.trim() || customers[phone].cardCode === val.trim()); if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setUseWallet(false) } else { setCustPhone(val); setCustName(""); setUseWallet(false) } };
   const handleNextToQR = () => { if (cart.length === 0) return alert("Giỏ hàng trống!"); if (custPhone && !customers[custPhone] && !custName) return alert("Nhập Tên khách mới!"); setCheckoutStep(2) };
 
   const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 'GHI NỢ' | 'KẾT HỢP') => {
-    if (cart.some(i => !i.qty || i.qty <= 0)) { playSound('error'); return alert("Lỗi số lượng!") } if (payMethod === 'GHI NỢ' && !custPhone) return alert("Ghi nợ cần SĐT!");
+    if (safeArray(cart).some(i => !i.qty || i.qty <= 0)) { playSound('error'); return alert("Lỗi số lượng!") } if (payMethod === 'GHI NỢ' && !custPhone) return alert("Ghi nợ cần SĐT!");
     setLoading(true); let logs: any[] = [];
     const subTotal = Math.round(cart.reduce((s, i) => s + (i.qty * getActualPrice(i.product)), 0));
     const vatTotal = Math.round(subTotal * VAT_RATE);
@@ -512,7 +673,7 @@ export default function App() {
 
     for (const item of cart) {
       const baseCode = item.product.product_code.split('-')[0];
-      const batches = products.filter(p => p.product_code === baseCode || p.product_code.startsWith(`${baseCode}-`)).sort((a, b) => { if (!a.expiry_date) return 1; if (!b.expiry_date) return -1; return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime() });
+      const batches = safeArray(products).filter(p => p.product_code === baseCode || p.product_code.startsWith(`${baseCode}-`)).sort((a, b) => { if (!a.expiry_date) return 1; if (!b.expiry_date) return -1; return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime() });
       let remain = item.qty;
       const price = getActualPrice(item.product);
       for (const b of batches) {
@@ -536,9 +697,9 @@ export default function App() {
     
     if (custPhone) {
       const updatedCust = { name: custName, wallet: payMethod === 'GHI NỢ' ? (customers[custPhone]?.wallet || 0) : Math.round((customers[custPhone]?.wallet || 0) - walletUsedAmount + earned), debt: (customers[custPhone]?.debt || 0) + (payMethod === 'GHI NỢ' ? finalTotal : 0), totalSpent: (customers[custPhone]?.totalSpent || 0) + (payMethod !== 'GHI NỢ' ? finalTotal : 0), email: customers[custPhone]?.email || "", cardCode: customers[custPhone]?.cardCode || "" };
-      setCustomers((prev: any) => ({ ...prev, [custPhone]: updatedCust }));
+      setCustomers((prev: any) => ({ ...safeObject(prev), [custPhone]: updatedCust }));
     }
-    setHistory(prev => [...logs, ...prev]);
+    setHistory(prev => [...logs, ...safeArray(prev)]);
     
     const finalOrderInfo = { orderId: orderIdStr, shift: shift, cart: [...cart], subTotal, vatTotal, finalTotal: payMethod === 'GHI NỢ' ? 0 : finalTotal, debtAmount: payMethod === 'GHI NỢ' ? finalTotal : 0, discount: totalDiscount, tierDiscountAmount: tierDiscountAmount, earnedWallet: custPhone ? earned : 0, custName: custPhone ? custName : null, custPhone: custPhone ? custPhone : null, time: new Date().toLocaleString('vi-VN'), paymentMethod: payMethod, customerGiven: Number(customerGiven) || 0 };
     setLastOrder(finalOrderInfo);
@@ -548,7 +709,7 @@ export default function App() {
   };
 
   const handleRefund = async (logId: any) => {
-    const logIndex = history.findIndex(l => l.id === logId); if (logIndex === -1) return;
+    const logIndex = safeArray(history).findIndex(l => l.id === logId); if (logIndex === -1) return;
     const log = history[logIndex]; if (log.type !== 'BÁN') return alert("Chỉ hoàn đơn BÁN!");
     
     const maxRefund = log.qty - (log.refunded_qty || 0); if (maxRefund <= 0) return alert("Đã hoàn toàn bộ!");
@@ -561,7 +722,7 @@ export default function App() {
     const unitTotal = log.total / log.qty; const unitProfit = log.profit / log.qty;
     const refundTotal = Math.round(unitTotal * refundQty); const refundProfit = Math.round(unitProfit * refundQty);
     
-    const p = products.find(x => x.id === log.product_id);
+    const p = safeArray(products).find(x => x.id === log.product_id);
     if (p && navigator.onLine) await supabase.from("products").update({ stock: p.stock + refundQty }).eq("id", p.id);
 
     let refundedToWallet = false;
@@ -574,7 +735,7 @@ export default function App() {
         const phone = phoneMatch[1];
         if (customers[phone] && window.confirm(`Khách VIP: Hoàn ${refundTotal.toLocaleString()}đ vào VÍ ĐIỂM?\n- [OK]: Trả vào Ví\n- [Cancel]: Trả tiền ngoài`)) {
           const newW = (customers[phone].wallet || 0) + refundTotal; 
-          setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], wallet: newW } })); 
+          setCustomers((prev: any) => ({ ...safeObject(prev), [phone]: { ...prev[phone], wallet: newW } })); 
           refundedToWallet = true; pMethod = 'VÍ ĐIỂM'; methodSuffix = " (Ví)";
         }
       }
@@ -602,19 +763,18 @@ export default function App() {
     if (payAmtStr && parseInt(payAmtStr) > 0) {
       const amt = parseInt(payAmtStr); const isTransfer = window.confirm(`Thu nợ bằng CK (OK) hay TM (Cancel)?`); const pMethod = isTransfer ? 'CHUYỂN KHOẢN' : 'TIỀN MẶT';
       const newD = Math.max(0, (customers[phone]?.debt || 0) - amt);
-      setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], debt: newD } }));
+      setCustomers((prev: any) => ({ ...safeObject(prev), [phone]: { ...prev[phone], debt: newD } }));
       const dLog = { id: Date.now(), shift: shift, type: "THU NỢ", name: "Thanh toán công nợ", qty: 1, total: amt, profit: 0, customer: `${customers[phone].name} (${phone})`, paymentMethod: pMethod, time: new Date().toLocaleString('vi-VN') };
-      setHistory(prev => [dLog, ...prev]); logAudit("THU NỢ", `Thu ${amt}đ từ ${customers[phone].name}`, dLog); alert("Thành công!")
+      setHistory(prev => [dLog, ...safeArray(prev)]); logAudit("THU NỢ", `Thu ${amt}đ từ ${customers[phone].name}`, dLog); alert("Thành công!")
     }
   };
   
   const handleReprint = (timeStr: string) => {
-     const logsInBill = history.filter(h => h.time === timeStr && h.type === 'BÁN' && h.product_id !== 'DISCOUNT');
-     const discountLog = history.find(h => h.time === timeStr && h.product_id === 'DISCOUNT');
+     const logsInBill = safeArray(history).filter(h => h.time === timeStr && h.type === 'BÁN' && h.product_id !== 'DISCOUNT');
+     const discountLog = safeArray(history).find(h => h.time === timeStr && h.product_id === 'DISCOUNT');
      if(logsInBill.length === 0) return alert("Không tìm thấy dữ liệu hóa đơn!");
      
      const reconstructedCart = logsInBill.map(l => {
-        // TÍNH TOÁN NGƯỢC LẠI GIÁ GỐC ĐỂ TRÁNH LỖI NaN
         const unitPriceWithVat = l.total / l.qty;
         const baseUnitPrice = Math.round(unitPriceWithVat / (1 + VAT_RATE));
         return {
@@ -641,7 +801,7 @@ export default function App() {
   
   const sendReceiptEmail = async () => {
     if (!lastOrder) return; const savedEmail = (lastOrder.custPhone && customers[lastOrder.custPhone] && customers[lastOrder.custPhone].email) ? customers[lastOrder.custPhone].email : ""; const email = window.prompt("Nhập Email khách hàng:", savedEmail);
-    if (!email) return; if (lastOrder.custPhone) { setCustomers((prev: any) => ({ ...prev, [lastOrder.custPhone]: { ...prev[lastOrder.custPhone], email: email } })); }
+    if (!email) return; if (lastOrder.custPhone) { setCustomers((prev: any) => ({ ...safeObject(prev), [lastOrder.custPhone]: { ...prev[lastOrder.custPhone], email: email } })); }
     setLoading(true); let itemsTable = ""; lastOrder.cart.forEach((item: any) => { itemsTable += `- ${cleanName(item.product.name)} x ${item.qty} = ${Math.round(item.qty * (item.unitPrice || Math.round(getActualPrice(item.product))) * (1 + VAT_RATE)).toLocaleString()}đ\n` }); 
     const emailData = { 
         to_email: email, title: "HÓA ĐƠN MUA HÀNG - HẢI LÊ MART", order_id: lastOrder.orderId, time: lastOrder.time, items_list: itemsTable, 
@@ -654,7 +814,7 @@ export default function App() {
   
   const sendCardEmail = async (phone: string) => {
     const cust = customers[phone]; const email = cust.email || window.prompt(`Nhập Email của ${cust.name}:`, "");
-    if (!email) return; if (!cust.email) { setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], email } })); }
+    if (!email) return; if (!cust.email) { setCustomers((prev: any) => ({ ...safeObject(prev), [phone]: { ...prev[phone], email } })); }
     setLoading(true); const code = cust.cardCode || phone; const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=10&includetext=true`; const emailData = { to_email: email, order_id: "THẺ THÀNH VIÊN", time: new Date().toLocaleString('vi-VN'), items_list: `💳 MÃ THẺ CỦA BẠN LÀ: ${code}\n(Vui lòng xuất trình Thẻ/Mã vạch bên dưới khi thanh toán)`, total_amount: "Ưu đãi Đặc Quyền", payment_method: "VIP Member", change_amount: "0đ", barcode_url: barcodeUrl }; try { await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, emailData); alert("🚀 Đã gửi Thẻ VIP!"); logAudit("GỬI THẺ VIP", `Gửi tới ${email}`);} catch (error) { alert("❌ Lỗi gửi mail."); } setLoading(false)
   };
 
@@ -662,7 +822,7 @@ export default function App() {
   
   const shareToZalo = (phone: string) => { const cust = customers[phone]; const code = cust.cardCode || phone; navigator.clipboard.writeText(`Chào ${cust.name},\nCảm ơn bạn đã đồng hành cùng Hải Lê Mart!\n💳 Mã Thẻ VIP của bạn là: ${code}`).then(() => { alert(`💡 Đã copy lời chào. Đang mở Zalo...`); window.open(`https://zalo.me/${phone}`, '_blank') }).catch(() => { window.open(`https://zalo.me/${phone}`, '_blank') }) };
 
-  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => { const code = e.target.value; setNewCode(code); const p = products.find((x: any) => x.product_code === code); if (p) { setNewName(cleanName(p.name)); setNewCategory(formatCategoryStr(p.category)); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewExpiry(p.expiry_date || ""); const gift = parseGift(p.gift_info); setNewGiftCondition(gift.cond.toString()); setNewGiftInfo(gift.text) } };
+  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => { const code = e.target.value; setNewCode(code); const p = safeArray(products).find((x: any) => x.product_code === code); if (p) { setNewName(cleanName(p.name)); setNewCategory(formatCategoryStr(p.category)); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewExpiry(p.expiry_date || ""); const gift = parseGift(p.gift_info); setNewGiftCondition(gift.cond.toString()); setNewGiftInfo(gift.text) } };
   
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -677,7 +837,7 @@ export default function App() {
     const baseCode = newCode.trim();
     const formattedCat = formatCategoryStr(newCategory);
     
-    const allVariants = products.filter(p => p.product_code === baseCode || p.product_code.startsWith(`${baseCode}-`));
+    const allVariants = safeArray(products).filter(p => p.product_code === baseCode || p.product_code.startsWith(`${baseCode}-`));
     const exist = allVariants.find(p => p.product_code === baseCode);
     let syncMsg = "";
 
@@ -695,7 +855,7 @@ export default function App() {
     if (exist) {
       if (exist.stock <= 0) {
         await supabase.from("products").update({ name: newName, category: formattedCat, import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null, created_at: new Date().toISOString() }).eq("id", exist.id);
-        if (added > 0) { const lg = { id: Date.now(), shift: shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }; setHistory(prev => [lg, ...prev]); } 
+        if (added > 0) { const lg = { id: Date.now(), shift: shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }; setHistory(prev => [lg, ...safeArray(prev)]); } 
         logAudit("NHẬP ĐÈ CŨ", `${newName} (+${added})`, { importPrice: impPrice, salePrice });
         alert(`Đã nhập hàng!${syncMsg}`);
       } else {
@@ -704,7 +864,7 @@ export default function App() {
           const batchName = `${newName} [Lô ${newExpiry ? new Date(newExpiry).toLocaleDateString('vi-VN') : 'Mới'}]`;
           if (window.confirm(`Tạo LÔ MỚI (${batchCode})?\n(Lô cũ sẽ tự động được áp dụng Giá & Quà tặng mới)`)) {
             await supabase.from("products").insert([{ product_code: batchCode, name: batchName, category: formattedCat, import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null }]);
-            if (added > 0) { const lg = { id: Date.now(), shift: shift, type: "NHẬP", name: batchName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }; setHistory(prev => [lg, ...prev]); } 
+            if (added > 0) { const lg = { id: Date.now(), shift: shift, type: "NHẬP", name: batchName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }; setHistory(prev => [lg, ...safeArray(prev)]); } 
             logAudit("TÁCH LÔ", `${batchName} (+${added})`, { oldExpiry: exist.expiry_date, newExpiry });
             alert(`Đã tạo lô mới!${syncMsg}`);
           } else {
@@ -712,14 +872,14 @@ export default function App() {
           }
         } else {
           await supabase.from("products").update({ stock: exist.stock + added, created_at: new Date().toISOString() }).eq("id", exist.id);
-          if (added > 0) { const lg = { id: Date.now(), shift: shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }; setHistory(prev => [lg, ...prev]); } 
+          if (added > 0) { const lg = { id: Date.now(), shift: shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }; setHistory(prev => [lg, ...safeArray(prev)]); } 
           logAudit("CỘNG DỒN", `${newName} (+${added})`);
           alert(`Cộng dồn thành công!${syncMsg}`);
         }
       }
     } else {
       await supabase.from("products").insert([{ product_code: baseCode, name: newName, category: formattedCat, import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null }]);
-      if (added > 0) { const lg = { id: Date.now(), shift: shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }; setHistory(prev => [lg, ...prev]); } 
+      if (added > 0) { const lg = { id: Date.now(), shift: shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }; setHistory(prev => [lg, ...safeArray(prev)]); } 
       logAudit("NHẬP MỚI", `${newName} (+${added})`, { code: baseCode, importPrice: impPrice, salePrice });
       alert(`Nhập thành công!${syncMsg}`);
     }
@@ -736,10 +896,10 @@ export default function App() {
         const text = event.target?.result as string; const lines = text.split('\n').filter(line => line.trim() !== ''); if (lines.length <= 1) { alert("File rỗng!"); setLoading(false); return } let successCount = 0; let importLogs: any[] = [];
         for (let i = 1; i < lines.length; i++) {
           const cols = lines[i].split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, '')); if (cols.length < 5) continue; const pCode = cols[0]; const pName = cols[1]; const pCategory = formatCategoryStr(cols[2]); const pImpPrice = parseInt(cols[3]) || 0; const pSalePrice = parseInt(cols[4]) || 0; const pPromoPrice = parseInt(cols[5]) || 0; const pGift = cols[6] || null; const pStock = parseInt(cols[7]) || 0; const pExpiry = cols[8] || null; if (!pCode || !pName || pSalePrice <= 0) continue;
-          const baseCode = pCode.trim(); const allVariants = products.filter(p => p.product_code === baseCode || p.product_code.startsWith(`${baseCode}-`)); if (allVariants.length > 0 && allVariants[0].sale_price !== pSalePrice) { await Promise.all(allVariants.map(v => supabase.from("products").update({ sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift }).eq("id", v.id))); if (!importLogs.find(l => l.name === `Đồng bộ giá/quà ${baseCode}`)) importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "HỆ THỐNG", name: `Đồng bộ giá/quà ${baseCode}`, qty: 0, total: 0, time: new Date().toLocaleString('vi-VN') }) }
+          const baseCode = pCode.trim(); const allVariants = safeArray(products).filter(p => p.product_code === baseCode || p.product_code.startsWith(`${baseCode}-`)); if (allVariants.length > 0 && allVariants[0].sale_price !== pSalePrice) { await Promise.all(allVariants.map(v => supabase.from("products").update({ sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift }).eq("id", v.id))); if (!importLogs.find(l => l.name === `Đồng bộ giá/quà ${baseCode}`)) importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "HỆ THỐNG", name: `Đồng bộ giá/quà ${baseCode}`, qty: 0, total: 0, time: new Date().toLocaleString('vi-VN') }) }
           const exist = allVariants.find(p => p.product_code === baseCode); if (exist) { if (exist.stock <= 0) await supabase.from("products").update({ name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry, created_at: new Date().toISOString() }).eq("id", exist.id); else { if (exist.import_price !== pImpPrice || (exist.expiry_date || "") !== (pExpiry || "")) { const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}${i}`; const batchName = `${pName} [Lô ${pExpiry ? new Date(pExpiry).toLocaleDateString('vi-VN') : 'Mới'}]`; await supabase.from("products").insert([{ product_code: batchCode, name: batchName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); } else await supabase.from("products").update({ stock: exist.stock + pStock, created_at: new Date().toISOString() }).eq("id", exist.id) } } else await supabase.from("products").insert([{ product_code: baseCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); if (pStock > 0) importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "NHẬP", name: cleanName(pName), qty: pStock, total: 0, time: new Date().toLocaleString('vi-VN') }); successCount++
         }
-        if (importLogs.length > 0) { setHistory(prev => [...importLogs, ...prev]); } logAudit("NHẬP FILE", `Nhập ${successCount} mã`); alert(`Nhập thành công ${successCount} SP!`); fetchProducts()
+        if (importLogs.length > 0) { setHistory(prev => [...importLogs, ...safeArray(prev)]); } logAudit("NHẬP FILE", `Nhập ${successCount} mã`); alert(`Nhập thành công ${successCount} SP!`); fetchProducts()
       } catch (err) { alert("Lỗi file CSV."); } setLoading(false)
     }; reader.readAsText(file); e.target.value = ''
   };
@@ -751,26 +911,50 @@ export default function App() {
   const downloadSampleCSV = () => { const csv = "\uFEFFMã SP,Tên SP,Danh Mục,Giá Nhập,Giá Bán,Giá KM,Quà Tặng,Số Lượng,Hạn Sử Dụng (YYYY-MM-DD)\nSP001,Mì Hảo Hảo,Đồ ăn liền,3000,5000,0,,100,2026-12-31"; const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Mau_Nhap_Kho.csv`; link.click() };
   
   const exportToCSV = () => {
-    if (history.length === 0) return alert("Chưa có lịch sử!");
+    if (safeArray(history).length === 0) return alert("Chưa có lịch sử!");
     let csv = "\uFEFFGiờ,Ca,Loại,Hình thức,Khách,Sản phẩm,SL,Tổng(VAT),Lợi nhuận\n";
-    history.forEach(log => { csv += `${new Date(Math.floor(log.id)).toLocaleString('vi-VN')},${log.shift || ""},${log.type},${log.paymentMethod || ""},${log.customer || "Khách lẻ"},${log.name},${log.qty},${Math.round(log.total)},${Math.round(log.profit || 0)}\n` });
+    safeArray(history).forEach(log => { csv += `${new Date(Math.floor(log.id)).toLocaleString('vi-VN')},${log.shift || ""},${log.type},${log.paymentMethod || ""},${log.customer || "Khách lẻ"},${log.name},${log.qty},${Math.round(log.total)},${Math.round(log.profit || 0)}\n` });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Bao_Cao_Ban_Hang.csv`; link.click()
   };
   
   const exportAuditToCSV = () => {
-    if (auditLogs.length === 0) return alert("Chưa có nhật ký!");
+    if (safeArray(auditLogs).length === 0) return alert("Chưa có nhật ký!");
     let csv = "\uFEFFThời gian,Người dùng,Ca,Hành động,Chi tiết,Dữ liệu mở rộng\n";
-    auditLogs.forEach(log => { csv += `${log.time},${log.user_name},${log.shift},${log.action},"${(log.detail || "").replace(/"/g, '""')}","${(log.extra_data || "").replace(/"/g, '""')}"\n` });
+    safeArray(auditLogs).forEach(log => { csv += `${log.time},${log.user_name},${log.shift},${log.action},"${(log.detail || "").replace(/"/g, '""')}","${(log.extra_data || "").replace(/"/g, '""')}"\n` });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Nhat_Ky_Thao_Tac.csv`; link.click()
+  };
+  
+  const handleSendEmailReport = async () => {
+    const logs = safeArray(history).filter(log => log.time && log.time.includes(todayStrStr));
+    if (logs.length === 0) return alert("Chưa có giao dịch!");
+    let cash = 0, transfer = 0, prof = 0, sold = 0;
+    logs.forEach(l => { if (l.type === 'BÁN') sold += l.qty; if (l.type === 'BÁN' || l.type === 'THU NỢ' || l.type === 'TRẢ HÀNG') { if (l.paymentMethod === 'CHUYỂN KHOẢN') transfer += l.total; else if (l.paymentMethod === 'TIỀN MẶT') cash += l.total; else if (l.paymentMethod === 'KẾT HỢP') { if(l.split_cash) { cash += l.split_cash; transfer += (l.total - l.split_cash); } else { cash += l.total; } } } prof += (l.profit || 0) });
+    
+    const adminEmail = window.prompt("Nhập Email Quản lý để nhận báo cáo:", "");
+    if(!adminEmail) return;
+    
+    setLoading(true);
+    const reportStr = `\n- Tổng SP đã bán: ${sold} món\n- Doanh thu Tiền Mặt: ${Math.round(cash).toLocaleString()}đ\n- Doanh thu C/K: ${Math.round(transfer).toLocaleString()}đ\n`;
+    
+    const emailData = { 
+        to_email: adminEmail, title: "BÁO CÁO DOANH THU CHỐT CA", order_id: `BÁO CÁO ${shift}`, time: new Date().toLocaleString('vi-VN'), items_list: reportStr, 
+        label_total: "TỔNG LỢI NHUẬN:", total_amount: Math.round(prof).toLocaleString() + "đ", 
+        label_payment: "Hệ thống:", payment_method: "Hải Lê ERP", label_change: "", change_amount: "" 
+    }; 
+    try {
+        await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, emailData);
+        logAudit("GỬI BÁO CÁO", `Đã gửi báo cáo ngày tới ${adminEmail}`); alert("🚀 Đã gửi Báo cáo thành công!");
+    } catch (error) { alert("❌ Lỗi gửi mail. Vui lòng thử lại."); }
+    setLoading(false);
   };
   
   const requestSort = (key: string) => { if (sortConfig && sortConfig.key === key) { if (sortConfig.direction === 'asc') setSortConfig({ key, direction: 'desc' }); else setSortConfig(null) } else { setSortConfig({ key, direction: 'asc' }) } };
   const handleFilterCheck = (col: string, val: any) => { setFilters(prev => { const cur = prev[col] || []; if (cur.includes(val)) return { ...prev, [col]: cur.filter(v => v !== val) }; return { ...prev, [col]: [...cur, val] } }) };
   const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
 
-  const renderHeaderIcon = (colKey: string) => { const isFiltered = filters[colKey]?.length > 0; const isSortedAsc = sortConfig?.key === colKey && sortConfig.direction === 'asc'; const isSortedDesc = sortConfig?.key === colKey && sortConfig.direction === 'desc'; let icon = '🔽'; if (isSortedAsc) icon = '🔼'; if (isSortedDesc) icon = '🔽'; return (<span onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === colKey ? null : colKey) }} style={{ cursor: "pointer", color: isFiltered || sortConfig?.key === colKey ? '#ef4444' : '#94a3b8', fontSize: "10px", padding: "2px", marginLeft: "4px", border: isFiltered ? "1px dashed #ef4444" : "1px solid transparent", borderRadius: "2px" }} title="Lọc">{icon}</span>) };
+  const renderHeaderIcon = (colKey: string) => { const isFiltered = filters[colKey]?.length > 0; const isSortedAsc = sortConfig?.key === colKey && sortConfig.direction === 'asc'; const isSortedDesc = sortConfig?.key === colKey && sortConfig.direction === 'desc'; let icon = '🔽'; if (isSortedAsc) icon = '🔼'; if (isSortedDesc) icon = '🔽'; return (<span onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === colKey ? null : colKey) }} style={{ cursor: "pointer", color: isFiltered || sortConfig?.key === colKey ? '#ef4444' : 'var(--text-muted)', fontSize: "10px", padding: "2px", marginLeft: "4px", border: isFiltered ? "1px dashed #ef4444" : "1px solid transparent", borderRadius: "2px" }} title="Lọc">{icon}</span>) };
   
   const renderFilterPopup = (colKey: string, title: string, uniqueValues: any[], formatVal?: (v: any) => string) => {
     if (openFilter !== colKey) return null;
@@ -840,7 +1024,7 @@ export default function App() {
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
       <style>{styles}</style>
-      <input type="text" id="focus-catcher" style={{position:'absolute', opacity: 0, height: 0}} />
+      <input type="text" id="focus-catcher" style={{position:'absolute', opacity: 0, height: 0, width: 0, border: 'none', padding: 0}} />
       
       {showExpenseModal && (
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
@@ -855,11 +1039,11 @@ export default function App() {
               <button onClick={addExpense} style={{ padding: "8px 15px", background: "#10b981", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>+</button>
             </div>
             <div style={{ overflowY: "auto", flex: 1 }}>
-              {expenses.map(e => (
+              {safeArray(expenses).map(e => (
                 <div key={e.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px", borderBottom: "1px dashed var(--border-glass)" }}>
                   <div><b>{e.name}</b> <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>({e.date})</span></div>
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <b style={{ color: "#ef4444" }}>-{e.amount.toLocaleString()}đ</b> 
+                    <b style={{ color: "#ef4444" }}>-{Number(e.amount).toLocaleString()}đ</b> 
                     <button onClick={() => deleteExpense(e.id)} style={{ border: "none", background: "none", color: "#ef4444", cursor: "pointer" }}>🗑️</button>
                   </div>
                 </div>
@@ -883,7 +1067,7 @@ export default function App() {
               <button onClick={addSupplier} style={{ width: "100%", padding: "10px", background: "#3b82f6", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>LƯU THÔNG TIN</button>
             </div>
             <div style={{ overflowY: "auto", flex: 1 }}>
-              {suppliers.map(s => (
+              {safeArray(suppliers).map(s => (
                 <div key={s.id} style={{ padding: "10px", borderBottom: "1px dashed var(--border-glass)", background: "var(--bg-input)", borderRadius: "8px", marginBottom: "8px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold", fontSize: "14px" }}>
                     <span>{s.name}</span> <span style={{ color: "#3b82f6" }}>📞 {s.phone}</span>
@@ -1009,7 +1193,7 @@ export default function App() {
               </div>
               <div style={{ flex: 1 }}>
                 <h3 style={{ fontSize: "12px", color: "#b91c1c", margin: "0 0 8px 0" }}>📉 Sắp hết hàng</h3>
-                {products.filter(p => p.stock > 0 && p.stock < 10).slice(0, 5).map((p, idx) => (
+                {safeArray(products).filter(p => p.stock > 0 && p.stock < 10).slice(0, 5).map((p, idx) => (
                   <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px dashed var(--border-glass)", fontSize: "11px" }}>
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "120px" }}>{cleanName(p.name)}</span>
                     <span style={{ fontWeight: "bold", color: "#ef4444" }}>Còn {p.stock}</span>
@@ -1031,8 +1215,8 @@ export default function App() {
               <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>💵 Tiền đầu ca: <b style={{ color: "#059669" }}>{startingCash.toLocaleString()}đ</b></div>
               
               <div style={{ borderTop: "1px solid var(--border-glass)", margin: "10px 0" }}></div>
-              <div style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>+ Tiền mặt bán hàng: <b>{currentShiftStats.cashIn.toLocaleString()}đ</b></div>
-              <div style={{ fontSize: "11px", color: "#ef4444", marginBottom: "4px" }}>- Chi trả hàng (TM): <b>{currentShiftStats.cashOut.toLocaleString()}đ</b></div>
+              <div style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>+ Tiền mặt thu: <b>{currentShiftStats.cashIn.toLocaleString()}đ</b></div>
+              <div style={{ fontSize: "11px", color: "#ef4444", marginBottom: "4px" }}>- Hoàn trả khách (TM): <b>{currentShiftStats.cashOut.toLocaleString()}đ</b></div>
               <div style={{ fontSize: "11px", color: "#ea580c", marginBottom: "4px" }}>- Chi phí phát sinh: <b>{currentShiftStats.shiftExp.toLocaleString()}đ</b></div>
               
               <div style={{ borderTop: "1px dashed var(--border-glass)", margin: "10px 0" }}></div>
@@ -1061,22 +1245,22 @@ export default function App() {
               <button onClick={() => setShowCustomerModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer", color: "var(--text-main)" }}>✖</button>
             </div>
             <div style={{ overflowY: "auto", flex: 1 }}>
-              {Object.keys(customers).length === 0 && <div style={{ textAlign: "center", color: "var(--text-muted)", marginTop: "20px" }}>Chưa có KH.</div>}
-              {Object.keys(customers).map(phone => {
+              {Object.keys(customers || {}).length === 0 && <div style={{ textAlign: "center", color: "var(--text-muted)", marginTop: "20px" }}>Chưa có KH.</div>}
+              {Object.keys(customers || {}).map(phone => {
                 const c = customers[phone]; const tier = getCustomerTier(c.totalSpent || 0);
                 return (
                   <div key={phone} style={{ padding: "12px", borderBottom: "1px dashed #cbd5e1", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", background: tier.bg, borderRadius: "8px", marginBottom: "8px", border: `1px solid ${tier.border}` }}>
                     <div style={{ flex: 1, minWidth: "200px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <div style={{ fontWeight: "bold", color: "#1e293b", cursor: "pointer", fontSize: "15px" }} onClick={() => { const newName = window.prompt("Sửa tên:", c.name); if (newName) { const newC = { ...c, name: newName }; setCustomers((prev: any) => ({ ...prev, [phone]: newC })); logAudit("SỬA KH", `Đổi tên KH`) } }} title="Sửa tên">{c.name} ✏️</div>
+                        <div style={{ fontWeight: "bold", color: "#1e293b", cursor: "pointer", fontSize: "15px" }} onClick={() => { const newName = window.prompt("Sửa tên:", c.name); if (newName) { const newC = { ...c, name: newName }; setCustomers((prev: any) => ({ ...safeObject(prev), [phone]: newC })); logAudit("SỬA KH", `Đổi tên KH`) } }} title="Sửa tên">{c.name} ✏️</div>
                         <span style={{ fontSize: "10px", fontWeight: "900", color: tier.color, border: `1px solid ${tier.color}`, padding: "2px 6px", borderRadius: "12px", background: "#fff" }}>{tier.name}</span>
                       </div>
                       <div style={{ fontSize: "11px", color: "#64748b", marginTop: "4px" }}>
                         <span onClick={() => handleEditPhone(phone)} style={{ cursor: "pointer", fontWeight: "bold" }} title="Đổi SĐT">📞 {phone} ✏️</span>
-                        <span style={{ cursor: "pointer", color: "#3b82f6", fontWeight: "bold", marginLeft: "10px" }} onClick={() => { const newEmail = window.prompt("Sửa Email:", c.email || ""); if (newEmail !== null) { const newC = { ...c, email: newEmail.trim() }; setCustomers((prev: any) => ({ ...prev, [phone]: newC })); logAudit("SỬA EMAIL", `Cập nhật Email KH`) } }} title="Cập nhật Email">{c.email ? `📧 ${c.email}` : `📧 +Thêm Mail`}</span>
+                        <span style={{ cursor: "pointer", color: "#3b82f6", fontWeight: "bold", marginLeft: "10px" }} onClick={() => { const newEmail = window.prompt("Sửa Email:", c.email || ""); if (newEmail !== null) { const newC = { ...c, email: newEmail.trim() }; setCustomers((prev: any) => ({ ...safeObject(prev), [phone]: newC })); logAudit("SỬA EMAIL", `Cập nhật Email KH`) } }} title="Cập nhật Email">{c.email ? `📧 ${c.email}` : `📧 +Thêm Mail`}</span>
                       </div>
                       <div style={{ fontSize: "11px", color: "#64748b", marginTop: "6px", display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span onClick={() => { const newCard = window.prompt("Mã Thẻ:", c.cardCode || ""); if (newCard !== null) { const newC = { ...c, cardCode: newCard.trim() }; setCustomers((prev: any) => ({ ...prev, [phone]: newC })); logAudit("SỬA MÃ THẺ", `Cập nhật mã thẻ`) } }} style={{ cursor: "pointer", color: "#ea580c", fontWeight: "bold", marginRight: "10px" }} title="Mã thẻ">{c.cardCode ? `💳 Mã: ${c.cardCode}` : `💳 +Gán Mã Thẻ`}</span>
+                        <span onClick={() => { const newCard = window.prompt("Mã Thẻ:", c.cardCode || ""); if (newCard !== null) { const newC = { ...c, cardCode: newCard.trim() }; setCustomers((prev: any) => ({ ...safeObject(prev), [phone]: newC })); logAudit("SỬA MÃ THẺ", `Cập nhật mã thẻ`) } }} style={{ cursor: "pointer", color: "#ea580c", fontWeight: "bold", marginRight: "10px" }} title="Mã thẻ">{c.cardCode ? `💳 Mã: ${c.cardCode}` : `💳 +Gán Mã Thẻ`}</span>
                         <button onClick={() => printCustomerCard(phone)} style={{ padding: "4px 6px", background: "#dc2626", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }}>🖨️ In Thẻ</button>
                         <button onClick={() => sendCardEmail(phone)} style={{ padding: "4px 6px", background: "#3b82f6", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }}>📧 Mail</button>
                         <button onClick={() => shareToZalo(phone)} style={{ padding: "4px 6px", background: "#059669", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "9px", fontWeight: "bold" }}>💬 Zalo</button>
@@ -1103,7 +1287,7 @@ export default function App() {
               <button onClick={() => setShowDebtModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer", color: "var(--text-main)" }}>✖</button>
             </div>
             <div style={{ overflowY: "auto", flex: 1 }}>
-              {Object.keys(customers).filter(p => (customers[p].debt || 0) > 0).map(phone => (
+              {Object.keys(customers || {}).filter(p => (customers[p].debt || 0) > 0).map(phone => (
                 <div key={phone} style={{ padding: "10px", borderBottom: "1px dashed var(--border-glass)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
                     <div style={{ fontWeight: "bold" }}>{customers[phone].name}</div>
@@ -1113,7 +1297,7 @@ export default function App() {
                   <button onClick={() => handlePayDebt(phone)} style={{ padding: "6px 12px", background: "#10b981", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "11px" }}>THU TIỀN</button>
                 </div>
               ))}
-              {Object.keys(customers).filter(p => (customers[p].debt || 0) > 0).length === 0 && <div style={{ textAlign: "center", color: "var(--text-muted)", marginTop: "20px" }}>Không có nợ.</div>}
+              {Object.keys(customers || {}).filter(p => (customers[p].debt || 0) > 0).length === 0 && <div style={{ textAlign: "center", color: "var(--text-muted)", marginTop: "20px" }}>Không có nợ.</div>}
             </div>
           </div>
         </div>
@@ -1131,8 +1315,8 @@ export default function App() {
             </div>
             
             <div style={{ overflowY: "auto", flex: 1, fontSize: "12px", border: "1px solid var(--border-glass)", borderRadius: "8px", padding: "5px", background: "var(--bg-input)" }}>
-              {auditLogs.length === 0 && <div style={{ textAlign: "center", color: "var(--text-muted)", marginTop: "20px" }}>Chưa có bản ghi nào.</div>}
-              {auditLogs.map((log, idx) => (
+              {safeArray(auditLogs).length === 0 && <div style={{ textAlign: "center", color: "var(--text-muted)", marginTop: "20px" }}>Chưa có bản ghi nào.</div>}
+              {safeArray(auditLogs).map((log, idx) => (
                 <div key={idx} onClick={() => setSelectedAuditLog(log)} style={{ padding: "10px", borderBottom: "1px dashed var(--border-glass)", cursor: "pointer", transition: "0.2s" }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
                     <span style={{ fontWeight: "bold", color: "#b91c1c" }}>[{log.action}]</span>
@@ -1181,13 +1365,13 @@ export default function App() {
               <button onClick={() => setShowHoldModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer", color: "var(--text-main)" }}>✖</button>
             </div>
             <div style={{ overflowY: "auto", flex: 1 }}>
-              {heldOrders.length === 0 && <div style={{ textAlign: "center", color: "var(--text-muted)", marginTop: "20px" }}>Trống.</div>}
-              {heldOrders.map((order, idx) => (
+              {safeArray(heldOrders).length === 0 && <div style={{ textAlign: "center", color: "var(--text-muted)", marginTop: "20px" }}>Trống.</div>}
+              {safeArray(heldOrders).map((order, idx) => (
                 <div key={order.id} style={{ padding: "10px", borderBottom: "1px dashed var(--border-glass)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-input)", borderRadius: "8px", marginBottom: "8px" }}>
                   <div>
                     <div style={{ fontWeight: "bold" }}>Đơn #{idx + 1}</div>
                     <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>⏰ {order.time}</div>
-                    <div style={{ fontSize: "11px", color: "#b91c1c", fontWeight: "bold" }}>Gồm {order.cart.reduce((s: any, i: any) => s + (Number(i.qty) || 0), 0)} SP</div>
+                    <div style={{ fontSize: "11px", color: "#b91c1c", fontWeight: "bold" }}>Gồm {safeArray(order.cart).reduce((s: any, i: any) => s + (Number(i.qty) || 0), 0)} SP</div>
                   </div>
                   <div style={{ display: "flex", gap: "4px" }}>
                     <button onClick={() => restoreOrder(order)} style={{ padding: "6px 10px", background: "#10b981", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "11px" }}>MỞ</button>
@@ -1287,7 +1471,7 @@ export default function App() {
                     <button onClick={() => setCustomerGiven(50000)} style={{ flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid var(--border-glass)", cursor: "pointer", background: "var(--bg-input)", color: "var(--text-main)" }}>50k</button>
                     <button onClick={() => setCustomerGiven(100000)} style={{ flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid var(--border-glass)", cursor: "pointer", background: "var(--bg-input)", color: "var(--text-main)" }}>100k</button>
                     <button onClick={() => setCustomerGiven(200000)} style={{ flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid var(--border-glass)", cursor: "pointer", background: "var(--bg-input)", color: "var(--text-main)" }}>200k</button>
-                    <button onClick={() => setCustomerGiven(50000)} style={{ flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid var(--border-glass)", cursor: "pointer", background: "var(--bg-input)", color: "var(--text-main)" }}>500k</button>
+                    <button onClick={() => setCustomerGiven(500000)} style={{ flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid var(--border-glass)", cursor: "pointer", background: "var(--bg-input)", color: "var(--text-main)" }}>500k</button>
                   </div>
                 </div>
               ) : (
@@ -1360,7 +1544,7 @@ export default function App() {
             <div style={{ borderBottom: "1px dashed #000", marginBottom: "8px" }}></div>
             <table style={{ width: "100%", fontSize: "12px", borderCollapse: "collapse" }}>
               <tbody>
-                {lastOrder.cart.map((i: any, x: number) => {
+                {safeArray(lastOrder.cart).map((i: any, x: number) => {
                   const p = i.unitPrice ? i.unitPrice : Math.round(getActualPrice(i.product)); 
                   const t = Math.round((Number(i.qty) || 0) * p * (1 + VAT_RATE)); 
                   const g = parseGift(i.product.gift_info); const gQty = g.cond > 0 ? Math.floor(i.qty / g.cond) : 0;
@@ -1414,10 +1598,10 @@ export default function App() {
           <div className="print-barcode-sheet">
             {Array.from({ length: barcodeCount }).map((_, i) => (
               <div key={i} className="barcode-sticker">
-                <div style={{ fontSize: "11px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{cleanName(printBarcodeProduct.name)}</div>
+                <div style={{ fontSize: "11px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: "100%" }}>{cleanName(printBarcodeProduct.name)}</div>
                 <img src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(printBarcodeProduct.product_code)}&scale=2&height=10&includetext=false`} onError={(e) => { e.currentTarget.src = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(printBarcodeProduct.product_code)}&code=Code128&translate-esc=on`; }} alt={printBarcodeProduct.product_code} />
-                <div style={{ fontSize: "10px", fontFamily: "monospace", letterSpacing: "1px", color: "#333" }}>{printBarcodeProduct.product_code}</div>
-                <div style={{ fontSize: "14px", fontWeight: "900", color: "#000", marginTop: "2px" }}>{getActualPrice(printBarcodeProduct).toLocaleString()}đ</div>
+                <div style={{ fontSize: "10px", fontFamily: "monospace", letterSpacing: "1px" }}>{printBarcodeProduct.product_code}</div>
+                <div style={{ fontSize: "14px", fontWeight: "900", marginTop: "2px" }}>{getActualPrice(printBarcodeProduct).toLocaleString()}đ</div>
               </div>
             ))}
           </div>
