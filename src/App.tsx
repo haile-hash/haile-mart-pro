@@ -22,6 +22,8 @@ const styles = `
   .noti-bell{position:relative;display:inline-block;cursor:pointer}
   .noti-badge{position:absolute;top:-5px;right:-5px;background:#ef4444;color:white;border-radius:50%;padding:2px 6px;font-size:9px;font-weight:bold;animation:pulse-fast 1s infinite}
   input, select, textarea { background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-glass); }
+  .cash-box { transition: all 0.2s ease-in-out; border-radius: 8px; padding: 4px 10px; cursor: pointer; border: 1px solid transparent; }
+  .cash-box:hover { background: var(--bg-glass); border: 1px dashed var(--border-glass); transform: scale(1.05); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
   @media print{
     .no-print{display:none!important}
     .print-only{display:block!important;position:absolute!important;left:50%!important;transform:translateX(-50%)!important;width:80mm!important;padding:5mm!important;box-sizing:border-box!important; background:#fff!important; color:#000!important}
@@ -50,7 +52,11 @@ const styles = `
 
 export default function App() {
   const VAT_RATE = 0.1;
-  const EMAILJS_SERVICE_ID = "service_7ie990l", EMAILJS_TEMPLATE_ID = "template_t91erhg", EMAILJS_TEMPLATE_VIP_ID = "template_m1j9i7k", EMAILJS_PUBLIC_KEY = "5ric0kxuwNPlUleAv";
+  // BẢO MẬT: Khuyến nghị dùng process.env để lấy key EmailJS
+  const EMAILJS_SERVICE_ID = process.env.REACT_APP_EMAILJS_SERVICE_ID || "service_7ie990l";
+  const EMAILJS_TEMPLATE_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_ID || "template_t91erhg";
+  const EMAILJS_TEMPLATE_VIP_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_VIP_ID || "template_m1j9i7k";
+  const EMAILJS_PUBLIC_KEY = process.env.REACT_APP_EMAILJS_PUBLIC_KEY || "5ric0kxuwNPlUleAv";
   
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem("mart_logged_in") === "true");
   const [role, setRole] = useState(() => localStorage.getItem("mart_role") || "staff");
@@ -58,17 +64,17 @@ export default function App() {
   const [authUsername, setAuthUsername] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [startingCash, setStartingCash] = useState<number>(() => Number(localStorage.getItem("mart_starting_cash")) || 0);
-  const [adminPass, setAdminPass] = useState(() => localStorage.getItem("mart_admin_pass") || "haile88");
-  const [staffPass, setStaffPass] = useState(() => localStorage.getItem("mart_staff_pass") || "123");
+  
+  // TÍNH NĂNG MỚI: Tiền lẻ mặc định 5 triệu & Pop-up Dòng Tiền
+  const [startingCash, setStartingCash] = useState<number>(() => Number(localStorage.getItem("mart_starting_cash")) || 5000000);
+  const [cashFlowModalInfo, setCashFlowModalInfo] = useState<'TIỀN MẶT' | 'CHUYỂN KHOẢN' | null>(null);
+
   const [bankBin, setBankBin] = useState(() => localStorage.getItem("mart_bank_bin") || "970422");
   const [bankAcc, setBankAcc] = useState(() => localStorage.getItem("mart_bank_acc") || "0680124181004");
   const [bankNameStr, setBankNameStr] = useState(() => localStorage.getItem("mart_bank_name") || "LE HONG HAI");
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("mart_theme") === "dark");
   
   const [showSettings, setShowSettings] = useState(false);
-  const [newAdminPass, setNewAdminPass] = useState("");
-  const [newStaffPass, setNewStaffPass] = useState("");
   const [newBankBin, setNewBankBin] = useState("");
   const [newBankAcc, setNewBankAcc] = useState("");
   const [newBankNameStr, setNewBankNameStr] = useState("");
@@ -94,8 +100,11 @@ export default function App() {
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [showMarketingModal, setShowMarketingModal] = useState(false);
+  
+  // TÍNH NĂNG MỚI: State cho Kiểm kho siêu tốc
   const [showInventoryModal, setShowInventoryModal] = useState(false);
   const [actualStockInput, setActualStockInput] = useState<Record<string, number>>({});
+  const [inventorySearchTerm, setInventorySearchTerm] = useState("");
   
   const [reportStartDate, setReportStartDate] = useState(() => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0]; });
   const [reportEndDate, setReportEndDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -319,6 +328,36 @@ export default function App() {
     }); 
     return { rev: cash + transfer - startingCash, cash, transfer, prof, totalSales } 
   }, [history, shift, todayStrStr, startingCash]);
+
+  // TÍNH NĂNG MỚI: Modal Dòng Tiền (Cash Flow)
+  const currentShiftCashFlow = useMemo(() => {
+    if (!cashFlowModalInfo) return { thu: [], chi: [] };
+    const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStrStr && h.shift === shift);
+    const thu: any[] = [];
+    const chi: any[] = [];
+
+    shiftLogs.forEach(h => {
+      if (h.paymentMethod === cashFlowModalInfo || h.paymentMethod === 'KẾT HỢP') {
+        let amount = h.total;
+        if (h.paymentMethod === 'KẾT HỢP') {
+          amount = cashFlowModalInfo === 'TIỀN MẶT' ? (h.split_cash || 0) : (h.total - (h.split_cash || 0));
+        }
+        if (amount === 0) return;
+        if (h.type === 'BÁN' || h.type === 'THU NỢ') {
+          if (amount > 0) thu.push({ time: h.time, note: `${h.type} - ${cleanName(h.name)}`, amount: amount });
+        } else if (h.type === 'TRẢ HÀNG') {
+          chi.push({ time: h.time, note: `HOÀN TIỀN - ${cleanName(h.name)}`, amount: Math.abs(amount) });
+        }
+      }
+    });
+
+    if (cashFlowModalInfo === 'TIỀN MẶT') {
+      if (startingCash > 0) thu.unshift({ time: "Đầu ca", note: "Tiền lẻ đầu ca", amount: startingCash });
+      const shiftExpenses = expenses.filter(e => e.date === todayStrStr);
+      shiftExpenses.forEach(e => chi.push({ time: "Trong ca", note: `CHI PHÍ - ${e.name}`, amount: e.amount }));
+    }
+    return { thu, chi };
+  }, [history, expenses, cashFlowModalInfo, shift, todayStrStr, startingCash]);
   
   const filteredStats = useMemo(() => { 
     const start = new Date(reportStartDate + "T00:00:00").getTime();
@@ -398,17 +437,43 @@ export default function App() {
     return filtered
   }, [products, searchTerm, selectedCategory, sortConfig, filters]);
 
-  const handleLogin = (e: React.FormEvent) => { 
-    e.preventDefault(); const u = authUsername.trim().toLowerCase(); const p = authPassword.trim(); 
+  // BẢO MẬT: Chuyển đổi sang đăng nhập Supabase Auth
+  const handleLogin = async (e: React.FormEvent) => { 
+    e.preventDefault(); 
+    const u = authUsername.trim(); 
+    const p = authPassword.trim(); 
     localStorage.setItem("mart_starting_cash", startingCash.toString());
-    if (u === "admin" && p === "khoiphuc88") { setAdminPass("haile88"); localStorage.removeItem("mart_admin_pass"); setStaffPass("123"); localStorage.removeItem("mart_staff_pass"); setAuthPassword(""); alert("✅ MK gốc:\nAdmin: haile88\nNV: 123"); return } 
-    if (u === "admin" && p === adminPass) { setIsLoggedIn(true); setRole("admin"); localStorage.setItem("mart_shift", shift); localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "admin"); logAudit("ĐĂNG NHẬP", "Mở ca", { start_cash: startingCash, role: "admin" }) } 
-    else if (u === "nhanvien" && p === staffPass) { setIsLoggedIn(true); setRole("staff"); localStorage.setItem("mart_shift", shift); localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "staff"); logAudit("ĐĂNG NHẬP", "Mở ca", { start_cash: startingCash, role: "staff" }) } 
-    else { alert("❌ Sai tài khoản!") } 
+
+    setLoading(true);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: u, 
+      password: p,
+    });
+
+    if (error) {
+      alert(`❌ Đăng nhập thất bại: Kiểm tra lại Email/Mật khẩu hoặc cấu hình Supabase.\nChi tiết: ${error.message}`);
+      setLoading(false);
+      return;
+    }
+
+    // Tự động set Role dựa vào email (VD: có chữ 'admin' thì set quyền Admin)
+    const userRole = u.includes('admin') ? 'admin' : 'staff';
+
+    setIsLoggedIn(true);
+    setRole(userRole);
+    localStorage.setItem("mart_shift", shift);
+    localStorage.setItem("mart_logged_in", "true");
+    localStorage.setItem("mart_role", userRole);
+    logAudit("ĐĂNG NHẬP", "Mở ca", { start_cash: startingCash, role: userRole });
+    setLoading(false);
   };
   
   const handleLogoutClick = () => setShowHandoverModal(true);
-  const confirmHandover = () => { logAudit("CHỐT CA", `Bàn giao: ${currentShiftStats.rev.toLocaleString()}đ`, { ...currentShiftStats }); setIsLoggedIn(false); setShowHandoverModal(false); localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role") };
+  const confirmHandover = async () => { 
+    logAudit("CHỐT CA", `Bàn giao: ${currentShiftStats.rev.toLocaleString()}đ`, { ...currentShiftStats }); 
+    await supabase.auth.signOut();
+    setIsLoggedIn(false); setShowHandoverModal(false); localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role") 
+  };
   const handleEditPhone = async (oldPhone: string) => { const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customers[newPhone]) return alert("❌ SĐT đã tồn tại!"); const cData = customers[oldPhone]; const newC = { ...cData, phone: newPhone }; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = newC; delete updated[oldPhone]; return updated }); setHistory((prev: any) => prev.map((h: any) => { if (h.customer && h.customer.includes(oldPhone)) { return { ...h, customer: h.customer.replace(oldPhone, newPhone) } } return h })); logAudit("SỬA SĐT KH", `Đổi ${oldPhone} -> ${newPhone}`); alert("✅ Cập nhật thành công! (Sẽ tự động đồng bộ lên Cloud)"); } };
   const addSupplier = async () => { if (!supName || !supPhone) return alert("Nhập đủ Tên/SĐT"); const newS = { id: Date.now(), name: supName, phone: supPhone, item: supItem }; setSuppliers(prev => [newS, ...prev]); setSupName(""); setSupPhone(""); setSupItem(""); logAudit("THÊM NCC", `${supName} - ${supPhone}`); alert("✅ Thêm NCC thành công!"); };
   const deleteSupplier = async (id: any) => { setSuppliers(prev => prev.filter(s => s.id !== id)); if (navigator.onLine) await supabase.from('suppliers').delete().eq('id', id); };
@@ -438,7 +503,14 @@ export default function App() {
     setLoading(false); setShowMarketingModal(false); alert(`✅ Đã gửi ${successCount} mail!`)
   };
   
-  const saveSettings = () => { if (!newAdminPass || !newStaffPass || !newBankBin || !newBankAcc || !newBankNameStr) return alert("Điền đủ!"); setAdminPass(newAdminPass); localStorage.setItem("mart_admin_pass", newAdminPass); setStaffPass(newStaffPass); localStorage.setItem("mart_staff_pass", newStaffPass); setBankBin(newBankBin); localStorage.setItem("mart_bank_bin", newBankBin); setBankAcc(newBankAcc); localStorage.setItem("mart_bank_acc", newBankAcc); setBankNameStr(newBankNameStr); localStorage.setItem("mart_bank_name", newBankNameStr); logAudit("CÀI ĐẶT", "Cập nhật Cấu hình"); alert("✅ Đã lưu!"); setShowSettings(false) };
+  // BẢO MẬT: Bỏ logic lưu Password LocalStorage
+  const saveSettings = () => { 
+    if (!newBankBin || !newBankAcc || !newBankNameStr) return alert("Điền đủ!"); 
+    setBankBin(newBankBin); localStorage.setItem("mart_bank_bin", newBankBin); 
+    setBankAcc(newBankAcc); localStorage.setItem("mart_bank_acc", newBankAcc); 
+    setBankNameStr(newBankNameStr); localStorage.setItem("mart_bank_name", newBankNameStr); 
+    logAudit("CÀI ĐẶT", "Cập nhật Cấu hình"); alert("✅ Đã lưu!"); setShowSettings(false) 
+  };
   
   const handleHoldOrder = async () => { if (cart.length === 0) return; const newO = { id: Date.now(), time: new Date().toLocaleTimeString('vi-VN'), cart: [...cart] }; setHeldOrders(prev => [...prev, newO]); logAudit("LƯU TẠM", `Lưu giỏ ${cart.length} món`); setCart([]); setCustPhone(""); setCustName(""); setCustomerInput("") };
   const restoreOrder = async (order: any) => { if (cart.length > 0) return alert("Thanh toán giỏ hiện tại trước!"); setCart(order.cart); setHeldOrders(prev => prev.filter(o => o.id !== order.id)); if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', order.id); setShowHoldModal(false); };
@@ -524,7 +596,7 @@ export default function App() {
           
           let splitCashAmt = 0;
           if(payMethod === 'KẾT HỢP') {
-             splitCashAmt = Math.round((Number(customerGiven) / finalTotal) * Math.round(take * price * (1 + VAT_RATE)));
+              splitCashAmt = Math.round((Number(customerGiven) / finalTotal) * Math.round(take * price * (1 + VAT_RATE)));
           }
 
           logs.push({ id: baseTimestamp++, shift: shift, type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", name: cleanName(b.name) + (item.product.isHappyHour ? ' [Giờ Vàng]' : ''), qty: take, total: Math.round(take * price * (1 + VAT_RATE)), profit: Math.round(take * (price - (b.import_price || 0))), customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: b.id, refunded_qty: 0, paymentMethod: payMethod, split_cash: splitCashAmt, time: new Date().toLocaleString('vi-VN') });
@@ -879,6 +951,34 @@ export default function App() {
     setLoading(false);
   };
 
+  // TÍNH NĂNG MỚI: Xử lý tìm kiếm trong Kiểm Kho
+  const handleInventorySearchEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const term = inventorySearchTerm.trim().toLowerCase();
+      if (!term) return;
+      
+      const exactMatch = products.find(p => (p.product_code || "").toLowerCase() === term);
+      if (exactMatch) {
+        const inputEl = document.getElementById(`inv-input-${exactMatch.id}`);
+        if (inputEl) {
+          inputEl.focus();
+        }
+      }
+    }
+  };
+
+  const handleInvInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const searchBox = document.getElementById('inv-search-box');
+      if (searchBox) {
+        searchBox.focus();
+        setInventorySearchTerm(""); 
+      }
+    }
+  };
+
   const syncInventoryCheck = async () => {
     if(!navigator.onLine) return alert("Cần có mạng để lưu kết quả kiểm kho!");
     if(!window.confirm("Xác nhận ghi đè số lượng tồn kho trên máy bằng số lượng thực tế?")) return;
@@ -992,9 +1092,11 @@ export default function App() {
             <option value="Ca Tối">🌙 Ca Tối (22:00 - 06:00)</option>
           </select>
           <input type="number" placeholder="Tiền lẻ đầu ca (để thối)..." value={startingCash || ""} onChange={e => setStartingCash(Number(e.target.value))} style={{ padding: "14px", borderRadius: "10px", outline: "none", fontWeight: "bold", color: "#059669" }} />
-          <input placeholder="Tên đăng nhập" value={authUsername} onChange={e => setAuthUsername(e.target.value)} style={{ padding: "14px", borderRadius: "10px", outline: "none" }} />
+          <input placeholder="Email (Tài khoản hệ thống)" value={authUsername} onChange={e => setAuthUsername(e.target.value)} style={{ padding: "14px", borderRadius: "10px", outline: "none" }} />
           <input type="password" placeholder="Mật khẩu" value={authPassword} onChange={e => setAuthPassword(e.target.value)} style={{ padding: "14px", borderRadius: "10px", outline: "none" }} />
-          <button type="submit" style={{ padding: "14px", background: "#dc2626", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "bold", cursor: "pointer", boxShadow: "0 4px 6px rgba(220,38,38,0.3)" }}>MỞ CỬA BÁN HÀNG 🚀</button>
+          <button type="submit" disabled={loading} style={{ padding: "14px", background: "#dc2626", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "bold", cursor: "pointer", boxShadow: "0 4px 6px rgba(220,38,38,0.3)" }}>
+            {loading ? "ĐANG TẢI..." : "MỞ CỬA BÁN HÀNG 🚀"}
+          </button>
         </form>
       </div>
     </div>
@@ -1012,13 +1114,28 @@ export default function App() {
               <h2 style={{ margin: 0, color: "#10b981" }}>📦 KIỂM KHO (INVENTORY CHECK)</h2>
               <button onClick={() => setShowInventoryModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer", color: "var(--text-main)" }}>✖</button>
             </div>
-            <div style={{ background: "#fef2f2", padding: "10px", borderRadius: "8px", fontSize: "12px", color: "#b91c1c", marginBottom: "15px", border: "1px dashed #fca5a5" }}>
-              <b>Hướng dẫn:</b> Nhập số lượng đếm được thực tế trên kệ. Hệ thống tự động bôi đỏ nếu có chênh lệch so với sổ sách.
+            
+            <div style={{ background: "#fef2f2", padding: "10px", borderRadius: "8px", fontSize: "12px", color: "#b91c1c", marginBottom: "10px", border: "1px dashed #fca5a5" }}>
+              <b>Hướng dẫn siêu tốc:</b> Quẹt mã vạch (hoặc gõ tên) ➡️ Gõ số lượng ➡️ Bấm Enter để tiếp tục.
             </div>
+
+            <div style={{ display: "flex", gap: "10px", marginBottom: "15px" }}>
+              <input 
+                id="inv-search-box"
+                placeholder="🔍 Tìm tên hoặc Quẹt mã vạch vào đây..." 
+                value={inventorySearchTerm} 
+                onChange={e => setInventorySearchTerm(e.target.value)} 
+                onKeyDown={handleInventorySearchEnter}
+                autoFocus
+                style={{ flex: 1, padding: "10px 15px", borderRadius: "8px", border: "2px solid #10b981", outline: "none", fontWeight: "bold", fontSize: "14px" }} 
+              />
+              <button onClick={() => setInventorySearchTerm("")} style={{ padding: "10px 15px", background: "var(--bg-input)", border: "1px solid var(--border-glass)", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}>❌ Xóa</button>
+            </div>
+
             <div style={{ overflowY: "auto", flex: 1, paddingRight: "5px" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
                 <thead>
-                  <tr style={{ borderBottom: "1px solid var(--border-glass)", color: "var(--text-muted)", textAlign: "left" }}>
+                  <tr style={{ borderBottom: "1px solid var(--border-glass)", color: "var(--text-muted)", textAlign: "left", position: "sticky", top: 0, background: "var(--bg-glass)", zIndex: 1 }}>
                     <th style={{ padding: "8px" }}>Sản phẩm</th>
                     <th style={{ padding: "8px", textAlign: "center" }}>Kho PM</th>
                     <th style={{ padding: "8px", textAlign: "center" }}>Thực tế</th>
@@ -1026,7 +1143,9 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {products.map(p => {
+                  {products
+                    .filter(p => cleanName(p.name).toLowerCase().includes(inventorySearchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(inventorySearchTerm.toLowerCase())))
+                    .map(p => {
                     const actual = actualStockInput[p.id] !== undefined ? actualStockInput[p.id] : p.stock;
                     const diff = actual - p.stock;
                     return (
@@ -1034,7 +1153,16 @@ export default function App() {
                         <td style={{ padding: "8px", fontWeight: "bold" }}>{cleanName(p.name)} <div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "normal" }}>{p.product_code}</div></td>
                         <td style={{ padding: "8px", textAlign: "center", color: "#3b82f6", fontWeight: "bold" }}>{p.stock}</td>
                         <td style={{ padding: "8px", textAlign: "center" }}>
-                          <input type="number" value={actual} onChange={(e) => setActualStockInput(prev => ({...prev, [p.id]: Number(e.target.value)}))} style={{ width: "60px", padding: "6px", borderRadius: "6px", textAlign: "center", border: "1px solid var(--border-glass)", fontWeight: "bold" }} onFocus={e => e.target.select()} />
+                          <input 
+                            id={`inv-input-${p.id}`}
+                            type="number" 
+                            value={actual} 
+                            onChange={(e) => setActualStockInput(prev => ({...prev, [p.id]: Number(e.target.value)}))} 
+                            onKeyDown={handleInvInputKeyDown}
+                            style={{ width: "60px", padding: "6px", borderRadius: "6px", textAlign: "center", border: "2px solid #fdba74", fontWeight: "bold", outline: "none" }} 
+                            onFocus={e => { e.target.select(); e.target.style.borderColor = "#10b981"; }} 
+                            onBlur={e => e.target.style.borderColor = "#fdba74"}
+                          />
                         </td>
                         <td style={{ padding: "8px", textAlign: "center", fontWeight: "900", color: diff > 0 ? "#10b981" : (diff < 0 ? "#ef4444" : "var(--text-muted)") }}>
                           {diff > 0 ? `+${diff}` : diff}
@@ -1046,7 +1174,7 @@ export default function App() {
               </table>
             </div>
             <div style={{ display: "flex", gap: "10px", marginTop: "15px", borderTop: "1px dashed var(--border-glass)", paddingTop: "15px" }}>
-              <button onClick={() => setActualStockInput({})} style={{ flex: 1, padding: "12px", background: "var(--border-glass)", color: "var(--text-main)", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>↺ Hủy thao tác</button>
+              <button onClick={() => { setActualStockInput({}); setInventorySearchTerm(""); }} style={{ flex: 1, padding: "12px", background: "var(--border-glass)", color: "var(--text-main)", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>↺ Hủy thao tác</button>
               <button onClick={syncInventoryCheck} disabled={loading} style={{ flex: 2, padding: "12px", background: "#10b981", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>{loading ? "Đang đồng bộ..." : "💾 CẬP NHẬT CHÊNH LỆCH VÀO SỔ"}</button>
             </div>
           </div>
@@ -1141,15 +1269,10 @@ export default function App() {
               <button onClick={() => setShowSettings(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer", color: "var(--text-main)" }}>✖</button>
             </div>
             <div style={{ overflowY: "auto", flex: 1, paddingRight: "5px" }}>
-              <h3 style={{ fontSize: "14px", color: "#ef4444", borderBottom: "1px dashed #ef4444", paddingBottom: "4px" }}>1. ĐỔI MẬT KHẨU</h3>
-              <div style={{ marginBottom: "10px" }}>
-                <label style={{ fontSize: "11px", fontWeight: "bold", color: "var(--text-muted)" }}>Mật khẩu Quản lý:</label>
-                <input value={newAdminPass} onChange={e => setNewAdminPass(e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: "6px", boxSizing: "border-box", marginTop: "4px" }} />
+              <div style={{ fontSize: "13px", padding: "10px", background: "#fef2f2", color: "#b91c1c", border: "1px dashed #fca5a5", borderRadius: "6px", marginBottom: "15px" }}>
+                🔒 <b>Bảo mật:</b> Mật khẩu người dùng hiện được quản lý trực tiếp qua hệ thống xác thực Supabase Auth. Vui lòng truy cập trang quản trị Supabase để thêm/đổi mật khẩu.
               </div>
-              <div style={{ marginBottom: "20px" }}>
-                <label style={{ fontSize: "11px", fontWeight: "bold", color: "var(--text-muted)" }}>Mật khẩu Thu ngân:</label>
-                <input value={newStaffPass} onChange={e => setNewStaffPass(e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: "6px", boxSizing: "border-box", marginTop: "4px" }} />
-              </div>
+
               <h3 style={{ fontSize: "14px", color: "#10b981", borderBottom: "1px dashed #10b981", paddingBottom: "4px" }}>2. QR THANH TOÁN</h3>
               <div style={{ marginBottom: "10px" }}>
                 <label style={{ fontSize: "11px", fontWeight: "bold", color: "var(--text-muted)" }}>Ngân hàng:</label>
@@ -1546,6 +1669,74 @@ export default function App() {
         </div>
       )}
 
+      {/* 💸 MODAL DÒNG TIỀN (CASH FLOW) */}
+      {cashFlowModalInfo && (
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }} onClick={() => setCashFlowModalInfo(null)}>
+          <div className="glass" style={{ padding: "20px", width: "700px", maxHeight: "85vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `2px solid ${cashFlowModalInfo === 'TIỀN MẶT' ? '#10b981' : '#3b82f6'}`, paddingBottom: "10px", marginBottom: "15px" }}>
+              <div>
+                <h2 style={{ margin: 0, color: cashFlowModalInfo === 'TIỀN MẶT' ? "#10b981" : "#3b82f6" }}>💸 DÒNG TIỀN {cashFlowModalInfo}</h2>
+                <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "4px" }}>Ca: <b>{shift}</b> ({todayStrStr})</div>
+              </div>
+              <button onClick={() => setCashFlowModalInfo(null)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer", color: "var(--text-main)" }}>✖</button>
+            </div>
+
+            <div style={{ display: "flex", gap: "15px", flex: 1, overflow: "hidden" }}>
+              {/* CỘT THU (+) */}
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "#f0fdf4", padding: "12px", borderRadius: "8px", border: "1px solid #bbf7d0" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px dashed #86efac", paddingBottom: "8px", marginBottom: "10px" }}>
+                  <h3 style={{ margin: 0, fontSize: "14px", color: "#16a34a" }}>⬇️ THU VÀO (+)</h3>
+                  <span style={{ fontWeight: "900", color: "#15803d" }}>
+                    {currentShiftCashFlow.thu.reduce((acc, i) => acc + i.amount, 0).toLocaleString()}đ
+                  </span>
+                </div>
+                <div style={{ overflowY: "auto", flex: 1, paddingRight: "5px" }}>
+                  {currentShiftCashFlow.thu.length === 0 && <div style={{ fontSize: "11px", color: "#16a34a", textAlign: "center", marginTop: "20px" }}>Chưa có phát sinh thu.</div>}
+                  {currentShiftCashFlow.thu.map((item, idx) => (
+                    <div key={idx} style={{ padding: "8px 0", borderBottom: "1px dashed #bbf7d0", fontSize: "12px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div style={{ display: "flex", flexDirection: "column", maxWidth: "70%" }}>
+                        <b style={{ color: "#14532d", wordBreak: "break-word" }}>{item.note}</b>
+                        <span style={{ fontSize: "10px", color: "#15803d", marginTop: "2px" }}>{item.time}</span>
+                      </div>
+                      <b style={{ color: "#16a34a", whiteSpace: "nowrap" }}>+{item.amount.toLocaleString()}đ</b>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* CỘT CHI (-) */}
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "#fef2f2", padding: "12px", borderRadius: "8px", border: "1px solid #fecaca" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px dashed #fca5a5", paddingBottom: "8px", marginBottom: "10px" }}>
+                  <h3 style={{ margin: 0, fontSize: "14px", color: "#dc2626" }}>⬆️ CHI RA (-)</h3>
+                  <span style={{ fontWeight: "900", color: "#b91c1c" }}>
+                    {currentShiftCashFlow.chi.reduce((acc, i) => acc + i.amount, 0).toLocaleString()}đ
+                  </span>
+                </div>
+                <div style={{ overflowY: "auto", flex: 1, paddingRight: "5px" }}>
+                  {currentShiftCashFlow.chi.length === 0 && <div style={{ fontSize: "11px", color: "#dc2626", textAlign: "center", marginTop: "20px" }}>Chưa có phát sinh chi.</div>}
+                  {currentShiftCashFlow.chi.map((item, idx) => (
+                    <div key={idx} style={{ padding: "8px 0", borderBottom: "1px dashed #fecaca", fontSize: "12px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div style={{ display: "flex", flexDirection: "column", maxWidth: "70%" }}>
+                        <b style={{ color: "#7f1d1d", wordBreak: "break-word" }}>{item.note}</b>
+                        <span style={{ fontSize: "10px", color: "#b91c1c", marginTop: "2px" }}>{item.time}</span>
+                      </div>
+                      <b style={{ color: "#dc2626", whiteSpace: "nowrap" }}>-{item.amount.toLocaleString()}đ</b>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            
+            <div style={{ marginTop: "15px", background: "var(--bg-input)", padding: "15px", borderRadius: "8px", border: "1px dashed var(--border-glass)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <b style={{ color: "var(--text-main)", fontSize: "14px" }}>💰 TỔNG TỒN QUỸ {cashFlowModalInfo}:</b>
+              <span style={{ fontSize: "20px", fontWeight: "900", color: cashFlowModalInfo === 'TIỀN MẶT' ? "#059669" : "#3b82f6" }}>
+                {cashFlowModalInfo === 'TIỀN MẶT' ? currentShiftStats.cash.toLocaleString() : currentShiftStats.transfer.toLocaleString()}đ
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 🖨️ KHU VỰC IN ẨN */}
       {lastOrder && printMode === 'receipt' && (
         <div className="print-only">
@@ -1732,8 +1923,18 @@ export default function App() {
                 <div style={{ width: "2px", height: "30px", background: "var(--border-glass)" }}></div>
                 <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
                   {role === 'admin' && <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "bold" }}>VỐN</div><div style={{ fontSize: "15px", fontWeight: "900", color: "var(--text-main)" }}>{totalValue.toLocaleString()}đ</div></div>}
-                  <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "bold" }}>TIỀN MẶT</div><div style={{ fontSize: "15px", fontWeight: "900", color: currentShiftStats.cash < 0 ? "#ef4444" : "#059669" }}>{currentShiftStats.cash.toLocaleString()}đ</div></div>
-                  <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "bold" }}>CHUYỂN KHOẢN</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#3b82f6" }}>{currentShiftStats.transfer.toLocaleString()}đ</div></div>
+                  
+                  {/* UPDATE: Ô hiển thị Dòng Tiền */}
+                  <div className="cash-box" onClick={() => setCashFlowModalInfo('TIỀN MẶT')} style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                    <div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "bold" }}>TIỀN MẶT 👆</div>
+                    <div style={{ fontSize: "15px", fontWeight: "900", color: currentShiftStats.cash < 0 ? "#ef4444" : "#059669" }}>{currentShiftStats.cash.toLocaleString()}đ</div>
+                  </div>
+                  
+                  <div className="cash-box" onClick={() => setCashFlowModalInfo('CHUYỂN KHOẢN')} style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                    <div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "bold" }}>CHUYỂN KHOẢN 👆</div>
+                    <div style={{ fontSize: "15px", fontWeight: "900", color: "#3b82f6" }}>{currentShiftStats.transfer.toLocaleString()}đ</div>
+                  </div>
+                  
                   {role === 'admin' && <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "bold" }}>LÃI</div><div style={{ fontSize: "15px", fontWeight: "900", color: currentShiftStats.prof < 0 ? "#ef4444" : "#ea580c" }}>{currentShiftStats.prof.toLocaleString()}đ</div></div>}
                 </div>
                 <div style={{ width: "2px", height: "30px", background: "var(--border-glass)" }}></div>
@@ -1768,7 +1969,7 @@ export default function App() {
                         <div onClick={() => { setShowMainMenu(false); setShowExpenseModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px solid var(--border-glass)", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "16px" }}>💸</span> Nhập Chi Phí (Điện/Nước)</div>
                         <div onClick={() => { setShowMainMenu(false); setShowSupplierModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px solid var(--border-glass)", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "16px" }}>🏭</span> Danh Sách Nhà Cung Cấp</div>
                         <div onClick={() => { setShowMainMenu(false); setShowMarketingModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px dashed var(--border-glass)", color: "#8b5cf6", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "16px" }}>📢</span> Gửi Email Marketing</div>
-                        <div onClick={() => { setShowMainMenu(false); setNewAdminPass(adminPass); setNewStaffPass(staffPass); setNewBankBin(bankBin); setNewBankAcc(bankAcc); setNewBankNameStr(bankNameStr); setShowSettings(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "16px" }}>⚙️</span> Cài Đặt Hệ Thống</div>
+                        <div onClick={() => { setShowMainMenu(false); setNewBankBin(bankBin); setNewBankAcc(bankAcc); setNewBankNameStr(bankNameStr); setShowSettings(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "16px" }}>⚙️</span> Cài Đặt Hệ Thống</div>
                       </>
                     )}
                   </div>
