@@ -58,10 +58,12 @@ export default function App() {
   const [authUsername, setAuthUsername] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [currentTime, setCurrentTime] = useState(new Date());
+  
   const [startingCash, setStartingCash] = useState<number>(() => {
     const saved = localStorage.getItem("mart_starting_cash");
     return saved !== null ? Number(saved) : 5000000;
   });
+
   const [adminPass, setAdminPass] = useState(() => localStorage.getItem("mart_admin_pass") || "haile88");
   const [staffPass, setStaffPass] = useState(() => localStorage.getItem("mart_staff_pass") || "123");
   const [bankBin, setBankBin] = useState(() => localStorage.getItem("mart_bank_bin") || "970422");
@@ -100,7 +102,6 @@ export default function App() {
   const [showInventoryModal, setShowInventoryModal] = useState(false);
   const [actualStockInput, setActualStockInput] = useState<Record<string, number>>({});
   
-  // STATE MỚI: Modal chi tiết dòng tiền
   const [cashFlowModalInfo, setCashFlowModalInfo] = useState<'TIỀN MẶT' | 'CHUYỂN KHOẢN' | null>(null);
 
   const [reportStartDate, setReportStartDate] = useState(() => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0]; });
@@ -331,33 +332,29 @@ export default function App() {
     if (!cashFlowModalInfo) return [];
     const details: any[] = [];
     
-    // 1. Tiền đầu ca (chỉ hiển thị cho Tiền mặt)
     if (cashFlowModalInfo === 'TIỀN MẶT') {
        details.push({ time: "Mở ca", reason: "Tiền lẻ đầu ca", amount: startingCash, isPositive: true, isStarting: true });
     }
 
-    // 2. Lọc lịch sử trong ca hiện tại
     const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStrStr && h.shift === shift);
     
-    // Đảo ngược mảng để xem từ đầu ca đến cuối ca cho logic (hoặc giữ nguyên tùy ý)
     [...shiftLogs].reverse().forEach(h => {
        if (cashFlowModalInfo === 'TIỀN MẶT') {
           if (h.paymentMethod === 'TIỀN MẶT') {
              details.push({ time: h.time, reason: `[${h.type}] ${h.name}`, amount: h.total, isPositive: h.total > 0 });
           } else if (h.paymentMethod === 'KẾT HỢP' && h.split_cash) {
-             details.push({ time: h.time, reason: `[${h.type} - Kết hợp] ${h.name}`, amount: h.split_cash, isPositive: h.split_cash > 0 });
+             details.push({ time: h.time, reason: `[${h.type} - KH] ${h.name}`, amount: h.split_cash, isPositive: h.split_cash > 0 });
           }
        } else if (cashFlowModalInfo === 'CHUYỂN KHOẢN') {
           if (h.paymentMethod === 'CHUYỂN KHOẢN') {
              details.push({ time: h.time, reason: `[${h.type}] ${h.name}`, amount: h.total, isPositive: h.total > 0 });
           } else if (h.paymentMethod === 'KẾT HỢP' && h.split_cash) {
              const transferAmt = h.total - h.split_cash;
-             details.push({ time: h.time, reason: `[${h.type} - Kết hợp] ${h.name}`, amount: transferAmt, isPositive: transferAmt > 0 });
+             details.push({ time: h.time, reason: `[${h.type} - KH] ${h.name}`, amount: transferAmt, isPositive: transferAmt > 0 });
           }
        }
     });
 
-    // 3. Lọc chi phí (Giả định chi phí bằng tiền mặt)
     if (cashFlowModalInfo === 'TIỀN MẶT') {
        const todayExp = expenses.filter(e => e.date === todayStrStr);
        todayExp.forEach(e => {
@@ -457,7 +454,7 @@ export default function App() {
   
   const handleLogoutClick = () => setShowHandoverModal(true);
   const confirmHandover = () => { logAudit("CHỐT CA", `Bàn giao: ${currentShiftStats.rev.toLocaleString()}đ`, { ...currentShiftStats }); setIsLoggedIn(false); setShowHandoverModal(false); localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role") };
-  const handleEditPhone = async (oldPhone: string) => { const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customers[newPhone]) return alert("❌ SĐT đã tồn tại!"); const cData = customers[oldPhone]; const newC = { ...cData, phone: newPhone }; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = newC; delete updated[oldPhone]; return updated }); setHistory((prev: any) => prev.map((h: any) => { if (h.customer && h.customer.includes(oldPhone)) { return { ...h, customer: h.customer.replace(oldPhone, newPhone) } } return h })); logAudit("SỬA SĐT KH", `Đổi ${oldPhone} -> ${newPhone}`); alert("✅ Cập nhật thành công! (Sẽ tự động đồng bộ lên Cloud)"); } };
+  const handleEditPhone = async (oldPhone: string) => { const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customers[newPhone]) return alert("❌ SĐT đã tồn tại!"); const cData = customers[oldPhone]; const newC = { ...cData, phone: newPhone }; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = newC; delete updated[oldPhone]; return updated }); setHistory((prev: any) => prev.map((h: any) => (h.customer && h.customer.includes(oldPhone)) ? { ...h, customer: h.customer.replace(oldPhone, newPhone) } : h)); logAudit("SỬA SĐT KH", `Đổi ${oldPhone} -> ${newPhone}`); alert("✅ Cập nhật thành công! (Sẽ tự động đồng bộ lên Cloud)"); } };
   const addSupplier = async () => { if (!supName || !supPhone) return alert("Nhập đủ Tên/SĐT"); const newS = { id: Date.now(), name: supName, phone: supPhone, item: supItem }; setSuppliers(prev => [newS, ...prev]); setSupName(""); setSupPhone(""); setSupItem(""); logAudit("THÊM NCC", `${supName} - ${supPhone}`); alert("✅ Thêm NCC thành công!"); };
   const deleteSupplier = async (id: any) => { setSuppliers(prev => prev.filter(s => s.id !== id)); if (navigator.onLine) await supabase.from('suppliers').delete().eq('id', id); };
   const addExpense = async () => { if (!expName || !expAmount) return alert("Nhập chi phí!"); const newE = { id: Date.now(), date: new Date().toLocaleDateString('vi-VN'), name: expName, amount: Number(expAmount) }; setExpenses(prev => [newE, ...prev]); setExpName(""); setExpAmount(""); logAudit("GHI CHI PHÍ", `${expName}: ${expAmount}đ`, newE); alert("✅ Đã ghi nhận!"); };
