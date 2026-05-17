@@ -48,10 +48,20 @@ const styles = `
   }
 `;
 
+// HÀM TIỆN ÍCH HOISTING (Kéo lên trên cùng để tránh lỗi)
+const formatCategoryStr = (str: string) => { if (!str) return "Khác"; const t = str.trim(); return t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : "Khác"; };
+const parseGift = (giftStr: string | null) => { if (!giftStr) return { cond: 0, text: "" }; if (giftStr.includes(';;;')) { const parts = giftStr.split(';;;'); return { cond: parseInt(parts[0]) || 1, text: parts[1] || "" } } return { cond: 1, text: giftStr } };
+const cleanName = (name: string) => name ? name.split(' [Lô')[0] : '';
+const getActualPrice = (p: any) => { let price = (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price; const currentHour = new Date().getHours(); if ((currentHour >= 20 || currentHour < 6) && (p.category === 'Đồ ăn liền' || p.category === 'Bánh Kẹo')) { price = price * 0.8; p.isHappyHour = true } else { p.isHappyHour = false } return Math.round(price) };
+const getCustomerTier = (totalSpent = 0) => { if (totalSpent >= 500000000) return { name: "💎 KIM CƯƠNG", discountRate: 0.10, color: "#a855f7", bg: "#faf5ff", border: "#e9d5ff" }; if (totalSpent >= 200000000) return { name: "🥇 VÀNG", discountRate: 0.05, color: "#ca8a04", bg: "#fefce8", border: "#fef08a" }; if (totalSpent >= 50000000) return { name: "🥈 BẠC", discountRate: 0.02, color: "#475569", bg: "#f8fafc", border: "#cbd5e1" }; return { name: "🥉 ĐỒNG", discountRate: 0, color: "#b45309", bg: "#fffbeb", border: "#fde68a" } };
+const playSound = (type: 'success' | 'error') => { try { const ctx = new (window.AudioContext || (window as any).webkitAudioContext)(); const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.connect(gain); gain.connect(ctx.destination); if (type === 'success') { osc.frequency.value = 800; gain.gain.setValueAtTime(0.1, ctx.currentTime); osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.1) } else { osc.frequency.value = 250; osc.type = 'square'; gain.gain.setValueAtTime(0.1, ctx.currentTime); osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3) } } catch (e) { } };
+
+
 export default function App() {
   const VAT_RATE = 0.1;
   const EMAILJS_SERVICE_ID = "service_7ie990l", EMAILJS_TEMPLATE_ID = "template_t91erhg", EMAILJS_TEMPLATE_VIP_ID = "template_m1j9i7k", EMAILJS_PUBLIC_KEY = "5ric0kxuwNPlUleAv";
   
+  // STATE CƠ BẢN
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem("mart_logged_in") === "true");
   const [role, setRole] = useState(() => localStorage.getItem("mart_role") || "staff");
   const [shift, setShift] = useState(() => localStorage.getItem("mart_shift") || "Ca Sáng");
@@ -66,13 +76,13 @@ export default function App() {
   const [bankNameStr, setBankNameStr] = useState(() => localStorage.getItem("mart_bank_name") || "LE HONG HAI");
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("mart_theme") === "dark");
   
+  // STATE GIAO DIỆN
   const [showSettings, setShowSettings] = useState(false);
   const [newAdminPass, setNewAdminPass] = useState("");
   const [newStaffPass, setNewStaffPass] = useState("");
   const [newBankBin, setNewBankBin] = useState("");
   const [newBankAcc, setNewBankAcc] = useState("");
   const [newBankNameStr, setNewBankNameStr] = useState("");
-  
   const [products, setProducts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Tất cả");
@@ -84,6 +94,7 @@ export default function App() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showMainMenu, setShowMainMenu] = useState(false);
   
+  // MODALS
   const [showDebtModal, setShowDebtModal] = useState(false);
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
@@ -95,6 +106,7 @@ export default function App() {
   const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [showMarketingModal, setShowMarketingModal] = useState(false);
   
+  // SCANNER & CART
   const [scannerMode, setScannerMode] = useState<'product' | 'voucher' | 'customer' | null>(null);
   const [scannedCodeObj, setScannedCodeObj] = useState<any>(null);
   const [scanMessage, setScanMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
@@ -103,6 +115,7 @@ export default function App() {
   const [barcodeCount, setBarcodeCount] = useState<number>(30);
   const [printMode, setPrintMode] = useState<'receipt' | 'barcode' | 'customer_card' | null>(null);
   
+  // FORM NHẬP HÀNG
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
   const [newImportPrice, setNewImportPrice] = useState("");
@@ -114,6 +127,7 @@ export default function App() {
   const [newExpiry, setNewExpiry] = useState("");
   const [newCategory, setNewCategory] = useState("Đồ uống");
   
+  // CHI PHÍ & NCC
   const [expName, setExpName] = useState("");
   const [expAmount, setExpAmount] = useState("");
   const [supName, setSupName] = useState("");
@@ -121,9 +135,11 @@ export default function App() {
   const [supItem, setSupItem] = useState("");
   const [marketingTier, setMarketingTier] = useState("Tất cả");
   const [marketingMsg, setMarketingMsg] = useState("");
+  
   const [cart, setCart] = useState<any[]>([]);
   const [barcodeInput, setBarcodeInput] = useState("");
   
+  // DỮ LIỆU LOCAL
   const [customers, setCustomers] = useState<any>(() => { const s = localStorage.getItem("mart_customers"); return s ? JSON.parse(s) : {} });
   const [heldOrders, setHeldOrders] = useState<any[]>(() => { const s = localStorage.getItem("mart_held_orders"); return s ? JSON.parse(s) : [] });
   const [auditLogs, setAuditLogs] = useState<any[]>(() => { const s = localStorage.getItem("mart_audit"); return s ? JSON.parse(s) : [] });
@@ -149,11 +165,18 @@ export default function App() {
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
   const isInitialMount = useRef(true);
 
+  const logAudit = async (action: string, detail: string, extraData: any = null) => { 
+    const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user_name: role === 'admin' ? 'Quản lý' : 'Thu ngân', shift, action, detail, extra_data: extraData ? JSON.stringify(extraData) : null }; 
+    setAuditLogs(prev => [newLog, ...prev].slice(0, 300)); 
+  };
+
+  // Cài đặt Dark Mode
   useEffect(() => {
     if (darkMode) { document.documentElement.setAttribute('data-theme', 'dark'); localStorage.setItem("mart_theme", "dark"); }
     else { document.documentElement.removeAttribute('data-theme'); localStorage.setItem("mart_theme", "light"); }
   }, [darkMode]);
 
+  // Phím tắt Thu ngân
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isLoggedIn || isCheckoutOpen || showAuditModal || showCustomerModal || showSettings || showInputForm) return;
@@ -166,6 +189,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isLoggedIn, isCheckoutOpen, cart, showAuditModal, showCustomerModal, showSettings, showInputForm]);
 
+  // Quản lý Mạng Offline/Online
   useEffect(() => {
     const handleOnline = () => { setIsOnline(true); syncAllOfflineData(); };
     const handleOffline = () => setIsOnline(false);
@@ -223,14 +247,6 @@ export default function App() {
     return () => clearTimeout(delaySync);
   }, [history, customers, heldOrders, auditLogs, expenses, suppliers, isLoggedIn]);
 
-  const formatCategoryStr = (str: string) => { if (!str) return "Khác"; const t = str.trim(); return t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : "Khác"; };
-  const playSound = (type: 'success' | 'error') => { try { const ctx = new (window.AudioContext || (window as any).webkitAudioContext)(); const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.connect(gain); gain.connect(ctx.destination); if (type === 'success') { osc.frequency.value = 800; gain.gain.setValueAtTime(0.1, ctx.currentTime); osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.1) } else { osc.frequency.value = 250; osc.type = 'square'; gain.gain.setValueAtTime(0.1, ctx.currentTime); osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3) } } catch (e) { } };
-  const logAudit = async (action: string, detail: string, extraData: any = null) => { const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user_name: role === 'admin' ? 'Quản lý' : 'Thu ngân', shift, action, detail, extra_data: extraData ? JSON.stringify(extraData) : null }; setAuditLogs(prev => [newLog, ...prev].slice(0, 300)); };
-  const parseGift = (giftStr: string | null) => { if (!giftStr) return { cond: 0, text: "" }; if (giftStr.includes(';;;')) { const parts = giftStr.split(';;;'); return { cond: parseInt(parts[0]) || 1, text: parts[1] || "" } } return { cond: 1, text: giftStr } };
-  const cleanName = (name: string) => name ? name.split(' [Lô')[0] : '';
-  const getActualPrice = (p: any) => { let price = (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price; const currentHour = new Date().getHours(); if ((currentHour >= 20 || currentHour < 6) && (p.category === 'Đồ ăn liền' || p.category === 'Bánh Kẹo')) { price = price * 0.8; p.isHappyHour = true } else { p.isHappyHour = false } return Math.round(price) };
-  const getCustomerTier = (totalSpent = 0) => { if (totalSpent >= 500000000) return { name: "💎 KIM CƯƠNG", discountRate: 0.10, color: "#a855f7", bg: "#faf5ff", border: "#e9d5ff" }; if (totalSpent >= 200000000) return { name: "🥇 VÀNG", discountRate: 0.05, color: "#ca8a04", bg: "#fefce8", border: "#fef08a" }; if (totalSpent >= 50000000) return { name: "🥈 BẠC", discountRate: 0.02, color: "#475569", bg: "#f8fafc", border: "#cbd5e1" }; return { name: "🥉 ĐỒNG", discountRate: 0, color: "#b45309", bg: "#fffbeb", border: "#fde68a" } };
-  
   const fetchProducts = async () => { const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false }); if (data) setProducts(data) };
   const findProductByCode = (code: string) => { const rawCode = code.trim(); let matches = products.filter(prod => prod.product_code === rawCode || prod.product_code.startsWith(`${rawCode}-`)); let available = matches.filter(p => p.stock > 0); if (available.length > 0) { available.sort((a, b) => { if (!a.expiry_date) return 1; if (!b.expiry_date) return -1; return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime() }); return available[0] } return matches.length > 0 ? matches[0] : null };
   
@@ -295,7 +311,7 @@ export default function App() {
 
   const todayStrStr = new Date().toLocaleDateString('vi-VN');
   
-  // FIX: LÀM RÕ DÒNG TIỀN (CASHFLOW) CHỐT CA KẾ TOÁN
+  // CHI TIẾT BÁO CÁO KẾ TOÁN (CASHFLOW)
   const currentShiftStats = useMemo(() => { 
     const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStrStr && h.shift === shift); 
     let cashIn = 0, cashOut = 0, transferIn = 0, transferOut = 0, prof = 0, totalSales = 0; 
@@ -312,7 +328,6 @@ export default function App() {
            transferIn += (h.total - (h.split_cash || 0));
         }
       } else if (h.type === 'TRẢ HÀNG') {
-         // Trả hàng mang giá trị âm, dùng Math.abs để chuyển thành dương (khoản chi)
          if (h.paymentMethod === 'CHUYỂN KHOẢN') transferOut += Math.abs(h.total);
          else if (h.paymentMethod === 'TIỀN MẶT') cashOut += Math.abs(h.total);
       }
@@ -372,9 +387,17 @@ export default function App() {
     return filtered
   }, [products, searchTerm, selectedCategory, sortConfig, filters]);
 
+  const handleLogin = (e: React.FormEvent) => { 
+    e.preventDefault(); const u = authUsername.trim().toLowerCase(); const p = authPassword.trim(); 
+    localStorage.setItem("mart_starting_cash", startingCash.toString());
+    if (u === "admin" && p === "khoiphuc88") { setAdminPass("haile88"); localStorage.removeItem("mart_admin_pass"); setStaffPass("123"); localStorage.removeItem("mart_staff_pass"); setAuthPassword(""); alert("✅ MK gốc:\nAdmin: haile88\nNV: 123"); return } 
+    if (u === "admin" && p === adminPass) { setIsLoggedIn(true); setRole("admin"); localStorage.setItem("mart_shift", shift); localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "admin"); logAudit("ĐĂNG NHẬP", "Mở ca", { start_cash: startingCash, role: "admin" }) } 
+    else if (u === "nhanvien" && p === staffPass) { setIsLoggedIn(true); setRole("staff"); localStorage.setItem("mart_shift", shift); localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "staff"); logAudit("ĐĂNG NHẬP", "Mở ca", { start_cash: startingCash, role: "staff" }) } 
+    else { alert("❌ Sai tài khoản!") } 
+  };
+  
   const handleLogoutClick = () => setShowHandoverModal(true);
   
-  // FIX RESET TIỀN CHỐT CA
   const confirmHandover = () => { 
       logAudit("CHỐT CA", `Bàn giao két: ${currentShiftStats.expectedCash.toLocaleString()}đ`, { ...currentShiftStats }); 
       setIsLoggedIn(false); 
@@ -585,17 +608,21 @@ export default function App() {
     }
   };
   
-  // FIX: LẤY ĐƠN GIÁ ĐÚNG ĐỂ IN LẠI HÓA ĐƠN
   const handleReprint = (timeStr: string) => {
      const logsInBill = history.filter(h => h.time === timeStr && h.type === 'BÁN' && h.product_id !== 'DISCOUNT');
      const discountLog = history.find(h => h.time === timeStr && h.product_id === 'DISCOUNT');
      if(logsInBill.length === 0) return alert("Không tìm thấy dữ liệu hóa đơn!");
      
-     const reconstructedCart = logsInBill.map(l => ({
-        qty: l.qty,
-        product: { name: l.name, gift_info: null, isHappyHour: l.name.includes('[Giờ Vàng]') },
-        unitPrice: Math.round((l.total / l.qty) / (1 + VAT_RATE))
-     }));
+     const reconstructedCart = logsInBill.map(l => {
+        // TÍNH TOÁN NGƯỢC LẠI GIÁ GỐC ĐỂ TRÁNH LỖI NaN
+        const unitPriceWithVat = l.total / l.qty;
+        const baseUnitPrice = Math.round(unitPriceWithVat / (1 + VAT_RATE));
+        return {
+           qty: l.qty,
+           product: { name: l.name, gift_info: null, isHappyHour: l.name.includes('[Giờ Vàng]') },
+           unitPrice: baseUnitPrice
+        }
+     });
      
      const subTotal = reconstructedCart.reduce((s, i) => s + (i.qty * i.unitPrice), 0);
      const vatTotal = Math.round(subTotal * VAT_RATE);
@@ -1260,7 +1287,7 @@ export default function App() {
                     <button onClick={() => setCustomerGiven(50000)} style={{ flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid var(--border-glass)", cursor: "pointer", background: "var(--bg-input)", color: "var(--text-main)" }}>50k</button>
                     <button onClick={() => setCustomerGiven(100000)} style={{ flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid var(--border-glass)", cursor: "pointer", background: "var(--bg-input)", color: "var(--text-main)" }}>100k</button>
                     <button onClick={() => setCustomerGiven(200000)} style={{ flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid var(--border-glass)", cursor: "pointer", background: "var(--bg-input)", color: "var(--text-main)" }}>200k</button>
-                    <button onClick={() => setCustomerGiven(500000)} style={{ flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid var(--border-glass)", cursor: "pointer", background: "var(--bg-input)", color: "var(--text-main)" }}>500k</button>
+                    <button onClick={() => setCustomerGiven(50000)} style={{ flex: 1, padding: "5px", fontSize: "11px", borderRadius: "4px", border: "1px solid var(--border-glass)", cursor: "pointer", background: "var(--bg-input)", color: "var(--text-main)" }}>500k</button>
                   </div>
                 </div>
               ) : (
@@ -1389,8 +1416,8 @@ export default function App() {
               <div key={i} className="barcode-sticker">
                 <div style={{ fontSize: "11px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{cleanName(printBarcodeProduct.name)}</div>
                 <img src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(printBarcodeProduct.product_code)}&scale=2&height=10&includetext=false`} onError={(e) => { e.currentTarget.src = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(printBarcodeProduct.product_code)}&code=Code128&translate-esc=on`; }} alt={printBarcodeProduct.product_code} />
-                <div style={{ fontSize: "10px", fontFamily: "monospace", letterSpacing: "1px" }}>{printBarcodeProduct.product_code}</div>
-                <div style={{ fontSize: "14px", fontWeight: "900", marginTop: "2px" }}>{getActualPrice(printBarcodeProduct).toLocaleString()}đ</div>
+                <div style={{ fontSize: "10px", fontFamily: "monospace", letterSpacing: "1px", color: "#333" }}>{printBarcodeProduct.product_code}</div>
+                <div style={{ fontSize: "14px", fontWeight: "900", color: "#000", marginTop: "2px" }}>{getActualPrice(printBarcodeProduct).toLocaleString()}đ</div>
               </div>
             ))}
           </div>
