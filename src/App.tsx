@@ -48,7 +48,7 @@ const styles = `
   }
 `;
 
-// HÀM TIỆN ÍCH HOISTING & BỌC THÉP
+// CÁC HÀM TIỆN ÍCH HOISTING (Chống sập web)
 const safeArray = (arr: any) => Array.isArray(arr) ? arr : [];
 const safeObject = (obj: any) => (obj && typeof obj === 'object' && !Array.isArray(obj)) ? obj : {};
 const parseLocal = (key: string, defaultVal: any) => { try { const s = localStorage.getItem(key); return s && s !== "undefined" ? JSON.parse(s) : defaultVal; } catch(e) { return defaultVal; } };
@@ -166,8 +166,6 @@ function MainApp() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
   const isInitialMount = useRef(true);
-
-  // KẾT THÚC KHAI BÁO STATE ==========================
 
   const logAudit = async (action: string, detail: string, extraData: any = null) => { 
     const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user_name: role === 'admin' ? 'Quản lý' : 'Thu ngân', shift, action, detail, extra_data: extraData ? JSON.stringify(extraData) : null }; 
@@ -464,12 +462,24 @@ function MainApp() {
     return filtered
   }, [products, searchTerm, selectedCategory, sortConfig, filters]);
 
+  const handleLogin = (e: React.FormEvent) => { 
+    e.preventDefault(); const u = authUsername.trim().toLowerCase(); const p = authPassword.trim(); 
+    localStorage.setItem("mart_starting_cash", startingCash.toString());
+    if (u === "admin" && p === "khoiphuc88") { setAdminPass("haile88"); localStorage.removeItem("mart_admin_pass"); setStaffPass("123"); localStorage.removeItem("mart_staff_pass"); setAuthPassword(""); alert("✅ MK gốc:\nAdmin: haile88\nNV: 123"); return } 
+    if (u === "admin" && p === adminPass) { setIsLoggedIn(true); setRole("admin"); localStorage.setItem("mart_shift", shift); localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "admin"); logAudit("ĐĂNG NHẬP", "Mở ca", { start_cash: startingCash, role: "admin" }) } 
+    else if (u === "nhanvien" && p === staffPass) { setIsLoggedIn(true); setRole("staff"); localStorage.setItem("mart_shift", shift); localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "staff"); logAudit("ĐĂNG NHẬP", "Mở ca", { start_cash: startingCash, role: "staff" }) } 
+    else { alert("❌ Sai tài khoản!") } 
+  };
+  
   const handleLogoutClick = () => setShowHandoverModal(true);
   
   const confirmHandover = () => { 
       logAudit("CHỐT CA", `Bàn giao két: ${currentShiftStats.expectedCash.toLocaleString()}đ`, { ...currentShiftStats }); 
-      setIsLoggedIn(false); setShowHandoverModal(false); 
-      localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role"); localStorage.removeItem("mart_starting_cash");
+      setIsLoggedIn(false); 
+      setShowHandoverModal(false); 
+      localStorage.removeItem("mart_logged_in"); 
+      localStorage.removeItem("mart_role");
+      localStorage.removeItem("mart_starting_cash");
       setStartingCash(0);
   };
   
@@ -899,28 +909,6 @@ function MainApp() {
         <div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "800", letterSpacing: "3px", textTransform: "uppercase", marginTop: "4px", whiteSpace: "nowrap" }}>
           {"ERP System".split('').map((c, i) => <span key={i} style={{ display: "inline-block", animation: `wave 1.5s ease-in-out ${(i + 11) * 0.06}s infinite` }}>{c === ' ' ? '\u00A0' : c}</span>)}
         </div>
-      </div>
-    </div>
-  );
-
-  if (!isLoggedIn) return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", position: "relative", overflow: "hidden" }}>
-      <style>{styles}</style>
-      <div className="spring-bg" style={{ background: "#ef4444", top: "-10%", left: "-10%" }}></div>
-      <div className="spring-bg" style={{ background: "#fbbf24", bottom: "-10%", right: "-10%" }}></div>
-      <div className="glass" style={{ padding: "40px", width: "100%", maxWidth: "380px", textAlign: "center", border: "4px solid #ef4444" }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "30px" }}><HeaderLogo /></div>
-        <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-          <select value={shift} onChange={e => setShift(e.target.value)} style={{ padding: "14px", borderRadius: "10px", outline: "none", fontWeight: "bold" }}>
-            <option value="Ca Sáng">🌅 Ca Sáng (06:00 - 14:00)</option>
-            <option value="Ca Chiều">🌇 Ca Chiều (14:00 - 22:00)</option>
-            <option value="Ca Tối">🌙 Ca Tối (22:00 - 06:00)</option>
-          </select>
-          <input type="number" placeholder="Tiền lẻ đầu ca (để thối)..." value={startingCash || ""} onChange={e => setStartingCash(Number(e.target.value))} style={{ padding: "14px", borderRadius: "10px", outline: "none", fontWeight: "bold", color: "#059669" }} />
-          <input placeholder="Tên đăng nhập" value={authUsername} onChange={e => setAuthUsername(e.target.value)} style={{ padding: "14px", borderRadius: "10px", outline: "none" }} />
-          <input type="password" placeholder="Mật khẩu" value={authPassword} onChange={e => setAuthPassword(e.target.value)} style={{ padding: "14px", borderRadius: "10px", outline: "none" }} />
-          <button type="submit" style={{ padding: "14px", background: "#dc2626", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "bold", cursor: "pointer", boxShadow: "0 4px 6px rgba(220,38,38,0.3)" }}>MỞ CỬA BÁN HÀNG 🚀</button>
-        </form>
       </div>
     </div>
   );
@@ -1504,8 +1492,8 @@ function MainApp() {
               <div key={i} className="barcode-sticker">
                 <div style={{ fontSize: "11px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: "100%", textAlign: "center" }}>{cleanName(String(printBarcodeProduct.name || ""))}</div>
                 <img src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(printBarcodeProduct.product_code)}&scale=2&height=10&includetext=false`} onError={(e) => { e.currentTarget.src = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(printBarcodeProduct.product_code)}&code=Code128&translate-esc=on`; }} alt={printBarcodeProduct.product_code} />
-                <div style={{ fontSize: "10px", fontFamily: "monospace", letterSpacing: "1px", color: "#333" }}>{printBarcodeProduct.product_code}</div>
-                <div style={{ fontSize: "14px", fontWeight: "900", color: "#000", marginTop: "2px" }}>{getActualPrice(printBarcodeProduct).toLocaleString()}đ</div>
+                <div style={{ fontSize: "10px", fontFamily: "monospace", letterSpacing: "1px" }}>{printBarcodeProduct.product_code}</div>
+                <div style={{ fontSize: "14px", fontWeight: "900", marginTop: "2px" }}>{getActualPrice(printBarcodeProduct).toLocaleString()}đ</div>
               </div>
             ))}
           </div>
