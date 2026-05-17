@@ -48,7 +48,7 @@ const styles = `
   }
 `;
 
-// HÀM TIỆN ÍCH HOISTING & BỌC THÉP (Chống Crash)
+// HÀM TIỆN ÍCH HOISTING & BỌC THÉP
 const safeArray = (arr: any) => Array.isArray(arr) ? arr : [];
 const safeObject = (obj: any) => (obj && typeof obj === 'object' && !Array.isArray(obj)) ? obj : {};
 const parseLocal = (key: string, defaultVal: any) => { try { const s = localStorage.getItem(key); return s && s !== "undefined" ? JSON.parse(s) : defaultVal; } catch(e) { return defaultVal; } };
@@ -249,7 +249,6 @@ function MainApp() {
   }, [history, customers, heldOrders, auditLogs, expenses, suppliers, isLoggedIn]);
 
   const fetchProducts = async () => { const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false }); if (data) setProducts(data) };
-  const findProductByCode = (code: string) => { const rawCode = String(code || "").trim(); let matches = safeArray(products).filter(prod => String(prod.product_code || "") === rawCode || String(prod.product_code || "").startsWith(`${rawCode}-`)); let available = matches.filter(p => p.stock > 0); if (available.length > 0) { available.sort((a, b) => { if (!a.expiry_date) return 1; if (!b.expiry_date) return -1; return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime() }); return available[0] } return matches.length > 0 ? matches[0] : null };
   
   useEffect(() => { const timer = setInterval(() => setCurrentTime(new Date()), 1000); return () => clearInterval(timer) }, []);
   
@@ -465,24 +464,12 @@ function MainApp() {
     return filtered
   }, [products, searchTerm, selectedCategory, sortConfig, filters]);
 
-  const handleLogin = (e: React.FormEvent) => { 
-    e.preventDefault(); const u = authUsername.trim().toLowerCase(); const p = authPassword.trim(); 
-    localStorage.setItem("mart_starting_cash", startingCash.toString());
-    if (u === "admin" && p === "khoiphuc88") { setAdminPass("haile88"); localStorage.removeItem("mart_admin_pass"); setStaffPass("123"); localStorage.removeItem("mart_staff_pass"); setAuthPassword(""); alert("✅ MK gốc:\nAdmin: haile88\nNV: 123"); return } 
-    if (u === "admin" && p === adminPass) { setIsLoggedIn(true); setRole("admin"); localStorage.setItem("mart_shift", shift); localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "admin"); logAudit("ĐĂNG NHẬP", "Mở ca", { start_cash: startingCash, role: "admin" }) } 
-    else if (u === "nhanvien" && p === staffPass) { setIsLoggedIn(true); setRole("staff"); localStorage.setItem("mart_shift", shift); localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "staff"); logAudit("ĐĂNG NHẬP", "Mở ca", { start_cash: startingCash, role: "staff" }) } 
-    else { alert("❌ Sai tài khoản!") } 
-  };
-  
   const handleLogoutClick = () => setShowHandoverModal(true);
   
   const confirmHandover = () => { 
       logAudit("CHỐT CA", `Bàn giao két: ${currentShiftStats.expectedCash.toLocaleString()}đ`, { ...currentShiftStats }); 
-      setIsLoggedIn(false); 
-      setShowHandoverModal(false); 
-      localStorage.removeItem("mart_logged_in"); 
-      localStorage.removeItem("mart_role");
-      localStorage.removeItem("mart_starting_cash");
+      setIsLoggedIn(false); setShowHandoverModal(false); 
+      localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role"); localStorage.removeItem("mart_starting_cash");
       setStartingCash(0);
   };
   
@@ -1517,8 +1504,8 @@ function MainApp() {
               <div key={i} className="barcode-sticker">
                 <div style={{ fontSize: "11px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: "100%", textAlign: "center" }}>{cleanName(String(printBarcodeProduct.name || ""))}</div>
                 <img src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(printBarcodeProduct.product_code)}&scale=2&height=10&includetext=false`} onError={(e) => { e.currentTarget.src = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(printBarcodeProduct.product_code)}&code=Code128&translate-esc=on`; }} alt={printBarcodeProduct.product_code} />
-                <div style={{ fontSize: "10px", fontFamily: "monospace", letterSpacing: "1px" }}>{printBarcodeProduct.product_code}</div>
-                <div style={{ fontSize: "14px", fontWeight: "900", marginTop: "2px" }}>{getActualPrice(printBarcodeProduct).toLocaleString()}đ</div>
+                <div style={{ fontSize: "10px", fontFamily: "monospace", letterSpacing: "1px", color: "#333" }}>{printBarcodeProduct.product_code}</div>
+                <div style={{ fontSize: "14px", fontWeight: "900", color: "#000", marginTop: "2px" }}>{getActualPrice(printBarcodeProduct).toLocaleString()}đ</div>
               </div>
             ))}
           </div>
@@ -1542,6 +1529,7 @@ function MainApp() {
   );
 }
 
+// BỌC THÉP CHỐNG CRASH CHO TOÀN BỘ ỨNG DỤNG
 class ErrorBoundary extends React.Component<any, any> {
   constructor(props: any) { super(props); this.state = { hasError: false, error: null, info: null }; }
   static getDerivedStateFromError(error: any) { return { hasError: true, error }; }
@@ -1550,12 +1538,12 @@ class ErrorBoundary extends React.Component<any, any> {
     if (this.state.hasError) {
       return (
         <div style={{ padding: "40px", background: "#fef2f2", color: "#b91c1c", minHeight: "100vh", fontFamily: "sans-serif" }}>
-          <h2>LỖI DỮ LIỆU CŨ 🚨</h2>
-          <p>Hệ thống vừa tự chặn một lỗi treo máy do dữ liệu cũ trong máy tính của bạn không tương thích với phiên bản mới.</p>
+          <h2>🚨 LỖI DỮ LIỆU CŨ LÀM TREO MÁY!</h2>
+          <p>Hệ thống tự động chặn một lỗi nghiêm trọng do dữ liệu cũ trong máy của bạn (localStorage) không tương thích với phiên bản mới.</p>
           <pre style={{ background: "#fff", padding: "15px", border: "1px solid #fca5a5", borderRadius: "8px", overflowX: "auto", fontSize: "12px" }}>
             {this.state.error?.toString()}
           </pre>
-          <button onClick={() => { localStorage.clear(); window.location.reload(); }} style={{ padding: "12px 24px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", marginTop: "20px", fontWeight: "bold", fontSize: "16px" }}>BẤM VÀO ĐÂY ĐỂ RESET VÀ VÀO LẠI WEB</button>
+          <button onClick={() => { localStorage.clear(); window.location.reload(); }} style={{ padding: "12px 24px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", marginTop: "20px", fontWeight: "bold", fontSize: "16px" }}>BẤM VÀO ĐÂY ĐỂ DỌN RÁC VÀ VÀO LẠI WEB</button>
         </div>
       );
     }
@@ -1563,4 +1551,11 @@ class ErrorBoundary extends React.Component<any, any> {
   }
 }
 
-export const AppWrapper = () => <ErrorBoundary><MainApp /></ErrorBoundary>;
+// XUẤT RA APP CHUẨN ĐỂ VERCEL KHÔNG BÁO LỖI
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <MainApp />
+    </ErrorBoundary>
+  );
+}
