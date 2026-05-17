@@ -5,14 +5,14 @@ import { supabase } from "./supabaseClient";
 
 const styles = `
   @keyframes wave { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-5px) } }
-  @keyframes logo-glow { 0%, 100% { box-shadow: 0 0 10px rgba(250,204,21,0.2) } 50% { box-shadow: 0 0 20px rgba(250,204,21,0.6) } }
   @keyframes float { 0% { transform: translateY(0) } 50% { transform: translateY(-20px) } 100% { transform: translateY(0) } }
   @keyframes pulse-fast { 0% { opacity: 1 } 50% { opacity: .5 } 100% { opacity: 1 } }
-  body { background-color: #fff7ed; margin: 0; font-family: 'Inter', sans-serif; color: #431407; }
+  @keyframes logo-glow { 0%, 100% { box-shadow: 0 0 10px rgba(250,204,21,0.2) } 50% { box-shadow: 0 0 20px rgba(250,204,21,0.6) } }
   .logo-icon { background-color: #dc2626; padding: 8px; border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(220,38,38,0.2); border: 1px solid rgba(250,204,21,0.5); animation: logo-glow 2s infinite ease-in-out; }
   .text-wave { animation: wave 2.5s ease-in-out infinite; }
   .spring-bg { position: fixed; width: 400px; height: 400px; border-radius: 50%; filter: blur(100px); z-index: -1; opacity: .3; animation: float 10s infinite ease-in-out; }
   .glass { background: rgba(255,255,255,.98); border: 1px solid #fed7aa; border-radius: 12px; box-shadow: 0 4px 15px rgba(251,146,60,.08); }
+  body { background-color: #fff7ed; margin: 0; font-family: 'Inter', sans-serif; color: #431407; }
   .tab-btn { padding: 6px 12px; border-radius: 20px; border: 1px solid #fed7aa; background: #fff; cursor: pointer; font-size: 12px; font-weight: bold; color: #9a3412; white-space: nowrap; }
   .tab-btn.active { background: #ef4444; color: #fff; border-color: #ef4444; }
   .chart-container-scroll { display: flex; align-items: flex-end; height: 120px; margin-top: 15px; padding-top: 10px; border-top: 1px dashed #cbd5e1; overflow-x: auto; padding-bottom: 5px; gap: 4px; }
@@ -25,11 +25,14 @@ const styles = `
   .qty-input { width: 32px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; outline: none; font-size: 13px; font-weight: bold; color: #1e293b; padding: 4px 0; background: #fff; }
   .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .qty-input[type=number] { -moz-appearance: textfield; }
-  .add-to-cart-btn { padding: 8px 16px; background-color: #fbbf24; color: #78350f; border: none; border-radius: 6px; font-weight: 900; cursor: pointer; font-size: 12px; box-shadow: 0 2px 4px rgba(251,191,36,.3); }
+  .add-to-cart-btn { padding: 8px 16px; background-color: #fbbf24; color: #78350f; border: none; border-radius: 6px; font-weight: 900; cursor: pointer; font-size: 12px; transition: transform .1s, background-color .2s; box-shadow: 0 2px 4px rgba(251,191,36,.3); }
+  .add-to-cart-btn:hover { background-color: #f59e0b; transform: scale(1.05); }
+  .add-to-cart-btn:active { transform: scale(.95); }
   .qty-btn { cursor: pointer; border: 1px solid #ccc; background: #fff; width: 24px; height: 24px; border-radius: 4px; display: flex; justify-content: center; align-items: center; font-weight: bold; }
   .input-label { font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; }
   .input-label-red { font-size: 10px; font-weight: bold; color: #ef4444; text-transform: uppercase; }
   .input-label-green { font-size: 10px; font-weight: bold; color: #10b981; text-transform: uppercase; }
+  
   @media print {
     .no-print { display: none !important; }
     body, html { background: #fff !important; margin: 0; padding: 0; width: 100%; display: flex; justify-content: center; }
@@ -47,14 +50,14 @@ export default function App() {
   const EMAILJS_TEMPLATE_VIP_ID = "template_m1j9i7k";
   const EMAILJS_PUBLIC_KEY = "5ric0kxuwNPlUleAv";
 
-  // HÀM ĐỌC DỮ LIỆU CHỐNG SẬP (SELF-HEALING)
+  // Hàm lấy dữ liệu siêu an toàn chống trắng trang
   const safeGetLS = (k: string, d: any) => { 
     try { 
       const v = localStorage.getItem(k); 
       if (!v) return d;
       const parsed = JSON.parse(v);
       if (Array.isArray(d) && !Array.isArray(parsed)) return d;
-      if (typeof d === 'object' && !Array.isArray(d) && (typeof parsed !== 'object' || Array.isArray(parsed))) return d;
+      if (typeof d === 'object' && !Array.isArray(d) && typeof parsed !== 'object') return d;
       return parsed;
     } catch (e) { return d; } 
   };
@@ -91,7 +94,7 @@ export default function App() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showMainMenu, setShowMainMenu] = useState(false);
 
-  // LẤY DỮ LIỆU AN TOÀN TỪ MÁY
+  // LẤY DỮ LIỆU TỪ MÁY
   const [customers, setCustomers] = useState<any>(() => safeGetLS("mart_customers", {}));
   const [heldOrders, setHeldOrders] = useState<any[]>(() => safeGetLS("mart_held_orders", []));
   const [auditLogs, setAuditLogs] = useState<any[]>(() => safeGetLS("mart_audit", []));
@@ -99,6 +102,7 @@ export default function App() {
   const [suppliers, setSuppliers] = useState<any[]>(() => safeGetLS("mart_suppliers", []));
   const [history, setHistory] = useState<any[]>(() => safeGetLS("mart_history", []));
 
+  // Modals
   const [showDebtModal, setShowDebtModal] = useState(false);
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
@@ -147,14 +151,13 @@ export default function App() {
   const [useWallet, setUseWallet] = useState(false);
   const [voucherInput, setVoucherInput] = useState("");
   const [appliedVoucherAmount, setAppliedVoucherAmount] = useState<number>(0);
-  const [customerGiven, setCustomerGiven] = useState<string>("");
+  const [customerGiven, setCustomerGiven] = useState<number | "">("");
   const [lastOrder, setLastOrder] = useState<any>(null);
 
   const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
   const [logSearchTerm, setLogSearchTerm] = useState("");
   const [logTypeFilter, setLogTypeFilter] = useState("Tất cả");
 
-  // ĐỒNG BỘ: CHỈ GỘP VÀO, KHÔNG ĐÈ LÀM MẤT DỮ LIỆU CŨ
   const loadCloudData = async () => {
     try {
       const [rCust, rHist, rExp, rSup, rAud] = await Promise.all([
@@ -164,7 +167,6 @@ export default function App() {
         supabase.from('suppliers').select('*').order('id', { ascending: false }),
         supabase.from('audit_logs').select('*').order('id', { ascending: false }).limit(300)
       ]);
-      
       if (rCust.data && rCust.data.length > 0) {
         setCustomers((prev: any) => { const merged = { ...prev }; rCust.data.forEach((c: any) => merged[c.phone] = c); return merged; });
       }
@@ -180,8 +182,14 @@ export default function App() {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const osc = ctx.createOscillator(); const gain = ctx.createGain();
       osc.connect(gain); gain.connect(ctx.destination);
-      if (type === 'success') { osc.frequency.value = 800; gain.gain.setValueAtTime(0.1, ctx.currentTime); osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.1); } 
-      else { osc.frequency.value = 250; osc.type = 'square'; gain.gain.setValueAtTime(0.1, ctx.currentTime); osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3); }
+      if (type === 'success') {
+        osc.frequency.value = 800; gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.1);
+      } else {
+        osc.frequency.value = 250; osc.type = 'square';
+        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3);
+      }
     } catch (e) { }
   };
 
@@ -194,19 +202,23 @@ export default function App() {
 
   const parseGift = (giftStr: string | null) => {
     if (!giftStr || typeof giftStr !== 'string') return { cond: 0, text: "" };
-    if (giftStr.includes(';;;')) { const parts = giftStr.split(';;;'); return { cond: parseInt(parts[0]) || 1, text: parts[1] || "" }; }
+    if (giftStr.includes(';;;')) {
+      const parts = giftStr.split(';;;');
+      return { cond: parseInt(parts[0]) || 1, text: parts[1] || "" };
+    }
     return { cond: 1, text: giftStr };
   };
 
   const cleanName = (name: string) => (name && typeof name === 'string') ? name.split(' [Lô')[0] : '';
 
-  // ÉP KIỂU SỐ CHỐNG LỖI CỘNG DỒN
+  // KHỬ LỖI 50 TỶ BẰNG NUMBER()
   const getActualPrice = (p: any) => {
     if(!p) return 0;
     let price = (p.promo_price && Number(p.promo_price) > 0) ? Number(p.promo_price) : Number(p.sale_price);
     const currentHour = new Date().getHours();
-    if ((currentHour >= 20 || currentHour < 6) && (p.category === 'Đồ ăn liền' || p.category === 'Bánh Kẹo')) { price = price * 0.8; p.isHappyHour = true; } 
-    else { p.isHappyHour = false; }
+    if ((currentHour >= 20 || currentHour < 6) && (p.category === 'Đồ ăn liền' || p.category === 'Bánh Kẹo')) {
+      price = price * 0.8; p.isHappyHour = true;
+    } else { p.isHappyHour = false; }
     return Math.round(price);
   };
 
@@ -237,7 +249,10 @@ export default function App() {
     return matches.length > 0 ? matches[0] : null;
   };
 
-  useEffect(() => { const timer = setInterval(() => setCurrentTime(new Date()), 1000); return () => clearInterval(timer); }, []);
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem("mart_history", JSON.stringify(history));
@@ -264,7 +279,10 @@ export default function App() {
       const loadScanner = () => {
         if ((window as any).Html5QrcodeScanner) {
           scanner = new (window as any).Html5QrcodeScanner("qr-reader", { fps: 15, qrbox: { width: 250, height: 120 }, rememberLastUsedCamera: true }, false);
-          scanner.render((text: string) => { const now = Date.now(); if (now - lastScanTime < 1500) return; lastScanTime = now; setScannedCodeObj({ code: text, time: now }); }, undefined);
+          scanner.render((text: string) => {
+            const now = Date.now(); if (now - lastScanTime < 1500) return; lastScanTime = now;
+            setScannedCodeObj({ code: text, time: now });
+          }, undefined);
         }
       };
       if (!(window as any).Html5QrcodeScanner) {
@@ -279,7 +297,9 @@ export default function App() {
     const totalStock = products.filter(p => p.product_code === baseCode || p.product_code.startsWith(`${baseCode}-`)).reduce((s, p) => s + Number(p.stock || 0), 0);
     if (totalStock <= 0) { playSound('error'); return alert("Đã hết hàng!"); }
     
-    const price = getActualPrice(p_input); const repName = cleanName(p_input.name);
+    const price = getActualPrice(p_input);
+    const repName = cleanName(p_input.name);
+    
     setCart((prev: any) => {
       const exist = prev.find((item: any) => cleanName(item.product.name) === repName);
       if (exist) {
@@ -302,47 +322,67 @@ export default function App() {
         if (p) handleSelectSuggest(p);
         else {
           const matchedPhone = Object.keys(customers).find(phone => phone === scannedCodeObj.code.trim() || customers[phone].cardCode === scannedCodeObj.code.trim());
-          if (matchedPhone) { playSound('success'); setCustomerInput(customers[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setScanMessage({ text: `✅ KH VIP: ${customers[matchedPhone].name}`, type: 'success' }); } 
-          else { playSound('error'); setScanMessage({ text: `❌ Lỗi mã`, type: 'error' }); }
+          if (matchedPhone) {
+            playSound('success'); setCustomerInput(customers[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setScanMessage({ text: `✅ KH VIP: ${customers[matchedPhone].name}`, type: 'success' });
+          } else { playSound('error'); setScanMessage({ text: `❌ Lỗi mã`, type: 'error' }); }
           setTimeout(() => setScannerMode(null), 1500);
         }
       } else if (scannerMode === 'voucher') {
-        const code = scannedCodeObj.code.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 };
-        if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); setVoucherInput(code); playSound('success'); setScanMessage({ text: `✅ Giảm ${VOUCHERS[code].toLocaleString()}đ`, type: 'success' }); } 
-        else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); setVoucherInput(code); playSound('success'); setScanMessage({ text: `✅ Giảm ${Number(code).toLocaleString()}đ`, type: 'success' }); } 
-        else { playSound('error'); alert("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0); }
+        const code = scannedCodeObj.code.trim().toUpperCase();
+        const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 };
+        if (VOUCHERS[code]) {
+          setAppliedVoucherAmount(VOUCHERS[code]); setVoucherInput(code); playSound('success'); setScanMessage({ text: `✅ Giảm ${VOUCHERS[code].toLocaleString()}đ`, type: 'success' });
+        } else if (!isNaN(Number(code)) && Number(code) > 0) {
+          setAppliedVoucherAmount(Number(code)); setVoucherInput(code); playSound('success'); setScanMessage({ text: `✅ Giảm ${Number(code).toLocaleString()}đ`, type: 'success' });
+        } else { playSound('error'); alert("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0); }
         setTimeout(() => setScannerMode(null), 1000);
       } else if (scannerMode === 'customer') {
         const val = scannedCodeObj.code.trim(); setCustomerInput(val);
         const mp = Object.keys(customers).find(ph => ph === val || customers[ph].cardCode === val);
-        if (mp) { setCustPhone(mp); setCustName(customers[mp].name); playSound('success'); setScanMessage({ text: `✅ VIP: ${customers[mp].name}`, type: 'success' }); } 
-        else { setCustPhone(val); setCustName(""); playSound('success'); setScanMessage({ text: `✅ Khách mới`, type: 'success' }); }
+        if (mp) {
+          setCustPhone(mp); setCustName(customers[mp].name); playSound('success'); setScanMessage({ text: `✅ VIP: ${customers[mp].name}`, type: 'success' });
+        } else {
+          setCustPhone(val); setCustName(""); playSound('success'); setScanMessage({ text: `✅ Khách mới`, type: 'success' });
+        }
         setTimeout(() => setScannerMode(null), 1000);
       }
       setScannedCodeObj(null);
     }
   }, [scannedCodeObj, products, scannerMode]);
 
-  useEffect(() => { const handleAfterPrint = () => setPrintMode(null); window.addEventListener("afterprint", handleAfterPrint); return () => window.removeEventListener("afterprint", handleAfterPrint); }, []);
+  useEffect(() => {
+    const handleAfterPrint = () => setPrintMode(null);
+    window.addEventListener("afterprint", handleAfterPrint);
+    return () => window.removeEventListener("afterprint", handleAfterPrint);
+  }, []);
 
-  // LỌC DỮ LIỆU AN TOÀN TRÁNH TRẮNG TRANG
+  const todayStrStr = new Date().toLocaleDateString('vi-VN');
+
+  // LỌC DỮ LIỆU AN TOÀN CHỐNG MÀN HÌNH TRẮNG KHI DỮ LIỆU RÁC
   const validHistory = useMemo(() => Array.isArray(history) ? history.filter(h => h && typeof h === 'object') : [], [history]);
   const validExpenses = useMemo(() => Array.isArray(expenses) ? expenses.filter(e => e && typeof e === 'object') : [], [expenses]);
-  
-  const todayStrStr = new Date().toLocaleDateString('vi-VN');
+
+  const getLogDStr = (log: any) => { 
+    if(!log) return "";
+    if (log.time) return log.time.split(' ')[1] || log.time.split(' ').pop(); 
+    const d = new Date(Number(log.id)); return isNaN(d.getTime()) ? "" : d.toLocaleDateString('vi-VN'); 
+  };
+  const getLogTStr = (log: any) => { 
+    if(!log) return "";
+    if (log.time) return log.time.split(' ')[0]; 
+    const d = new Date(Number(log.id)); return isNaN(d.getTime()) ? "" : d.toLocaleTimeString('vi-VN'); 
+  };
 
   const currentShiftStats = useMemo(() => {
     let cash = 0; let transfer = 0; let prof = 0; let totalSales = 0;
-    validHistory.forEach(h => {
-      let d = h.time ? h.time.split(' ')[1] || h.time.split(' ').pop() : new Date(Number(h.id)).toLocaleDateString('vi-VN');
-      if (d === todayStrStr && h.shift === shift) {
-        if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += Number(h.total || 0);
-        if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') {
-          if (h.paymentMethod === 'CHUYỂN KHOẢN') transfer += Number(h.total || 0);
-          else if (h.paymentMethod === 'TIỀN MẶT') cash += Number(h.total || 0);
-        }
-        if (h.type !== 'NHẬP') prof += Number(h.profit || 0);
+    const shiftLogs = validHistory.filter(h => getLogDStr(h) === todayStrStr && h.shift === shift);
+    shiftLogs.forEach(h => {
+      if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += Number(h.total || 0);
+      if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') {
+        if (h.paymentMethod === 'CHUYỂN KHOẢN') transfer += Number(h.total || 0);
+        else if (h.paymentMethod === 'TIỀN MẶT') cash += Number(h.total || 0);
       }
+      if(h.type !== 'NHẬP') prof += Number(h.profit || 0);
     });
     return { rev: cash + transfer, cash, transfer, prof, totalSales };
   }, [validHistory, shift, todayStrStr]);
@@ -350,8 +390,7 @@ export default function App() {
   const todayStats = useMemo(() => {
     let totalSales = 0; let prof = 0;
     validHistory.forEach(h => {
-      let d = h.time ? h.time.split(' ')[1] || h.time.split(' ').pop() : new Date(Number(h.id)).toLocaleDateString('vi-VN');
-      if (d === todayStrStr) {
+      if (getLogDStr(h) === todayStrStr) {
         if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += Number(h.total || 0);
         if (h.type !== 'NHẬP') prof += Number(h.profit || 0);
       }
@@ -359,15 +398,11 @@ export default function App() {
     const todayExp = validExpenses.filter(e => e.date === todayStrStr).reduce((sum, e) => sum + Number(e.amount || 0), 0);
     return { totalSales, netProfit: prof - todayExp, expenses: todayExp };
   }, [validHistory, validExpenses, todayStrStr]);
-
   const chartData = useMemo(() => {
     const data = [];
     for (let i = 29; i >= 0; i--) {
       const d = new Date(); d.setDate(d.getDate() - i); const dStr = d.toLocaleDateString('vi-VN');
-      const dayTotal = validHistory.filter(h => {
-        let logD = h.time ? h.time.split(' ')[1] || h.time.split(' ').pop() : new Date(Number(h.id)).toLocaleDateString('vi-VN');
-        return logD === dStr && (h.type === 'BÁN' || h.type === 'GHI NỢ');
-      }).reduce((s, h) => s + Number(h.total || 0), 0);
+      const dayTotal = validHistory.filter(h => getLogDStr(h) === dStr && (h.type === 'BÁN' || h.type === 'GHI NỢ')).reduce((s, h) => s + Number(h.total || 0), 0);
       data.push({ label: `${d.getDate()}/${d.getMonth() + 1}`, total: dayTotal, showLabel: (i % 3 === 0 || i === 0) });
     }
     const maxVal = Math.max(...data.map(d => d.total), 1);
@@ -378,7 +413,8 @@ export default function App() {
     const sales: Record<string, number> = {};
     validHistory.forEach(log => {
       if ((log.type === 'BÁN' || log.type === 'GHI NỢ') && log.product_id !== 'DISCOUNT') {
-        const n = log.name || "Khác"; sales[n] = (sales[n] || 0) + Number(log.qty || 0);
+        const n = log.name || "Khác";
+        sales[n] = (sales[n] || 0) + Number(log.qty || 0);
       }
     });
     return Object.entries(sales).sort((a, b) => b[1] - a[1]).slice(0, 5);
@@ -392,11 +428,11 @@ export default function App() {
       filtered = filtered.filter(log => ((log.name||"").toLowerCase().includes(term)) || ((log.customer||"").toLowerCase().includes(term)));
     }
     return filtered.reduce((groups: any, log: any) => {
-      const date = log.time ? (log.time.split(' ')[1] || log.time.split(' ').pop()) : new Date(Number(log.id)).toLocaleDateString('vi-VN');
-      const t = log.time ? log.time.split(' ')[0] : new Date(Number(log.id)).toLocaleTimeString('vi-VN');
+      const date = getLogDStr(log);
       if (!date) return groups;
       if (!groups[date]) groups[date] = [];
-      groups[date].push({ ...log, t }); return groups;
+      groups[date].push({ ...log, t: getLogTStr(log) });
+      return groups;
     }, {});
   }, [validHistory, logSearchTerm, logTypeFilter]);
 
@@ -420,23 +456,28 @@ export default function App() {
     const todayTime = new Date().getTime();
     let filtered = products.filter(p => (selectedCategory === "Tất cả" || (p.category || "Khác") === selectedCategory))
       .filter(p => (p.name||"").toLowerCase().includes(searchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(searchTerm.toLowerCase())));
+    
     if (filters['name']?.length > 0) filtered = filtered.filter(p => filters['name'].includes(cleanName(p.name)));
     if (filters['stock']?.length > 0) filtered = filtered.filter(p => filters['stock'].includes(p.stock));
     if (filters['import_price']?.length > 0) filtered = filtered.filter(p => filters['import_price'].includes(p.import_price || 0));
     if (filters['sale_price']?.length > 0) filtered = filtered.filter(p => filters['sale_price'].includes(p.sale_price));
     if (filters['expiry_date']?.length > 0) filtered = filtered.filter(p => filters['expiry_date'].includes(p.expiry_date));
+    
     if (sortConfig !== null) {
       filtered.sort((a, b) => {
         let valA = a[sortConfig.key]; let valB = b[sortConfig.key];
         if (sortConfig.key === 'expiry_date') { valA = a.expiry_date ? new Date(a.expiry_date).getTime() : Infinity; valB = b.expiry_date ? new Date(b.expiry_date).getTime() : Infinity; }
-        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1; if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1; return 0;
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
       });
     } else {
       filtered.sort((a, b) => {
         const daysA = a.expiry_date ? (new Date(a.expiry_date).getTime() - todayTime) / 86400000 : Infinity;
         const daysB = b.expiry_date ? (new Date(b.expiry_date).getTime() - todayTime) / 86400000 : Infinity;
         const aIsUrgent = daysA <= 45; const bIsUrgent = daysB <= 45;
-        if (aIsUrgent && !bIsUrgent) return -1; if (!aIsUrgent && bIsUrgent) return 1; if (aIsUrgent && bIsUrgent) return daysA - daysB; return 0;
+        if (aIsUrgent && !bIsUrgent) return -1; if (!aIsUrgent && bIsUrgent) return 1;
+        if (aIsUrgent && bIsUrgent) return daysA - daysB; return 0;
       });
     }
     return filtered;
@@ -445,11 +486,19 @@ export default function App() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault(); const u = authUsername.trim().toLowerCase(); const p = authPassword.trim();
     if (u === "admin" && p === "khoiphuc88") {
-      setAdminPass("haile88"); localStorage.removeItem("mart_admin_pass"); setStaffPass("123"); localStorage.removeItem("mart_staff_pass"); setAuthPassword(""); alert("✅ Cài lại MK gốc:\nAdmin: haile88\nNV: 123"); return;
+      setAdminPass("haile88"); localStorage.removeItem("mart_admin_pass");
+      setStaffPass("123"); localStorage.removeItem("mart_staff_pass");
+      setAuthPassword(""); alert("✅ Cài lại MK gốc:\nAdmin: haile88\nNV: 123"); return;
     }
-    if (u === "admin" && p === adminPass) { setIsLoggedIn(true); setRole("admin"); localStorage.setItem("mart_shift", shift); localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "admin"); logAudit("ĐĂNG NHẬP", "Mở ca"); } 
-    else if (u === "nhanvien" && p === staffPass) { setIsLoggedIn(true); setRole("staff"); localStorage.setItem("mart_shift", shift); localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "staff"); logAudit("ĐĂNG NHẬP", "Mở ca"); } 
-    else { alert("❌ Sai tài khoản!"); }
+    if (u === "admin" && p === adminPass) {
+      setIsLoggedIn(true); setRole("admin"); localStorage.setItem("mart_shift", shift);
+      localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "admin");
+      logAudit("ĐĂNG NHẬP", "Mở ca");
+    } else if (u === "nhanvien" && p === staffPass) {
+      setIsLoggedIn(true); setRole("staff"); localStorage.setItem("mart_shift", shift);
+      localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", "staff");
+      logAudit("ĐĂNG NHẬP", "Mở ca");
+    } else { alert("❌ Sai tài khoản!"); }
   };
 
   const handleLogoutClick = () => setShowHandoverModal(true);
@@ -492,23 +541,45 @@ export default function App() {
     setLoading(true); const targetCustomers = Object.keys(customers).filter(phone => { const c = customers[phone]; if (!c.email) return false; if (marketingTier === "Tất cả") return true; return getCustomerTier(c.totalSpent).name.includes(marketingTier); });
     if (targetCustomers.length === 0) { setLoading(false); return alert("Không có KH!"); }
     let successCount = 0;
-    for (const phone of targetCustomers) { const c = customers[phone]; try { await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { to_email: c.email, order_id: "THÔNG BÁO ƯU ĐÃI", time: new Date().toLocaleString('vi-VN'), items_list: `💌 Lời nhắn từ Hải Lê Mart:\n\n${marketingMsg}`, total_amount: "Quà Tặng", payment_method: "Khách VIP", change_amount: "0đ", barcode_url: "" }); successCount++; } catch (e) { } }
+    for (const phone of targetCustomers) {
+      const c = customers[phone];
+      try { await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { to_email: c.email, order_id: "THÔNG BÁO ƯU ĐÃI", time: new Date().toLocaleString('vi-VN'), items_list: `💌 Lời nhắn từ Hải Lê Mart:\n\n${marketingMsg}`, total_amount: "Quà Tặng", payment_method: "Khách VIP", change_amount: "0đ", barcode_url: "" }); successCount++; } catch (e) { }
+    }
     setLoading(false); setShowMarketingModal(false); alert(`✅ Đã gửi ${successCount} mail!`);
   };
 
   const saveSettings = () => {
     if (!newAdminPass || !newStaffPass || !newBankBin || !newBankAcc || !newBankNameStr) return alert("Điền đủ!");
-    setAdminPass(newAdminPass); localStorage.setItem("mart_admin_pass", newAdminPass); setStaffPass(newStaffPass); localStorage.setItem("mart_staff_pass", newStaffPass); setBankBin(newBankBin); localStorage.setItem("mart_bank_bin", newBankBin); setBankAcc(newBankAcc); localStorage.setItem("mart_bank_acc", newBankAcc); setBankNameStr(newBankNameStr); localStorage.setItem("mart_bank_name", newBankNameStr); logAudit("CÀI ĐẶT", "Cập nhật Cấu hình"); alert("✅ Đã lưu!"); setShowSettings(false);
+    setAdminPass(newAdminPass); localStorage.setItem("mart_admin_pass", newAdminPass);
+    setStaffPass(newStaffPass); localStorage.setItem("mart_staff_pass", newStaffPass);
+    setBankBin(newBankBin); localStorage.setItem("mart_bank_bin", newBankBin);
+    setBankAcc(newBankAcc); localStorage.setItem("mart_bank_acc", newBankAcc);
+    setBankNameStr(newBankNameStr); localStorage.setItem("mart_bank_name", newBankNameStr);
+    logAudit("CÀI ĐẶT", "Cập nhật Cấu hình"); alert("✅ Đã lưu!"); setShowSettings(false);
   };
 
   const handleHoldOrder = async () => {
     if (cart.length === 0) return; const newO = { id: Date.now(), time: new Date().toLocaleTimeString('vi-VN'), cart: [...cart] };
-    setHeldOrders((prev:any) => [...prev, newO]); try{await supabase.from('held_orders').insert([newO]);}catch(e){} logAudit("LƯU TẠM", `Lưu giỏ ${cart.length} món`); setCart([]); setCustPhone(""); setCustName(""); setCustomerInput("");
+    setHeldOrders((prev:any) => [...prev, newO]); try{await supabase.from('held_orders').insert([newO]);}catch(e){}
+    logAudit("LƯU TẠM", `Lưu giỏ ${cart.length} món`); setCart([]); setCustPhone(""); setCustName(""); setCustomerInput("");
   };
-  const restoreOrder = async (order: any) => { if (cart.length > 0) return alert("Thanh toán giỏ hiện tại trước!"); setCart(order.cart); setHeldOrders((prev:any) => prev.filter((o:any) => o.id !== order.id)); try{await supabase.from('held_orders').delete().eq('id', order.id);}catch(e){} setShowHoldModal(false); };
+  const restoreOrder = async (order: any) => {
+    if (cart.length > 0) return alert("Thanh toán giỏ hiện tại trước!"); setCart(order.cart);
+    setHeldOrders((prev:any) => prev.filter((o:any) => o.id !== order.id)); try{await supabase.from('held_orders').delete().eq('id', order.id);}catch(e){} setShowHoldModal(false);
+  };
   const deleteHeldOrder = async (id: any) => { setHeldOrders((prev:any) => prev.filter((o:any) => o.id !== id)); try{await supabase.from('held_orders').delete().eq('id', id);}catch(e){} logAudit("XÓA ĐƠN", `Xóa đơn lưu tạm`); };
 
-  const addToCart = (p_input: any) => { handleSelectSuggest(p_input) };
+  const handleBarcodeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault(); const p = findProductByCode(barcodeInput);
+      if (p) handleSelectSuggest(p);
+      else {
+        const matchedPhone = Object.keys(customers).find(phone => phone === barcodeInput.trim() || customers[phone].cardCode === barcodeInput.trim());
+        if (matchedPhone) { playSound('success'); setCustomerInput(customers[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setBarcodeInput(""); } 
+        else { playSound('error'); alert("Mã sai!"); }
+      }
+    }
+  };
 
   const adjustCartQty = (productId: any, delta: number) => {
     let exceedStock = false;
@@ -549,7 +620,12 @@ export default function App() {
   };
 
   const handleDirectQtyBlur = (productId: any, val: string) => {
-    if (val === '' || parseInt(val) <= 0 || isNaN(parseInt(val))) { setCart((prev:any) => prev.map((i:any) => { if (i.product.id === productId) { const price = getActualPrice(i.product); return { ...i, qty: 1, total: Math.round(1 * price * (1 + VAT_RATE)), profit: Math.round(1 * (price - Number(i.product.import_price || 0))) } } return i; })); }
+    if (val === '' || parseInt(val) <= 0 || isNaN(parseInt(val))) {
+      setCart((prev:any) => prev.map((i:any) => {
+        if (i.product.id === productId) { const price = getActualPrice(i.product); return { ...i, qty: 1, total: Math.round(1 * price * (1 + VAT_RATE)), profit: Math.round(1 * (price - Number(i.product.import_price || 0))) } }
+        return i;
+      }));
+    }
   };
 
   const removeFromCart = (productId: any) => { setCart((prev:any)=>prev.filter((item:any) => item.product.id !== productId)) };
@@ -671,6 +747,112 @@ export default function App() {
     }; reader.readAsText(file); e.target.value = ''
   };
 
+  const handleDelete = async (id: any, name: any) => {
+    if (window.confirm(`Xóa vĩnh viễn ${name}?`)) {
+      await supabase.from("products").delete().eq("id", id);
+      logAudit("XÓA SP", `Xóa: ${name}`);
+      fetchProducts();
+    }
+  };
+
+  const handleEdit = async (id: any, field: string, old: any, isText: boolean = false) => {
+    let label = field;
+    if (field === 'category') label = 'Danh mục';
+    if (field === 'sale_price') label = 'Giá bán';
+    if (field === 'promo_price') label = 'Giá KM';
+    if (field === 'gift_info') label = 'Quà tặng';
+    if (field === 'expiry_date') label = 'HSD';
+    const val = window.prompt(`Sửa ${label}:`, old || "");
+    if (val !== null) {
+      let updateData: any = isText ? val : (parseInt(val) || 0);
+      if (field === 'gift_info' && val.trim() === '') updateData = null;
+      await supabase.from("products").update({ [field]: updateData }).eq("id", id);
+      logAudit("SỬA", `ID ${id}`);
+      fetchProducts();
+    }
+  };
+
+  const handlePrintBarcode = (p: any) => {
+    const q = window.prompt(`SL tem in: ${cleanName(p.name)}`, "30");
+    if (q && parseInt(q) > 0) {
+      setPrintBarcodeProduct(p);
+      setBarcodeCount(parseInt(q));
+      setPrintMode('barcode');
+      setTimeout(() => window.print(), 1500);
+    }
+  };
+
+  const downloadSampleCSV = () => {
+    const csv = "\uFEFFMã SP,Tên SP,Danh Mục,Giá Nhập,Giá Bán,Giá KM,Quà Tặng,Số Lượng,Hạn Sử Dụng (YYYY-MM-DD)\nSP001,Mì Hảo Hảo,Đồ ăn liền,3000,5000,0,,100,2026-12-31";
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Mau_Nhap_Kho.csv`;
+    link.click();
+  };
+
+  const exportToCSV = () => {
+    if (history.length === 0) return alert("Chưa có lịch sử!");
+    let csv = "\uFEFFGiờ,Ca,Loại,Hình thức,Khách,Sản phẩm,SL,Tổng(VAT),Lợi nhuận\n";
+    history.forEach(log => {
+      csv += `${log.time || new Date(Math.floor(log.id)).toLocaleString('vi-VN')},${log.shift || ""},${log.type},${log.paymentMethod || ""},${log.customer || "Khách lẻ"},${log.name},${log.qty},${Math.round(log.total)},${Math.round(log.profit || 0)}\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Bao_Cao.csv`;
+    link.click();
+  };
+
+  const exportAuditToCSV = () => {
+    if (auditLogs.length === 0) return alert("Chưa có nhật ký!");
+    let csv = "\uFEFFThời gian,Người dùng,Ca,Hành động,Chi tiết\n";
+    auditLogs.forEach(log => {
+      csv += `${log.time},${log.user_name},${log.shift},${log.action},"${(log.detail || "").replace(/"/g, '""')}"\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Audit.csv`;
+    link.click();
+  };
+
+  const handleSendEmailReport = () => {
+    const logs = validHistory.filter(log => getLogDStr(log) === todayStrStr);
+    if (logs.length === 0) return alert("Chưa có giao dịch!");
+    let cash = 0, transfer = 0, prof = 0, sold = 0;
+    logs.forEach(l => {
+      if (l.type === 'BÁN') sold += Number(l.qty);
+      if (l.type === 'BÁN' || l.type === 'THU NỢ' || l.type === 'TRẢ HÀNG') {
+        if (l.paymentMethod === 'CHUYỂN KHOẢN') transfer += Number(l.total);
+        else if (l.paymentMethod === 'TIỀN MẶT') cash += Number(l.total);
+      }
+      if (l.type !== 'NHẬP') prof += Number(l.profit || 0);
+    });
+    const sub = encodeURIComponent(`Báo Cáo - ${todayStrStr}`);
+    const body = encodeURIComponent(`Báo cáo TỔNG:\n- Đã bán: ${sold} món\n- TIỀN MẶT: ${Math.round(cash).toLocaleString()}đ\n- CK: ${Math.round(transfer).toLocaleString()}đ\n- Lãi: ${Math.round(prof).toLocaleString()}đ`);
+    window.location.href = `mailto:lehonghaikt6@gmail.com?subject=${sub}&body=${body}`;
+  };
+
+  const requestSort = (key: string) => {
+    if (sortConfig && sortConfig.key === key) {
+      if (sortConfig.direction === 'asc') setSortConfig({ key, direction: 'desc' });
+      else setSortConfig(null);
+    } else {
+      setSortConfig({ key, direction: 'asc' });
+    }
+  };
+
+  const handleFilterCheck = (col: string, val: any) => {
+    setFilters(prev => {
+      const cur = prev[col] || [];
+      if (cur.includes(val)) return { ...prev, [col]: cur.filter(v => v !== val) };
+      return { ...prev, [col]: [...cur, val] };
+    });
+  };
+
+  const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
+
   const renderHeaderIcon = (colKey: string) => { const isFiltered = filters[colKey]?.length > 0; return (<span onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === colKey ? null : colKey) }} style={{ cursor: "pointer", color: isFiltered || sortConfig?.key === colKey ? '#ef4444' : '#94a3b8', fontSize: "10px", padding: "2px", marginLeft: "4px", border: isFiltered ? "1px dashed #ef4444" : "1px solid transparent", borderRadius: "2px" }} title="Lọc">🔽</span>) };
   const renderFilterPopup = (colKey: string, title: string, uniqueValues: any[], formatVal?: (v: any) => string) => { if (openFilter !== colKey) return null; return (<div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: colKey === 'name' ? "0" : "50%", transform: colKey === 'name' ? "none" : "translateX(-50%)", background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px", zIndex: 999, boxShadow: "0 10px 25px rgba(0,0,0,0.2)", minWidth: "160px", textAlign: "left", color: "#1e293b", fontWeight: "normal", fontSize: "12px" }}><div style={{ fontWeight: "bold", color: "#64748b", fontSize: "10px", marginBottom: "6px" }}>LỌC {title}:</div><div style={{ overflowY: "auto", maxHeight: "150px" }}>{uniqueValues.map((v, i) => (<label key={i} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px", cursor: "pointer" }}><input type="checkbox" checked={filters[colKey]?.includes(v) || false} onChange={() => { setFilters((prev:any) => { const cur = prev[colKey] || []; if (cur.includes(v)) return { ...prev, [colKey]: cur.filter((x:any) => x !== v) }; return { ...prev, [colKey]: [...cur, v] } }) }} /><span>{formatVal ? formatVal(v) : v}</span></label>))}</div>{filters[colKey]?.length > 0 && <div style={{ marginTop: "8px", textAlign: "center", cursor: "pointer", color: "#ef4444", fontWeight: "bold", fontSize: "11px" }} onClick={() => setFilters((prev:any) => ({ ...prev, [colKey]: [] }))}>❌ Bỏ lọc</div>}</div>) };
 
@@ -756,9 +938,9 @@ export default function App() {
                     </div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ color: "#475569", fontSize: "10px", marginBottom: "4px" }}>Đã chi tiêu: <b style={{ color: "#0f172a" }}>{Number(c.totalSpent || 0).toLocaleString()}đ</b></div>
-                    <div style={{ color: "#10b981", fontWeight: "bold", fontSize: "12px" }}>Ví: {Number(c.wallet || 0).toLocaleString()}đ</div>
-                    <div style={{ color: "#ef4444", fontWeight: "bold", fontSize: "12px" }}>Nợ: {Number(c.debt || 0).toLocaleString()}đ</div>
+                    <div style={{ color: "#475569", fontSize: "10px", marginBottom: "4px" }}>Đã chi tiêu: <b style={{ color: "#0f172a" }}>{(Number(c.totalSpent) || 0).toLocaleString()}đ</b></div>
+                    <div style={{ color: "#10b981", fontWeight: "bold", fontSize: "12px" }}>Ví: {(Number(c.wallet) || 0).toLocaleString()}đ</div>
+                    <div style={{ color: "#ef4444", fontWeight: "bold", fontSize: "12px" }}>Nợ: {(Number(c.debt) || 0).toLocaleString()}đ</div>
                   </div>
                 </div>
               )
@@ -769,21 +951,22 @@ export default function App() {
 
       {showDebtModal && <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
         <div className="glass" style={{ padding: "25px", width: "400px", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #fed7aa", paddingBottom: "10px" }}>
-            <h2 style={{ margin: 0, color: "#ef4444" }}>📓 SỔ NỢ</h2><button onClick={() => setShowDebtModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #fed7aa", paddingBottom: "10px", marginBottom: "10px" }}>
+            <h2 style={{ margin: 0, color: "#ef4444" }}>📓 SỔ NỢ</h2>
+            <button onClick={() => setShowDebtModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
           </div>
-          <div style={{ overflowY: "auto", flex: 1, marginTop: "10px" }}>
-            {Object.keys(customers).filter(ph => Number(customers[ph].debt || 0) > 0).map(ph => (
-              <div key={ph} style={{ padding: "10px", borderBottom: "1px dashed #cbd5e1", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ overflowY: "auto", flex: 1 }}>
+            {Object.keys(customers).filter(p => Number(customers[p].debt || 0) > 0).map(phone => (
+              <div key={phone} style={{ padding: "10px", borderBottom: "1px dashed #cbd5e1", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <div style={{ fontWeight: "bold", color: "#1e293b" }}>{customers[ph].name}</div>
-                  <div style={{ fontSize: "11px", color: "#64748b" }}>{ph}</div>
-                  <div style={{ color: "#ef4444", fontWeight: "bold" }}>Nợ: {Number(customers[ph].debt || 0).toLocaleString()}đ</div>
+                  <div style={{ fontWeight: "bold", color: "#1e293b" }}>{customers[phone].name}</div>
+                  <div style={{ fontSize: "11px", color: "#64748b" }}>{phone}</div>
+                  <div style={{ color: "#ef4444", fontWeight: "bold" }}>Nợ: {Number(customers[phone].debt || 0).toLocaleString()}đ</div>
                 </div>
-                <button onClick={() => handlePayDebt(ph)} style={{ padding: "6px 12px", background: "#10b981", color: "#fff", borderRadius: "6px", fontSize: "11px", border: "none", cursor: "pointer" }}>THU TIỀN</button>
+                <button onClick={() => handlePayDebt(phone)} style={{ padding: "6px 12px", background: "#10b981", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "11px" }}>THU TIỀN</button>
               </div>
             ))}
-            {Object.keys(customers).filter(ph => Number(customers[ph].debt || 0) > 0).length === 0 && <div style={{ textAlign: "center", color: "#94a3b8", marginTop: "20px" }}>Không có nợ.</div>}
+            {Object.keys(customers).filter(p => Number(customers[p].debt || 0) > 0).length === 0 && <div style={{ textAlign: "center", color: "#94a3b8", marginTop: "20px" }}>Không có nợ.</div>}
           </div>
         </div>
       </div>}
@@ -840,6 +1023,64 @@ export default function App() {
         </div>
       </div>}
 
+      {showExpenseModal && <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+        <div className="glass" style={{ padding: "25px", width: "450px", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #cbd5e1", paddingBottom: "10px", marginBottom: "15px" }}>
+            <h2 style={{ margin: 0, color: "#ea580c" }}>💸 QUẢN LÝ CHI PHÍ</h2>
+            <button onClick={() => setShowExpenseModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
+          </div>
+          <div style={{ display: "flex", gap: "10px", marginBottom: "15px" }}>
+            <input placeholder="Tên (Điện, nước...)" value={expName} onChange={e => setExpName(e.target.value)} style={{ flex: 2, padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+            <input placeholder="Số tiền..." type="number" value={expAmount} onChange={e => setExpAmount(e.target.value)} style={{ flex: 1, padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+            <button onClick={addExpense} style={{ padding: "8px 15px", background: "#10b981", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>+</button>
+          </div>
+          <div style={{ overflowY: "auto", flex: 1 }}>
+            {expenses.map(e => <div key={e.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px", borderBottom: "1px dashed #cbd5e1" }}>
+              <div><b style={{ color: "#1e293b" }}>{e.name}</b> <span style={{ fontSize: "10px", color: "#64748b" }}>({e.date})</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}><b style={{ color: "#ef4444" }}>-{Number(e.amount || 0).toLocaleString()}đ</b> <button onClick={() => deleteExpense(e.id)} style={{ border: "none", background: "none", color: "#ef4444", cursor: "pointer" }}>🗑️</button></div>
+            </div>)}
+          </div>
+        </div>
+      </div>}
+
+      {showSupplierModal && <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+        <div className="glass" style={{ padding: "25px", width: "500px", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #cbd5e1", paddingBottom: "10px", marginBottom: "15px" }}>
+            <h2 style={{ margin: 0, color: "#3b82f6" }}>🏭 NHÀ CUNG CẤP</h2>
+            <button onClick={() => setShowSupplierModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
+          </div>
+          <div style={{ display: "flex", gap: "10px", marginBottom: "15px", flexWrap: "wrap" }}>
+            <input placeholder="Tên Cty/Sale..." value={supName} onChange={e => setSupName(e.target.value)} style={{ flex: 1, padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+            <input placeholder="SĐT..." value={supPhone} onChange={e => setSupPhone(e.target.value)} style={{ flex: 1, padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+            <input placeholder="Mặt hàng..." value={supItem} onChange={e => setSupItem(e.target.value)} style={{ flex: "1 1 100%", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+            <button onClick={addSupplier} style={{ width: "100%", padding: "10px", background: "#3b82f6", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>LƯU THÔNG TIN</button>
+          </div>
+          <div style={{ overflowY: "auto", flex: 1 }}>
+            {suppliers.map(s => <div key={s.id} style={{ padding: "10px", borderBottom: "1px dashed #cbd5e1", background: "#f8fafc", borderRadius: "8px", marginBottom: "8px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold", color: "#1e293b", fontSize: "14px" }}><span>{s.name}</span> <span style={{ color: "#3b82f6" }}>📞 {s.phone}</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "4px" }}><span style={{ fontSize: "12px", color: "#64748b" }}>📦 {s.item}</span> <button onClick={() => deleteSupplier(s.id)} style={{ border: "none", background: "none", color: "#ef4444", cursor: "pointer" }}>🗑️ Xóa</button></div>
+            </div>)}
+          </div>
+        </div>
+      </div>}
+
+      {showMarketingModal && <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+        <div className="glass" style={{ padding: "25px", width: "450px" }} onClick={e => e.stopPropagation()}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #cbd5e1", paddingBottom: "10px", marginBottom: "15px" }}>
+            <h2 style={{ margin: 0, color: "#8b5cf6" }}>📢 GỬI EMAIL MARKETING</h2>
+            <button onClick={() => setShowMarketingModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>✖</button>
+          </div>
+          <div style={{ background: "#fef2f2", padding: "10px", borderRadius: "8px", fontSize: "11px", color: "#b91c1c", marginBottom: "15px", border: "1px dashed #ef4444" }}><b>⚠️ Cảnh báo:</b> Giới hạn 200 mail/tháng. Chỉ nên dùng cho tệp Kim Cương/Vàng.</div>
+          <label style={{ fontSize: "12px", fontWeight: "bold", color: "#475569" }}>Nhóm KH:</label>
+          <select value={marketingTier} onChange={e => setMarketingTier(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", marginTop: "5px", marginBottom: "15px" }}>
+            <option value="Tất cả">Tất cả KH</option><option value="KIM CƯƠNG">Kim Cương</option><option value="VÀNG">Vàng</option><option value="BẠC">Bạc</option>
+          </select>
+          <label style={{ fontSize: "12px", fontWeight: "bold", color: "#475569" }}>Nội dung:</label>
+          <textarea value={marketingMsg} onChange={e => setMarketingMsg(e.target.value)} rows={5} placeholder="Ví dụ: Giảm giá..." style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", marginTop: "5px", marginBottom: "20px", boxSizing: "border-box", fontFamily: "inherit" }}></textarea>
+          <button onClick={sendMarketingEmails} disabled={loading} style={{ width: "100%", padding: "12px", background: "#8b5cf6", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" }}>{loading ? "Đang gửi..." : "🚀 GỬI CHIẾN DỊCH"}</button>
+        </div>
+      </div>}
+
       {scannerMode !== null && <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.9)", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", zIndex: 10000 }}>
         <div style={{ background: "#fff", padding: "10px", borderRadius: "12px", width: "90%", maxWidth: "400px", position: "relative" }} onClick={e => e.stopPropagation()}>
           <h3 style={{ margin: "0 0 10px 0", textAlign: "center", color: "#b91c1c" }}>{scannerMode === 'voucher' ? '📷 Quét mã Voucher' : (scannerMode === 'customer' ? '📷 Quét Thẻ VIP' : '📷 Đưa mã vạch vào khung')}</h3>
@@ -883,8 +1124,6 @@ export default function App() {
           <div style={{ color: "#ef4444", fontSize: "28px", fontWeight: "900", margin: "10px 0" }}>{finalToPay.toLocaleString()}đ</div>
           <div style={{ position: "relative" }}>
             <img src={`https://img.vietqr.io/image/${bankBin}-${bankAcc}-compact2.png?amount=${finalToPay}&addInfo=Thanh toan&accountName=${encodeURIComponent(bankNameStr)}`} style={{ width: "160px", margin: "0 auto 10px auto", border: "2px solid #ef4444", borderRadius: "10px", display: "block" }} alt="QR" />
-            <div style={{ animation: "pulse-fast 1.5s infinite", color: "#b45309", fontSize: "11px", fontWeight: "bold", marginBottom: "5px" }}>⏳ Đang chờ tiền...</div>
-            <div style={{ background: "#fef2f2", color: "#b91c1c", fontSize: "10px", padding: "6px", borderRadius: "4px", border: "1px dashed #ef4444", marginBottom: "15px", textAlign: "left", lineHeight: "1.4" }}><b>⚠️ CHÚ Ý:</b> KHÔNG NHÌN MÀN HÌNH KHÁCH. CHỈ BẤM <b>[CHUYỂN KHOẢN]</b> KHI APP NGÂN HÀNG BÁO CÓ TIỀN!</div>
           </div>
           <div style={{ marginBottom: "15px", textAlign: "left", borderTop: "1px dashed #cbd5e1", paddingTop: "10px" }}>
             <div style={{ fontSize: "12px", color: "#64748b", fontWeight: "bold", marginBottom: "5px" }}>Tiền mặt khách đưa:</div>
@@ -907,13 +1146,13 @@ export default function App() {
           <div style={{ fontSize: "40px" }}>🌸</div>
           <h3 style={{ color: "#10b981", margin: "10px 0" }}>Thành công!</h3>
           <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
-            <button onClick={() => { setPrintMode('receipt'); setTimeout(() => window.print(), 300) }} style={{ flex: 1, padding: "12px", background: "#ef4444", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer", fontSize: "12px" }}>🖨️ In HĐ</button>
-            <button onClick={closeCheckout} style={{ flex: 1, padding: "12px", background: "#e2e8f0", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer", fontSize: "12px", color: "#1e293b" }}>Đóng</button>
+            <button onClick={() => { setPrintMode('receipt'); setTimeout(() => window.print(), 300) }} style={{ flex: 1, padding: "12px", background: "#ef4444", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>🖨️ In HĐ</button>
+            <button onClick={() => { setCart([]); setIsCheckoutOpen(false); setCheckoutStep(1); setCustPhone(""); setCustName(""); setCustomerInput(""); setUseWallet(false); setAppliedVoucherAmount(0); setCustomerGiven(""); setLastOrder(null) }} style={{ flex: 1, padding: "12px", background: "#e2e8f0", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer", color: "#1e293b" }}>Đóng</button>
           </div>
         </div>}
       </div>}
 
-      {/* 🖨️ HÓA ĐƠN IN: KHÓA CHUẨN 80MM GIỮA TRANG */}
+      {/* 🖨️ HÓA ĐƠN IN */}
       {lastOrder && printMode === 'receipt' && <div className="print-only">
         <div className="print-receipt-container">
           <div style={{ textAlign: "center", marginBottom: "8px" }}>
@@ -1004,8 +1243,8 @@ export default function App() {
                           <div onClick={() => { setShowMainMenu(false); setShowDebtModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "10px", color: "#b91c1c" }}><span style={{ fontSize: "16px" }}>📓</span> Sổ Nợ Khách Hàng</div>
                           {role === 'admin' && <div onClick={() => { setShowMainMenu(false); setShowAuditModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px dashed #cbd5e1", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "16px" }}>🕵️</span> Lịch Sử Thao Tác</div>}
                           {role === 'admin' && (<>
-                              <div onClick={() => { setShowMainMenu(false); setShowExpenseModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "16px" }}>💸</span> Nhập Chi Phí (Điện/Nước)</div>
-                              <div onClick={() => { setShowMainMenu(false); setShowSupplierModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "16px" }}>🏭</span> Danh Sách Nhà Cung Cấp</div>
+                              <div onClick={() => { setShowMainMenu(false); setShowExpenseModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "16px" }}>💸</span> Nhập Chi Phí</div>
+                              <div onClick={() => { setShowMainMenu(false); setShowSupplierModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "16px" }}>🏭</span> Nhà Cung Cấp</div>
                               <div onClick={() => { setShowMainMenu(false); setShowMarketingModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px dashed #cbd5e1", color: "#8b5cf6", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "16px" }}>📢</span> Gửi Email Marketing</div>
                               <div onClick={() => { setShowMainMenu(false); setNewAdminPass(adminPass); setNewStaffPass(staffPass); setNewBankBin(bankBin); setNewBankAcc(bankAcc); setNewBankNameStr(bankNameStr); setShowSettings(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", color: "#475569", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "16px" }}>⚙️</span> Cài Đặt Hệ Thống</div>
                           </>)}
@@ -1085,8 +1324,8 @@ export default function App() {
                           <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "14px", color: isOutOfStock ? "#94a3b8" : (isLowStock ? "#ef4444" : "#1e293b") }}>{p.stock} {isLowStock && <span title="Sắp hết hàng" style={{ fontSize: "10px" }}>📉</span>}</td>
                           {role === 'admin' && <td style={{ textAlign: "center", color: "#64748b", fontSize: "12px" }}>{Number(p.import_price || 0).toLocaleString()}</td>}
                           <td style={{ textAlign: "center" }}>
-                            <div style={{ color: isP ? "#94a3b8" : "#16a34a", textDecoration: isP ? "line-through" : "none", fontSize: isP ? "11px" : "14px", fontWeight: "bold", cursor: role === 'admin' ? "pointer" : "default" }} onClick={() => role === 'admin' && handleEdit(p.id, 'sale_price', p.sale_price)}>{Number(p.sale_price).toLocaleString()}đ</div>
-                            {isP && <div style={{ color: "#ef4444", fontWeight: "900", fontSize: "14px", cursor: role === 'admin' ? "pointer" : "default" }} onClick={() => role === 'admin' && handleEdit(p.id, 'promo_price', p.promo_price)}>🔥 {Number(p.promo_price).toLocaleString()}đ</div> : (role === 'admin' && <div style={{ fontSize: "9px", color: "#cbd5e1", cursor: "pointer", marginTop: "2px" }} onClick={() => handleEdit(p.id, 'promo_price', 0)}>🏷️ +Thêm KM</div>)}
+                            <div style={{ color: isP ? "#94a3b8" : "#16a34a", textDecoration: isP ? "line-through" : "none", fontWeight: "bold", fontSize: isP ? "11px" : "14px", cursor: role === 'admin' ? "pointer" : "default" }} onClick={() => role === 'admin' && handleEdit(p.id, 'sale_price', p.sale_price)}>{Number(p.sale_price).toLocaleString()}đ</div>
+                            {isP ? <div style={{ color: "#ef4444", fontWeight: "900", fontSize: "14px", cursor: role === 'admin' ? "pointer" : "default" }} onClick={() => role === 'admin' && handleEdit(p.id, 'promo_price', p.promo_price)}>🔥 {Number(p.promo_price).toLocaleString()}đ</div> : (role === 'admin' && <div style={{ fontSize: "9px", color: "#cbd5e1", cursor: "pointer", marginTop: "2px" }} onClick={() => handleEdit(p.id, 'promo_price', 0)}>🏷️ +Thêm KM</div>)}
                           </td>
                           <td style={{ textAlign: "center", fontSize: "11px" }}>
                             <div style={{ color: isNearExpiry ? "#ef4444" : "#b91c1c", fontWeight: "bold", cursor: role === 'admin' ? "pointer" : "default" }} onClick={() => role === 'admin' && handleEdit(p.id, 'expiry_date', p.expiry_date, true)}>{isOutOfStock ? "---" : (p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : "---")}</div>
@@ -1135,7 +1374,7 @@ export default function App() {
                           <span style={{ fontWeight: "bold", color: "#1e293b", flex: 1, fontSize: "13px" }}>{cleanName(item.product.name)} {item.product.isHappyHour && <span style={{ color: "#ea580c", fontSize: "10px" }}>[Giờ Vàng]</span>}</span>
                           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                             <button className="qty-btn" onClick={() => adjustCartQty(item.product.id, -1)}>-</button>
-                            <input className="qty-input" style={{ fontSize: "13px", padding: "4px 0", width: "32px" }} type="number" value={item.qty} onChange={e => handleDirectQtyChange(item.product.id, e.target.value)} onBlur={e => handleDirectQtyBlur(item.product.id, e.target.value)} onFocus={e => e.target.select()} title="Bấm để nhập số lượng" />
+                            <input className="qty-input" type="number" value={item.qty} onChange={e => handleDirectQtyChange(item.product.id, e.target.value)} onBlur={e => handleDirectQtyBlur(item.product.id, e.target.value)} onFocus={e => e.target.select()} title="Bấm để nhập số lượng" />
                             <button className="qty-btn" onClick={() => adjustCartQty(item.product.id, 1)}>+</button>
                             <button onClick={() => removeFromCart(item.product.id)} style={{ border: "none", background: "none", color: "#ef4444", cursor: "pointer", fontSize: "18px", marginLeft: "4px", fontWeight: "bold" }}>×</button>
                           </div>
@@ -1149,7 +1388,6 @@ export default function App() {
                   })}
                 </div>
               </div>
-
               <div className="glass" style={{ padding: "15px", height: "35vh", display: "flex", flexDirection: "column" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
                   <div style={{ display: "flex", gap: "8px", flex: 1 }}>
