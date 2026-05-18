@@ -41,13 +41,8 @@ const styles = `
   .add-to-cart-btn{padding:8px 16px;background-color:#fbbf24;color:#78350f;border:none;border-radius:6px;font-weight:900;cursor:pointer;font-size:12px;transition:transform .1s,background-color .2s;box-shadow:0 2px 4px rgba(251,191,36,.3)}
   .add-to-cart-btn:hover{background-color:#f59e0b;transform:scale(1.05)}
   .add-to-cart-btn:active{transform:scale(.95)}
-  
-  :root {
-    --bg-main: #fff7ed; --bg-glass: rgba(255,255,255,0.98); --border-glass: #fed7aa; --text-main: #431407; --text-muted: #64748b; --bg-input: #fff;
-  }
-  [data-theme='dark'] {
-    --bg-main: #0f172a; --bg-glass: #1e293b; --border-glass: #334155; --text-main: #f8fafc; --text-muted: #94a3b8; --bg-input: #334155;
-  }
+  :root { --bg-main: #fff7ed; --bg-glass: rgba(255,255,255,0.98); --border-glass: #fed7aa; --text-main: #431407; --text-muted: #64748b; --bg-input: #fff; }
+  [data-theme='dark'] { --bg-main: #0f172a; --bg-glass: #1e293b; --border-glass: #334155; --text-main: #f8fafc; --text-muted: #94a3b8; --bg-input: #334155; }
 `;
 
 export default function App() {
@@ -64,7 +59,6 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState("");
   const [currentTime, setCurrentTime] = useState(new Date());
   
-  // Ép cứng giá trị mặc định là 5.000.000 VNĐ nếu bộ nhớ tạm localStorage trống hoặc chưa đúng dữ liệu
   const [startingCash, setStartingCash] = useState<number>(() => {
     const cached = localStorage.getItem("mart_starting_cash");
     return (cached && cached !== "0") ? Number(cached) : 5000000;
@@ -106,6 +100,7 @@ export default function App() {
   const [showInventoryModal, setShowInventoryModal] = useState(false);
   const [actualStockInput, setActualStockInput] = useState<Record<string, number>>({});
   const [inventorySearchTerm, setInventorySearchTerm] = useState("");
+  const [invFilter, setInvFilter] = useState('ALL');
   
   const [reportStartDate, setReportStartDate] = useState(() => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0]; });
   const [reportEndDate, setReportEndDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -171,7 +166,7 @@ export default function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isLoggedIn || isCheckoutOpen || showAuditModal || showCustomerModal || showSettings || showInputForm || showInventoryModal) return;
+      if (!isLoggedIn || isCheckoutOpen || showAuditModal || showCustomerModal || showSettings || showInputForm || showInventoryModal || cashFlowModalInfo) return;
       if (e.key === 'F1') { e.preventDefault(); document.getElementById('search-barcode')?.focus(); }
       if (e.key === 'F2') { e.preventDefault(); if (cart.length > 0) confirmCheckout('TIỀN MẶT'); }
       if (e.key === 'F3') { e.preventDefault(); if (cart.length > 0) confirmCheckout('CHUYỂN KHOẢN'); }
@@ -179,7 +174,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isLoggedIn, isCheckoutOpen, cart, showAuditModal, showCustomerModal, showSettings, showInputForm, showInventoryModal]);
+  }, [isLoggedIn, isCheckoutOpen, cart, showAuditModal, showCustomerModal, showSettings, showInputForm, showInventoryModal, cashFlowModalInfo]);
 
   useEffect(() => {
     const handleOnline = () => { setIsOnline(true); syncAllOfflineData(); };
@@ -198,8 +193,7 @@ export default function App() {
       if (formattedData.length === 0) { setSyncStatus('synced'); return true; }
       const { error } = await supabase.from(tableName).upsert(formattedData, { onConflict: tableName === 'customers' ? 'phone' : 'id' });
       if (error) throw error;
-      setSyncStatus('synced');
-      return true;
+      setSyncStatus('synced'); return true;
     } catch (err) { setSyncStatus('error'); return false; }
   };
 
@@ -217,7 +211,6 @@ export default function App() {
         supabase.from('expenses').select('*').order('id', { ascending: false }), supabase.from('suppliers').select('*').order('id', { ascending: false }),
         supabase.from('audit_logs').select('*').order('id', { ascending: false }).limit(300), supabase.from('held_orders').select('*')
       ]);
-
       if (rCust.data && rCust.data.length > 0) { setCustomers((prev: any) => { const updated = { ...prev }; rCust.data.forEach((c: any) => { updated[c.phone] = { ...updated[c.phone], ...c }; }); return updated; }); }
       if (rHist.data) { setHistory(prev => { const cloudIds = new Set(rHist.data.map(h => h.id)); const localOnly = prev.filter(h => !cloudIds.has(h.id)); return [...localOnly, ...rHist.data].sort((a, b) => b.id - a.id); }); }
       if (rExp.data) { setExpenses(prev => { const cloudIds = new Set(rExp.data.map(e => e.id)); const localOnly = prev.filter(e => !cloudIds.has(e.id)); return [...localOnly, ...rExp.data].sort((a, b) => b.id - a.id); }); }
@@ -335,7 +328,6 @@ export default function App() {
     const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStrStr && h.shift === shift);
     const thu: any[] = [];
     const chi: any[] = [];
-
     shiftLogs.forEach(h => {
       if (h.paymentMethod === cashFlowModalInfo || h.paymentMethod === 'KẾT HỢP') {
         let amount = h.total;
@@ -350,7 +342,6 @@ export default function App() {
         }
       }
     });
-
     if (cashFlowModalInfo === 'TIỀN MẶT') {
       if (startingCash > 0) thu.unshift({ time: "Đầu ca", note: "Tiền lẻ đầu ca", amount: startingCash });
       const shiftExpenses = expenses.filter(e => e.date === todayStrStr);
@@ -362,12 +353,9 @@ export default function App() {
   const filteredStats = useMemo(() => { 
     const start = new Date(reportStartDate + "T00:00:00").getTime();
     const end = new Date(reportEndDate + "T23:59:59").getTime();
-    
     const filteredHistory = history.filter(h => {
-      const logTime = new Date(Math.floor(h.id)).getTime();
-      return logTime >= start && logTime <= end;
+      const logTime = new Date(Math.floor(h.id)).getTime(); return logTime >= start && logTime <= end;
     });
-
     let cash = 0; let transfer = 0; let prof = 0; let totalSales = 0; 
     filteredHistory.forEach(h => { 
       if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += h.total; 
@@ -380,14 +368,11 @@ export default function App() {
       } 
       prof += (h.profit || 0) 
     }); 
-    
     const filteredExp = expenses.filter(e => {
-      const parts = e.date.split('/');
-      if(parts.length !== 3) return false;
+      const parts = e.date.split('/'); if(parts.length !== 3) return false;
       const expTime = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`).getTime();
       return expTime >= start && expTime <= end;
     }).reduce((sum, e) => sum + e.amount, 0); 
-    
     return { rev: cash + transfer, cash, transfer, prof, totalSales, expenses: filteredExp, netProfit: prof - filteredExp } 
   }, [history, expenses, reportStartDate, reportEndDate]);
 
@@ -441,42 +426,17 @@ export default function App() {
     e.preventDefault(); 
     let u = authUsername.trim().toLowerCase(); 
     const p = authPassword.trim(); 
-    
-    if (!u.includes('@')) {
-      u = u + '@hailemart.com';
-    }
-
+    if (!u.includes('@')) { u = u + '@hailemart.com'; }
     localStorage.setItem("mart_starting_cash", startingCash.toString());
-
     setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: u, 
-      password: p,
-    });
-
-    if (error) {
-      alert(`❌ Đăng nhập thất bại: Kiểm tra lại tài khoản hoặc mật khẩu.\nChi tiết lỗi: ${error.message}`);
-      setLoading(false);
-      return;
-    }
-
+    const { data, error } = await supabase.auth.signInWithPassword({ email: u, password: p });
+    if (error) { alert(`❌ Đăng nhập thất bại: Kiểm tra lại tài khoản hoặc mật khẩu.\nChi tiết lỗi: ${error.message}`); setLoading(false); return; }
     const userRole = u.includes('admin') ? 'admin' : 'staff';
-
-    setIsLoggedIn(true);
-    setRole(userRole);
-    localStorage.setItem("mart_shift", shift);
-    localStorage.setItem("mart_logged_in", "true");
-    localStorage.setItem("mart_role", userRole);
-    logAudit("ĐĂNG NHẬP", "Mở ca", { start_cash: startingCash, role: userRole });
-    setLoading(false);
+    setIsLoggedIn(true); setRole(userRole); localStorage.setItem("mart_shift", shift); localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", userRole); logAudit("ĐĂNG NHẬP", "Mở ca", { start_cash: startingCash, role: userRole }); setLoading(false);
   };
   
   const handleLogoutClick = () => setShowHandoverModal(true);
-  const confirmHandover = async () => { 
-    logAudit("CHỐT CA", `Bàn giao: ${currentShiftStats.rev.toLocaleString()}đ`, { ...currentShiftStats }); 
-    await supabase.auth.signOut();
-    setIsLoggedIn(false); setShowHandoverModal(false); localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role") 
-  };
+  const confirmHandover = async () => { logAudit("CHỐT CA", `Bàn giao: ${currentShiftStats.rev.toLocaleString()}đ`, { ...currentShiftStats }); await supabase.auth.signOut(); setIsLoggedIn(false); setShowHandoverModal(false); localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role") };
   const handleEditPhone = async (oldPhone: string) => { const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customers[newPhone]) return alert("❌ SĐT đã tồn tại!"); const cData = customers[oldPhone]; const newC = { ...cData, phone: newPhone }; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = newC; delete updated[oldPhone]; return updated }); setHistory((prev: any) => prev.map((h: any) => { if (h.customer && h.customer.includes(oldPhone)) { return { ...h, customer: h.customer.replace(oldPhone, newPhone) } } return h })); logAudit("SỬA SĐT KH", `Đổi ${oldPhone} -> ${newPhone}`); alert("✅ Cập nhật thành công! (Sẽ tự động đồng bộ lên Cloud)"); } };
   const addSupplier = async () => { if (!supName || !supPhone) return alert("Nhập đủ Tên/SĐT"); const newS = { id: Date.now(), name: supName, phone: supPhone, item: supItem }; setSuppliers(prev => [newS, ...prev]); setSupName(""); setSupPhone(""); setSupItem(""); logAudit("THÊM NCC", `${supName} - ${supPhone}`); alert("✅ Thêm NCC thành công!"); };
   const deleteSupplier = async (id: any) => { setSuppliers(prev => prev.filter(s => s.id !== id)); if (navigator.onLine) await supabase.from('suppliers').delete().eq('id', id); };
@@ -487,32 +447,17 @@ export default function App() {
     if (!marketingMsg) return alert("Nhập nội dung!");
     if (!window.confirm("Giới hạn 200 mail/tháng. Gửi?")) return;
     setLoading(true);
-    const targetCustomers = Object.keys(customers).filter(phone => {
-      const c = customers[phone];
-      if (!c.email) return false;
-      if (marketingTier === "Tất cả") return true;
-      return getCustomerTier(c.totalSpent).name.includes(marketingTier)
-    });
+    const targetCustomers = Object.keys(customers).filter(phone => { const c = customers[phone]; if (!c.email) return false; if (marketingTier === "Tất cả") return true; return getCustomerTier(c.totalSpent).name.includes(marketingTier) });
     if (targetCustomers.length === 0) { setLoading(false); return alert("Không có KH!"); }
     let successCount = 0;
     for (const phone of targetCustomers) {
       const c = customers[phone];
-      try {
-        await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { to_email: c.email, order_id: "THÔNG BÁO ƯU ĐÃI", time: new Date().toLocaleString('vi-VN'), items_list: `💌 Lời nhắn từ Hải Lê Mart:\n\n${marketingMsg}`, total_amount: "Quà Tặng", payment_method: "Khách VIP", change_amount: "0đ", barcode_url: "" });
-        successCount++
-      } catch (error: any) { console.error("EmailJS Error", error); }
+      try { await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { to_email: c.email, order_id: "THÔNG BÁO ƯU ĐÃI", time: new Date().toLocaleString('vi-VN'), items_list: `💌 Lời nhắn từ Hải Lê Mart:\n\n${marketingMsg}`, total_amount: "Quà Tặng", payment_method: "Khách VIP", change_amount: "0đ", barcode_url: "" }); successCount++ } catch (error: any) { console.error("EmailJS Error", error); }
     }
-    logAudit("GỬI MAIL MKT", `Gửi ${successCount} mail cho tập ${marketingTier}`);
-    setLoading(false); setShowMarketingModal(false); alert(`✅ Đã gửi ${successCount} mail!`)
+    logAudit("GỬI MAIL MKT", `Gửi ${successCount} mail cho tập ${marketingTier}`); setLoading(false); setShowMarketingModal(false); alert(`✅ Đã gửi ${successCount} mail!`)
   };
   
-  const saveSettings = () => { 
-    if (!newBankBin || !newBankAcc || !newBankNameStr) return alert("Điền đủ!"); 
-    setBankBin(newBankBin); localStorage.setItem("mart_bank_bin", newBankBin); 
-    setBankAcc(newBankAcc); localStorage.setItem("mart_bank_acc", newBankAcc); 
-    setBankNameStr(newBankNameStr); localStorage.setItem("mart_bank_name", newBankNameStr); 
-    logAudit("CÀI ĐẶT", "Cập nhật Cấu hình"); alert("✅ Đã lưu!"); setShowSettings(false) 
-  };
+  const saveSettings = () => { if (!newBankBin || !newBankAcc || !newBankNameStr) return alert("Điền đủ!"); setBankBin(newBankBin); localStorage.setItem("mart_bank_bin", newBankBin); setBankAcc(newBankAcc); localStorage.setItem("mart_bank_acc", newBankAcc); setBankNameStr(newBankNameStr); localStorage.setItem("mart_bank_name", newBankNameStr); logAudit("CÀI ĐẶT", "Cập nhật Cấu hình"); alert("✅ Đã lưu!"); setShowSettings(false) };
   
   const handleHoldOrder = async () => { if (cart.length === 0) return; const newO = { id: Date.now(), time: new Date().toLocaleTimeString('vi-VN'), cart: [...cart] }; setHeldOrders(prev => [...prev, newO]); logAudit("LƯU TẠM", `Lưu giỏ ${cart.length} món`); setCart([]); setCustPhone(""); setCustName(""); setCustomerInput("") };
   const restoreOrder = async (order: any) => { if (cart.length > 0) return alert("Thanh toán giỏ hiện tại trước!"); setCart(order.cart); setHeldOrders(prev => prev.filter(o => o.id !== order.id)); if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', order.id); setShowHoldModal(false); };
@@ -968,7 +913,6 @@ export default function App() {
       }
     }
   };
-
   const handleInvInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -978,6 +922,51 @@ export default function App() {
         setInventorySearchTerm(""); 
       }
     }
+  };
+
+  const exportInventoryCSV = () => {
+    let csv = "\uFEFFMã SP,Tên SP,Tồn hệ thống,Tồn thực tế\n";
+    products.forEach(p => {
+      const actual = actualStockInput[p.id] !== undefined ? actualStockInput[p.id] : p.stock;
+      csv += `${p.product_code},"${cleanName(p.name)}",${p.stock},${actual}\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `KiemKho_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.csv`;
+    link.click();
+  };
+
+  const handleImportInventoryCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      const lines = text.split('\n').filter(line => line.trim() !== '');
+      let updatedStock = { ...actualStockInput };
+      let count = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''));
+        if (cols.length >= 4) {
+          const pCode = cols[0];
+          const actualVal = parseInt(cols[3]);
+
+          if (!isNaN(actualVal)) {
+            const matchedProd = products.find(p => p.product_code === pCode);
+            if (matchedProd && matchedProd.stock !== actualVal) {
+              updatedStock[matchedProd.id] = actualVal;
+              count++;
+            }
+          }
+        }
+      }
+      setActualStockInput(updatedStock);
+      alert(`✅ Đã nạp số liệu cho ${count} sản phẩm có thay đổi từ file!`);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   const syncInventoryCheck = async () => {
@@ -1079,58 +1068,52 @@ export default function App() {
     );
   };
 
-  if (!isLoggedIn) return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", position: "relative", overflow: "hidden" }}>
-      <style>{styles}</style>
-      <div className="spring-bg" style={{ background: "#ef4444", top: "-10%", left: "-10%" }}></div>
-      <div className="spring-bg" style={{ background: "#fbbf24", bottom: "-10%", right: "-10%" }}></div>
-      <div className="glass" style={{ padding: "40px", width: "100%", maxWidth: "380px", textAlign: "center", border: "4px solid #ef4444" }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "30px" }}><HeaderLogo /></div>
-        <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-          <select value={shift} onChange={e => setShift(e.target.value)} style={{ padding: "14px", borderRadius: "10px", outline: "none", fontWeight: "bold" }}>
-            <option value="Ca Sáng">🌅 Ca Sáng (06:00 - 14:00)</option>
-            <option value="Ca Chiều">🌇 Ca Chiều (14:00 - 22:00)</option>
-            <option value="Ca Tối">🌙 Ca Tối (22:00 - 06:00)</option>
-          </select>
-          <input type="number" placeholder="Tiền lẻ đầu ca (để thối)..." value={startingCash || ""} onChange={e => setStartingCash(Number(e.target.value))} style={{ padding: "14px", borderRadius: "10px", outline: "none", fontWeight: "bold", color: "#059669" }} />
-          <input placeholder="Tên đăng nhập hệ thống" value={authUsername} onChange={e => setAuthUsername(e.target.value)} style={{ padding: "14px", borderRadius: "10px", outline: "none" }} />
-          <input type="password" placeholder="Mật khẩu" value={authPassword} onChange={e => setAuthPassword(e.target.value)} style={{ padding: "14px", borderRadius: "10px", outline: "none" }} />
-          <button type="submit" disabled={loading} style={{ padding: "14px", background: "#dc2626", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "bold", cursor: "pointer", boxShadow: "0 4px 6px rgba(220,38,38,0.3)" }}>
-            {loading ? "ĐANG TẢI..." : "MỞ CỬA BÁN HÀNG 🚀"}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
       <style>{styles}</style>
       <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} />
       
+      {/* CÁC MODAL CHÍNH */}
       {showInventoryModal && role === 'admin' && (
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
-          <div className="glass" style={{ padding: "25px", width: "700px", maxHeight: "85vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
+          <div className="glass" style={{ padding: "25px", width: "900px", maxWidth: "95vw", maxHeight: "85vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid var(--border-glass)", paddingBottom: "10px", marginBottom: "15px" }}>
               <h2 style={{ margin: 0, color: "#10b981" }}>📦 KIỂM KHO (INVENTORY CHECK)</h2>
               <button onClick={() => setShowInventoryModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer", color: "var(--text-main)" }}>✖</button>
             </div>
             
             <div style={{ background: "#fef2f2", padding: "10px", borderRadius: "8px", fontSize: "12px", color: "#b91c1c", marginBottom: "10px", border: "1px dashed #fca5a5" }}>
-              <b>Hướng dẫn siêu tốc:</b> Quẹt mã vạch (hoặc gõ tên) ➡️ Gõ số lượng ➡️ Bấm Enter để tiếp tục.
+              <b>Hướng dẫn siêu tốc:</b> Quẹt mã vạch (hoặc gõ tên) ➡️ Gõ số lượng ➡️ Bấm Enter để tiếp tục. Hoặc dùng tính năng <b>Xuất/Nhập Excel</b>.
             </div>
 
-            <div style={{ display: "flex", gap: "10px", marginBottom: "15px" }}>
-              <input 
-                id="inv-search-box"
-                placeholder="🔍 Tìm tên hoặc Quẹt mã vạch vào đây..." 
-                value={inventorySearchTerm} 
-                onChange={e => setInventorySearchTerm(e.target.value)} 
-                onKeyDown={handleInventorySearchEnter}
-                autoFocus
-                style={{ flex: 1, padding: "10px 15px", borderRadius: "8px", border: "2px solid #10b981", outline: "none", fontWeight: "bold", fontSize: "14px" }} 
-              />
-              <button onClick={() => setInventorySearchTerm("")} style={{ padding: "10px 15px", background: "var(--bg-input)", border: "1px solid var(--border-glass)", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}>❌ Xóa</button>
+            <div style={{ display: "flex", gap: "10px", marginBottom: "15px", flexWrap: "wrap", alignItems: "center" }}>
+              <div style={{ position: "relative", flex: "1 1 300px", display: "flex" }}>
+                <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "16px" }}>🔍</span>
+                <input 
+                  id="inv-search-box"
+                  placeholder="Tìm tên hoặc Quẹt mã vạch vào đây..." 
+                  value={inventorySearchTerm} 
+                  onChange={e => setInventorySearchTerm(e.target.value)} 
+                  onKeyDown={handleInventorySearchEnter}
+                  autoFocus
+                  style={{ flex: 1, padding: "10px 15px 10px 35px", borderRadius: "8px", border: "2px solid #10b981", outline: "none", fontWeight: "bold", fontSize: "14px" }} 
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: "5px", background: "var(--bg-input)", padding: "4px", borderRadius: "8px", border: "1px solid var(--border-glass)" }}>
+                <button onClick={() => setInvFilter("ALL")} style={{ padding: "8px 12px", background: invFilter === "ALL" ? "#3b82f6" : "transparent", color: invFilter === "ALL" ? "#fff" : "var(--text-main)", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "12px", transition: "0.2s" }}>📋 Tất cả SP</button>
+                <button onClick={() => setInvFilter("DIFF")} style={{ padding: "8px 12px", background: invFilter === "DIFF" ? "#ef4444" : "transparent", color: invFilter === "DIFF" ? "#fff" : "var(--text-main)", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "12px", transition: "0.2s" }}>⚠️ Đang lệch</button>
+                <button onClick={() => setInvFilter("MATCH")} style={{ padding: "8px 12px", background: invFilter === "MATCH" ? "#10b981" : "transparent", color: invFilter === "MATCH" ? "#fff" : "var(--text-main)", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "12px", transition: "0.2s" }}>✅ Đã khớp</button>
+              </div>
+
+              <button onClick={exportInventoryCSV} style={{ padding: "10px 15px", background: "#3b82f6", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", display: "flex", alignItems: "center", gap: "6px" }}>
+                📥 Xuất File
+              </button>
+              
+              <label style={{ padding: "10px 15px", background: "#f59e0b", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", display: "flex", alignItems: "center", gap: "6px", margin: 0 }}>
+                📤 Nhập File
+                <input type="file" accept=".csv" onChange={handleImportInventoryCSV} style={{ display: "none" }} />
+              </label>
             </div>
 
             <div style={{ overflowY: "auto", flex: 1, paddingRight: "5px" }}>
@@ -1145,14 +1128,22 @@ export default function App() {
                 </thead>
                 <tbody>
                   {products
-                    .filter(p => cleanName(p.name).toLowerCase().includes(inventorySearchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(inventorySearchTerm.toLowerCase())))
+                    .filter(p => {
+                      const matchSearch = cleanName(p.name).toLowerCase().includes(inventorySearchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(inventorySearchTerm.toLowerCase()));
+                      const actual = actualStockInput[p.id] !== undefined ? actualStockInput[p.id] : p.stock;
+                      const diff = actual - p.stock;
+                      
+                      if (invFilter === 'DIFF') return matchSearch && diff !== 0;
+                      if (invFilter === 'MATCH') return matchSearch && diff === 0;
+                      return matchSearch; 
+                    })
                     .map(p => {
                     const actual = actualStockInput[p.id] !== undefined ? actualStockInput[p.id] : p.stock;
                     const diff = actual - p.stock;
                     return (
                       <tr key={p.id} style={{ borderBottom: "1px dashed var(--border-glass)", background: diff !== 0 ? "rgba(250, 204, 21, 0.1)" : "transparent" }}>
                         <td style={{ padding: "8px", fontWeight: "bold" }}>{cleanName(p.name)} <div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "normal" }}>{p.product_code}</div></td>
-                        <td style={{ padding: "8px", textAlign: "center", color: "#3b82f6", fontWeight: "bold" }}>{p.stock}</td>
+                        <td style={{ padding: "8px", textAlign: "center", color: "#3b82f6", fontWeight: "bold", fontSize: "15px" }}>{p.stock}</td>
                         <td style={{ padding: "8px", textAlign: "center" }}>
                           <input 
                             id={`inv-input-${p.id}`}
@@ -1160,12 +1151,12 @@ export default function App() {
                             value={actual} 
                             onChange={(e) => setActualStockInput(prev => ({...prev, [p.id]: Number(e.target.value)}))} 
                             onKeyDown={handleInvInputKeyDown}
-                            style={{ width: "60px", padding: "6px", borderRadius: "6px", textAlign: "center", border: "2px solid #fdba74", fontWeight: "bold", outline: "none" }} 
+                            style={{ width: "70px", padding: "8px", borderRadius: "6px", textAlign: "center", border: "2px solid #fdba74", fontWeight: "bold", outline: "none", fontSize: "14px" }} 
                             onFocus={e => { e.target.select(); e.target.style.borderColor = "#10b981"; }} 
                             onBlur={e => e.target.style.borderColor = "#fdba74"}
                           />
                         </td>
-                        <td style={{ padding: "8px", textAlign: "center", fontWeight: "900", color: diff > 0 ? "#10b981" : (diff < 0 ? "#ef4444" : "var(--text-muted)") }}>
+                        <td style={{ padding: "8px", textAlign: "center", fontWeight: "900", fontSize: "15px", color: diff > 0 ? "#10b981" : (diff < 0 ? "#ef4444" : "var(--text-muted)") }}>
                           {diff > 0 ? `+${diff}` : diff}
                         </td>
                       </tr>
@@ -1173,10 +1164,22 @@ export default function App() {
                   })}
                 </tbody>
               </table>
+              {products.filter(p => {
+                  const matchSearch = cleanName(p.name).toLowerCase().includes(inventorySearchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(inventorySearchTerm.toLowerCase()));
+                  const diff = (actualStockInput[p.id] !== undefined ? actualStockInput[p.id] : p.stock) - p.stock;
+                  if (invFilter === 'DIFF') return matchSearch && diff !== 0;
+                  if (invFilter === 'MATCH') return matchSearch && diff === 0;
+                  return matchSearch;
+              }).length === 0 && (
+                <div style={{ textAlign: "center", color: "var(--text-muted)", padding: "20px" }}>Không tìm thấy sản phẩm khớp với bộ lọc.</div>
+              )}
             </div>
+            
             <div style={{ display: "flex", gap: "10px", marginTop: "15px", borderTop: "1px dashed var(--border-glass)", paddingTop: "15px" }}>
-              <button onClick={() => { setActualStockInput({}); setInventorySearchTerm(""); }} style={{ flex: 1, padding: "12px", background: "var(--border-glass)", color: "var(--text-main)", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>↺ Hủy thao tác</button>
-              <button onClick={syncInventoryCheck} disabled={loading} style={{ flex: 2, padding: "12px", background: "#10b981", color: "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>{loading ? "Đang đồng bộ..." : "💾 CẬP NHẬT CHÊNH LỆCH VÀO SỔ"}</button>
+              <button onClick={() => { setActualStockInput({}); setInventorySearchTerm(""); setInvFilter("ALL"); }} style={{ flex: 1, padding: "12px", background: "var(--border-glass)", color: "var(--text-main)", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>↺ Hủy thao tác</button>
+              <button onClick={syncInventoryCheck} disabled={loading || Object.keys(actualStockInput).length === 0} style={{ flex: 2, padding: "12px", background: Object.keys(actualStockInput).length === 0 ? "var(--border-glass)" : "#10b981", color: Object.keys(actualStockInput).length === 0 ? "var(--text-muted)" : "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: Object.keys(actualStockInput).length === 0 ? "not-allowed" : "pointer" }}>
+                {loading ? "Đang đồng bộ..." : "💾 CẬP NHẬT CHÊNH LỆCH VÀO SỔ"}
+              </button>
             </div>
           </div>
         </div>
@@ -1914,6 +1917,7 @@ export default function App() {
         </div>
       )}
 
+      {/* 🚀 MAIN APP UI 🚀 */}
       <div className="no-print" style={{ padding: "15px", position: "relative", minHeight: "100vh", overflowX: "auto" }}>
         <div style={{ maxWidth: "1500px", margin: "0 auto", minWidth: "1000px" }}>
           <div className="glass" style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: "12px", marginBottom: "12px", borderBottom: "4px solid #ef4444" }}>
@@ -1925,12 +1929,12 @@ export default function App() {
                 <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
                   {role === 'admin' && <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "bold" }}>VỐN</div><div style={{ fontSize: "15px", fontWeight: "900", color: "var(--text-main)" }}>{totalValue.toLocaleString()}đ</div></div>}
                   
-                  <div className="cash-box" onClick={() => setCashFlowModalInfo('TIỀN MẶT')} style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                  <div className="cash-box" onClick={(e) => { e.stopPropagation(); setCashFlowModalInfo('TIỀN MẶT'); }} style={{ textAlign: "center", whiteSpace: "nowrap" }}>
                     <div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "bold" }}>TIỀN MẶT 👆</div>
                     <div style={{ fontSize: "15px", fontWeight: "900", color: currentShiftStats.cash < 0 ? "#ef4444" : "#059669" }}>{currentShiftStats.cash.toLocaleString()}đ</div>
                   </div>
                   
-                  <div className="cash-box" onClick={() => setCashFlowModalInfo('CHUYỂN KHOẢN')} style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                  <div className="cash-box" onClick={(e) => { e.stopPropagation(); setCashFlowModalInfo('CHUYỂN KHOẢN'); }} style={{ textAlign: "center", whiteSpace: "nowrap" }}>
                     <div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "bold" }}>CHUYỂN KHOẢN 👆</div>
                     <div style={{ fontSize: "15px", fontWeight: "900", color: "#3b82f6" }}>{currentShiftStats.transfer.toLocaleString()}đ</div>
                   </div>
