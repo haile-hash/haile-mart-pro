@@ -2270,4 +2270,26 @@ export default function App() {
                                       <button onClick={() => handleRefund(log.id)} disabled={(log.refunded_qty || 0) >= log.qty} style={{ fontSize: "9px", padding: "2px 6px", border: "1px solid var(--border-glass)", background: (log.refunded_qty || 0) >= log.qty ? "var(--bg-main)" : "var(--bg-input)", color: (log.refunded_qty || 0) >= log.qty ? "var(--text-muted)" : "var(--text-main)", cursor: (log.refunded_qty || 0) >= log.qty ? "not-allowed" : "pointer", borderRadius: "4px" }}>
                                         {(log.refunded_qty || 0) >= log.qty ? "Đã hoàn" : `↩️ Hoàn ${log.qty - (log.refunded_qty || 0)}`}
                                       </button>
-                                      <button onClick={() => handleReprint(log.time)} style={{ fontSize: "9px", padding: "2px 6px", border: "1px solid var(--border-glass)", background: "var(--bg-input)", color: "var(--text-main)", cursor: "pointer", borderRadius: "4px" }} title="
+                                      <button onClick={() => handleReprint(log.time)} style={{ fontSize: "9px", padding: "2px 6px", border: "1px solid var(--border-glass)", background: "var(--bg-input)", color: "var(--text-main)", cursor: "pointer", borderRadius: "4px" }}
+<button onClick={() => handleReprint(log.time)} style={{ fontSize: "9px", padding: "2px 6px", border: "1px solid var(--border-glass)", background: "var(--bg-input)", color: "var(--text-main)", cursor: "pointer", borderRadius: "4px" }} title="In lại Hóa đơn thời điểm này">
+                                        🖨️ In lại
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
