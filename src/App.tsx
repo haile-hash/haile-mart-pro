@@ -263,7 +263,6 @@ export default function App() {
       const script = document.createElement("script"); script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js";
       script.onload = () => { (window as any).emailjs.init(EMAILJS_PUBLIC_KEY); }; document.head.appendChild(script);
 
-      // TẢI THƯ VIỆN ĐỌC FILE EXCEL (SHEETJS)
       const xlsxScript = document.createElement("script");
       xlsxScript.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
       document.head.appendChild(xlsxScript);
@@ -444,7 +443,23 @@ export default function App() {
   };
   
   const handleLogoutClick = () => setShowHandoverModal(true);
-  const confirmHandover = async () => { logAudit("CHỐT CA", `Bàn giao: ${currentShiftStats.rev.toLocaleString()}đ`, { ...currentShiftStats }); await supabase.auth.signOut(); setIsLoggedIn(false); setShowHandoverModal(false); localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role") };
+  const confirmHandover = async () => { 
+    try {
+      logAudit("CHỐT CA", `Bàn giao: ${currentShiftStats.rev.toLocaleString()}đ`, { ...currentShiftStats }); 
+      if (navigator.onLine) {
+        await supabase.auth.signOut(); 
+      }
+    } catch (error) {
+      console.error("Lỗi đăng xuất khỏi máy chủ:", error);
+    } finally {
+      localStorage.removeItem("mart_logged_in"); 
+      localStorage.removeItem("mart_role");
+      setIsLoggedIn(false); 
+      setShowHandoverModal(false); 
+      window.location.reload();
+    }
+  };
+
   const handleEditPhone = async (oldPhone: string) => { const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customers[newPhone]) return alert("❌ SĐT đã tồn tại!"); const cData = customers[oldPhone]; const newC = { ...cData, phone: newPhone }; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = newC; delete updated[oldPhone]; return updated }); setHistory((prev: any) => prev.map((h: any) => { if (h.customer && h.customer.includes(oldPhone)) { return { ...h, customer: h.customer.replace(oldPhone, newPhone) } } return h })); logAudit("SỬA SĐT KH", `Đổi ${oldPhone} -> ${newPhone}`); alert("✅ Cập nhật thành công! (Sẽ tự động đồng bộ lên Cloud)"); } };
   const addSupplier = async () => { if (!supName || !supPhone) return alert("Nhập đủ Tên/SĐT"); const newS = { id: Date.now(), name: supName, phone: supPhone, item: supItem }; setSuppliers(prev => [newS, ...prev]); setSupName(""); setSupPhone(""); setSupItem(""); logAudit("THÊM NCC", `${supName} - ${supPhone}`); alert("✅ Thêm NCC thành công!"); };
   const deleteSupplier = async (id: any) => { setSuppliers(prev => prev.filter(s => s.id !== id)); if (navigator.onLine) await supabase.from('suppliers').delete().eq('id', id); };
@@ -790,7 +805,6 @@ export default function App() {
     fetchProducts(); setLoading(false); setShowInputForm(false);
   };
 
-  /* SỬA LỖI VÀ NÂNG CẤP FILE UPLOAD CHO CẢ EXCEL / CSV */
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!navigator.onLine) return alert("Cần có mạng để thao tác Kho!");
     const file = e.target.files?.[0]; if (!file) return;
@@ -847,6 +861,54 @@ export default function App() {
       setLoading(false);
     }; 
     
+    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+      if (!(window as any).XLSX) return alert("Thư viện Excel đang tải, vui lòng thử lại sau vài giây!");
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = (window as any).XLSX.read(data, { type: 'array' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+        processData(jsonData);
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const text = event.target?.result as string;
+        const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, '')));
+        processData(lines);
+      };
+      reader.readAsText(file);
+    }
+    e.target.value = '';
+  };
+
+  const handleImportInventoryCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const processData = (lines: any[]) => {
+      let updatedStock = { ...actualStockInput };
+      let count = 0;
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i];
+        if (cols && cols.length >= 4) {
+          const pCode = String(cols[0] || "").trim();
+          const actualVal = parseInt(String(cols[3]));
+          if (!isNaN(actualVal) && pCode) {
+            const matchedProd = products.find(p => p.product_code === pCode);
+            if (matchedProd && matchedProd.stock !== actualVal) {
+              updatedStock[matchedProd.id] = actualVal;
+              count++;
+            }
+          }
+        }
+      }
+      setActualStockInput(updatedStock);
+      alert(`✅ Đã nạp số liệu cho ${count} sản phẩm có thay đổi từ file!`);
+    };
+
     if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
       if (!(window as any).XLSX) return alert("Thư viện Excel đang tải, vui lòng thử lại sau vài giây!");
       const reader = new FileReader();
@@ -1009,55 +1071,6 @@ export default function App() {
     link.click();
   };
 
-  /* SỬA LỖI ĐỌC FILE KHI KIỂM KHO (CHẤP NHẬN CẢ EXCEL) */
-  const handleImportInventoryCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const processData = (lines: any[]) => {
-      let updatedStock = { ...actualStockInput };
-      let count = 0;
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i];
-        if (cols && cols.length >= 4) {
-          const pCode = String(cols[0] || "").trim();
-          const actualVal = parseInt(String(cols[3]));
-          if (!isNaN(actualVal) && pCode) {
-            const matchedProd = products.find(p => p.product_code === pCode);
-            if (matchedProd && matchedProd.stock !== actualVal) {
-              updatedStock[matchedProd.id] = actualVal;
-              count++;
-            }
-          }
-        }
-      }
-      setActualStockInput(updatedStock);
-      alert(`✅ Đã nạp số liệu cho ${count} sản phẩm có thay đổi từ file!`);
-    };
-
-    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-      if (!(window as any).XLSX) return alert("Thư viện Excel đang tải, vui lòng thử lại sau vài giây!");
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const data = new Uint8Array(event.target?.result as ArrayBuffer);
-        const workbook = (window as any).XLSX.read(data, { type: 'array' });
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-        processData(jsonData);
-      };
-      reader.readAsArrayBuffer(file);
-    } else {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const text = event.target?.result as string;
-        const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, '')));
-        processData(lines);
-      };
-      reader.readAsText(file);
-    }
-    e.target.value = '';
-  };
-
   const syncInventoryCheck = async () => {
     if(!navigator.onLine) return alert("Cần có mạng để lưu kết quả kiểm kho!");
     if(!window.confirm("Xác nhận ghi đè số lượng tồn kho trên máy bằng số lượng thực tế?")) return;
@@ -1157,12 +1170,26 @@ export default function App() {
     );
   };
 
+  if (!isLoggedIn) {
+    return (
+      <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: "var(--bg-main)" }}>
+        <form onSubmit={handleLogin} style={{ background: "var(--bg-glass)", padding: "30px", borderRadius: "12px", boxShadow: "0 4px 15px rgba(0,0,0,0.1)", width: "300px", display: "flex", flexDirection: "column", gap: "15px", border: "1px solid var(--border-glass)" }}>
+          <h2 style={{ textAlign: "center", margin: "0 0 10px 0", color: "#dc2626" }}>HẢI LÊ MART</h2>
+          <input placeholder="Email đăng nhập..." value={authUsername} onChange={e => setAuthUsername(e.target.value)} required style={{ padding: "10px", borderRadius: "6px", border: "1px solid var(--border-glass)", background: "var(--bg-input)", color: "var(--text-main)" }} />
+          <input type="password" placeholder="Mật khẩu..." value={authPassword} onChange={e => setAuthPassword(e.target.value)} required style={{ padding: "10px", borderRadius: "6px", border: "1px solid var(--border-glass)", background: "var(--bg-input)", color: "var(--text-main)" }} />
+          <button type="submit" disabled={loading} style={{ padding: "12px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>
+            {loading ? "ĐANG VÀO..." : "VÀO CA LÀM VIỆC"}
+          </button>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
       <style>{styles}</style>
       <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} />
       
-      {/* CÁC MODAL CHÍNH */}
       {showInventoryModal && role === 'admin' && (
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "900px", maxWidth: "95vw", maxHeight: "85vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
@@ -1201,7 +1228,6 @@ export default function App() {
               
               <label style={{ padding: "10px 15px", background: "#f59e0b", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", display: "flex", alignItems: "center", gap: "6px", margin: 0 }}>
                 📤 Nhập File
-                {/* SỬA LỖI: Cho phép nhận diện file Excel (.xlsx) */}
                 <input type="file" accept=".csv, .xlsx, .xls" onChange={handleImportInventoryCSV} style={{ display: "none" }} />
               </label>
             </div>
@@ -1219,7 +1245,6 @@ export default function App() {
                 <tbody>
                   {products
                     .filter(p => {
-                      /* SỬA LỖI: Ép kiểu String() an toàn */
                       const safeName = String(cleanName(p.name) || "").toLowerCase();
                       const safeCode = String(p.product_code || "").toLowerCase();
                       const term = String(inventorySearchTerm || "").toLowerCase();
@@ -2116,7 +2141,6 @@ export default function App() {
                     
                     <label style={{ cursor: "pointer", padding: "10px 15px", borderRadius: "6px", fontWeight: "bold", color: "#10b981", border: "1px dashed #10b981", fontSize: "12px", display: "flex", alignItems: "center" }}>
                       📁 TỪ FILE
-                      {/* SỬA LỖI: Hỗ trợ Excel */}
                       <input type="file" accept=".csv, .xlsx, .xls" onChange={handleFileUpload} style={{ display: "none" }} />
                     </label>
                     <button onClick={downloadSampleCSV} style={{ padding: "10px 15px", borderRadius: "6px", fontWeight: "bold", color: "#3b82f6", cursor: "pointer", border: "1px dashed #3b82f6", fontSize: "12px", display: "flex", alignItems: "center", background: "transparent" }}>📥 FILE MẪU</button>
@@ -2287,7 +2311,8 @@ export default function App() {
                   })}
                 </div>
               </div>
- <div className="glass" style={{ padding: "15px", height: "35vh", display: "flex", flexDirection: "column" }}>
+              
+              <div className="glass" style={{ padding: "15px", height: "35vh", display: "flex", flexDirection: "column" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
                   <div style={{ display: "flex", gap: "8px", flex: 1 }}>
                     <input placeholder="🔍 Tìm giao dịch..." value={logSearchTerm} onChange={e => setLogSearchTerm(e.target.value)} style={{ padding: "6px 10px", borderRadius: "6px", outline: "none", fontSize: "12px", flex: 1 }} />
@@ -2312,38 +2337,4 @@ export default function App() {
                               <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
                                 <span><b style={{ color: log.type === 'TRẢ HÀNG' ? '#ef4444' : 'var(--text-main)' }}>[{log.type}]</b> {cleanName(log.name)} {log.qty>0&&`x${log.qty}`} {log.refunded_qty > 0 && <span style={{ color: "#ef4444", fontSize: "9px" }}>(Đã hoàn {log.refunded_qty})</span>}</span>
                                 {log.type === "BÁN" && <span style={{ color: "#10b981", fontWeight: "bold" }}>+{Math.round(log.total).toLocaleString()} <span style={{ fontSize: "9px", color: "var(--text-muted)", fontWeight: "normal" }}>({log.paymentMethod === 'CHUYỂN KHOẢN' ? 'CK' : (log.paymentMethod === 'KẾT HỢP' ? 'KH' : 'TM')})</span></span>}
-                                {log.type === "TRẢ HÀNG" && <span style={{ color: "#ef4444", fontWeight: "bold" }}>{Math.round(log.total).toLocaleString()} <span style={{ fontSize: "9px", color: "var(--text-muted)", fontWeight: "normal" }}>({log.paymentMethod === 'VÍ ĐIỂM' ? 'VÍ' : (log.paymentMethod === 'CHUYỂN KHOẢN' ? 'CK' : 'TM')})</span></span>}
-                                {log.type === "GHI NỢ" && <span style={{ color: "#ea580c", fontWeight: "bold" }}>Nợ: {Math.round(log.total).toLocaleString()}</span>}
-                                {log.type === "THU NỢ" && <span style={{ color: "#10b981", fontWeight: "bold" }}>+{Math.round(log.total).toLocaleString()} <span style={{ fontSize: "9px", color: "var(--text-muted)", fontWeight: "normal" }}>({log.paymentMethod === 'CHUYỂN KHOẢN' ? 'CK' : 'TM'})</span></span>}
-                              </div>
-                              <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text-muted)", marginTop: "4px", width: "100%" }}>
-                                <span>{log.customer}</span>
-                                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                                  <span>{log.t}</span>
-                                  {log.type === 'BÁN' && log.product_id !== 'DISCOUNT' && (
-                                    <>
-                                      <button onClick={() => handleRefund(log.id)} disabled={(log.refunded_qty || 0) >= log.qty} style={{ fontSize: "9px", padding: "2px 6px", border: "1px solid var(--border-glass)", background: (log.refunded_qty || 0) >= log.qty ? "var(--bg-main)" : "var(--bg-input)", color: (log.refunded_qty || 0) >= log.qty ? "var(--text-muted)" : "var(--text-main)", cursor: (log.refunded_qty || 0) >= log.qty ? "not-allowed" : "pointer", borderRadius: "4px" }}>
-                                        {(log.refunded_qty || 0) >= log.qty ? "Đã hoàn" : `↩️ Hoàn ${log.qty - (log.refunded_qty || 0)}`}
-                                      </button>
-                                      <button onClick={() => handleReprint(log.time)} style={{ fontSize: "9px", padding: "2px 6px", border: "1px solid var(--border-glass)", background: "var(--bg-input)", color: "var(--text-main)", cursor: "pointer", borderRadius: "4px" }} title="In lại Hóa đơn thời điểm này">
-                                        🖨️ In lại
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+                                {log.type
