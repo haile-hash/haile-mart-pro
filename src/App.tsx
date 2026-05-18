@@ -41,7 +41,6 @@ const styles = `
   .add-to-cart-btn{padding:8px 16px;background-color:#fbbf24;color:#78350f;border:none;border-radius:6px;font-weight:900;cursor:pointer;font-size:12px;transition:transform .1s,background-color .2s;box-shadow:0 2px 4px rgba(251,191,36,.3)}
   .add-to-cart-btn:hover{background-color:#f59e0b;transform:scale(1.05)}
   .add-to-cart-btn:active{transform:scale(.95)}
-  
   :root { --bg-main: #fff7ed; --bg-glass: rgba(255,255,255,0.98); --border-glass: #fed7aa; --text-main: #431407; --text-muted: #64748b; --bg-input: #fff; }
   [data-theme='dark'] { --bg-main: #0f172a; --bg-glass: #1e293b; --border-glass: #334155; --text-main: #f8fafc; --text-muted: #94a3b8; --bg-input: #334155; }
 `;
@@ -898,46 +897,30 @@ export default function App() {
     }
     setLoading(false);
   };
-  // --- TÍNH NĂNG MỚI: TỰ ĐỘNG FOCUS, BỘ LỌC VÀ XUẤT/NHẬP FILE KIỂM KHO ---
+
   const handleInventorySearchEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const term = inventorySearchTerm.trim().toLowerCase();
       if (!term) return;
       
-      const matches = products.filter(p => cleanName(p.name).toLowerCase().includes(term) || (p.product_code && p.product_code.toLowerCase().includes(term)));
-      const exactMatch = matches.find(p => (p.product_code || "").toLowerCase() === term);
-      
+      const exactMatch = products.find(p => (p.product_code || "").toLowerCase() === term);
       if (exactMatch) {
         const inputEl = document.getElementById(`inv-input-${exactMatch.id}`);
-        if (inputEl) { inputEl.focus(); inputEl.select(); }
-      } else if (matches.length === 1) {
-        const inputEl = document.getElementById(`inv-input-${matches[0].id}`);
-        if (inputEl) { inputEl.focus(); inputEl.select(); }
-      } else if (matches.length > 1) {
-        playSound('success');
-        let msg = `Tìm thấy ${matches.length} sản phẩm khớp. Gõ số thứ tự (1, 2, 3...) để chọn:\n\n`;
-        matches.slice(0, 10).forEach((m, idx) => { msg += `${idx + 1}. ${cleanName(m.name)} (Mã: ${m.product_code})\n`; });
-        const choiceStr = window.prompt(msg, "1");
-        if (choiceStr) {
-           const choiceIdx = parseInt(choiceStr) - 1;
-           if (choiceIdx >= 0 && choiceIdx < matches.length) {
-              const targetP = matches[choiceIdx];
-              const inputEl = document.getElementById(`inv-input-${targetP.id}`);
-              if (inputEl) { inputEl.focus(); inputEl.select(); }
-           } else { alert("Lựa chọn không hợp lệ!"); }
+        if (inputEl) {
+          inputEl.focus();
         }
-      } else {
-        playSound('error'); alert("❌ Không tìm thấy mã sản phẩm này trong kho!");
       }
     }
   };
-
   const handleInvInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const searchBox = document.getElementById('inv-search-box');
-      if (searchBox) { searchBox.focus(); setInventorySearchTerm(""); }
+      if (searchBox) {
+        searchBox.focus();
+        setInventorySearchTerm(""); 
+      }
     }
   };
 
@@ -948,44 +931,55 @@ export default function App() {
       csv += `${p.product_code},"${cleanName(p.name)}",${p.stock},${actual}\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a"); link.href = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
     link.download = `KiemKho_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.csv`;
     link.click();
   };
 
   const handleImportInventoryCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader();
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target?.result as string;
-      const lines = text.replace(/\r/g, '').split('\n').filter(line => line.trim() !== '');
-      const firstLine = lines[0] || ""; const delimiter = firstLine.includes(';') ? ';' : ',';
-      let updatedStock = { ...actualStockInput }; let count = 0;
+      const lines = text.split('\n').filter(line => line.trim() !== '');
+      let updatedStock = { ...actualStockInput };
+      let count = 0;
+
       for (let i = 1; i < lines.length; i++) {
-        let cols = [];
-        if (delimiter === ',') cols = lines[i].split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/); else cols = lines[i].split(delimiter);
-        cols = cols.map(c => c.trim().replace(/^"|"$/g, ''));
+        const cols = lines[i].split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''));
         if (cols.length >= 4) {
-          const pCode = cols[0]; const actualVal = parseInt(cols[3]);
+          const pCode = cols[0];
+          const actualVal = parseInt(cols[3]);
+
           if (!isNaN(actualVal)) {
             const matchedProd = products.find(p => p.product_code === pCode);
-            if (matchedProd && matchedProd.stock !== actualVal) { updatedStock[matchedProd.id] = actualVal; count++; }
+            if (matchedProd && matchedProd.stock !== actualVal) {
+              updatedStock[matchedProd.id] = actualVal;
+              count++;
+            }
           }
         }
       }
-      setActualStockInput(updatedStock); alert(`✅ Đã nạp thành công! Có ${count} sản phẩm bị lệch số lượng so với sổ sách.`);
+      setActualStockInput(updatedStock);
+      alert(`✅ Đã nạp số liệu cho ${count} sản phẩm có thay đổi từ file!`);
     };
-    reader.readAsText(file); e.target.value = '';
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   const syncInventoryCheck = async () => {
     if(!navigator.onLine) return alert("Cần có mạng để lưu kết quả kiểm kho!");
     if(!window.confirm("Xác nhận ghi đè số lượng tồn kho trên máy bằng số lượng thực tế?")) return;
-    setLoading(true); let count = 0;
+    setLoading(true);
+    let count = 0;
     for (const [id, actualQty] of Object.entries(actualStockInput)) {
       const p = products.find(x => x.id === id);
       if(p && p.stock !== actualQty) {
         await supabase.from("products").update({ stock: actualQty }).eq("id", id);
-        logAudit("KIỂM KHO", `Cập nhật ${p.name}`, { tu_so: p.stock, thanh_so: actualQty, lech: actualQty - p.stock }); count++;
+        logAudit("KIỂM KHO", `Cập nhật ${p.name}`, { tu_so: p.stock, thanh_so: actualQty, lech: actualQty - p.stock });
+        count++;
       }
     }
     alert(`✅ Đã đồng bộ chênh lệch ${count} sản phẩm!`);
@@ -1016,7 +1010,9 @@ export default function App() {
           ))}
         </div>
         {filters[colKey]?.length > 0 && (
-          <div style={{ marginTop: "8px", textAlign: "center", cursor: "pointer", color: "#ef4444", fontWeight: "bold", fontSize: "11px", padding: "4px" }} onClick={() => setFilters(prev => ({ ...prev, [colKey]: [] }))}>❌ Bỏ lọc</div>
+          <div style={{ marginTop: "8px", textAlign: "center", cursor: "pointer", color: "#ef4444", fontWeight: "bold", fontSize: "11px", padding: "4px" }} onClick={() => setFilters(prev => ({ ...prev, [colKey]: [] }))}>
+            ❌ Bỏ lọc
+          </div>
         )}
       </div>
     );
@@ -1024,19 +1020,52 @@ export default function App() {
 
   const HeaderLogo = () => (
     <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-      <div className="logo-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg></div>
+      <div className="logo-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+      </div>
       <div style={{ display: "flex", flexDirection: "column" }}>
-        <h1 style={{ margin: 0, fontSize: "22px", fontWeight: "900", letterSpacing: "0.5px", color: "var(--text-main)", lineHeight: "1", whiteSpace: "nowrap" }}>{[..."HẢI LÊ "].map((c, i) => <span key={i} style={{ display: "inline-block", animation: `wave 1.5s ease-in-out ${i * 0.06}s infinite` }}>{c === ' ' ? '\u00A0' : c}</span>)}<span style={{ color: "#dc2626" }}>{[..."MART"].map((c, i) => <span key={i} style={{ display: "inline-block", animation: `wave 1.5s ease-in-out ${(i + 7) * 0.06}s infinite` }}>{c === ' ' ? '\u00A0' : c}</span>)}</span></h1>
-        <div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "800", letterSpacing: "3px", textTransform: "uppercase", marginTop: "4px", whiteSpace: "nowrap" }}>{[..."ERP System"].map((c, i) => <span key={i} style={{ display: "inline-block", animation: `wave 1.5s ease-in-out ${(i + 11) * 0.06}s infinite` }}>{c === ' ' ? '\u00A0' : c}</span>)}</div>
+        <h1 style={{ margin: 0, fontSize: "22px", fontWeight: "900", letterSpacing: "0.5px", color: "var(--text-main)", lineHeight: "1", whiteSpace: "nowrap" }}>
+          {[..."HẢI LÊ "].map((c, i) => <span key={i} style={{ display: "inline-block", animation: `wave 1.5s ease-in-out ${i * 0.06}s infinite` }}>{c === ' ' ? '\u00A0' : c}</span>)}
+          <span style={{ color: "#dc2626" }}>{[..."MART"].map((c, i) => <span key={i} style={{ display: "inline-block", animation: `wave 1.5s ease-in-out ${(i + 7) * 0.06}s infinite` }}>{c === ' ' ? '\u00A0' : c}</span>)}</span>
+        </h1>
+        <div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "800", letterSpacing: "3px", textTransform: "uppercase", marginTop: "4px", whiteSpace: "nowrap" }}>
+          {[..."ERP System"].map((c, i) => <span key={i} style={{ display: "inline-block", animation: `wave 1.5s ease-in-out ${(i + 11) * 0.06}s infinite` }}>{c === ' ' ? '\u00A0' : c}</span>)}
+        </div>
       </div>
     </div>
   );
 
   const CloudStatusBadge = () => {
-    if (!isOnline) { return (<div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#fef2f2", padding: "6px 12px", borderRadius: "6px", border: "1px solid #fca5a5", color: "#ef4444" }}><span style={{ height: "8px", width: "8px", background: "#ef4444", borderRadius: "50%", display: "inline-block" }}></span> Mất mạng (Lưu Offline)</div>); }
-    if (syncStatus === 'syncing') { return (<div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#eff6ff", padding: "6px 12px", borderRadius: "6px", border: "1px solid #bfdbfe", color: "#3b82f6" }}><span style={{ height: "8px", width: "8px", background: "#3b82f6", borderRadius: "50%", display: "inline-block", animation: "pulse-fast 1s infinite" }}></span> Đang đồng bộ mây...</div>); }
-    if (syncStatus === 'error') { return (<div onClick={syncAllOfflineData} style={{ display: "flex", alignItems: "center", gap: "6px", background: "#fff7ed", padding: "6px 12px", borderRadius: "6px", border: "1px solid #fed7aa", color: "#ea580c", cursor: "pointer", color: "var(--text-main)" }} title="Bấm để thử lại"><span style={{ height: "8px", width: "8px", background: "#ea580c", borderRadius: "50%", display: "inline-block" }}></span> Lỗi Đám mây 🔄</div>); }
-    return (<div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#ecfdf5", padding: "6px 12px", borderRadius: "6px", border: "1px solid #a7f3d0", color: "#059669" }}><span style={{ height: "8px", width: "8px", background: "#10b981", borderRadius: "50%", display: "inline-block" }}></span> Đã lưu Đám Mây</div>);
+    if (!isOnline) {
+      return (
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#fef2f2", padding: "6px 12px", borderRadius: "6px", border: "1px solid #fca5a5", color: "#ef4444" }}>
+          <span style={{ height: "8px", width: "8px", background: "#ef4444", borderRadius: "50%", display: "inline-block" }}></span> 
+          Mất mạng (Lưu Offline)
+        </div>
+      );
+    }
+    if (syncStatus === 'syncing') {
+      return (
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#eff6ff", padding: "6px 12px", borderRadius: "6px", border: "1px solid #bfdbfe", color: "#3b82f6" }}>
+          <span style={{ height: "8px", width: "8px", background: "#3b82f6", borderRadius: "50%", display: "inline-block", animation: "pulse-fast 1s infinite" }}></span> 
+          Đang đồng bộ mây...
+        </div>
+      );
+    }
+    if (syncStatus === 'error') {
+      return (
+        <div onClick={syncAllOfflineData} style={{ display: "flex", alignItems: "center", gap: "6px", background: "#fff7ed", padding: "6px 12px", borderRadius: "6px", border: "1px solid #fed7aa", color: "#ea580c", cursor: "pointer", color: "var(--text-main)" }} title="Bấm để thử lại">
+          <span style={{ height: "8px", width: "8px", background: "#ea580c", borderRadius: "50%", display: "inline-block" }}></span> 
+          Lỗi Đám mây 🔄
+        </div>
+      );
+    }
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#ecfdf5", padding: "6px 12px", borderRadius: "6px", border: "1px solid #a7f3d0", color: "#059669" }}>
+        <span style={{ height: "8px", width: "8px", background: "#10b981", borderRadius: "50%", display: "inline-block" }}></span> 
+        Đã lưu Đám Mây
+      </div>
+    );
   };
 
   return (
@@ -1044,6 +1073,7 @@ export default function App() {
       <style>{styles}</style>
       <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} />
       
+      {/* CÁC MODAL CHÍNH */}
       {showInventoryModal && role === 'admin' && (
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "900px", maxWidth: "95vw", maxHeight: "85vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
@@ -1102,6 +1132,7 @@ export default function App() {
                       const matchSearch = cleanName(p.name).toLowerCase().includes(inventorySearchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(inventorySearchTerm.toLowerCase()));
                       const actual = actualStockInput[p.id] !== undefined ? actualStockInput[p.id] : p.stock;
                       const diff = actual - p.stock;
+                      
                       if (invFilter === 'DIFF') return matchSearch && diff !== 0;
                       if (invFilter === 'MATCH') return matchSearch && diff === 0;
                       return matchSearch; 
