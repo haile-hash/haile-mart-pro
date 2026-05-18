@@ -52,7 +52,6 @@ const styles = `
 
 export default function App() {
   const VAT_RATE = 0.1;
-  // BẢO MẬT: Khuyến nghị dùng process.env để lấy key EmailJS
   const EMAILJS_SERVICE_ID = process.env.REACT_APP_EMAILJS_SERVICE_ID || "service_7ie990l";
   const EMAILJS_TEMPLATE_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_ID || "template_t91erhg";
   const EMAILJS_TEMPLATE_VIP_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_VIP_ID || "template_m1j9i7k";
@@ -65,8 +64,11 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState("");
   const [currentTime, setCurrentTime] = useState(new Date());
   
-  // TÍNH NĂNG MỚI: Tiền lẻ mặc định 5 triệu & Pop-up Dòng Tiền
-  const [startingCash, setStartingCash] = useState<number>(() => Number(localStorage.getItem("mart_starting_cash")) || 5000000);
+  // FIX: Ép cứng giá trị mặc định là 5.000.000 VNĐ nếu bộ nhớ tạm localStorage trống hoặc chưa đúng dữ liệu
+  const [startingCash, setStartingCash] = useState<number>(() => {
+    const cached = localStorage.getItem("mart_starting_cash");
+    return (cached && cached !== "0") ? Number(cached) : 5000000;
+  });
   const [cashFlowModalInfo, setCashFlowModalInfo] = useState<'TIỀN MẶT' | 'CHUYỂN KHOẢN' | null>(null);
 
   const [bankBin, setBankBin] = useState(() => localStorage.getItem("mart_bank_bin") || "970422");
@@ -101,7 +103,7 @@ export default function App() {
   const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [showMarketingModal, setShowMarketingModal] = useState(false);
   
-  // TÍNH NĂNG MỚI: State cho Kiểm kho siêu tốc
+  // TÍNH NĂNG MỚI: Kiểm kho định kỳ thông minh
   const [showInventoryModal, setShowInventoryModal] = useState(false);
   const [actualStockInput, setActualStockInput] = useState<Record<string, number>>({});
   const [inventorySearchTerm, setInventorySearchTerm] = useState("");
@@ -319,7 +321,7 @@ export default function App() {
     let cash = startingCash; let transfer = 0; let prof = 0; let totalSales = 0; 
     shiftLogs.forEach(h => { 
       if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += h.total; 
-      if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') { 
+      if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀ') { 
         if (h.paymentMethod === 'CHUYỂN KHOẢN') transfer += h.total; else if (h.paymentMethod === 'TIỀN MẶT' || h.paymentMethod === 'KẾT HỢP') {
           if(h.paymentMethod === 'KẾT HỢP' && h.split_cash) { cash += h.split_cash; transfer += (h.total - h.split_cash); } else { cash += h.total; }
         }
@@ -329,7 +331,7 @@ export default function App() {
     return { rev: cash + transfer - startingCash, cash, transfer, prof, totalSales } 
   }, [history, shift, todayStrStr, startingCash]);
 
-  // TÍNH NĂNG MỚI: Modal Dòng Tiền (Cash Flow)
+  // TÍNH NĂNG MỚI: Pop-up Dòng Tiền thông minh
   const currentShiftCashFlow = useMemo(() => {
     if (!cashFlowModalInfo) return { thu: [], chi: [] };
     const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStrStr && h.shift === shift);
@@ -437,11 +439,17 @@ export default function App() {
     return filtered
   }, [products, searchTerm, selectedCategory, sortConfig, filters]);
 
-  // BẢO MẬT: Chuyển đổi sang đăng nhập Supabase Auth
+  // BẢO MẬT + TÍNH NĂNG MỚI: Đăng nhập Supabase Auth & Lách luật ẩn đuôi Email hệ thống
   const handleLogin = async (e: React.FormEvent) => { 
     e.preventDefault(); 
-    const u = authUsername.trim(); 
+    let u = authUsername.trim().toLowerCase(); 
     const p = authPassword.trim(); 
+    
+    // Tự động gán đuôi mail nếu thủ kho/thu ngân chỉ gõ mỗi tên đăng nhập
+    if (!u.includes('@')) {
+      u = u + '@hailemart.com';
+    }
+
     localStorage.setItem("mart_starting_cash", startingCash.toString());
 
     setLoading(true);
@@ -451,12 +459,12 @@ export default function App() {
     });
 
     if (error) {
-      alert(`❌ Đăng nhập thất bại: Kiểm tra lại Email/Mật khẩu hoặc cấu hình Supabase.\nChi tiết: ${error.message}`);
+      alert(`❌ Đăng nhập thất bại: Kiểm tra lại tài khoản hoặc mật khẩu.\nChi tiết lỗi: ${error.message}`);
       setLoading(false);
       return;
     }
 
-    // Tự động set Role dựa vào email (VD: có chữ 'admin' thì set quyền Admin)
+    // Tự động phân cấp quyền dựa theo ký tự trong tên đăng nhập
     const userRole = u.includes('admin') ? 'admin' : 'staff';
 
     setIsLoggedIn(true);
@@ -503,7 +511,6 @@ export default function App() {
     setLoading(false); setShowMarketingModal(false); alert(`✅ Đã gửi ${successCount} mail!`)
   };
   
-  // BẢO MẬT: Bỏ logic lưu Password LocalStorage
   const saveSettings = () => { 
     if (!newBankBin || !newBankAcc || !newBankNameStr) return alert("Điền đủ!"); 
     setBankBin(newBankBin); localStorage.setItem("mart_bank_bin", newBankBin); 
@@ -844,7 +851,7 @@ export default function App() {
         for (let i = 1; i < lines.length; i++) {
           const cols = lines[i].split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, '')); if (cols.length < 5) continue; const pCode = cols[0]; const pName = cols[1]; const pCategory = formatCategoryStr(cols[2]); const pImpPrice = parseInt(cols[3]) || 0; const pSalePrice = parseInt(cols[4]) || 0; const pPromoPrice = parseInt(cols[5]) || 0; const pGift = cols[6] || null; const pStock = parseInt(cols[7]) || 0; const pExpiry = cols[8] || null; if (!pCode || !pName || pSalePrice <= 0) continue;
           const baseCode = pCode.trim(); const allVariants = products.filter(p => p.product_code === baseCode || p.product_code.startsWith(`${baseCode}-`)); if (allVariants.length > 0 && allVariants[0].sale_price !== pSalePrice) { await Promise.all(allVariants.map(v => supabase.from("products").update({ sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift }).eq("id", v.id))); if (!importLogs.find(l => l.name === `Đồng bộ giá/quà ${baseCode}`)) importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "HỆ THỐNG", name: `Đồng bộ giá/quà ${baseCode}`, qty: 0, total: 0, time: new Date().toLocaleString('vi-VN') }) }
-          const exist = allVariants.find(p => p.product_code === baseCode); if (exist) { if (exist.stock <= 0) await supabase.from("products").update({ name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry, created_at: new Date().toISOString() }).eq("id", exist.id); else { if (exist.import_price !== pImpPrice || (exist.expiry_date || "") !== (pExpiry || "")) { const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}${i}`; const batchName = `${pName} [Lô ${pExpiry ? new Date(pExpiry).toLocaleDateString('vi-VN') : 'Mới'}]`; await supabase.from("products").insert([{ product_code: batchCode, name: batchName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); } else await supabase.from("products").update({ stock: exist.stock + pStock, created_at: new Date().toISOString() }).eq("id", exist.id) } } else await supabase.from("products").insert([{ product_code: baseCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); if (pStock > 0) importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "NHẬP", name: cleanName(pName), qty: pStock, total: 0, time: new Date().toLocaleString('vi-VN') }); successCount++
+          const exist = allVariants.find(p => p.product_code === baseCode); if (exist) { if (exist.stock <= 0) await supabase.from("products").update({ name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry, created_at: new Date().toISOString() }).eq("id", exist.id); else { if (exist.import_price !== pImpPrice || (exist.expiry_date || "") !== (pExpiry || "")) { const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}${i}`; const batchName = `${pName} [Lô ${pExpiry ? new Date(pExpiry).toLocaleDateString('vi-VN') : 'Mới'}]`; await supabase.from("products").insert([{ product_code: batchCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); } else await supabase.from("products").update({ stock: exist.stock + pStock, created_at: new Date().toISOString() }).eq("id", exist.id) } } else await supabase.from("products").insert([{ product_code: baseCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); if (pStock > 0) importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "NHẬP", name: cleanName(pName), qty: pStock, total: 0, time: new Date().toLocaleString('vi-VN') }); successCount++
         }
         if (importLogs.length > 0) { setHistory(prev => [...importLogs, ...prev]); } logAudit("NHẬP FILE", `Nhập ${successCount} mã`); alert(`Nhập thành công ${successCount} SP!`); fetchProducts()
       } catch (err) { alert("Lỗi file CSV."); } setLoading(false)
@@ -951,7 +958,7 @@ export default function App() {
     setLoading(false);
   };
 
-  // TÍNH NĂNG MỚI: Xử lý tìm kiếm trong Kiểm Kho
+  // TÍNH NĂNG MỚI: Tự động nhảy focus kiểm kho cực mượt
   const handleInventorySearchEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -1092,7 +1099,7 @@ export default function App() {
             <option value="Ca Tối">🌙 Ca Tối (22:00 - 06:00)</option>
           </select>
           <input type="number" placeholder="Tiền lẻ đầu ca (để thối)..." value={startingCash || ""} onChange={e => setStartingCash(Number(e.target.value))} style={{ padding: "14px", borderRadius: "10px", outline: "none", fontWeight: "bold", color: "#059669" }} />
-          <input placeholder="Email (Tài khoản hệ thống)" value={authUsername} onChange={e => setAuthUsername(e.target.value)} style={{ padding: "14px", borderRadius: "10px", outline: "none" }} />
+          <input placeholder="Tên đăng nhập hệ thống" value={authUsername} onChange={e => setAuthUsername(e.target.value)} style={{ padding: "14px", borderRadius: "10px", outline: "none" }} />
           <input type="password" placeholder="Mật khẩu" value={authPassword} onChange={e => setAuthPassword(e.target.value)} style={{ padding: "14px", borderRadius: "10px", outline: "none" }} />
           <button type="submit" disabled={loading} style={{ padding: "14px", background: "#dc2626", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "bold", cursor: "pointer", boxShadow: "0 4px 6px rgba(220,38,38,0.3)" }}>
             {loading ? "ĐANG TẢI..." : "MỞ CỬA BÁN HÀNG 🚀"}
@@ -1924,7 +1931,7 @@ export default function App() {
                 <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
                   {role === 'admin' && <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "bold" }}>VỐN</div><div style={{ fontSize: "15px", fontWeight: "900", color: "var(--text-main)" }}>{totalValue.toLocaleString()}đ</div></div>}
                   
-                  {/* UPDATE: Ô hiển thị Dòng Tiền */}
+                  {/* UPDATE: Ô hiển thị Dòng Tiền có Hover */}
                   <div className="cash-box" onClick={() => setCashFlowModalInfo('TIỀN MẶT')} style={{ textAlign: "center", whiteSpace: "nowrap" }}>
                     <div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "bold" }}>TIỀN MẶT 👆</div>
                     <div style={{ fontSize: "15px", fontWeight: "900", color: currentShiftStats.cash < 0 ? "#ef4444" : "#059669" }}>{currentShiftStats.cash.toLocaleString()}đ</div>
@@ -1963,7 +1970,7 @@ export default function App() {
                     {role === 'admin' && <div onClick={() => { setShowMainMenu(false); setShowCustomerModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px solid var(--border-glass)", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "16px" }}>🤝</span> Quản Lý Khách Hàng VIP</div>}
                     {role === 'admin' && <div onClick={() => { setShowMainMenu(false); setShowInventoryModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px solid var(--border-glass)", display: "flex", alignItems: "center", gap: "10px", color: "#10b981" }}><span style={{ fontSize: "16px" }}>📦</span> Kiểm Kho Định Kỳ</div>}
                     <div onClick={() => { setShowMainMenu(false); setShowDebtModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px solid var(--border-glass)", display: "flex", alignItems: "center", gap: "10px", color: "#ef4444" }}><span style={{ fontSize: "16px" }}>📓</span> Sổ Nợ Khách Hàng</div>
-                    {role === 'admin' && <div onClick={() => { setShowMainMenu(false); setShowAuditModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px dashed var(--border-glass)", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "16px" }}>🕵️</span> Lịch Sử Thao Tác</div>}
+                    {role === 'admin' && <div onClick={() => { setShowMainMenu(false); setShowAuditModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px dashed #cbd5e1", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "16px" }}>🕵️</span> Lịch Sử Thao Tác</div>}
                     {role === 'admin' && (
                       <>
                         <div onClick={() => { setShowMainMenu(false); setShowExpenseModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px solid var(--border-glass)", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "16px" }}>💸</span> Nhập Chi Phí (Điện/Nước)</div>
@@ -2121,7 +2128,7 @@ export default function App() {
                             <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}>
                               <button className="add-to-cart-btn" onClick={() => addToCart(p)}>+ GIỎ</button>
                               {role === 'admin' && <button onClick={() => handlePrintBarcode(p)} style={{ padding: "6px 8px", background: "var(--border-glass)", color: "var(--text-main)", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "11px" }} title="In tem mã vạch">🖨️ Tem</button>}
-                              {role === 'admin' && <button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "14px", padding: 0 }}>🗑️</button>}
+                              {role === 'admin' && <button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "14px", padding 0 }}>🗑️</button>}
                             </div>
                           </td>
                         </tr>
