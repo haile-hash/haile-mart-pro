@@ -64,7 +64,6 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState("");
   const [currentTime, setCurrentTime] = useState(new Date());
   
-  // Ép cứng giá trị mặc định là 5.000.000 VNĐ
   const [startingCash, setStartingCash] = useState<number>(() => {
     const cached = localStorage.getItem("mart_starting_cash");
     return (cached && cached !== "0") ? Number(cached) : 5000000;
@@ -103,11 +102,10 @@ export default function App() {
   const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [showMarketingModal, setShowMarketingModal] = useState(false);
   
-  // State Kiểm kho
   const [showInventoryModal, setShowInventoryModal] = useState(false);
   const [actualStockInput, setActualStockInput] = useState<Record<string, number>>({});
   const [inventorySearchTerm, setInventorySearchTerm] = useState("");
-  const [invFilter, setInvFilter] = useState('ALL'); // ALL, DIFF, MATCH
+  const [invFilter, setInvFilter] = useState('ALL');
   
   const [reportStartDate, setReportStartDate] = useState(() => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0]; });
   const [reportEndDate, setReportEndDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -955,7 +953,6 @@ export default function App() {
     setLoading(false);
   };
 
-  // --- TÍNH NĂNG MỚI: TỰ ĐỘNG FOCUS, BỘ LỌC VÀ XUẤT/NHẬP FILE KIỂM KHO ---
   const handleInventorySearchEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -1127,35 +1124,12 @@ export default function App() {
     );
   };
 
-  if (!isLoggedIn) return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", position: "relative", overflow: "hidden" }}>
-      <style>{styles}</style>
-      <div className="spring-bg" style={{ background: "#ef4444", top: "-10%", left: "-10%" }}></div>
-      <div className="spring-bg" style={{ background: "#fbbf24", bottom: "-10%", right: "-10%" }}></div>
-      <div className="glass" style={{ padding: "40px", width: "100%", maxWidth: "380px", textAlign: "center", border: "4px solid #ef4444" }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "30px" }}><HeaderLogo /></div>
-        <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-          <select value={shift} onChange={e => setShift(e.target.value)} style={{ padding: "14px", borderRadius: "10px", outline: "none", fontWeight: "bold" }}>
-            <option value="Ca Sáng">🌅 Ca Sáng (06:00 - 14:00)</option>
-            <option value="Ca Chiều">🌇 Ca Chiều (14:00 - 22:00)</option>
-            <option value="Ca Tối">🌙 Ca Tối (22:00 - 06:00)</option>
-          </select>
-          <input type="number" placeholder="Tiền lẻ đầu ca (để thối)..." value={startingCash || ""} onChange={e => setStartingCash(Number(e.target.value))} style={{ padding: "14px", borderRadius: "10px", outline: "none", fontWeight: "bold", color: "#059669" }} />
-          <input placeholder="Tên đăng nhập hệ thống" value={authUsername} onChange={e => setAuthUsername(e.target.value)} style={{ padding: "14px", borderRadius: "10px", outline: "none" }} />
-          <input type="password" placeholder="Mật khẩu" value={authPassword} onChange={e => setAuthPassword(e.target.value)} style={{ padding: "14px", borderRadius: "10px", outline: "none" }} />
-          <button type="submit" disabled={loading} style={{ padding: "14px", background: "#dc2626", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "bold", cursor: "pointer", boxShadow: "0 4px 6px rgba(220,38,38,0.3)" }}>
-            {loading ? "ĐANG TẢI..." : "MỞ CỬA BÁN HÀNG 🚀"}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
       <style>{styles}</style>
       <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} />
       
+      {/* CÁC MODAL */}
       {showInventoryModal && role === 'admin' && (
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "900px", maxWidth: "95vw", maxHeight: "85vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
@@ -1216,7 +1190,6 @@ export default function App() {
                       const matchSearch = cleanName(p.name).toLowerCase().includes(inventorySearchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(inventorySearchTerm.toLowerCase()));
                       const actual = actualStockInput[p.id] !== undefined ? actualStockInput[p.id] : p.stock;
                       const diff = actual - p.stock;
-                      
                       if (invFilter === 'DIFF') return matchSearch && diff !== 0;
                       if (invFilter === 'MATCH') return matchSearch && diff === 0;
                       return matchSearch; 
@@ -1248,17 +1221,7 @@ export default function App() {
                   })}
                 </tbody>
               </table>
-              {products.filter(p => {
-                  const matchSearch = cleanName(p.name).toLowerCase().includes(inventorySearchTerm.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(inventorySearchTerm.toLowerCase()));
-                  const diff = (actualStockInput[p.id] !== undefined ? actualStockInput[p.id] : p.stock) - p.stock;
-                  if (invFilter === 'DIFF') return matchSearch && diff !== 0;
-                  if (invFilter === 'MATCH') return matchSearch && diff === 0;
-                  return matchSearch;
-              }).length === 0 && (
-                <div style={{ textAlign: "center", color: "var(--text-muted)", padding: "20px" }}>Không tìm thấy sản phẩm khớp với bộ lọc.</div>
-              )}
             </div>
-            
             <div style={{ display: "flex", gap: "10px", marginTop: "15px", borderTop: "1px dashed var(--border-glass)", paddingTop: "15px" }}>
               <button onClick={() => { setActualStockInput({}); setInventorySearchTerm(""); setInvFilter("ALL"); }} style={{ flex: 1, padding: "12px", background: "var(--border-glass)", color: "var(--text-main)", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>↺ Hủy thao tác</button>
               <button onClick={syncInventoryCheck} disabled={loading || Object.keys(actualStockInput).length === 0} style={{ flex: 2, padding: "12px", background: Object.keys(actualStockInput).length === 0 ? "var(--border-glass)" : "#10b981", color: Object.keys(actualStockInput).length === 0 ? "var(--text-muted)" : "#fff", borderRadius: "8px", fontWeight: "bold", border: "none", cursor: Object.keys(actualStockInput).length === 0 ? "not-allowed" : "pointer" }}>
@@ -1360,7 +1323,6 @@ export default function App() {
               <div style={{ fontSize: "13px", padding: "10px", background: "#fef2f2", color: "#b91c1c", border: "1px dashed #fca5a5", borderRadius: "6px", marginBottom: "15px" }}>
                 🔒 <b>Bảo mật:</b> Mật khẩu người dùng hiện được quản lý trực tiếp qua hệ thống xác thực Supabase Auth. Vui lòng truy cập trang quản trị Supabase để thêm/đổi mật khẩu.
               </div>
-
               <h3 style={{ fontSize: "14px", color: "#10b981", borderBottom: "1px dashed #10b981", paddingBottom: "4px" }}>2. QR THANH TOÁN</h3>
               <div style={{ marginBottom: "10px" }}>
                 <label style={{ fontSize: "11px", fontWeight: "bold", color: "var(--text-muted)" }}>Ngân hàng:</label>
@@ -1757,6 +1719,251 @@ export default function App() {
         </div>
       )}
 
+      {/* 💸 MODAL DÒNG TIỀN (CASH FLOW) */}
+      {cashFlowModalInfo && (
+        <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }} onClick={() => setCashFlowModalInfo(null)}>
+          <div className="glass" style={{ padding: "20px", width: "700px", maxHeight: "85vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `2px solid ${cashFlowModalInfo === 'TIỀN MẶT' ? '#10b981' : '#3b82f6'}`, paddingBottom: "10px", marginBottom: "15px" }}>
+              <div>
+                <h2 style={{ margin: 0, color: cashFlowModalInfo === 'TIỀN MẶT' ? "#10b981" : "#3b82f6" }}>💸 DÒNG TIỀN {cashFlowModalInfo}</h2>
+                <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "4px" }}>Ca: <b>{shift}</b> ({todayStrStr})</div>
+              </div>
+              <button onClick={() => setCashFlowModalInfo(null)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer", color: "var(--text-main)" }}>✖</button>
+            </div>
+
+            <div style={{ display: "flex", gap: "15px", flex: 1, overflow: "hidden" }}>
+              {/* CỘT THU (+) */}
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "#f0fdf4", padding: "12px", borderRadius: "8px", border: "1px solid #bbf7d0" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px dashed #86efac", paddingBottom: "8px", marginBottom: "10px" }}>
+                  <h3 style={{ margin: 0, fontSize: "14px", color: "#16a34a" }}>⬇️ THU VÀO (+)</h3>
+                  <span style={{ fontWeight: "900", color: "#15803d" }}>
+                    {currentShiftCashFlow.thu.reduce((acc, i) => acc + i.amount, 0).toLocaleString()}đ
+                  </span>
+                </div>
+                <div style={{ overflowY: "auto", flex: 1, paddingRight: "5px" }}>
+                  {currentShiftCashFlow.thu.length === 0 && <div style={{ fontSize: "11px", color: "#16a34a", textAlign: "center", marginTop: "20px" }}>Chưa có phát sinh thu.</div>}
+                  {currentShiftCashFlow.thu.map((item, idx) => (
+                    <div key={idx} style={{ padding: "8px 0", borderBottom: "1px dashed #bbf7d0", fontSize: "12px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div style={{ display: "flex", flexDirection: "column", maxWidth: "70%" }}>
+                        <b style={{ color: "#14532d", wordBreak: "break-word" }}>{item.note}</b>
+                        <span style={{ fontSize: "10px", color: "#15803d", marginTop: "2px" }}>{item.time}</span>
+                      </div>
+                      <b style={{ color: "#16a34a", whiteSpace: "nowrap" }}>+{item.amount.toLocaleString()}đ</b>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* CỘT CHI (-) */}
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "#fef2f2", padding: "12px", borderRadius: "8px", border: "1px solid #fecaca" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px dashed #fca5a5", paddingBottom: "8px", marginBottom: "10px" }}>
+                  <h3 style={{ margin: 0, fontSize: "14px", color: "#dc2626" }}>⬆️ CHI RA (-)</h3>
+                  <span style={{ fontWeight: "900", color: "#b91c1c" }}>
+                    {currentShiftCashFlow.chi.reduce((acc, i) => acc + i.amount, 0).toLocaleString()}đ
+                  </span>
+                </div>
+                <div style={{ overflowY: "auto", flex: 1, paddingRight: "5px" }}>
+                  {currentShiftCashFlow.chi.length === 0 && <div style={{ fontSize: "11px", color: "#dc2626", textAlign: "center", marginTop: "20px" }}>Chưa có phát sinh chi.</div>}
+                  {currentShiftCashFlow.chi.map((item, idx) => (
+                    <div key={idx} style={{ padding: "8px 0", borderBottom: "1px dashed #fecaca", fontSize: "12px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div style={{ display: "flex", flexDirection: "column", maxWidth: "70%" }}>
+                        <b style={{ color: "#7f1d1d", wordBreak: "break-word" }}>{item.note}</b>
+                        <span style={{ fontSize: "10px", color: "#b91c1c", marginTop: "2px" }}>{item.time}</span>
+                      </div>
+                      <b style={{ color: "#dc2626", whiteSpace: "nowrap" }}>-{item.amount.toLocaleString()}đ</b>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            
+            <div style={{ marginTop: "15px", background: "var(--bg-input)", padding: "15px", borderRadius: "8px", border: "1px dashed var(--border-glass)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <b style={{ color: "var(--text-main)", fontSize: "14px" }}>💰 TỔNG TỒN QUỸ {cashFlowModalInfo}:</b>
+              <span style={{ fontSize: "20px", fontWeight: "900", color: cashFlowModalInfo === 'TIỀN MẶT' ? "#059669" : "#3b82f6" }}>
+                {cashFlowModalInfo === 'TIỀN MẶT' ? currentShiftStats.cash.toLocaleString() : currentShiftStats.transfer.toLocaleString()}đ
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🖨️ KHU VỰC IN ẨN */}
+      {lastOrder && printMode === 'receipt' && (
+        <div className="print-only">
+          <div className="print-receipt-container">
+            <div style={{ textAlign: "center", marginBottom: "8px" }}>
+              <h2 style={{ margin: 0, fontSize: "20px", fontWeight: 900 }}>HẢI LÊ MART</h2>
+              <div style={{ fontSize: "11px" }}>Tòa Nhà ATS, 252 Hoàng Quốc Việt, HN</div>
+              <div style={{ fontSize: "11px" }}>Hotline: 0902 613 899</div>
+            </div>
+            <div style={{ borderBottom: "1px dashed #000", marginBottom: "8px" }}></div>
+            <table style={{ width: "100%", fontSize: "11px", marginBottom: "4px", borderCollapse: "collapse" }}>
+              <tbody>
+                <tr><td style={{ textAlign: "left" }}><b>HĐ:</b> {lastOrder.orderId}</td><td style={{ textAlign: "right" }}><b>Ca:</b> {shift}</td></tr>
+                <tr><td style={{ textAlign: "left" }}><b>Ngày:</b> {lastOrder.time}</td><td style={{ textAlign: "right" }}><b>TN:</b> {role}</td></tr>
+              </tbody>
+            </table>
+            <div style={{ borderBottom: "1px dashed #000", marginBottom: "6px" }}></div>
+            <div style={{ fontSize: "11px", marginBottom: "8px", lineHeight: "1.5" }}>
+              {lastOrder.custPhone ? (
+                <>
+                  <div><b>Khách hàng:</b> {lastOrder.custName || 'Khách VIP'}</div>
+                  <div><b>SĐT:</b> {lastOrder.custPhone}</div>
+                  {customers[lastOrder.custPhone]?.email && <div><b>Email:</b> {customers[lastOrder.custPhone].email}</div>}
+                </>
+              ) : (
+                <div><b>Khách hàng:</b> Khách lẻ</div>
+              )}
+            </div>
+            <div style={{ borderBottom: "1px dashed #000", marginBottom: "8px" }}></div>
+            <table style={{ width: "100%", fontSize: "12px", borderCollapse: "collapse" }}>
+              <tbody>
+                {lastOrder.cart.map((i: any, x: number) => {
+                  const p = i.priceIncludingVat !== undefined ? Math.round(i.priceIncludingVat / (1 + VAT_RATE)) : Math.round(getActualPrice(i.product)); 
+                  const t = i.priceIncludingVat !== undefined ? Math.round(i.priceIncludingVat * i.qty) : Math.round((Number(i.qty) || 0) * p * (1 + VAT_RATE)); 
+                  const g = parseGift(i.product.gift_info); const gQty = g.cond > 0 ? Math.floor(i.qty / g.cond) : 0;
+                  return (
+                    <React.Fragment key={x}>
+                      <tr><td colSpan={2} style={{ fontWeight: "bold", paddingTop: "4px" }}>{cleanName(i.product.name)} {i.product.isHappyHour && <span style={{ fontSize: "9px", fontStyle: "italic" }}>[Giờ Vàng]</span>}</td></tr>
+                      <tr><td style={{ color: "#444", paddingBottom: "4px" }}>{i.qty} x {p.toLocaleString()}</td><td style={{ textAlign: "right", fontWeight: "bold", paddingBottom: "4px", color: "#000" }}>{t.toLocaleString()}</td></tr>
+                      {g.text && gQty > 0 && <tr><td colSpan={2} style={{ fontSize: "10px", fontStyle: "italic", paddingBottom: "4px" }}>+ 🎁 Tặng: {gQty} x {g.text}</td></tr>}
+                    </React.Fragment>
+                  )
+                })}
+              </tbody>
+            </table>
+            <div style={{ borderBottom: "1px dashed #000", marginBottom: "8px", marginTop: "4px" }}></div>
+            <table style={{ width: "100%", fontSize: "12px", borderCollapse: "collapse" }}>
+              <tbody>
+                <tr><td style={{ padding: "2px 0" }}>Tiền hàng:</td><td style={{ textAlign: "right", padding: "2px 0" }}>{Math.round(lastOrder.subTotal).toLocaleString()}đ</td></tr>
+                <tr><td style={{ padding: "2px 0" }}>VAT (10%):</td><td style={{ textAlign: "right", padding: "2px 0" }}>{Math.round(lastOrder.vatTotal).toLocaleString()}đ</td></tr>
+                {lastOrder.discount > 0 && <tr><td style={{ padding: "2px 0" }}>Giảm giá/Ví:</td><td style={{ textAlign: "right", padding: "2px 0" }}>-{Math.round(lastOrder.discount).toLocaleString()}đ</td></tr>}
+              </tbody>
+            </table>
+            <div style={{ borderBottom: "2px dashed #000", margin: "6px 0" }}></div>
+            <table style={{ width: "100%", fontSize: "16px", fontWeight: 900, borderCollapse: "collapse" }}>
+              <tbody>
+                <tr><td>{lastOrder.debtAmount > 0 ? "NỢ:" : "TỔNG:"}</td><td style={{ textAlign: "right" }}>{Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</td></tr>
+              </tbody>
+            </table>
+            
+            <div style={{ marginTop: "6px", borderTop: "1px dotted #ccc", paddingTop: "4px", textAlign: "right", fontSize: "12px" }}>
+              {lastOrder.paymentMethod === 'TIỀN MẶT' && <i>Tiền mặt</i>}
+              {lastOrder.paymentMethod === 'CHUYỂN KHOẢN' && <i>Chuyển khoản (VietQR)</i>}
+              {lastOrder.paymentMethod === 'KẾT HỢP' && <i>Thanh toán Kết hợp (TM: {lastOrder.customerGiven.toLocaleString()}đ, CK: {(lastOrder.finalTotal - lastOrder.customerGiven).toLocaleString()}đ)</i>}
+            </div>
+
+            {lastOrder.paymentMethod === 'TIỀN MẶT' && lastOrder.customerGiven > lastOrder.finalTotal && (
+              <table style={{ width: "100%", fontSize: "12px", marginTop: "4px", borderCollapse: "collapse" }}>
+                <tbody>
+                  <tr><td>Khách đưa:</td><td style={{ textAlign: "right" }}>{Math.round(lastOrder.customerGiven).toLocaleString()}đ</td></tr>
+                  <tr><td><b>Trả lại:</b></td><td style={{ textAlign: "right" }}><b>{Math.round(lastOrder.customerGiven - lastOrder.finalTotal).toLocaleString()}đ</b></td></tr>
+                </tbody>
+              </table>
+            )}
+            
+            <div style={{ textAlign: "center", marginTop: "15px", fontSize: "11px" }}><b>CẢM ƠN QUÝ KHÁCH!</b><div style={{ fontSize: "9px", marginTop: "4px", color: "#666" }}>Powered by Hải Lê POS</div></div>
+          </div>
+        </div>
+      )}
+
+      {/* 🖨️ IN A4 INVOICE */}
+      {printMode === 'invoice_a4' && lastOrder && (
+        <div className="print-flex print-a4-container">
+          <div style={{ width: "100%", fontFamily: "'Inter', sans-serif" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #000", paddingBottom: "10px", marginBottom: "20px" }}>
+              <div>
+                <h1 style={{ margin: 0, color: "#dc2626", fontSize: "28px" }}>HẢI LÊ MART</h1>
+                <p style={{ margin: "5px 0", fontSize: "14px" }}>Địa chỉ: Tòa Nhà ATS, 252 Hoàng Quốc Việt, Cầu Giấy, HN</p>
+                <p style={{ margin: "5px 0", fontSize: "14px" }}>Hotline: 0902 613 899</p>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <h2 style={{ margin: 0, fontSize: "24px" }}>HÓA ĐƠN BÁN HÀNG</h2>
+                <p style={{ margin: "5px 0", fontSize: "14px" }}>Số: <b>{lastOrder.orderId}</b></p>
+                <p style={{ margin: "5px 0", fontSize: "14px" }}>Ngày: {lastOrder.time}</p>
+              </div>
+            </div>
+            
+            <div style={{ marginBottom: "20px", fontSize: "15px" }}>
+              <p><b>Khách hàng:</b> {lastOrder.custName || "Khách lẻ"} {lastOrder.custPhone ? `(SĐT: ${lastOrder.custPhone})` : ""}</p>
+              <p><b>Hình thức thanh toán:</b> {lastOrder.paymentMethod}</p>
+            </div>
+
+            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px" }}>
+              <thead>
+                <tr style={{ background: "#f1f5f9" }}>
+                  <th style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>STT</th>
+                  <th style={{ border: "1px solid #000", padding: "10px", textAlign: "left" }}>Tên hàng hóa</th>
+                  <th style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>SL</th>
+                  <th style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>Đơn giá</th>
+                  <th style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>Thành tiền</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lastOrder.cart.map((item: any, index: number) => {
+                  const p = item.priceIncludingVat !== undefined ? Math.round(item.priceIncludingVat / (1 + VAT_RATE)) : Math.round(getActualPrice(item.product)); 
+                  const t = item.priceIncludingVat !== undefined ? Math.round(item.priceIncludingVat * item.qty) : Math.round((Number(item.qty) || 0) * p * (1 + VAT_RATE)); 
+                  return (
+                    <tr key={index}>
+                      <td style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>{index + 1}</td>
+                      <td style={{ border: "1px solid #000", padding: "10px" }}>{cleanName(item.product.name)}</td>
+                      <td style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>{item.qty}</td>
+                      <td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{p.toLocaleString()}đ</td>
+                      <td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{t.toLocaleString()}đ</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: "30px", fontSize: "15px" }}>
+              <div style={{ textAlign: "center", width: "40%" }}>
+                <b>Khách hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span>
+              </div>
+              <div style={{ textAlign: "right", width: "50%" }}>
+                <p>Cộng tiền hàng: {Math.round(lastOrder.subTotal).toLocaleString()}đ</p>
+                <p>Thuế GTGT (10%): {Math.round(lastOrder.vatTotal).toLocaleString()}đ</p>
+                {lastOrder.discount > 0 && <p>Chiết khấu/Giảm giá: -{Math.round(lastOrder.discount).toLocaleString()}đ</p>}
+                <h3 style={{ borderTop: "2px solid #000", paddingTop: "10px" }}>TỔNG CỘNG: {Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</h3>
+                <div style={{ textAlign: "center", marginTop: "40px" }}>
+                  <b>Người bán hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, đóng dấu)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {printMode === 'barcode' && printBarcodeProduct && (
+        <div className="print-flex">
+          <div className="print-barcode-sheet">
+            {Array.from({ length: barcodeCount }).map((_, i) => (
+              <div key={i} className="barcode-sticker">
+                <div style={{ fontSize: "9px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: "100%", textAlign: "center" }}>{cleanName(printBarcodeProduct.name)}</div>
+                <img src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(printBarcodeProduct.product_code)}&scale=2&height=10&includetext=false`} onError={(e) => { e.currentTarget.src = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(printBarcodeProduct.product_code)}&code=Code128&translate-esc=on`; }} style={{ maxWidth: "100%", height: "24px", margin: "2px 0" }} alt={printBarcodeProduct.product_code} />
+                <div style={{ fontSize: "8px", fontFamily: "monospace", letterSpacing: "1px", color: "#333", lineHeight: "1" }}>{printBarcodeProduct.product_code}</div>
+                <div style={{ fontSize: "12px", fontWeight: "900", color: "#000", lineHeight: "1.2" }}>{getActualPrice(printBarcodeProduct).toLocaleString()}đ</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {printMode === 'customer_card' && printCustomer && (
+        <div className="print-flex">
+          <div className="print-customer-card">
+            <div style={{ width: "85.6mm", height: "53.98mm", border: "3px solid #dc2626", borderRadius: "12px", padding: "15px", textAlign: "center", boxSizing: "border-box", display: "flex", flexDirection: "column", justifyContent: "center", background: "#fff7ed", fontFamily: "'Inter', sans-serif" }}>
+              <h2 style={{ margin: "0 0 5px 0", color: "#b91c1c", fontSize: "20px", textTransform: "uppercase", fontWeight: "900" }}>HẢI LÊ MART</h2>
+              <div style={{ fontSize: "10px", fontWeight: "bold", color: "#ea580c", letterSpacing: "2px", marginBottom: "10px" }}>THẺ KHÁCH HÀNG THÂN THIẾT</div>
+              <div style={{ fontSize: "18px", fontWeight: "bold", color: "#0f172a", textTransform: "uppercase" }}>{printCustomer.name}</div>
+              <img src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(printCustomer.cardCode || printCustomer.phone)}&scale=2&height=10&includetext=false`} onError={(e) => { e.currentTarget.src = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(printCustomer.cardCode || printCustomer.phone)}&code=Code128&translate-esc=on`; }} style={{ maxWidth: "100%", height: "45px", marginTop: "10px", margin: "10px auto 0 auto", display: "block" }} alt="barcode" />
+              <div style={{ fontSize: "12px", fontFamily: "monospace", letterSpacing: "2px", marginTop: "4px", fontWeight: "bold" }}>{printCustomer.cardCode || printCustomer.phone}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🚀 MAIN APP UI 🚀 */}
       <div className="no-print" style={{ padding: "15px", position: "relative", minHeight: "100vh", overflowX: "auto" }}>
         <div style={{ maxWidth: "1500px", margin: "0 auto", minWidth: "1000px" }}>
           <div className="glass" style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: "12px", marginBottom: "12px", borderBottom: "4px solid #ef4444" }}>
@@ -1768,12 +1975,13 @@ export default function App() {
                 <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
                   {role === 'admin' && <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "bold" }}>VỐN</div><div style={{ fontSize: "15px", fontWeight: "900", color: "var(--text-main)" }}>{totalValue.toLocaleString()}đ</div></div>}
                   
-                  <div className="cash-box" onClick={() => setCashFlowModalInfo('TIỀN MẶT')} style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                  {/* UPDATE: Ô hiển thị Dòng Tiền có e.stopPropagation() */}
+                  <div className="cash-box" onClick={(e) => { e.stopPropagation(); setCashFlowModalInfo('TIỀN MẶT'); }} style={{ textAlign: "center", whiteSpace: "nowrap" }}>
                     <div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "bold" }}>TIỀN MẶT 👆</div>
                     <div style={{ fontSize: "15px", fontWeight: "900", color: currentShiftStats.cash < 0 ? "#ef4444" : "#059669" }}>{currentShiftStats.cash.toLocaleString()}đ</div>
                   </div>
                   
-                  <div className="cash-box" onClick={() => setCashFlowModalInfo('CHUYỂN KHOẢN')} style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                  <div className="cash-box" onClick={(e) => { e.stopPropagation(); setCashFlowModalInfo('CHUYỂN KHOẢN'); }} style={{ textAlign: "center", whiteSpace: "nowrap" }}>
                     <div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "bold" }}>CHUYỂN KHOẢN 👆</div>
                     <div style={{ fontSize: "15px", fontWeight: "900", color: "#3b82f6" }}>{currentShiftStats.transfer.toLocaleString()}đ</div>
                   </div>
@@ -2062,25 +2270,4 @@ export default function App() {
                                       <button onClick={() => handleRefund(log.id)} disabled={(log.refunded_qty || 0) >= log.qty} style={{ fontSize: "9px", padding: "2px 6px", border: "1px solid var(--border-glass)", background: (log.refunded_qty || 0) >= log.qty ? "var(--bg-main)" : "var(--bg-input)", color: (log.refunded_qty || 0) >= log.qty ? "var(--text-muted)" : "var(--text-main)", cursor: (log.refunded_qty || 0) >= log.qty ? "not-allowed" : "pointer", borderRadius: "4px" }}>
                                         {(log.refunded_qty || 0) >= log.qty ? "Đã hoàn" : `↩️ Hoàn ${log.qty - (log.refunded_qty || 0)}`}
                                       </button>
-                                      <button onClick={() => handleReprint(log.time)} style={{ fontSize: "9px", padding: "2px 6px", border: "1px solid var(--border-glass)", background: "var(--bg-input)", color: "var(--text-main)", cursor: "pointer", borderRadius: "4px" }} title="In lại Hóa đơn thời điểm này">
-                                        🖨️ In lại
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+                                      <button onClick={() => handleReprint(log.time)} style={{ fontSize: "9px", padding: "2px 6px", border: "1px solid var(--border-glass)", background: "var(--bg-input)", color: "var(--text-main)", cursor: "pointer", borderRadius: "4px" }} title="
