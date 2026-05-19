@@ -1232,31 +1232,21 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
 
   // GIAO DIỆN ĐĂNG NHẬP MỚI (CÓ NHẠC VÀ NỀN ĐỘNG)
   if (!isLoggedIn) {
-    return (
-      <>
-        {/* Chèn 2 dòng này vào đầu giao diện đăng nhập */}
-        <audio ref={bgMusicRef} loop src="/Windy Hill.mp3" />
-        <button onClick={toggleMusic} className="music-btn">
-          {isMusicPlaying ? '⏸️ Tạm dừng nhạc' : '🎧 Bật nhạc Chill'}
-        </button>
-
-        <div key="login" className="login-wrapper">
-          {/* ... giữ nguyên toàn bộ code thiết kế Đăng nhập cũ của bạn ... */}
-        </div>
-      </>
-    );
-  }
+    const toggleMusic = () => {
+      if (isMusicPlaying) { bgMusicRef.current?.pause(); } 
+      else { bgMusicRef.current?.play().catch(e => console.log("Trình duyệt chặn:", e)); }
+      setIsMusicPlaying(!isMusicPlaying);
+    };
 
     return (
-    <>
-      {/* Chèn tiếp 2 dòng này ở đây để giữ nhạc chạy liên tục khi chuyển trang */}
-      <audio ref={bgMusicRef} loop src="/Windy Hill.mp3" />
-      <button onClick={toggleMusic} style={{ position: "fixed", bottom: "30px", right: "30px", ... }}>
-        {isMusicPlaying ? '⏸️ Tạm dừng nhạc' : '🎧 Bật nhạc Chill'}
-      </button>
-
-      {/* Thẻ div gốc của bạn ở đây - GIỮ NGUYÊN NÓ VÀ TOÀN BỘ 2000 DÒNG CODE BÊN TRONG */}
-      <div key="dashboard" onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
+      <div className="login-wrapper">
+        <style>{`
+          .login-wrapper {
+            min-height: 100vh; width: 100vw; display: flex; justify-content: center; align-items: center;
+            background: linear-gradient(-45deg, #fbc2eb, #a6c1ee, #fccb90, #d57eeb);
+            background-size: 400% 400%; animation: gradientBG 15s ease infinite;
+            font-family: 'Inter', sans-serif; position: relative; overflow: hidden; margin: 0; padding: 0;
+          }
           @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
           
           /* Bóng bóng bay lên */
@@ -2520,6 +2510,5 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
         </div>
       </div>
     </div>
-    </> {/*
   );
 }
