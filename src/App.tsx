@@ -2362,7 +2362,6 @@ export default function App() {
                       </div>
                       {(expandedDates[date] ?? true) && (
                         <div style={{ padding: "0 4px" }}>
-                          {groupedHistory[date].map((
                           {groupedHistory[date].map((log: any) => (
                             <div key={log.id} style={{ fontSize: "11px", padding: "6px 0", borderBottom: "1px dashed var(--border-glass)", display: "flex", flexDirection: "column" }}>
                               <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
