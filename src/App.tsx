@@ -1236,18 +1236,15 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
   };
 
   // GIAO DIỆN ĐĂNG NHẬP MỚI (CÓ NHẠC VÀ NỀN ĐỘNG)
-  // GIAO DIỆN ĐĂNG NHẬP MỚI (CÓ NHẠC VÀ NỀN ĐỘNG)
+
   if (!isLoggedIn) {
+    if (!isLoggedIn) {
     return (
       <>
-        {/* Đặt Audio ở đây để nhạc không bị tắt khi chuyển màn hình */}
         <audio ref={bgMusicRef} loop src="/windy-hill.mp3" />
         
         <div className="login-wrapper">
-
-    return (
-      <div className="login-wrapper">
-        <style>{`
+          <style>{`
           .login-wrapper {
             min-height: 100vh; width: 100vw; display: flex; justify-content: center; align-items: center;
             background: linear-gradient(-45deg, #fbc2eb, #a6c1ee, #fccb90, #d57eeb);
@@ -1317,10 +1314,8 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
   }
 
   return (
-    return (
     <>
-      {/* Phải có thẻ audio ở đây, giống hệt màn hình đăng nhập */}
-      <audio ref={bgMusicRef} loop src="/nhac.mp3" />
+      <audio ref={bgMusicRef} loop src="/windy-hill.mp3" />
 
       <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
         <style>{styles}</style>
@@ -2520,8 +2515,7 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
           </div>
         </div>
       </div>
-   </div>
+      </div>
     </>
   );
 }
-
