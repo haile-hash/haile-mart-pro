@@ -533,17 +533,25 @@ export default function App() {
   const clearCart = () => { if (window.confirm("Hủy toàn bộ?")) { setCart([]); setCustName(""); setCustPhone(""); setCustomerInput("") } };
   const handleVoucherSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); const code = voucherInput.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); playSound('success') } else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); playSound('success') } else { playSound('error'); alert("Mã Voucher lỗi!"); setAppliedVoucherAmount(0) } } };
   const handleCustomerInputChange = (e: React.ChangeEvent<HTMLInputElement>) => { const val = e.target.value; setCustomerInput(val); const matchedPhone = Object.keys(customers).find(phone => phone === val.trim() || customers[phone].cardCode === val.trim()); if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setUseWallet(false) } else { setCustPhone(val); setCustName(""); setUseWallet(false) } };
-  const handleNextToQR = () => { if (cart.length === 0) return alert("Giỏ hàng trống!"); if (custPhone && !customers[custPhone] && !custName) return alert("Nhập Tên khách mới!"); setCheckoutStep(2) };
+  
+  const handleNextToQR = () => { 
+    if (cart.length === 0) return alert("Giỏ hàng trống!"); 
+    if (custPhone && !customers[custPhone] && !custName) return alert("Nhập Tên khách mới!"); 
+    if (voucherInput.trim() !== "" && appliedVoucherAmount === 0) { const code = voucherInput.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); } else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); } else { return alert("❌ Mã Voucher không hợp lệ! Vui lòng kiểm tra lại hoặc xóa mã đi để tiếp tục."); } } 
+    setCheckoutStep(2); 
+  };
 
   const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 'GHI NỢ' | 'KẾT HỢP') => {
     if (cart.some(i => !i.qty || i.qty <= 0)) { playSound('error'); return alert("Lỗi số lượng!") } if (payMethod === 'GHI NỢ' && !custPhone) return alert("Ghi nợ cần SĐT!");
     setLoading(true); let logs: any[] = [];
-    const subTotal = Math.round(cart.reduce((s, i) => s + (i.qty * getActualPrice(i.product)), 0));
-    const vatTotal = Math.round(subTotal * VAT_RATE);
-    const baseTotal = subTotal + vatTotal;
+    
+    const baseTotal = cartTotalAmountDisplay; 
+    const subTotal = Math.round(baseTotal / (1 + VAT_RATE)); 
+    const vatTotal = baseTotal - subTotal;
+    
     const totalAfterVoucher = Math.max(0, baseTotal - appliedVoucherAmount);
     const tier = getCustomerTier(customers[custPhone]?.totalSpent || 0);
-    const tierDiscountAmount = custPhone ? Math.round(cartTotalAmountDisplay * tier.discountRate) : 0;
+    const tierDiscountAmount = custPhone ? Math.round(baseTotal * tier.discountRate) : 0;
     const amountAfterTierAndVoucher = Math.max(0, totalAfterVoucher - tierDiscountAmount);
     const walletUsedAmount = useWallet && payMethod !== 'GHI NỢ' ? Math.round(Math.min(customers[custPhone]?.wallet || 0, amountAfterTierAndVoucher)) : 0;
     const finalTotal = amountAfterTierAndVoucher - walletUsedAmount;
@@ -807,25 +815,33 @@ export default function App() {
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!navigator.onLine) return alert("Cần có mạng để thao tác Kho!");
-    const file = e.target.files?.[0]; if (!file) return;
+    const file = e.target.files?.[0]; 
+    if (!file) return;
 
     const processData = async (lines: any[]) => {
       setLoading(true); 
       try {
-        if (lines.length <= 1) { alert("File rỗng!"); setLoading(false); return } 
-        let successCount = 0; let importLogs: any[] = [];
+        if (!lines || lines.length <= 1) { 
+          alert("File rỗng hoặc không có dữ liệu hợp lệ!"); 
+          setLoading(false); 
+          return; 
+        } 
+        
+        let successCount = 0; 
+        let importLogs: any[] = [];
+        
         for (let i = 1; i < lines.length; i++) {
           const cols = lines[i];
-          if (!cols || cols.length < 5) continue; 
+          if (!cols || !Array.isArray(cols) || cols.join('').trim() === '') continue; 
           
           const pCode = String(cols[0] || "").trim(); 
           const pName = String(cols[1] || "").trim(); 
           const pCategory = formatCategoryStr(String(cols[2] || "")); 
-          const pImpPrice = parseInt(String(cols[3])) || 0; 
-          const pSalePrice = parseInt(String(cols[4])) || 0; 
-          const pPromoPrice = parseInt(String(cols[5])) || 0; 
+          const pImpPrice = parseInt(String(cols[3] || "0").replace(/[,.]/g, '')) || 0; 
+          const pSalePrice = parseInt(String(cols[4] || "0").replace(/[,.]/g, '')) || 0; 
+          const pPromoPrice = parseInt(String(cols[5] || "0").replace(/[,.]/g, '')) || 0; 
           const pGift = cols[6] ? String(cols[6]).trim() : null; 
-          const pStock = parseInt(String(cols[7])) || 0; 
+          const pStock = parseInt(String(cols[7] || "0").replace(/[,.]/g, '')) || 0; 
           const pExpiry = cols[8] ? String(cols[8]).trim() : null; 
           
           if (!pCode || !pName || pSalePrice <= 0) continue;
@@ -840,8 +856,9 @@ export default function App() {
           
           const exist = allVariants.find(p => p.product_code === baseCode); 
           if (exist) { 
-            if (exist.stock <= 0) await supabase.from("products").update({ name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry, created_at: new Date().toISOString() }).eq("id", exist.id); 
-            else { 
+            if (exist.stock <= 0) {
+              await supabase.from("products").update({ name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry, created_at: new Date().toISOString() }).eq("id", exist.id); 
+            } else { 
               if (exist.import_price !== pImpPrice || (exist.expiry_date || "") !== (pExpiry || "")) { 
                 const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}${i}`; 
                 const batchName = `${pName} [Lô ${pExpiry ? new Date(pExpiry).toLocaleDateString('vi-VN') : 'Mới'}]`; 
@@ -851,25 +868,34 @@ export default function App() {
           } else await supabase.from("products").insert([{ product_code: baseCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); 
           
           if (pStock > 0) importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "NHẬP", name: cleanName(pName), qty: pStock, total: 0, time: new Date().toLocaleString('vi-VN') }); 
-          successCount++
+          successCount++;
         }
         if (importLogs.length > 0) { setHistory(prev => [...importLogs, ...prev]); } 
         logAudit("NHẬP FILE", `Nhập ${successCount} mã`); 
-        alert(`Nhập thành công ${successCount} SP!`); 
-        fetchProducts()
-      } catch (err) { alert("Lỗi file dữ liệu."); } 
+        alert(`✅ Nhập thành công ${successCount} sản phẩm từ file!`); 
+        fetchProducts();
+      } catch (err) { 
+        console.error(err);
+        alert("Lỗi xử lý dữ liệu file, vui lòng kiểm tra lại định dạng."); 
+      } 
       setLoading(false);
     }; 
     
-    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+    const fileNameStr = file.name.toLowerCase();
+    if (fileNameStr.endsWith('.xlsx') || fileNameStr.endsWith('.xls')) {
       if (!(window as any).XLSX) return alert("Thư viện Excel đang tải, vui lòng thử lại sau vài giây!");
       const reader = new FileReader();
       reader.onload = (event) => {
-        const data = new Uint8Array(event.target?.result as ArrayBuffer);
-        const workbook = (window as any).XLSX.read(data, { type: 'array' });
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-        processData(jsonData);
+        try {
+          const data = new Uint8Array(event.target?.result as ArrayBuffer);
+          const workbook = (window as any).XLSX.read(data, { type: 'array' });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false });
+          processData(jsonData);
+        } catch (error) {
+          console.error(error);
+          alert("Đã xảy ra lỗi khi đọc file Excel.");
+        }
       };
       reader.readAsArrayBuffer(file);
     } else {
@@ -881,7 +907,7 @@ export default function App() {
       };
       reader.readAsText(file);
     }
-    e.target.value = '';
+    e.target.value = ''; 
   };
 
   const handleImportInventoryCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -893,15 +919,16 @@ export default function App() {
       let count = 0;
       for (let i = 1; i < lines.length; i++) {
         const cols = lines[i];
-        if (cols && cols.length >= 4) {
-          const pCode = String(cols[0] || "").trim();
-          const actualVal = parseInt(String(cols[3]));
-          if (!isNaN(actualVal) && pCode) {
-            const matchedProd = products.find(p => p.product_code === pCode);
-            if (matchedProd && matchedProd.stock !== actualVal) {
-              updatedStock[matchedProd.id] = actualVal;
-              count++;
-            }
+        if (!cols || !Array.isArray(cols) || cols.join('').trim() === '') continue;
+
+        const pCode = String(cols[0] || "").trim();
+        const actualVal = parseInt(String(cols[3] || "0").replace(/[,.]/g, ''));
+        
+        if (!isNaN(actualVal) && pCode) {
+          const matchedProd = products.find(p => p.product_code === pCode);
+          if (matchedProd && matchedProd.stock !== actualVal) {
+            updatedStock[matchedProd.id] = actualVal;
+            count++;
           }
         }
       }
@@ -909,15 +936,20 @@ export default function App() {
       alert(`✅ Đã nạp số liệu cho ${count} sản phẩm có thay đổi từ file!`);
     };
 
-    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+    const fileNameStr = file.name.toLowerCase();
+    if (fileNameStr.endsWith('.xlsx') || fileNameStr.endsWith('.xls')) {
       if (!(window as any).XLSX) return alert("Thư viện Excel đang tải, vui lòng thử lại sau vài giây!");
       const reader = new FileReader();
       reader.onload = (event) => {
-        const data = new Uint8Array(event.target?.result as ArrayBuffer);
-        const workbook = (window as any).XLSX.read(data, { type: 'array' });
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-        processData(jsonData);
+        try {
+          const data = new Uint8Array(event.target?.result as ArrayBuffer);
+          const workbook = (window as any).XLSX.read(data, { type: 'array' });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false });
+          processData(jsonData);
+        } catch(err) {
+           console.error(err); alert("Lỗi định dạng cấu trúc khi đọc file Excel.");
+        }
       };
       reader.readAsArrayBuffer(file);
     } else {
@@ -1169,7 +1201,6 @@ export default function App() {
       </div>
     );
   };
-
   if (!isLoggedIn) {
     return (
       <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: "var(--bg-main)" }}>
@@ -1683,8 +1714,9 @@ export default function App() {
             <div className="glass" style={{ padding: "25px", width: "350px" }} onClick={e => e.stopPropagation()}>
               <h3 style={{ color: "#ef4444", margin: "0", textAlign: "center" }}>🧧 THANH TOÁN</h3>
               <div style={{ display: "flex", position: "relative", marginTop: "15px" }}>
-                <input type="text" placeholder="👉 Quẹt mã Voucher..." value={voucherInput} onChange={(e) => setVoucherInput(e.target.value)} onKeyDown={handleVoucherSubmit} style={{ flex: 1, padding: "12px", borderRadius: "10px 0 0 10px", border: "2px dashed #f59e0b", outline: "none", boxSizing: "border-box" }} />
-                <button onClick={() => setScannerMode('voucher')} style={{ padding: "0 15px", background: "#f59e0b", border: "none", borderRadius: "0 10px 10px 0", cursor: "pointer", color: "white", fontSize: "18px" }}>📷</button>
+                <input type="text" placeholder="👉 Nhập mã Voucher..." value={voucherInput} onChange={(e) => setVoucherInput(e.target.value)} onKeyDown={handleVoucherSubmit} style={{ flex: 1, padding: "12px", borderRadius: "10px 0 0 10px", border: "2px dashed #f59e0b", outline: "none", boxSizing: "border-box" }} />
+                <button onClick={() => { const code = voucherInput.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); playSound('success'); } else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); playSound('success'); } else { playSound('error'); alert("Mã Voucher lỗi!"); setAppliedVoucherAmount(0); } }} style={{ padding: "0 15px", background: "#f59e0b", border: "none", cursor: "pointer", color: "white", fontWeight: "bold", borderLeft: "1px solid #d97706" }}>ÁP DỤNG</button>
+                <button onClick={() => setScannerMode('voucher')} style={{ padding: "0 15px", background: "#f59e0b", border: "none", borderRadius: "0 10px 10px 0", cursor: "pointer", color: "white", fontSize: "18px", borderLeft: "1px solid #d97706" }}>📷</button>
               </div>
               {appliedVoucherAmount > 0 && <div style={{ color: "#059669", fontSize: "12px", fontWeight: "bold", marginTop: "4px", textAlign: "center" }}>✅ Đã áp dụng giảm: {appliedVoucherAmount.toLocaleString()}đ</div>}
               <div style={{ display: "flex", position: "relative", marginTop: "10px" }}>
@@ -2281,63 +2313,7 @@ export default function App() {
                   <div style={{ background: "rgba(239, 68, 68, 0.1)", padding: "12px 15px", borderRadius: "8px", border: "1px solid #fecaca", marginBottom: "15px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>
                       <span style={{ fontSize: "12px", fontWeight: "bold", color: "#ef4444" }}>TỔNG CỘNG:</span>
-                      <div style={{ fontSize: "24px", fontWeight: "900", color: "#ef4444" }}>{cartTotalAmountDisplay.toLocaleString()}đ</div>
-                    </div>
-                    <button onClick={() => { setIsCheckoutOpen(true); setCheckoutStep(1) }} style={{ padding: "12px 25px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer", fontSize: "14px" }}>THANH TOÁN</button>
-                  </div>
-                )}
-                
-                <div style={{ flex: 1, overflowY: "auto", paddingRight: "4px" }}>
-                  {cart.length === 0 && <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: "12px", marginTop: "15px" }}>Giỏ hàng trống</div>}
-                  {cart.map((item, idx) => {
-                    const gift = parseGift(item.product.gift_info); const gQty = gift.cond > 0 ? Math.floor(item.qty / gift.cond) : 0; const hasGift = gift.text && gQty > 0;
-                    return (
-                      <div key={idx} style={{ padding: "8px 0", borderBottom: "1px dashed var(--border-glass)", fontSize: "12px", display: "flex", flexDirection: "column", gap: "6px" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <span style={{ fontWeight: "bold", color: "var(--text-main)", flex: 1, fontSize: "13px" }}>{cleanName(item.product.name)} {item.product.isHappyHour && <span style={{ color: "#ea580c", fontSize: "10px" }}>[Giờ Vàng]</span>}</span>
-                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                            <button className="qty-btn" style={{background:"var(--border-glass)", border:"none", borderRadius:"4px", cursor:"pointer", color: "var(--text-main)"}} onClick={() => adjustCartQty(item.product.id, -1)}>-</button>
-                            <input className="qty-input" style={{ fontSize: "13px", padding: "4px 0", width: "32px", background:"var(--bg-input)", color:"var(--text-main)", border:"1px solid var(--border-glass)" }} type="number" value={item.qty} onChange={e => handleDirectQtyChange(item.product.id, e.target.value)} onBlur={e => handleDirectQtyBlur(item.product.id, e.target.value)} onFocus={e => e.target.select()} title="Bấm để nhập số lượng" />
-                            <button className="qty-btn" style={{background:"var(--border-glass)", border:"none", borderRadius:"4px", cursor:"pointer", color: "var(--text-main)"}} onClick={() => adjustCartQty(item.product.id, 1)}>+</button>
-                            <button onClick={() => removeFromCart(item.product.id)} style={{ border: "none", background: "none", color: "#ef4444", cursor: "pointer", fontSize: "18px", marginLeft: "4px", fontWeight: "bold" }}>×</button>
-                          </div>
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-                          <span>{hasGift && <span style={{ color: "#10b981", fontSize: "10px", fontStyle: "italic" }}>+ 🎁 Tặng: {gQty} x {gift.text}</span>}</span>
-                          <span style={{ color: "#ef4444", fontWeight: "bold", fontSize: "14px" }}>{Math.round(item.total).toLocaleString()}đ</span>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-              
-              <div className="glass" style={{ padding: "15px", height: "35vh", display: "flex", flexDirection: "column" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
-                  <div style={{ display: "flex", gap: "8px", flex: 1 }}>
-                    <input placeholder="🔍 Tìm giao dịch..." value={logSearchTerm} onChange={e => setLogSearchTerm(e.target.value)} style={{ padding: "6px 10px", borderRadius: "6px", outline: "none", fontSize: "12px", flex: 1 }} />
-                    <select value={logTypeFilter} onChange={e => setLogTypeFilter(e.target.value)} style={{ padding: "6px", borderRadius: "6px", outline: "none", fontSize: "12px", fontWeight: "bold" }}>
-                      <option value="Tất cả">Tất cả</option><option value="BÁN">Bán hàng</option><option value="NHẬP">Nhập hàng</option><option value="TRẢ HÀNG">Trả hàng</option><option value="GHI NỢ">Ghi nợ</option><option value="THU NỢ">Thu nợ</option>
-                    </select>
-                    <button onClick={exportToCSV} style={{ padding: "6px 10px", background: "#10b981", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "11px" }} title="Xuất toàn bộ lịch sử">📥 EXCEL</button>
-                  </div>
-                </div>
-                
-                <div style={{ flex: 1, overflowY: "auto", paddingRight: "4px" }}>
-                  {Object.keys(groupedHistory).length === 0 && <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: "11px", marginTop: "15px" }}>Không tìm thấy dữ liệu phù hợp</div>}
-                  {Object.keys(groupedHistory).map((date) => (
-                    <div key={date}>
-                      <div onClick={() => toggleDateGroup(date)} style={{ background: "var(--bg-input)", padding: "6px 10px", fontSize: "11px", fontWeight: "bold", border: "1px solid var(--border-glass)", borderRadius: "4px", marginTop: "6px", display: "flex", justifyContent: "space-between", cursor: "pointer", color: "#f59e0b" }}>
-                        <span>📅 {date}</span><span>{expandedDates[date] ?? true ? "▼" : "▶"}</span>
-                      </div>
-                      {(expandedDates[date] ?? true) && (
-                        <div style={{ padding: "0 4px" }}>
-                          {groupedHistory[date].map((log: any) => (
-                            <div key={log.id} style={{ fontSize: "11px", padding: "6px 0", borderBottom: "1px dashed var(--border-glass)", display: "flex", flexDirection: "column" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
-                                <span><b style={{ color: log.type === 'TRẢ HÀNG' ? '#ef4444' : 'var(--text-main)' }}>[{log.type}]</b> {cleanName(log.name)} {log.qty>0&&`x${log.qty}`} {log.refunded_qty > 0 && <span style={{ color: "#ef4444", fontSize: "9px" }}>(Đã hoàn {log.refunded_qty})</span>}</span>
-                                {log.type === "BÁN" && <span style={{ color: "#10b981", fontWeight: "bold" }}>+{Math.round(log.total).toLocaleString()} <span style={{ fontSize: "9px", color: "var(--text-muted)", fontWeight: "normal" }}>({log.paymentMethod === 'CHUYỂN KHOẢN' ? 'CK' : (log.paymentMethod === 'KẾT HỢP' ? 'KH' : 'TM')})</span></span>}
-{log.type === "TRẢ HÀNG" && <span style={{ color: "#ef4444", fontWeight: "bold" }}>{Math.round(log.total).toLocaleString()} <span style={{ fontSize: "9px", color: "var(--text-muted)", fontWeight: "normal" }}>({log.paymentMethod === 'VÍ ĐIỂM' ? 'VÍ' : (log.paymentMethod === 'CHUYỂN KHOẢN' ? 'CK' : 'TM')})</span></span>}
+                      <div style={{ fontSize: "24px", fontWeight: "900",=== "TRẢ HÀNG" && <span style={{ color: "#ef4444", fontWeight: "bold" }}>{Math.round(log.total).toLocaleString()} <span style={{ fontSize: "9px", color: "var(--text-muted)", fontWeight: "normal" }}>({log.paymentMethod === 'VÍ ĐIỂM' ? 'VÍ' : (log.paymentMethod === 'CHUYỂN KHOẢN' ? 'CK' : 'TM')})</span></span>}
                                 {log.type === "GHI NỢ" && <span style={{ color: "#ea580c", fontWeight: "bold" }}>Nợ: {Math.round(log.total).toLocaleString()}</span>}
                                 {log.type === "THU NỢ" && <span style={{ color: "#10b981", fontWeight: "bold" }}>+{Math.round(log.total).toLocaleString()} <span style={{ fontSize: "9px", color: "var(--text-muted)", fontWeight: "normal" }}>({log.paymentMethod === 'CHUYỂN KHOẢN' ? 'CK' : 'TM'})</span></span>}
                               </div>
