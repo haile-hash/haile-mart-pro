@@ -3,13 +3,31 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "./supabaseClient";
 
+// ==========================================
+// 1. CHIA SẺ COMPONENT ĐỒNG HỒ ĐỂ TRÁNH LAG
+// ==========================================
+const LiveClock = () => {
+  const [time, setTime] = React.useState(new Date());
+  React.useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--bg-input)", padding: "6px 12px", borderRadius: "6px", border: "1px solid var(--border-glass)", fontFamily: "monospace" }}>
+      <span style={{ fontSize: "14px" }}>⏱️</span> {time.toLocaleTimeString('vi-VN')} - {time.toLocaleDateString('vi-VN')}
+    </div>
+  );
+};
+
+// ==========================================
+// 2. CSS STYLES TOÀN CỤC
+// ==========================================
 const styles = `
   @keyframes wave{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
   @keyframes float{0%{transform:translateY(0)}50%{transform:translateY(-20px)}100%{transform:translateY(0)}}
   @keyframes pulse-fast{0%{opacity:1}50%{opacity:.5}100%{opacity:1}}
   @keyframes logo-glow{0%,100%{box-shadow:0 0 10px rgba(250,204,21,0.2), 0 0 20px rgba(250,204,21,0.2) inset; transform: scale(1)}50%{box-shadow:0 0 25px rgba(250,204,21,1), 0 0 40px rgba(250,204,21,0.8), 0 0 20px rgba(250,204,21,0.5) inset; transform: scale(1.05)}}
   .logo-icon{animation:logo-glow 2s infinite ease-in-out;background-color:#dc2626;padding:8px;border-radius:10px;display:flex;align-items:center;justify-content:center}
-  .spring-bg{position:fixed;width:400px;height:400px;border-radius:50%;filter:blur(100px);z-index:-1;opacity:.3;animation:float 10s infinite ease-in-out; transition: all 0.3s;}
   .glass{background:var(--bg-glass);border:1px solid var(--border-glass);border-radius:12px;box-shadow:0 4px 15px rgba(0,0,0,.08); color: var(--text-main); transition: all 0.3s;}
   body{background-color:var(--bg-main);margin:0;font-family:'Inter',sans-serif;color:var(--text-main); transition: all 0.3s;}
   .tab-btn{padding:6px 12px;border-radius:20px;border:1px solid var(--border-glass);background:var(--bg-glass);cursor:pointer;font-size:12px;font-weight:bold;color:var(--text-main);white-space:nowrap}
@@ -43,20 +61,32 @@ const styles = `
   .add-to-cart-btn:active{transform:scale(.95)}
   :root { --bg-main: #fff7ed; --bg-glass: rgba(255,255,255,0.98); --border-glass: #fed7aa; --text-main: #431407; --text-muted: #64748b; --bg-input: #fff; }
   [data-theme='dark'] { --bg-main: #0f172a; --bg-glass: #1e293b; --border-glass: #334155; --text-main: #f8fafc; --text-muted: #94a3b8; --bg-input: #334155; }
+
+  /* NỀN APP & NỀN ĐĂNG NHẬP */
+  .animated-bg-mesh {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1;
+    background: linear-gradient(135deg, #ffedd5 0%, #fef08a 50%, #fed7aa 100%);
+    background-size: 400% 400%; animation: gradientBgAnim 15s ease infinite; opacity: 0.8;
+  }
+  @keyframes gradientBgAnim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+  [data-theme='dark'] .animated-bg-mesh { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%); opacity: 1; }
+
+  .login-wrapper { min-height: 100vh; width: 100vw; display: flex; justify-content: center; align-items: center; background: linear-gradient(-45deg, #fbc2eb, #a6c1ee, #fccb90, #d57eeb); background-size: 400% 400%; animation: gradientBG 15s ease infinite; font-family: 'Inter', sans-serif; position: relative; overflow: hidden; margin: 0; padding: 0; }
+  .floating-bubble { position: absolute; background: rgba(255,255,255,0.3); border-radius: 50%; animation: floatUp linear infinite; bottom: -100px; }
+  @keyframes floatUp { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; } }
+  .glass-login { background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.5); padding: 45px 35px; border-radius: 24px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1); width: 340px; text-align: center; z-index: 10; animation: fadeInUp 0.8s ease-out forwards; }
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+  .login-input { width: 100%; padding: 14px 15px; margin-bottom: 15px; border-radius: 12px; border: 2px solid transparent; background: rgba(255,255,255,0.9); box-sizing: border-box; outline: none; transition: 0.3s; font-size: 14px; font-weight: 600; box-shadow: inset 0 2px 5px rgba(0,0,0,0.02); }
+  .login-input:focus { border: 2px solid #ef4444; background: #fff; box-shadow: 0 0 15px rgba(239,68,68,0.15); }
+  .login-btn-submit { width: 100%; padding: 15px; background: linear-gradient(135deg, #ef4444, #f43f5e); color: #fff; border: none; border-radius: 12px; font-weight: 900; font-size: 15px; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(239,68,68,0.3); margin-top: 10px; letter-spacing: 1px; }
+  .login-btn-submit:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(239,68,68,0.5); }
+  .music-btn { position: fixed; bottom: 30px; right: 30px; background: rgba(255,255,255,0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.8); border-radius: 50px; padding: 12px 25px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.08); display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 14px; color: #475569; transition: all 0.3s; z-index: 100; }
+  .music-btn:hover { background: #fff; transform: scale(1.05) translateY(-5px); color: #ef4444; }
 `;
-// Thêm component này nằm ngoài App
-const LiveClock = () => {
-  const [time, setTime] = React.useState(new Date());
-  React.useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--bg-input)", padding: "6px 12px", borderRadius: "6px", border: "1px solid var(--border-glass)", fontFamily: "monospace" }}>
-      <span style={{ fontSize: "14px" }}>⏱️</span> {time.toLocaleTimeString('vi-VN')} - {time.toLocaleDateString('vi-VN')}
-    </div>
-  );
-};
+
+// ==========================================
+// 3. MAIN COMPONENT
+// ==========================================
 export default function App() {
   const VAT_RATE = 0.1;
   const EMAILJS_SERVICE_ID = process.env.REACT_APP_EMAILJS_SERVICE_ID || "service_7ie990l";
@@ -69,7 +99,7 @@ export default function App() {
   const [shift, setShift] = useState(() => localStorage.getItem("mart_shift") || "Ca Sáng");
   const [authUsername, setAuthUsername] = useState("");
   const [authPassword, setAuthPassword] = useState("");
- const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const bgMusicRef = useRef(null);
   
   const [startingCash, setStartingCash] = useState<number>(() => {
@@ -109,7 +139,6 @@ export default function App() {
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [showMarketingModal, setShowMarketingModal] = useState(false);
-  
   const [showInventoryModal, setShowInventoryModal] = useState(false);
   const [actualStockInput, setActualStockInput] = useState<Record<string, number>>({});
   const [inventorySearchTerm, setInventorySearchTerm] = useState("");
@@ -172,6 +201,9 @@ export default function App() {
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
   const isInitialMount = useRef(true);
 
+  // ==========================================
+  // 4. EFFECTS & CLOUD SYNC
+  // ==========================================
   useEffect(() => {
     if (darkMode) { document.documentElement.setAttribute('data-theme', 'dark'); localStorage.setItem("mart_theme", "dark"); }
     else { document.documentElement.removeAttribute('data-theme'); localStorage.setItem("mart_theme", "light"); }
@@ -243,24 +275,7 @@ export default function App() {
     }, 2000);
     return () => clearTimeout(delaySync);
   }, [history, customers, heldOrders, auditLogs, expenses, suppliers, isLoggedIn]);
-  const formatCategoryStr = (str: string) => { if (!str) return "Khác"; const t = str.trim(); return t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : "Khác"; };
-  const playSound = (type: 'success' | 'error') => { try { const ctx = new (window.AudioContext || (window as any).webkitAudioContext)(); const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.connect(gain); gain.connect(ctx.destination); if (type === 'success') { osc.frequency.value = 800; gain.gain.setValueAtTime(0.1, ctx.currentTime); osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.1) } else { osc.frequency.value = 250; osc.type = 'square'; gain.gain.setValueAtTime(0.1, ctx.currentTime); osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3) } } catch (e) { } };
-  
-  const logAudit = async (action: string, detail: string, extraData: any = null) => { 
-    const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user_name: role === 'admin' ? 'Quản lý' : 'Thu ngân', shift, action, detail, extra_data: extraData ? JSON.stringify(extraData) : null }; 
-    setAuditLogs(prev => [newLog, ...prev].slice(0, 300)); 
-  };
-  
-  const parseGift = (giftStr: string | null) => { if (!giftStr) return { cond: 0, text: "" }; if (giftStr.includes(';;;')) { const parts = giftStr.split(';;;'); return { cond: parseInt(parts[0]) || 1, text: parts[1] || "" } } return { cond: 1, text: giftStr } };
-  const cleanName = (name: string) => name ? String(name).split(' [Lô')[0] : '';
-  const getActualPrice = (p: any) => { let price = (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price; const currentHour = new Date().getHours(); if ((currentHour >= 20 || currentHour < 6) && (p.category === 'Đồ ăn liền' || p.category === 'Bánh Kẹo')) { price = price * 0.8; p.isHappyHour = true } else { p.isHappyHour = false } return Math.round(price) };
-  const getCustomerTier = (totalSpent = 0) => { if (totalSpent >= 500000000) return { name: "💎 KIM CƯƠNG", discountRate: 0.10, color: "#a855f7", bg: "#faf5ff", border: "#e9d5ff" }; if (totalSpent >= 200000000) return { name: "🥇 VÀNG", discountRate: 0.05, color: "#ca8a04", bg: "#fefce8", border: "#fef08a" }; if (totalSpent >= 50000000) return { name: "🥈 BẠC", discountRate: 0.02, color: "#475569", bg: "#f8fafc", border: "#cbd5e1" }; return { name: "🥉 ĐỒNG", discountRate: 0, color: "#b45309", bg: "#fffbeb", border: "#fde68a" } };
-  
-  const fetchProducts = async () => { const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false }); if (data) setProducts(data) };
-  const findProductByCode = (code: string) => { const rawCode = code.trim(); let matches = products.filter(prod => prod.product_code === rawCode || String(prod.product_code).startsWith(`${rawCode}-`)); let available = matches.filter(p => p.stock > 0); if (available.length > 0) { available.sort((a, b) => { if (!a.expiry_date) return 1; if (!b.expiry_date) return -1; return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime() }); return available[0] } return matches.length > 0 ? matches[0] : null };
-  
-  
-  
+
   useEffect(() => {
     if (isLoggedIn) {
       fetchProducts(); loadCloudData();
@@ -275,7 +290,6 @@ export default function App() {
       const script = document.createElement("script"); script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js";
       script.onload = () => { (window as any).emailjs.init(EMAILJS_PUBLIC_KEY); }; document.head.appendChild(script);
 
-      // Thêm script để tải SheetJS phục vụ cho việc đọc Excel
       const xlsxScript = document.createElement("script");
       xlsxScript.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
       document.head.appendChild(xlsxScript);
@@ -297,22 +311,6 @@ export default function App() {
       return () => { if (scanner) scanner.clear().catch(() => { }) }
     }
   }, [scannerMode]);
-  
-  const handleSelectSuggest = (p_input: any) => {
-    const baseCode = String(p_input.product_code).split('-')[0];
-    const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0);
-    if (totalStock <= 0) { playSound('error'); return alert("Đã hết hàng!"); }
-    const price = getActualPrice(p_input); const repName = cleanName(p_input.name);
-    setCart(prev => {
-      const exist = prev.find(item => cleanName(item.product.name) === repName);
-      if (exist) {
-        const newQty = exist.qty + 1;
-        if (newQty > totalStock) { playSound('error'); return prev; }
-        playSound('success'); return prev.map(i => cleanName(i.product.name) === repName ? { ...i, qty: newQty, total: Math.round(newQty * price * (1 + VAT_RATE)) } : i);
-      } else { playSound('success'); return [...prev, { product: p_input, qty: 1, total: Math.round(price * (1 + VAT_RATE)) }]; }
-    });
-    setScanMessage({ text: `✅ Thêm: ${repName}`, type: 'success' }); setBarcodeInput(""); setShowSuggestions(false); setTimeout(() => setScanMessage(null), 2000);
-  };
 
   useEffect(() => {
     if (scannedCodeObj) {
@@ -325,8 +323,20 @@ export default function App() {
 
   useEffect(() => { const handleAfterPrint = () => setPrintMode(null); window.addEventListener("afterprint", handleAfterPrint); return () => window.removeEventListener("afterprint", handleAfterPrint) }, []);
 
+  // ==========================================
+  // 5. HELPERS & CALCULATIONS
+  // ==========================================
+  const formatCategoryStr = (str: string) => { if (!str) return "Khác"; const t = str.trim(); return t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : "Khác"; };
+  const playSound = (type: 'success' | 'error') => { try { const ctx = new (window.AudioContext || (window as any).webkitAudioContext)(); const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.connect(gain); gain.connect(ctx.destination); if (type === 'success') { osc.frequency.value = 800; gain.gain.setValueAtTime(0.1, ctx.currentTime); osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.1) } else { osc.frequency.value = 250; osc.type = 'square'; gain.gain.setValueAtTime(0.1, ctx.currentTime); osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3) } } catch (e) { } };
+  const logAudit = async (action: string, detail: string, extraData: any = null) => { const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user_name: role === 'admin' ? 'Quản lý' : 'Thu ngân', shift, action, detail, extra_data: extraData ? JSON.stringify(extraData) : null }; setAuditLogs(prev => [newLog, ...prev].slice(0, 300)); };
+  const parseGift = (giftStr: string | null) => { if (!giftStr) return { cond: 0, text: "" }; if (giftStr.includes(';;;')) { const parts = giftStr.split(';;;'); return { cond: parseInt(parts[0]) || 1, text: parts[1] || "" } } return { cond: 1, text: giftStr } };
+  const cleanName = (name: string) => name ? String(name).split(' [Lô')[0] : '';
+  const getActualPrice = (p: any) => { let price = (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price; const currentHour = new Date().getHours(); if ((currentHour >= 20 || currentHour < 6) && (p.category === 'Đồ ăn liền' || p.category === 'Bánh Kẹo')) { price = price * 0.8; p.isHappyHour = true } else { p.isHappyHour = false } return Math.round(price) };
+  const getCustomerTier = (totalSpent = 0) => { if (totalSpent >= 500000000) return { name: "💎 KIM CƯƠNG", discountRate: 0.10, color: "#a855f7", bg: "#faf5ff", border: "#e9d5ff" }; if (totalSpent >= 200000000) return { name: "🥇 VÀNG", discountRate: 0.05, color: "#ca8a04", bg: "#fefce8", border: "#fef08a" }; if (totalSpent >= 50000000) return { name: "🥈 BẠC", discountRate: 0.02, color: "#475569", bg: "#f8fafc", border: "#cbd5e1" }; return { name: "🥉 ĐỒNG", discountRate: 0, color: "#b45309", bg: "#fffbeb", border: "#fde68a" } };
+  const fetchProducts = async () => { const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false }); if (data) setProducts(data) };
+  const findProductByCode = (code: string) => { const rawCode = code.trim(); let matches = products.filter(prod => prod.product_code === rawCode || String(prod.product_code).startsWith(`${rawCode}-`)); let available = matches.filter(p => p.stock > 0); if (available.length > 0) { available.sort((a, b) => { if (!a.expiry_date) return 1; if (!b.expiry_date) return -1; return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime() }); return available[0] } return matches.length > 0 ? matches[0] : null };
+
   const todayStrStr = new Date().toLocaleDateString('vi-VN');
-  
   const currentShiftStats = useMemo(() => { 
     const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStrStr && h.shift === shift); 
     let cash = startingCash; let transfer = 0; let prof = 0; let totalSales = 0; 
@@ -345,68 +355,41 @@ export default function App() {
   const currentShiftCashFlow = useMemo(() => {
     if (!cashFlowModalInfo) return { thu: [], chi: [] };
     const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStrStr && h.shift === shift);
-    const thu: any[] = [];
-    const chi: any[] = [];
+    const thu: any[] = []; const chi: any[] = [];
     shiftLogs.forEach(h => {
       if (h.paymentMethod === cashFlowModalInfo || h.paymentMethod === 'KẾT HỢP') {
         let amount = h.total;
-        if (h.paymentMethod === 'KẾT HỢP') {
-          amount = cashFlowModalInfo === 'TIỀN MẶT' ? (h.split_cash || 0) : (h.total - (h.split_cash || 0));
-        }
+        if (h.paymentMethod === 'KẾT HỢP') { amount = cashFlowModalInfo === 'TIỀN MẶT' ? (h.split_cash || 0) : (h.total - (h.split_cash || 0)); }
         if (amount === 0) return;
-        if (h.type === 'BÁN' || h.type === 'THU NỢ') {
-          if (amount > 0) thu.push({ time: h.time, note: `${h.type} - ${cleanName(h.name)}`, amount: amount });
-        } else if (h.type === 'TRẢ HÀNG') {
-          chi.push({ time: h.time, note: `HOÀN TIỀN - ${cleanName(h.name)}`, amount: Math.abs(amount) });
-        }
+        if (h.type === 'BÁN' || h.type === 'THU NỢ') { if (amount > 0) thu.push({ time: h.time, note: `${h.type} - ${cleanName(h.name)}`, amount: amount }); } 
+        else if (h.type === 'TRẢ HÀNG') { chi.push({ time: h.time, note: `HOÀN TIỀN - ${cleanName(h.name)}`, amount: Math.abs(amount) }); }
       }
     });
     if (cashFlowModalInfo === 'TIỀN MẶT') {
       if (startingCash > 0) thu.unshift({ time: "Đầu ca", note: "Tiền lẻ đầu ca", amount: startingCash });
-      const shiftExpenses = expenses.filter(e => e.date === todayStrStr);
-      shiftExpenses.forEach(e => chi.push({ time: "Trong ca", note: `CHI PHÍ - ${e.name}`, amount: e.amount }));
+      const shiftExpenses = expenses.filter(e => e.date === todayStrStr); shiftExpenses.forEach(e => chi.push({ time: "Trong ca", note: `CHI PHÍ - ${e.name}`, amount: e.amount }));
     }
     return { thu, chi };
   }, [history, expenses, cashFlowModalInfo, shift, todayStrStr, startingCash]);
   
   const filteredStats = useMemo(() => { 
-    const start = new Date(reportStartDate + "T00:00:00").getTime();
-    const end = new Date(reportEndDate + "T23:59:59").getTime();
-    const filteredHistory = history.filter(h => {
-      const logTime = new Date(Math.floor(h.id)).getTime(); return logTime >= start && logTime <= end;
-    });
+    const start = new Date(reportStartDate + "T00:00:00").getTime(); const end = new Date(reportEndDate + "T23:59:59").getTime();
+    const filteredHistory = history.filter(h => { const logTime = new Date(Math.floor(h.id)).getTime(); return logTime >= start && logTime <= end; });
     let cash = 0; let transfer = 0; let prof = 0; let totalSales = 0; 
     filteredHistory.forEach(h => { 
       if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += h.total; 
       if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') { 
         if (h.paymentMethod === 'CHUYỂN KHOẢN') transfer += h.total; 
-        else if (h.paymentMethod === 'TIỀN MẶT' || h.paymentMethod === 'KẾT HỢP') { 
-          if(h.paymentMethod === 'KẾT HỢP' && h.split_cash) { cash += h.split_cash; transfer += (h.total - h.split_cash); } 
-          else { cash += h.total; } 
-        } 
+        else if (h.paymentMethod === 'TIỀN MẶT' || h.paymentMethod === 'KẾT HỢP') { if(h.paymentMethod === 'KẾT HỢP' && h.split_cash) { cash += h.split_cash; transfer += (h.total - h.split_cash); } else { cash += h.total; } } 
       } 
       prof += (h.profit || 0) 
     }); 
-    const filteredExp = expenses.filter(e => {
-      const parts = e.date.split('/'); if(parts.length !== 3) return false;
-      const expTime = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`).getTime();
-      return expTime >= start && expTime <= end;
-    }).reduce((sum, e) => sum + e.amount, 0); 
+    const filteredExp = expenses.filter(e => { const parts = e.date.split('/'); if(parts.length !== 3) return false; const expTime = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`).getTime(); return expTime >= start && expTime <= end; }).reduce((sum, e) => sum + e.amount, 0); 
     return { rev: cash + transfer, cash, transfer, prof, totalSales, expenses: filteredExp, netProfit: prof - filteredExp } 
   }, [history, expenses, reportStartDate, reportEndDate]);
 
   const chartData = useMemo(() => { const data = []; for (let i = 29; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); const dStr = d.toLocaleDateString('vi-VN'); const dayTotal = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === dStr && (h.type === 'BÁN' || h.type === 'GHI NỢ')).reduce((s, h) => s + h.total, 0); data.push({ label: `${d.getDate()}/${d.getMonth() + 1}`, total: dayTotal, showLabel: (i % 3 === 0 || i === 0) }) } const maxVal = Math.max(...data.map(d => d.total), 1); return data.map(d => ({ ...d, height: `${(d.total / maxVal) * 100}%` })) }, [history]);
-  
-  const topSelling = useMemo(() => { 
-    const sales: Record<string, number> = {}; 
-    history.forEach(log => { 
-      if ((log.type === 'BÁN' || log.type === 'GHI NỢ') && log.product_id !== 'DISCOUNT') {
-        const baseName = cleanName(log.name); sales[baseName] = (sales[baseName] || 0) + log.qty 
-      }
-    }); 
-    return Object.entries(sales).sort((a, b) => b[1] - a[1]).slice(0, 5) 
-  }, [history]);
-  
+  const topSelling = useMemo(() => { const sales: Record<string, number> = {}; history.forEach(log => { if ((log.type === 'BÁN' || log.type === 'GHI NỢ') && log.product_id !== 'DISCOUNT') { const baseName = cleanName(log.name); sales[baseName] = (sales[baseName] || 0) + log.qty } }); return Object.entries(sales).sort((a, b) => b[1] - a[1]).slice(0, 5) }, [history]);
   const groupedHistory = useMemo(() => { let filtered = history; if (logTypeFilter !== "Tất cả") filtered = filtered.filter(log => log.type === logTypeFilter); if (logSearchTerm.trim() !== "") { const term = String(logSearchTerm || "").toLowerCase(); filtered = filtered.filter(log => (log.name && String(log.name).toLowerCase().includes(term)) || (log.customer && String(log.customer).toLowerCase().includes(term)) || (log.id.toString().includes(term))) } return filtered.reduce((groups: any, log: any) => { const date = new Date(Math.floor(log.id)).toLocaleDateString('vi-VN'); if (!groups[date]) groups[date] = []; groups[date].push({ ...log, t: new Date(Math.floor(log.id)).toLocaleTimeString('vi-VN') }); return groups }, {}) }, [history, logSearchTerm, logTypeFilter]);
 
   const totalValue = Math.round(products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
@@ -426,8 +409,7 @@ export default function App() {
   const categories = ["Tất cả", ...Array.from(new Set(products.map(p => formatCategoryStr(p.category))))];
   
   const sortedAndFilteredProducts = useMemo(() => {
-    const todayTime = new Date().getTime();
-    const safeSearch = String(searchTerm || "").toLowerCase();
+    const todayTime = new Date().getTime(); const safeSearch = String(searchTerm || "").toLowerCase();
     let filtered = products.filter(p => (selectedCategory === "Tất cả" || formatCategoryStr(p.category) === selectedCategory)).filter(p => String(p.name || "").toLowerCase().includes(safeSearch) || String(p.product_code || "").toLowerCase().includes(safeSearch));
     if (filters['name']?.length > 0) filtered = filtered.filter(p => filters['name'].includes(cleanName(p.name)));
     if (filters['stock']?.length > 0) filtered = filtered.filter(p => filters['stock'].includes(p.stock));
@@ -442,6 +424,9 @@ export default function App() {
     return filtered
   }, [products, searchTerm, selectedCategory, sortConfig, filters]);
 
+  // ==========================================
+  // 6. ACTION HANDLERS (SỰ KIỆN NÚT BẤM)
+  // ==========================================
   const handleLogin = async (e: React.FormEvent) => { 
     e.preventDefault(); 
     let u = authUsername.trim().toLowerCase(); 
@@ -459,17 +444,10 @@ export default function App() {
   const confirmHandover = async () => { 
     try {
       logAudit("CHỐT CA", `Bàn giao: ${currentShiftStats.rev.toLocaleString()}đ`, { ...currentShiftStats }); 
-      if (navigator.onLine) {
-        await supabase.auth.signOut(); 
-      }
-    } catch (error) {
-      console.error("Lỗi đăng xuất khỏi máy chủ:", error);
-    } finally {
-      localStorage.removeItem("mart_logged_in"); 
-      localStorage.removeItem("mart_role");
-      setIsLoggedIn(false); 
-      setShowHandoverModal(false); 
-      window.location.reload();
+      if (navigator.onLine) { await supabase.auth.signOut(); }
+    } catch (error) { console.error("Lỗi đăng xuất khỏi máy chủ:", error); } finally {
+      localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role");
+      setIsLoggedIn(false); setShowHandoverModal(false); window.location.reload();
     }
   };
 
@@ -480,9 +458,7 @@ export default function App() {
   const deleteExpense = async (id: any) => { setExpenses(prev => prev.filter(e => e.id !== id)); if (navigator.onLine) await supabase.from('expenses').delete().eq('id', id); };
   
   const sendMarketingEmails = async () => {
-    if (!marketingMsg) return alert("Nhập nội dung!");
-    if (!window.confirm("Giới hạn 200 mail/tháng. Gửi?")) return;
-    setLoading(true);
+    if (!marketingMsg) return alert("Nhập nội dung!"); if (!window.confirm("Giới hạn 200 mail/tháng. Gửi?")) return; setLoading(true);
     const targetCustomers = Object.keys(customers).filter(phone => { const c = customers[phone]; if (!c.email) return false; if (marketingTier === "Tất cả") return true; return getCustomerTier(c.totalSpent).name.includes(marketingTier) });
     if (targetCustomers.length === 0) { setLoading(false); return alert("Không có KH!"); }
     let successCount = 0;
@@ -521,26 +497,7 @@ export default function App() {
     if (exceedStock) playSound('error'); else if (delta > 0) playSound('success');
   };
   
-  const handleDirectQtyChange = (productId: any, val: string) => {
-    setCart(prev => {
-      if (val === '') return prev.map(i => i.product.id === productId ? { ...i, qty: '' as any, total: 0 } : i);
-      let num = parseInt(val); if (isNaN(num) || num < 0) return prev;
-      let exceedStock = false;
-      const updated = prev.map(i => {
-        if (i.product.id === productId) {
-          const baseCode = String(i.product.product_code).split('-')[0];
-          const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0);
-          if (num > totalStock) { exceedStock = true; num = totalStock; }
-          const price = getActualPrice(i.product);
-          return { ...i, qty: num, total: Math.round(num * price * (1 + VAT_RATE)) };
-        }
-        return i;
-      });
-      if (exceedStock) playSound('error');
-      return updated;
-    });
-  };
-  
+  const handleDirectQtyChange = (productId: any, val: string) => { setCart(prev => { if (val === '') return prev.map(i => i.product.id === productId ? { ...i, qty: '' as any, total: 0 } : i); let num = parseInt(val); if (isNaN(num) || num < 0) return prev; let exceedStock = false; const updated = prev.map(i => { if (i.product.id === productId) { const baseCode = String(i.product.product_code).split('-')[0]; const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); if (num > totalStock) { exceedStock = true; num = totalStock; } const price = getActualPrice(i.product); return { ...i, qty: num, total: Math.round(num * price * (1 + VAT_RATE)) }; } return i; }); if (exceedStock) playSound('error'); return updated; }); };
   const handleDirectQtyBlur = (productId: any, val: string) => { if (val === '' || parseInt(val) <= 0 || isNaN(parseInt(val))) { setCart(prev => prev.map(i => { if (i.product.id === productId) { const price = getActualPrice(i.product); return { ...i, qty: 1, total: Math.round(1 * price * (1 + VAT_RATE)) } } return i })) } };
   const removeFromCart = (productId: any) => { setCart(cart.filter(item => item.product.id !== productId)) };
   const clearCart = () => { if (window.confirm("Hủy toàn bộ?")) { setCart([]); setCustName(""); setCustPhone(""); setCustomerInput("") } };
@@ -550,20 +507,10 @@ export default function App() {
   const handleNextToQR = () => { 
     if (cart.length === 0) return alert("Giỏ hàng trống!"); 
     if (custPhone && !customers[custPhone] && !custName) return alert("Nhập Tên khách mới!"); 
-    
-    // Tự động nhận diện Voucher kể cả khi nhân viên quên bấm Enter
     if (voucherInput.trim() !== "" && appliedVoucherAmount === 0) { 
-      const code = voucherInput.trim().toUpperCase(); 
-      const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; 
-      if (VOUCHERS[code]) { 
-        setAppliedVoucherAmount(VOUCHERS[code]); 
-      } else if (!isNaN(Number(code)) && Number(code) > 0) { 
-        setAppliedVoucherAmount(Number(code)); 
-      } else { 
-        return alert("❌ Mã Voucher không hợp lệ! Vui lòng xóa mã đi hoặc nhập lại."); 
-      } 
+      const code = voucherInput.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; 
+      if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); } else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); } else { return alert("❌ Mã Voucher không hợp lệ!"); } 
     } 
-    
     setCheckoutStep(2); 
   };
 
@@ -572,12 +519,7 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
     if (payMethod === 'GHI NỢ' && !custPhone) return alert("Ghi nợ cần SĐT!");
     
     setLoading(true); let logs: any[] = [];
-    
-    // Đã sửa logic: Trừ Voucher ngay trên tổng giá trị để khớp với UI
-    const baseTotal = cartTotalAmountDisplay; 
-    const subTotal = Math.round(baseTotal / (1 + VAT_RATE)); 
-    const vatTotal = baseTotal - subTotal;
-    
+    const baseTotal = cartTotalAmountDisplay; const subTotal = Math.round(baseTotal / (1 + VAT_RATE)); const vatTotal = baseTotal - subTotal;
     const totalAfterVoucher = Math.max(0, baseTotal - appliedVoucherAmount);
     const tier = getCustomerTier(customers[custPhone]?.totalSpent || 0);
     const tierDiscountAmount = custPhone ? Math.round(baseTotal * tier.discountRate) : 0;
@@ -600,12 +542,8 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
         if (b.stock > 0) {
           const take = Math.min(remain, b.stock);
           if (navigator.onLine) await supabase.from("products").update({ stock: b.stock - take }).eq("id", b.id);
-          
           let splitCashAmt = 0;
-          if(payMethod === 'KẾT HỢP') {
-              splitCashAmt = Math.round((Number(customerGiven) / finalTotal) * Math.round(take * price * (1 + VAT_RATE)));
-          }
-
+          if(payMethod === 'KẾT HỢP') { splitCashAmt = Math.round((Number(customerGiven) / finalTotal) * Math.round(take * price * (1 + VAT_RATE))); }
           logs.push({ id: baseTimestamp++, shift: shift, type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", name: cleanName(b.name) + (item.product.isHappyHour ? ' [Giờ Vàng]' : ''), qty: take, total: Math.round(take * price * (1 + VAT_RATE)), profit: Math.round(take * (price - (b.import_price || 0))), customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: b.id, refunded_qty: 0, paymentMethod: payMethod, split_cash: splitCashAmt, time: new Date().toLocaleString('vi-VN') });
           remain -= take;
         }
@@ -613,7 +551,6 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
     }
     
     if (totalDiscount > 0) { logs.push({ id: baseTimestamp++, shift: shift, type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", name: "Giảm giá/Ví/VIP", qty: 1, total: -totalDiscount, profit: -totalDiscount, customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: 'DISCOUNT', refunded_qty: 0, paymentMethod: payMethod, time: new Date().toLocaleString('vi-VN') }) }
-    
     if (custPhone) {
       const updatedCust = { name: custName, wallet: payMethod === 'GHI NỢ' ? (customers[custPhone]?.wallet || 0) : Math.round((customers[custPhone]?.wallet || 0) - walletUsedAmount + earned), debt: (customers[custPhone]?.debt || 0) + (payMethod === 'GHI NỢ' ? finalTotal : 0), totalSpent: (customers[custPhone]?.totalSpent || 0) + (payMethod !== 'GHI NỢ' ? finalTotal : 0), email: customers[custPhone]?.email || "", cardCode: customers[custPhone]?.cardCode || "" };
       setCustomers((prev: any) => ({ ...prev, [custPhone]: updatedCust }));
@@ -630,7 +567,6 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
   const handleRefund = async (logId: any) => {
     const logIndex = history.findIndex(l => l.id === logId); if (logIndex === -1) return;
     const log = history[logIndex]; if (log.type !== 'BÁN') return alert("Chỉ hoàn đơn BÁN!");
-    
     const maxRefund = log.qty - (log.refunded_qty || 0); if (maxRefund <= 0) return alert("Đã hoàn toàn bộ!");
     const qStr = window.prompt(`SP: ${cleanName(log.name)}\nĐã mua: ${log.qty} | Có thể hoàn: ${maxRefund}\nNhập số lượng cần hoàn:`, maxRefund.toString());
     if (!qStr) return;
@@ -640,14 +576,10 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
 
     const unitTotal = log.total / log.qty; const unitProfit = log.profit / log.qty;
     const refundTotal = Math.round(unitTotal * refundQty); const refundProfit = Math.round(unitProfit * refundQty);
-    
     const p = products.find(x => x.id === log.product_id);
     if (p && navigator.onLine) await supabase.from("products").update({ stock: p.stock + refundQty }).eq("id", p.id);
 
-    let refundedToWallet = false;
-    let pMethod = 'TIỀN MẶT';
-    let methodSuffix = " (TM)";
-
+    let refundedToWallet = false; let pMethod = 'TIỀN MẶT'; let methodSuffix = " (TM)";
     if (log.customer && log.customer !== "Khách lẻ") {
       const phoneMatch = log.customer.match(/\((.*?)\)/);
       if (phoneMatch && phoneMatch[1]) {
@@ -666,15 +598,9 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
     }
 
     const refundLog = { id: Date.now(), shift: shift, type: "TRẢ HÀNG", name: log.name + methodSuffix, qty: refundQty, total: -refundTotal, profit: -refundProfit, customer: log.customer, paymentMethod: pMethod, time: new Date().toLocaleString('vi-VN') };
-    
-    const updatedHistory = [...history];
-    updatedHistory[logIndex].refunded_qty = (log.refunded_qty || 0) + refundQty;
-    updatedHistory.unshift(refundLog);
-    
-    setHistory(updatedHistory);
-    if (navigator.onLine) fetchProducts();
-    logAudit("TRẢ HÀNG", `Hoàn ${refundQty} ${cleanName(log.name)} (${pMethod})`, refundLog);
-    playSound('success'); alert(`Thành công! Đã hoàn qua ${pMethod}`);
+    const updatedHistory = [...history]; updatedHistory[logIndex].refunded_qty = (log.refunded_qty || 0) + refundQty; updatedHistory.unshift(refundLog);
+    setHistory(updatedHistory); if (navigator.onLine) fetchProducts();
+    logAudit("TRẢ HÀNG", `Hoàn ${refundQty} ${cleanName(log.name)} (${pMethod})`, refundLog); playSound('success'); alert(`Thành công! Đã hoàn qua ${pMethod}`);
   };
 
   const handlePayDebt = async (phone: string) => {
@@ -692,24 +618,13 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
      const logsInBill = history.filter(h => h.time === timeStr && h.type === 'BÁN' && h.product_id !== 'DISCOUNT');
      const discountLog = history.find(h => h.time === timeStr && h.product_id === 'DISCOUNT');
      if(logsInBill.length === 0) return alert("Không tìm thấy dữ liệu hóa đơn!");
-     
-     const reconstructedCart = logsInBill.map(l => ({
-        qty: l.qty,
-        product: { name: l.name, gift_info: null, isHappyHour: String(l.name).includes('[Giờ Vàng]') },
-        priceIncludingVat: l.total / l.qty
-     }));
-     
+     const reconstructedCart = logsInBill.map(l => ({ qty: l.qty, product: { name: l.name, gift_info: null, isHappyHour: String(l.name).includes('[Giờ Vàng]') }, priceIncludingVat: l.total / l.qty }));
      const subTotal = reconstructedCart.reduce((s, i) => s + (i.qty * (i.priceIncludingVat / (1 + VAT_RATE))), 0);
      const vatTotal = Math.round(subTotal * VAT_RATE);
      const discount = discountLog ? Math.abs(discountLog.total) : 0;
      const finalTotal = subTotal + vatTotal - discount;
-     
-     const rOrder = {
-        orderId: "HD_COPY", shift: logsInBill[0].shift, cart: reconstructedCart, subTotal, vatTotal, finalTotal, debtAmount: 0, discount, time: timeStr, paymentMethod: logsInBill[0].paymentMethod, customerGiven: 0, custName: logsInBill[0].customer
-     };
-     setLastOrder(rOrder);
-     setPrintMode('receipt');
-     setTimeout(() => window.print(), 500);
+     const rOrder = { orderId: "HD_COPY", shift: logsInBill[0].shift, cart: reconstructedCart, subTotal, vatTotal, finalTotal, debtAmount: 0, discount, time: timeStr, paymentMethod: logsInBill[0].paymentMethod, customerGiven: 0, custName: logsInBill[0].customer };
+     setLastOrder(rOrder); setPrintMode('receipt'); setTimeout(() => window.print(), 500);
   };
 
   const closeCheckout = () => { setCart([]); setIsCheckoutOpen(false); setCheckoutStep(1); setCustPhone(""); setCustName(""); setCustomerInput(""); setUseWallet(false); setVoucherInput(""); setAppliedVoucherAmount(0); setCustomerGiven(""); setLastOrder(null) };
@@ -719,33 +634,15 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
     let savedEmail = (lastOrder.custPhone && customers[lastOrder.custPhone] && customers[lastOrder.custPhone].email) ? customers[lastOrder.custPhone].email : ""; 
     let email = window.prompt("Nhập Email khách hàng:", savedEmail);
     if (!email) return; 
-    
-    email = email.trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-        return alert("❌ Lỗi: Địa chỉ Email không hợp lệ! Vui lòng kiểm tra lại (vd: ten@gmail.com).");
-    }
-    
+    email = email.trim(); const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; if (!emailRegex.test(email)) { return alert("❌ Lỗi: Địa chỉ Email không hợp lệ!"); }
     if (lastOrder.custPhone) { setCustomers((prev: any) => ({ ...prev, [lastOrder.custPhone]: { ...prev[lastOrder.custPhone], email: email } })); }
     setLoading(true); let itemsTable = ""; 
     lastOrder.cart.forEach((item: any) => { 
         const priceToUse = item.priceIncludingVat !== undefined ? item.priceIncludingVat : Math.round(getActualPrice(item.product) * (1 + VAT_RATE));
         itemsTable += `- ${cleanName(item.product.name)} x ${item.qty} = ${(priceToUse * item.qty).toLocaleString()}đ\n` 
     }); 
-    const emailData = { 
-        to_email: email, title: "HÓA ĐƠN MUA HÀNG - HẢI LÊ MART", order_id: lastOrder.orderId, time: lastOrder.time, items_list: itemsTable, 
-        label_total: "TỔNG THANH TOÁN:", total_amount: Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString() + "đ", 
-        label_payment: "Hình thức TT:", payment_method: lastOrder.paymentMethod, 
-        label_change: lastOrder.paymentMethod === 'TIỀN MẶT' ? "Tiền thối lại:" : "", change_amount: lastOrder.paymentMethod === 'TIỀN MẶT' ? Math.round(lastOrder.customerGiven - lastOrder.finalTotal).toLocaleString() + "đ" : "" 
-    }; 
-    try { 
-        await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, emailData); 
-        alert("🚀 Đã gửi HĐ cho khách!"); 
-        logAudit("GỬI HĐ MAIL", `Gửi tới ${email}`);
-    } catch (error: any) { 
-        console.error(error);
-        alert(`❌ Lỗi EmailJS: ${error?.text || error?.message || 'Hãy kiểm tra lại Key EmailJS hoặc hạn mức (Quota) miễn phí 200 mail/tháng đã hết!'}`); 
-    } 
+    const emailData = { to_email: email, title: "HÓA ĐƠN MUA HÀNG - HẢI LÊ MART", order_id: lastOrder.orderId, time: lastOrder.time, items_list: itemsTable, label_total: "TỔNG THANH TOÁN:", total_amount: Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString() + "đ", label_payment: "Hình thức TT:", payment_method: lastOrder.paymentMethod, label_change: lastOrder.paymentMethod === 'TIỀN MẶT' ? "Tiền thối lại:" : "", change_amount: lastOrder.paymentMethod === 'TIỀN MẶT' ? Math.round(lastOrder.customerGiven - lastOrder.finalTotal).toLocaleString() + "đ" : "" }; 
+    try { await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, emailData); alert("🚀 Đã gửi HĐ cho khách!"); logAudit("GỬI HĐ MAIL", `Gửi tới ${email}`); } catch (error: any) { alert(`❌ Lỗi EmailJS`); } 
     setLoading(false)
   };
   
@@ -753,28 +650,15 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
     const cust = customers[phone]; 
     let email = cust.email || window.prompt(`Nhập Email của ${cust.name}:`, "");
     if (!email) return; 
-    
-    email = email.trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-        return alert("❌ Lỗi: Địa chỉ Email không hợp lệ! Vui lòng kiểm tra lại (vd: ten@gmail.com).");
-    }
-    
+    email = email.trim(); const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; if (!emailRegex.test(email)) { return alert("❌ Lỗi: Địa chỉ Email không hợp lệ!"); }
     if (!cust.email) { setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], email } })); }
     setLoading(true); const code = cust.cardCode || phone; const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=10&includetext=true`; const emailData = { to_email: email, order_id: "THẺ THÀNH VIÊN", time: new Date().toLocaleString('vi-VN'), items_list: `💳 MÃ THẺ CỦA BẠN LÀ: ${code}\n(Vui lòng xuất trình Thẻ/Mã vạch bên dưới khi thanh toán)`, total_amount: "Ưu đãi Đặc Quyền", payment_method: "VIP Member", change_amount: "0đ", barcode_url: barcodeUrl }; 
-    try { 
-        await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, emailData); 
-        alert("🚀 Đã gửi Thẻ VIP!"); logAudit("GỬI THẺ VIP", `Gửi tới ${email}`);
-    } catch (error: any) { 
-        console.error(error);
-        alert(`❌ Lỗi EmailJS: ${error?.text || error?.message || 'Hãy kiểm tra lại Key EmailJS hoặc hạn mức (Quota) miễn phí đã hết!'}`); 
-    } 
+    try { await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, emailData); alert("🚀 Đã gửi Thẻ VIP!"); logAudit("GỬI THẺ VIP", `Gửi tới ${email}`); } catch (error: any) { alert(`❌ Lỗi EmailJS`); } 
     setLoading(false)
   };
 
   const printCustomerCard = (phone: string) => { setPrintCustomer({ phone, ...customers[phone] }); setPrintMode('customer_card'); setTimeout(() => window.print(), 1000) };
-  
-  const shareToZalo = (phone: string) => { const cust = customers[phone]; const code = cust.cardCode || phone; navigator.clipboard.writeText(`Chào ${cust.name},\nCảm ơn bạn đã đồng hành cùng Hải Lê Mart!\n💳 Mã Thẻ VIP của bạn là: ${code}`).then(() => { alert(`💡 Đã copy lời chào. Đang mở Zalo...`); window.open(`https://zalo.me/${phone}`, '_blank') }).catch(() => { window.open(`https://zalo.me/${phone}`, '_blank') }) };
+  const shareToZalo = (phone: string) => { const cust = customers[phone]; const code = cust.cardCode || phone; navigator.clipboard.writeText(`Chào ${cust.name},\n💳 Mã Thẻ VIP của bạn là: ${code}`).then(() => { alert(`💡 Đã copy lời chào. Đang mở Zalo...`); window.open(`https://zalo.me/${phone}`, '_blank') }).catch(() => { window.open(`https://zalo.me/${phone}`, '_blank') }) };
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => { const code = e.target.value; setNewCode(code); const p = products.find((x: any) => x.product_code === code); if (p) { setNewName(cleanName(p.name)); setNewCategory(formatCategoryStr(p.category)); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewExpiry(p.expiry_date || ""); const gift = parseGift(p.gift_info); setNewGiftCondition(gift.cond.toString()); setNewGiftInfo(gift.text) } };
   
@@ -783,13 +667,9 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
     if (!navigator.onLine) return alert("Cần có mạng để thao tác Kho!"); 
     setLoading(true);
 
-    const added = parseInt(newStock || "0");
-    const impPrice = parseInt(newImportPrice);
-    const salePrice = parseInt(newPrice);
-    const promo = parseInt(newPromoPrice) || 0;
+    const added = parseInt(newStock || "0"); const impPrice = parseInt(newImportPrice); const salePrice = parseInt(newPrice); const promo = parseInt(newPromoPrice) || 0;
     const finalGiftInfo = newGiftInfo.trim() !== "" ? `${newGiftCondition};;;${newGiftInfo}` : null;
-    const baseCode = newCode.trim();
-    const formattedCat = formatCategoryStr(newCategory);
+    const baseCode = newCode.trim(); const formattedCat = formatCategoryStr(newCategory);
     
     const allVariants = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`));
     const exist = allVariants.find(p => p.product_code === baseCode);
@@ -798,9 +678,7 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
     if (allVariants.length > 0) {
       const needSync = allVariants.some(v => v.sale_price !== salePrice || v.promo_price !== promo || v.gift_info !== finalGiftInfo);
       if (needSync) {
-          await Promise.all(allVariants.map(v => 
-              supabase.from("products").update({ sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo }).eq("id", v.id)
-          ));
+          await Promise.all(allVariants.map(v => supabase.from("products").update({ sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo }).eq("id", v.id) ));
           syncMsg = `\n💡 Đã ĐỒNG BỘ GIÁ & QUÀ TẶNG cho các lô cũ!`;
           logAudit("ĐỒNG BỘ HỆ THỐNG", `Cập nhật Giá/Quà mã ${baseCode}`, { newPrice: salePrice, newPromo: promo, newGift: finalGiftInfo });
       }
@@ -810,8 +688,7 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
       if (exist.stock <= 0) {
         await supabase.from("products").update({ name: newName, category: formattedCat, import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null, created_at: new Date().toISOString() }).eq("id", exist.id);
         if (added > 0) { const lg = { id: Date.now(), shift: shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }; setHistory(prev => [lg, ...prev]); } 
-        logAudit("NHẬP ĐÈ CŨ", `${newName} (+${added})`, { importPrice: impPrice, salePrice });
-        alert(`Đã nhập hàng!${syncMsg}`);
+        logAudit("NHẬP ĐÈ CŨ", `${newName} (+${added})`, { importPrice: impPrice, salePrice }); alert(`Đã nhập hàng!${syncMsg}`);
       } else {
         if (exist.import_price !== impPrice || (exist.expiry_date || "") !== (newExpiry || "")) {
           const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}`;
@@ -819,23 +696,18 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
           if (window.confirm(`Tạo LÔ MỚI (${batchCode})?\n(Lô cũ sẽ tự động được áp dụng Giá & Quà tặng mới)`)) {
             await supabase.from("products").insert([{ product_code: batchCode, name: batchName, category: formattedCat, import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null }]);
             if (added > 0) { const lg = { id: Date.now(), shift: shift, type: "NHẬP", name: batchName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }; setHistory(prev => [lg, ...prev]); } 
-            logAudit("TÁCH LÔ", `${batchName} (+${added})`, { oldExpiry: exist.expiry_date, newExpiry });
-            alert(`Đã tạo lô mới!${syncMsg}`);
-          } else {
-            setLoading(false); return;
-          }
+            logAudit("TÁCH LÔ", `${batchName} (+${added})`, { oldExpiry: exist.expiry_date, newExpiry }); alert(`Đã tạo lô mới!${syncMsg}`);
+          } else { setLoading(false); return; }
         } else {
           await supabase.from("products").update({ stock: exist.stock + added, created_at: new Date().toISOString() }).eq("id", exist.id);
           if (added > 0) { const lg = { id: Date.now(), shift: shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }; setHistory(prev => [lg, ...prev]); } 
-          logAudit("CỘNG DỒN", `${newName} (+${added})`);
-          alert(`Cộng dồn thành công!${syncMsg}`);
+          logAudit("CỘNG DỒN", `${newName} (+${added})`); alert(`Cộng dồn thành công!${syncMsg}`);
         }
       }
     } else {
       await supabase.from("products").insert([{ product_code: baseCode, name: newName, category: formattedCat, import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null }]);
       if (added > 0) { const lg = { id: Date.now(), shift: shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }; setHistory(prev => [lg, ...prev]); } 
-      logAudit("NHẬP MỚI", `${newName} (+${added})`, { code: baseCode, importPrice: impPrice, salePrice });
-      alert(`Nhập thành công!${syncMsg}`);
+      logAudit("NHẬP MỚI", `${newName} (+${added})`, { code: baseCode, importPrice: impPrice, salePrice }); alert(`Nhập thành công!${syncMsg}`);
     }
     
     setNewCode(""); setNewName(""); setNewCategory("Đồ uống"); setNewImportPrice(""); setNewPrice(""); setNewPromoPrice(""); setNewGiftCondition("1"); setNewGiftInfo(""); setNewStock(""); setNewExpiry("");
@@ -850,33 +722,16 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
     const processData = async (lines: any[]) => {
       setLoading(true); 
       try {
-        if (!lines || lines.length <= 1) { 
-          alert("File rỗng hoặc không có dữ liệu hợp lệ!"); 
-          setLoading(false); 
-          return; 
-        } 
-        
-        let successCount = 0; 
-        let importLogs: any[] = [];
+        if (!lines || lines.length <= 1) { alert("File rỗng hoặc không có dữ liệu hợp lệ!"); setLoading(false); return; } 
+        let successCount = 0; let importLogs: any[] = [];
         
         for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i];
-          if (!cols || !Array.isArray(cols) || cols.join('').trim() === '') continue; 
+          const cols = lines[i]; if (!cols || !Array.isArray(cols) || cols.join('').trim() === '') continue; 
           
-          const pCode = String(cols[0] || "").trim(); 
-          const pName = String(cols[1] || "").trim(); 
-          const pCategory = formatCategoryStr(String(cols[2] || "")); 
-          const pImpPrice = parseInt(String(cols[3] || "0").replace(/[,.]/g, '')) || 0; 
-          const pSalePrice = parseInt(String(cols[4] || "0").replace(/[,.]/g, '')) || 0; 
-          const pPromoPrice = parseInt(String(cols[5] || "0").replace(/[,.]/g, '')) || 0; 
-          const pGift = cols[6] ? String(cols[6]).trim() : null; 
-          const pStock = parseInt(String(cols[7] || "0").replace(/[,.]/g, '')) || 0; 
-          const pExpiry = cols[8] ? String(cols[8]).trim() : null; 
-          
+          const pCode = String(cols[0] || "").trim(); const pName = String(cols[1] || "").trim(); const pCategory = formatCategoryStr(String(cols[2] || "")); const pImpPrice = parseInt(String(cols[3] || "0").replace(/[,.]/g, '')) || 0; const pSalePrice = parseInt(String(cols[4] || "0").replace(/[,.]/g, '')) || 0; const pPromoPrice = parseInt(String(cols[5] || "0").replace(/[,.]/g, '')) || 0; const pGift = cols[6] ? String(cols[6]).trim() : null; const pStock = parseInt(String(cols[7] || "0").replace(/[,.]/g, '')) || 0; const pExpiry = cols[8] ? String(cols[8]).trim() : null; 
           if (!pCode || !pName || pSalePrice <= 0) continue;
           
-          const baseCode = pCode; 
-          const allVariants = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)); 
+          const baseCode = pCode; const allVariants = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)); 
           
           if (allVariants.length > 0 && allVariants[0].sale_price !== pSalePrice) { 
             await Promise.all(allVariants.map(v => supabase.from("products").update({ sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift }).eq("id", v.id))); 
@@ -900,13 +755,8 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
           successCount++;
         }
         if (importLogs.length > 0) { setHistory(prev => [...importLogs, ...prev]); } 
-        logAudit("NHẬP FILE", `Nhập ${successCount} mã`); 
-        alert(`✅ Nhập thành công ${successCount} sản phẩm từ file!`); 
-        fetchProducts();
-      } catch (err) { 
-        console.error(err);
-        alert("Lỗi xử lý dữ liệu file, vui lòng kiểm tra lại định dạng."); 
-      } 
+        logAudit("NHẬP FILE", `Nhập ${successCount} mã`); alert(`✅ Nhập thành công ${successCount} sản phẩm từ file!`); fetchProducts();
+      } catch (err) { console.error(err); alert("Lỗi xử lý dữ liệu file, vui lòng kiểm tra lại định dạng."); } 
       setLoading(false);
     }; 
     
@@ -921,10 +771,7 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
           const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
           const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false });
           processData(jsonData);
-        } catch (error) {
-          console.error(error);
-          alert("Đã xảy ra lỗi khi đọc file Excel.");
-        }
+        } catch (error) { console.error(error); alert("Đã xảy ra lỗi khi đọc file Excel."); }
       };
       reader.readAsArrayBuffer(file);
     } else {
@@ -940,29 +787,18 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
   };
 
   const handleImportInventoryCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+    const file = e.target.files?.[0]; if (!file) return;
     const processData = (lines: any[]) => {
-      let updatedStock = { ...actualStockInput };
-      let count = 0;
+      let updatedStock = { ...actualStockInput }; let count = 0;
       for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i];
-        if (!cols || !Array.isArray(cols) || cols.join('').trim() === '') continue;
-
-        const pCode = String(cols[0] || "").trim();
-        const actualVal = parseInt(String(cols[3] || "0").replace(/[,.]/g, ''));
-        
+        const cols = lines[i]; if (!cols || !Array.isArray(cols) || cols.join('').trim() === '') continue;
+        const pCode = String(cols[0] || "").trim(); const actualVal = parseInt(String(cols[3] || "0").replace(/[,.]/g, ''));
         if (!isNaN(actualVal) && pCode) {
           const matchedProd = products.find(p => p.product_code === pCode);
-          if (matchedProd && matchedProd.stock !== actualVal) {
-            updatedStock[matchedProd.id] = actualVal;
-            count++;
-          }
+          if (matchedProd && matchedProd.stock !== actualVal) { updatedStock[matchedProd.id] = actualVal; count++; }
         }
       }
-      setActualStockInput(updatedStock);
-      alert(`✅ Đã nạp số liệu cho ${count} sản phẩm có thay đổi từ file!`);
+      setActualStockInput(updatedStock); alert(`✅ Đã nạp số liệu cho ${count} sản phẩm có thay đổi từ file!`);
     };
 
     const fileNameStr = file.name.toLowerCase();
@@ -971,21 +807,15 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
       const reader = new FileReader();
       reader.onload = (event) => {
         try {
-          const data = new Uint8Array(event.target?.result as ArrayBuffer);
-          const workbook = (window as any).XLSX.read(data, { type: 'array' });
-          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-          const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false });
+          const data = new Uint8Array(event.target?.result as ArrayBuffer); const workbook = (window as any).XLSX.read(data, { type: 'array' }); const firstSheet = workbook.Sheets[workbook.SheetNames[0]]; const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false });
           processData(jsonData);
-        } catch(err) {
-           console.error(err); alert("Lỗi định dạng cấu trúc khi đọc file Excel.");
-        }
+        } catch(err) { console.error(err); alert("Lỗi định dạng cấu trúc khi đọc file Excel."); }
       };
       reader.readAsArrayBuffer(file);
     } else {
       const reader = new FileReader();
       reader.onload = (event) => {
-        const text = event.target?.result as string;
-        const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, '')));
+        const text = event.target?.result as string; const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, '')));
         processData(lines);
       };
       reader.readAsText(file);
@@ -995,8 +825,6 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
   const handleDelete = async (id: any, name: any) => { if (!navigator.onLine) return alert("Cần có mạng để thao tác Kho!"); if (window.confirm(`Xóa vĩnh viễn ${name}?`)) { await supabase.from("products").delete().eq("id", id); logAudit("XÓA SP", `Xóa: ${name}`); fetchProducts() } };
   const handleEdit = async (id: any, field: string, old: any, isText: boolean = false) => { if (!navigator.onLine) return alert("Cần có mạng để thao tác Kho!"); let label = field; if (field === 'category') label = 'Danh mục'; if (field === 'sale_price') label = 'Giá bán'; if (field === 'promo_price') label = 'Giá KM'; if (field === 'gift_info') label = 'Quà tặng'; if (field === 'expiry_date') label = 'HSD'; const val = window.prompt(`Sửa ${label}:`, old || ""); if (val !== null) { let updateData: any = isText ? (field === 'category' ? formatCategoryStr(val) : val) : (parseInt(val) || 0); if (field === 'gift_info' && val.trim() === '') updateData = null; await supabase.from("products").update({ [field]: updateData }).eq("id", id); logAudit("SỬA THÔNG TIN", `ID ${id} - ${label}`, { old, new: updateData }); fetchProducts() } };
   const handlePrintBarcode = (p: any) => { const q = window.prompt(`SL tem in: ${cleanName(p.name)}`, "30"); if (q && parseInt(q) > 0) { setPrintBarcodeProduct(p); setBarcodeCount(parseInt(q)); setPrintMode('barcode'); setTimeout(() => window.print(), 1500) } };
-  
-  const downloadSampleCSV = () => { const csv = "\uFEFFMã SP,Tên SP,Danh Mục,Giá Nhập,Giá Bán,Giá KM,Quà Tặng,Số Lượng,Hạn Sử Dụng (YYYY-MM-DD)\nSP001,Mì Hảo Hảo,Đồ ăn liền,3000,5000,0,,100,2026-12-31"; const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Mau_Nhap_Kho.csv`; link.click() };
   
   const exportToCSV = () => {
     if (history.length === 0) return alert("Chưa có lịch sử!");
@@ -1015,11 +843,8 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
   };
   
   const handleSendEmailReport = async () => {
-    const start = new Date(reportStartDate + "T00:00:00").getTime();
-    const end = new Date(reportEndDate + "T23:59:59").getTime();
-    const logs = history.filter(log => {
-      const t = new Date(Math.floor(log.id)).getTime(); return t >= start && t <= end;
-    });
+    const start = new Date(reportStartDate + "T00:00:00").getTime(); const end = new Date(reportEndDate + "T23:59:59").getTime();
+    const logs = history.filter(log => { const t = new Date(Math.floor(log.id)).getTime(); return t >= start && t <= end; });
     if (logs.length === 0) return alert("Chưa có giao dịch trong khoảng thời gian này!");
     let cash = 0, transfer = 0, prof = 0, sold = 0;
     logs.forEach(l => { 
@@ -1027,54 +852,28 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
         if (l.type === 'BÁN' || l.type === 'THU NỢ' || l.type === 'TRẢ HÀNG') { 
             if (l.paymentMethod === 'CHUYỂN KHOẢN') transfer += l.total; 
             else if (l.paymentMethod === 'TIỀN MẶT' || l.paymentMethod === 'KẾT HỢP') {
-                if(l.paymentMethod === 'KẾT HỢP' && l.split_cash) { cash += l.split_cash; transfer += (l.total - l.split_cash); }
-                else { cash += l.total }
+                if(l.paymentMethod === 'KẾT HỢP' && l.split_cash) { cash += l.split_cash; transfer += (l.total - l.split_cash); } else { cash += l.total }
             }
         } 
         prof += (l.profit || 0) 
     });
     
-    let adminEmail = window.prompt("Nhập Email Quản lý để nhận báo cáo:", "");
-    if(!adminEmail) return;
-
-    adminEmail = adminEmail.trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(adminEmail)) {
-        return alert("❌ Lỗi: Địa chỉ Email không hợp lệ! Vui lòng kiểm tra lại (vd: ten@gmail.com).");
-    }
+    let adminEmail = window.prompt("Nhập Email Quản lý để nhận báo cáo:", ""); if(!adminEmail) return;
+    adminEmail = adminEmail.trim(); const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; if (!emailRegex.test(adminEmail)) { return alert("❌ Lỗi: Địa chỉ Email không hợp lệ!"); }
     
     setLoading(true);
     const reportStr = `\n📅 Từ ${reportStartDate} đến ${reportEndDate}\n- Tổng SP đã bán: ${sold} món\n- Doanh thu Tiền Mặt: ${Math.round(cash).toLocaleString()}đ\n- Doanh thu C/K: ${Math.round(transfer).toLocaleString()}đ\n`;
-    
-    const emailData = { 
-        to_email: adminEmail, title: "BÁO CÁO DOANH THU", order_id: `BÁO CÁO TỔNG HỢP`, time: new Date().toLocaleString('vi-VN'), items_list: reportStr, 
-        label_total: "TỔNG LỢI NHUẬN:", total_amount: Math.round(prof).toLocaleString() + "đ", 
-        label_payment: "Hệ thống:", payment_method: "Hải Lê ERP", label_change: "", change_amount: "" 
-    }; 
-    try {
-        await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, emailData);
-        logAudit("GỬI BÁO CÁO", `Đã gửi báo cáo tới ${adminEmail}`); alert("🚀 Đã gửi Báo cáo thành công!");
-    } catch (error: any) { 
-        console.error(error);
-        alert(`❌ Lỗi EmailJS: ${error?.text || error?.message || 'Hãy kiểm tra lại Key EmailJS hoặc hạn mức (Quota) miễn phí 200 mail/tháng đã hết!'}`); 
-    }
+    const emailData = { to_email: adminEmail, title: "BÁO CÁO DOANH THU", order_id: `BÁO CÁO TỔNG HỢP`, time: new Date().toLocaleString('vi-VN'), items_list: reportStr, label_total: "TỔNG LỢI NHUẬN:", total_amount: Math.round(prof).toLocaleString() + "đ", label_payment: "Hệ thống:", payment_method: "Hải Lê ERP", label_change: "", change_amount: "" }; 
+    try { await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, emailData); logAudit("GỬI BÁO CÁO", `Đã gửi báo cáo tới ${adminEmail}`); alert("🚀 Đã gửi Báo cáo thành công!"); } catch (error: any) { alert(`❌ Lỗi EmailJS`); }
     setLoading(false);
   };
 
   const sendInventoryAlertEmail = async () => {
-    let adminEmail = window.prompt("Nhập Email Quản lý để nhận cảnh báo:", "");
-    if(!adminEmail) return;
-
-    adminEmail = adminEmail.trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(adminEmail)) {
-        return alert("❌ Lỗi: Địa chỉ Email không hợp lệ! Vui lòng kiểm tra lại (vd: ten@gmail.com).");
-    }
+    let adminEmail = window.prompt("Nhập Email Quản lý để nhận cảnh báo:", ""); if(!adminEmail) return;
+    adminEmail = adminEmail.trim(); const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; if (!emailRegex.test(adminEmail)) { return alert("❌ Lỗi: Địa chỉ Email không hợp lệ!"); }
 
     setLoading(true);
-    const lowStock = products.filter(p => p.stock > 0 && p.stock < 10);
-    const today = new Date().getTime();
-    const expiring = products.filter(p => p.expiry_date && (new Date(p.expiry_date).getTime() - today) / 86400000 <= 15);
+    const lowStock = products.filter(p => p.stock > 0 && p.stock < 10); const today = new Date().getTime(); const expiring = products.filter(p => p.expiry_date && (new Date(p.expiry_date).getTime() - today) / 86400000 <= 15);
     
     let msg = `🚨 BÁO CÁO KHO HÀNG NGÀY 🚨\n\n📦 SẮP HẾT HÀNG (${lowStock.length} món):\n`;
     lowStock.forEach(p => msg += `- ${cleanName(p.name)}: Còn ${p.stock} sản phẩm\n`);
@@ -1082,76 +881,20 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
     expiring.forEach(p => msg += `- ${cleanName(p.name)}: HSD ${new Date(p.expiry_date).toLocaleDateString('vi-VN')}\n`);
 
     const emailData = { to_email: adminEmail, title: "CẢNH BÁO TỒN KHO HẢI LÊ MART", order_id: "HỆ THỐNG", time: new Date().toLocaleString('vi-VN'), items_list: msg, label_total: "Tình trạng:", total_amount: "Cần chú ý", label_payment: "Gửi từ:", payment_method: "ERP Bot", label_change: "", change_amount: "" }; 
-    try { 
-      await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, emailData); 
-      alert("🚀 Đã gửi cảnh báo kho thành công!"); logAudit("CẢNH BÁO KHO", "Gửi email báo cáo tồn kho");
-    } catch (error: any) { 
-        console.error(error);
-        alert(`❌ Lỗi EmailJS: ${error?.text || error?.message || 'Hãy kiểm tra lại Key EmailJS hoặc hạn mức (Quota) miễn phí 200 mail/tháng đã hết!'}`); 
-    }
+    try { await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, emailData); alert("🚀 Đã gửi cảnh báo kho thành công!"); logAudit("CẢNH BÁO KHO", "Gửi email báo cáo tồn kho"); } catch (error: any) { alert(`❌ Lỗi EmailJS`); }
     setLoading(false);
   };
 
-  const handleInventorySearchEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const term = String(inventorySearchTerm || "").trim().toLowerCase();
-      if (!term) return;
-      
-      const exactMatch = products.find(p => String(p.product_code || "").toLowerCase() === term);
-      if (exactMatch) {
-        const inputEl = document.getElementById(`inv-input-${exactMatch.id}`);
-        if (inputEl) {
-          inputEl.focus();
-        }
-      }
-    }
-  };
-  const handleInvInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const searchBox = document.getElementById('inv-search-box');
-      if (searchBox) {
-        searchBox.focus();
-        setInventorySearchTerm(""); 
-      }
-    }
-  };
-
-  const exportInventoryCSV = () => {
-    let csv = "\uFEFFMã SP,Tên SP,Tồn hệ thống,Tồn thực tế\n";
-    products.forEach(p => {
-      const actual = actualStockInput[p.id] !== undefined ? actualStockInput[p.id] : p.stock;
-      csv += `${p.product_code},"${cleanName(p.name)}",${p.stock},${actual}\n`;
-    });
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `KiemKho_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.csv`;
-    link.click();
-  };
-
-  const syncInventoryCheck = async () => {
-    if(!navigator.onLine) return alert("Cần có mạng để lưu kết quả kiểm kho!");
-    if(!window.confirm("Xác nhận ghi đè số lượng tồn kho trên máy bằng số lượng thực tế?")) return;
-    setLoading(true);
-    let count = 0;
-    for (const [id, actualQty] of Object.entries(actualStockInput)) {
-      const p = products.find(x => x.id === id);
-      if(p && p.stock !== actualQty) {
-        await supabase.from("products").update({ stock: actualQty }).eq("id", id);
-        logAudit("KIỂM KHO", `Cập nhật ${p.name}`, { tu_so: p.stock, thanh_so: actualQty, lech: actualQty - p.stock });
-        count++;
-      }
-    }
-    alert(`✅ Đã đồng bộ chênh lệch ${count} sản phẩm!`);
-    setShowInventoryModal(false); setActualStockInput({}); fetchProducts(); setLoading(false);
-  };
+  const handleInventorySearchEnter = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); const term = String(inventorySearchTerm || "").trim().toLowerCase(); if (!term) return; const exactMatch = products.find(p => String(p.product_code || "").toLowerCase() === term); if (exactMatch) { const inputEl = document.getElementById(`inv-input-${exactMatch.id}`); if (inputEl) { inputEl.focus(); } } } };
+  const handleInvInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); const searchBox = document.getElementById('inv-search-box'); if (searchBox) { searchBox.focus(); setInventorySearchTerm(""); } } };
+  const exportInventoryCSV = () => { let csv = "\uFEFFMã SP,Tên SP,Tồn hệ thống,Tồn thực tế\n"; products.forEach(p => { const actual = actualStockInput[p.id] !== undefined ? actualStockInput[p.id] : p.stock; csv += `${p.product_code},"${cleanName(p.name)}",${p.stock},${actual}\n`; }); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `KiemKho_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.csv`; link.click(); };
+  const syncInventoryCheck = async () => { if(!navigator.onLine) return alert("Cần có mạng để lưu kết quả kiểm kho!"); if(!window.confirm("Xác nhận ghi đè số lượng tồn kho trên máy bằng số lượng thực tế?")) return; setLoading(true); let count = 0; for (const [id, actualQty] of Object.entries(actualStockInput)) { const p = products.find(x => x.id === id); if(p && p.stock !== actualQty) { await supabase.from("products").update({ stock: actualQty }).eq("id", id); logAudit("KIỂM KHO", `Cập nhật ${p.name}`, { tu_so: p.stock, thanh_so: actualQty, lech: actualQty - p.stock }); count++; } } alert(`✅ Đã đồng bộ chênh lệch ${count} sản phẩm!`); setShowInventoryModal(false); setActualStockInput({}); fetchProducts(); setLoading(false); };
   
   const requestSort = (key: string) => { if (sortConfig && sortConfig.key === key) { if (sortConfig.direction === 'asc') setSortConfig({ key, direction: 'desc' }); else setSortConfig(null) } else { setSortConfig({ key, direction: 'asc' }) } };
   const handleFilterCheck = (col: string, val: any) => { setFilters(prev => { const cur = prev[col] || []; if (cur.includes(val)) return { ...prev, [col]: cur.filter(v => v !== val) }; return { ...prev, [col]: [...cur, val] } }) };
   const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
 
+  // Khai báo giao diện UI tĩnh
   const renderHeaderIcon = (colKey: string) => { const isFiltered = filters[colKey]?.length > 0; const isSortedAsc = sortConfig?.key === colKey && sortConfig.direction === 'asc'; const isSortedDesc = sortConfig?.key === colKey && sortConfig.direction === 'desc'; let icon = '🔽'; if (isSortedAsc) icon = '🔼'; if (isSortedDesc) icon = '🔽'; return (<span onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === colKey ? null : colKey) }} style={{ cursor: "pointer", color: isFiltered || sortConfig?.key === colKey ? '#ef4444' : '#94a3b8', fontSize: "10px", padding: "2px", marginLeft: "4px", border: isFiltered ? "1px dashed #ef4444" : "1px solid transparent", borderRadius: "2px" }} title="Lọc">{icon}</span>) };
   
   const renderFilterPopup = (colKey: string, title: string, uniqueValues: any[], formatVal?: (v: any) => string) => {
@@ -1172,9 +915,7 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
           ))}
         </div>
         {filters[colKey]?.length > 0 && (
-          <div style={{ marginTop: "8px", textAlign: "center", cursor: "pointer", color: "#ef4444", fontWeight: "bold", fontSize: "11px", padding: "4px" }} onClick={() => setFilters(prev => ({ ...prev, [colKey]: [] }))}>
-            ❌ Bỏ lọc
-          </div>
+          <div style={{ marginTop: "8px", textAlign: "center", cursor: "pointer", color: "#ef4444", fontWeight: "bold", fontSize: "11px", padding: "4px" }} onClick={() => setFilters(prev => ({ ...prev, [colKey]: [] }))}>❌ Bỏ lọc</div>
         )}
       </div>
     );
@@ -1230,7 +971,9 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
     );
   };
 
-  // GIAO DIỆN ĐĂNG NHẬP MỚI (CÓ NHẠC VÀ NỀN ĐỘNG)
+  // ==========================================
+  // UI - MÀN HÌNH ĐĂNG NHẬP
+  // ==========================================
   if (!isLoggedIn) {
     const toggleMusic = () => {
       if (isMusicPlaying) { bgMusicRef.current?.pause(); } 
@@ -1248,12 +991,8 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
             font-family: 'Inter', sans-serif; position: relative; overflow: hidden; margin: 0; padding: 0;
           }
           @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-          
-          /* Bóng bóng bay lên */
           .floating-bubble { position: absolute; background: rgba(255,255,255,0.3); border-radius: 50%; animation: floatUp linear infinite; bottom: -100px; }
           @keyframes floatUp { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; } }
-          
-          /* Form kính mờ (Glassmorphism) */
           .glass-login {
             background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.5); padding: 45px 35px; border-radius: 24px;
@@ -1261,33 +1000,21 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
             animation: fadeInUp 0.8s ease-out forwards;
           }
           @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-          
-          /* Input & Button */
           .login-input { width: 100%; padding: 14px 15px; margin-bottom: 15px; border-radius: 12px; border: 2px solid transparent; background: rgba(255,255,255,0.9); box-sizing: border-box; outline: none; transition: 0.3s; font-size: 14px; font-weight: 600; box-shadow: inset 0 2px 5px rgba(0,0,0,0.02); }
           .login-input:focus { border: 2px solid #ef4444; background: #fff; box-shadow: 0 0 15px rgba(239,68,68,0.15); }
           .login-btn-submit { width: 100%; padding: 15px; background: linear-gradient(135deg, #ef4444, #f43f5e); color: #fff; border: none; border-radius: 12px; font-weight: 900; font-size: 15px; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(239,68,68,0.3); margin-top: 10px; letter-spacing: 1px; }
           .login-btn-submit:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(239,68,68,0.5); }
-          
-          /* Nút bật nhạc */
-          .music-btn {
-            position: fixed; bottom: 30px; right: 30px; background: rgba(255,255,255,0.6); backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.8); border-radius: 50px; padding: 12px 25px; cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08); display: flex; align-items: center; gap: 8px;
-            font-weight: 900; font-size: 14px; color: #475569; transition: all 0.3s; z-index: 100;
-          }
+          .music-btn { position: fixed; bottom: 30px; right: 30px; background: rgba(255,255,255,0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.8); border-radius: 50px; padding: 12px 25px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.08); display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 14px; color: #475569; transition: all 0.3s; z-index: 100; }
           .music-btn:hover { background: #fff; transform: scale(1.05) translateY(-5px); color: #ef4444; }
         `}</style>
 
-        {/* Các bong bóng nền */}
         <div className="floating-bubble" style={{ width: '80px', height: '80px', left: '10%', animationDuration: '8s' }}></div>
         <div className="floating-bubble" style={{ width: '40px', height: '40px', left: '20%', animationDuration: '5s', animationDelay: '2s' }}></div>
         <div className="floating-bubble" style={{ width: '60px', height: '60px', left: '75%', animationDuration: '10s', animationDelay: '1s' }}></div>
         <div className="floating-bubble" style={{ width: '120px', height: '120px', left: '85%', animationDuration: '14s', animationDelay: '4s' }}></div>
 
-        {/* Trình phát nhạc ẩn */}
         <audio ref={bgMusicRef} loop src="https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3" />
         
-        {/* Nút điều khiển nhạc */}
         <button className="music-btn" onClick={toggleMusic}>
           {isMusicPlaying ? '⏸️ Tạm dừng nhạc' : '🎧 Bật nhạc Chill'}
         </button>
@@ -1297,10 +1024,8 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
             <h2 style={{ margin: "0 0 8px 0", color: "#e11d48", fontSize: "32px", fontWeight: "900", letterSpacing: "1px" }}>HẢI LÊ MART</h2>
             <p style={{ margin: 0, fontSize: "14px", color: "#475569", fontWeight: "600" }}>🌞 Chúc bạn một ca làm việc đầy năng lượng!</p>
           </div>
-          
           <input className="login-input" placeholder="📧 Tên đăng nhập (Email)..." value={authUsername} onChange={e => setAuthUsername(e.target.value)} required />
           <input className="login-input" type="password" placeholder="🔑 Mật khẩu..." value={authPassword} onChange={e => setAuthPassword(e.target.value)} required />
-          
           <button className="login-btn-submit" type="submit" disabled={loading}>
             {loading ? "⏳ ĐANG VÀO HỆ THỐNG..." : "🚀 VÀO CA LÀM VIỆC"}
           </button>
@@ -1309,27 +1034,24 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
     );
   }
 
-
+  // ==========================================
+  // UI - MÀN HÌNH POS CHÍNH
+  // ==========================================
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
       <style>{styles}</style>
-      {/* Thêm nền động Gradient */}
+      
+      {/* Nền động Gradient */}
       <style>{`
-        .animated-bg-mesh {
-          position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1;
-          background: linear-gradient(135deg, #ffedd5 0%, #fef08a 50%, #fed7aa 100%);
-          background-size: 400% 400%;
-          animation: gradientBgAnim 15s ease infinite;
-          opacity: 0.8;
-        }
+        .animated-bg-mesh { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; background: linear-gradient(135deg, #ffedd5 0%, #fef08a 50%, #fed7aa 100%); background-size: 400% 400%; animation: gradientBgAnim 15s ease infinite; opacity: 0.8; }
         @keyframes gradientBgAnim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-        [data-theme='dark'] .animated-bg-mesh {
-          background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%); opacity: 1;
-        }
+        [data-theme='dark'] .animated-bg-mesh { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%); opacity: 1; }
       `}</style>
       <div className="animated-bg-mesh"></div>
+
       <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} />
       
+      {/* --- CÁC POPUP (MODALS) --- */}
       {showInventoryModal && role === 'admin' && (
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div className="glass" style={{ padding: "25px", width: "900px", maxWidth: "95vw", maxHeight: "85vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
@@ -1819,7 +1541,7 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
       {isCheckoutOpen && (
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           {checkoutStep === 1 && (
-            <div className="glass" style={{ padding: "25px", width: "350px" }} onClick={e => e.stopPropagation()}>
+            <div className="glass" style={{ padding: "25px", width: "350px", background: "var(--bg-glass)" }} onClick={e => e.stopPropagation()}>
               <h3 style={{ color: "#ef4444", margin: "0", textAlign: "center" }}>🧧 THANH TOÁN</h3>
               
               <div style={{ display: "flex", position: "relative", marginTop: "15px" }}>
@@ -1864,7 +1586,7 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
           )}
           
           {checkoutStep === 2 && (
-            <div className="glass" style={{ padding: "25px", width: "350px", textAlign: "center" }} onClick={e => e.stopPropagation()}>
+            <div className="glass" style={{ padding: "25px", width: "350px", textAlign: "center", background: "var(--bg-glass)" }} onClick={e => e.stopPropagation()}>
               <h3 style={{ color: "#ef4444", margin: "0" }}>📱 THANH TOÁN</h3>
               <div style={{ color: "#ef4444", fontSize: "28px", fontWeight: "900", margin: "10px 0" }}>{finalToPay.toLocaleString()}đ</div>
               
@@ -1926,7 +1648,7 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
           )}
           
           {checkoutStep === 3 && (
-            <div className="glass" style={{ padding: "30px", width: "350px", textAlign: "center" }} onClick={e => e.stopPropagation()}>
+            <div className="glass" style={{ padding: "30px", width: "350px", textAlign: "center", background: "var(--bg-glass)" }} onClick={e => e.stopPropagation()}>
               <div style={{ fontSize: "40px" }}>🌸</div>
               <h3 style={{ color: "#10b981", margin: "10px 0" }}>Thành công!</h3>
               <div style={{ display: "flex", gap: "10px", marginTop: "20px", flexWrap: "wrap" }}>
@@ -1942,7 +1664,7 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
       {/* 💸 MODAL DÒNG TIỀN (CASH FLOW) */}
       {cashFlowModalInfo && (
         <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }} onClick={() => setCashFlowModalInfo(null)}>
-          <div className="glass" style={{ padding: "20px", width: "700px", maxHeight: "85vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
+          <div className="glass" style={{ padding: "20px", width: "700px", maxHeight: "85vh", display: "flex", flexDirection: "column", background: "var(--bg-glass)" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `2px solid ${cashFlowModalInfo === 'TIỀN MẶT' ? '#10b981' : '#3b82f6'}`, paddingBottom: "10px", marginBottom: "15px" }}>
               <div>
                 <h2 style={{ margin: 0, color: cashFlowModalInfo === 'TIỀN MẶT' ? "#10b981" : "#3b82f6" }}>💸 DÒNG TIỀN {cashFlowModalInfo}</h2>
@@ -2186,7 +1908,8 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
       {/* 🚀 MAIN APP UI 🚀 */}
       <div className="no-print" style={{ padding: "15px", position: "relative", minHeight: "100vh", overflowX: "auto" }}>
         <div style={{ maxWidth: "1500px", margin: "0 auto", minWidth: "1000px" }}>
-          <div className="glass" style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: "12px", marginBottom: "12px", borderBottom: "4px solid #ef4444" }}>
+          
+          <div className="glass" style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: "12px", marginBottom: "12px", borderBottom: "4px solid #ef4444", backdropFilter: "blur(10px)", background: "rgba(255,255,255,0.8)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <HeaderLogo />
               <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
@@ -2224,6 +1947,7 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
                 </div>
               </div>
             </div>
+
             <div style={{ display: "flex", borderTop: "1px dashed var(--border-glass)", paddingTop: "12px", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ position: "relative" }}>
                 <button onClick={(e) => { e.stopPropagation(); setShowMainMenu(!showMainMenu) }} style={{ padding: "8px 24px", background: "#1e3a8a", color: "#fff", border: "none", borderRadius: "8px", fontSize: "14px", fontWeight: "900", letterSpacing: "1px", cursor: "pointer", boxShadow: "0 4px 10px rgba(30,58,138,0.3)" }}>MENU</button>
@@ -2254,7 +1978,7 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
           </div>
           
           <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: "10px" }}>
-            <div className="glass" style={{ padding: "12px" }}>
+            <div className="glass" style={{ padding: "12px", backdropFilter: "blur(10px)", background: "rgba(255,255,255,0.85)" }}>
               <div style={{ display: "flex", gap: "15px", marginBottom: "15px", alignItems: "center" }}>
                 <div style={{ position: "relative", flex: 1, display: "flex" }}>
                   <input id="search-barcode" placeholder="👉 QUẸT MÃ VẠCH (F1)..." value={barcodeInput} onChange={e => { setBarcodeInput(e.target.value); setShowSuggestions(true) }} onKeyDown={handleBarcodeSubmit} onClick={() => setShowSuggestions(true)} style={{ flex: 1, padding: "10px 15px", borderRadius: "6px 0 0 6px", border: "2px solid #ef4444", fontSize: "14px", fontWeight: "bold", outline: "none", boxSizing: "border-box", color: "#ef4444" }} />
@@ -2403,8 +2127,9 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
                 </table>
               </div>
             </div>
+            
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <div className="glass" style={{ padding: "15px", flex: 1.5, minHeight: "45vh", display: "flex", flexDirection: "column" }}>
+              <div className="glass" style={{ padding: "15px", flex: 1.5, minHeight: "45vh", display: "flex", flexDirection: "column", backdropFilter: "blur(10px)", background: "rgba(255,255,255,0.85)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", borderBottom: "2px dashed var(--border-glass)", paddingBottom: "12px" }}>
                   <div style={{ display: "flex", flexDirection: "column" }}>
                     <h3 style={{ margin: 0, color: "#ef4444", fontSize: "15px", textTransform: "uppercase" }}>🛒 GIỎ HÀNG ({cart.reduce((s, i) => s + (Number(i.qty) || 0), 0)} món)</h3>
@@ -2452,7 +2177,7 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
                 </div>
               </div>
               
-              <div className="glass" style={{ padding: "15px", height: "35vh", display: "flex", flexDirection: "column" }}>
+              <div className="glass" style={{ padding: "15px", height: "35vh", display: "flex", flexDirection: "column", backdropFilter: "blur(10px)", background: "rgba(255,255,255,0.85)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
                   <div style={{ display: "flex", gap: "8px", flex: 1 }}>
                     <input placeholder="🔍 Tìm giao dịch..." value={logSearchTerm} onChange={e => setLogSearchTerm(e.target.value)} style={{ padding: "6px 10px", borderRadius: "6px", outline: "none", fontSize: "12px", flex: 1 }} />
