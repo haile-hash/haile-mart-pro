@@ -1247,6 +1247,21 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
       <style>{styles}</style>
+      {/* Thêm nền động Gradient */}
+      <style>{`
+        .animated-bg-mesh {
+          position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1;
+          background: linear-gradient(135deg, #ffedd5 0%, #fef08a 50%, #fed7aa 100%);
+          background-size: 400% 400%;
+          animation: gradientBgAnim 15s ease infinite;
+          opacity: 0.8;
+        }
+        @keyframes gradientBgAnim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        [data-theme='dark'] .animated-bg-mesh {
+          background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%); opacity: 1;
+        }
+      `}</style>
+      <div className="animated-bg-mesh"></div>
       <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} />
       
       {showInventoryModal && role === 'admin' && (
