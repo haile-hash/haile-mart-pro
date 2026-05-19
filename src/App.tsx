@@ -44,7 +44,19 @@ const styles = `
   :root { --bg-main: #fff7ed; --bg-glass: rgba(255,255,255,0.98); --border-glass: #fed7aa; --text-main: #431407; --text-muted: #64748b; --bg-input: #fff; }
   [data-theme='dark'] { --bg-main: #0f172a; --bg-glass: #1e293b; --border-glass: #334155; --text-main: #f8fafc; --text-muted: #94a3b8; --bg-input: #334155; }
 `;
-
+// Thêm component này nằm ngoài App
+const LiveClock = () => {
+  const [time, setTime] = React.useState(new Date());
+  React.useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--bg-input)", padding: "6px 12px", borderRadius: "6px", border: "1px solid var(--border-glass)", fontFamily: "monospace" }}>
+      <span style={{ fontSize: "14px" }}>⏱️</span> {time.toLocaleTimeString('vi-VN')} - {time.toLocaleDateString('vi-VN')}
+    </div>
+  );
+};
 export default function App() {
   const VAT_RATE = 0.1;
   const EMAILJS_SERVICE_ID = process.env.REACT_APP_EMAILJS_SERVICE_ID || "service_7ie990l";
@@ -57,7 +69,7 @@ export default function App() {
   const [shift, setShift] = useState(() => localStorage.getItem("mart_shift") || "Ca Sáng");
   const [authUsername, setAuthUsername] = useState("");
   const [authPassword, setAuthPassword] = useState("");
-  const [currentTime, setCurrentTime] = useState(new Date());
+ 
   
   const [startingCash, setStartingCash] = useState<number>(() => {
     const cached = localStorage.getItem("mart_starting_cash");
@@ -246,7 +258,7 @@ export default function App() {
   const fetchProducts = async () => { const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false }); if (data) setProducts(data) };
   const findProductByCode = (code: string) => { const rawCode = code.trim(); let matches = products.filter(prod => prod.product_code === rawCode || String(prod.product_code).startsWith(`${rawCode}-`)); let available = matches.filter(p => p.stock > 0); if (available.length > 0) { available.sort((a, b) => { if (!a.expiry_date) return 1; if (!b.expiry_date) return -1; return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime() }); return available[0] } return matches.length > 0 ? matches[0] : null };
   
-  useEffect(() => { const timer = setInterval(() => setCurrentTime(new Date()), 1000); return () => clearInterval(timer) }, []);
+  
   
   useEffect(() => {
     if (isLoggedIn) {
@@ -2154,9 +2166,7 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
               </div>
               <div style={{ display: "flex", gap: "15px", alignItems: "center", fontSize: "12px", fontWeight: "bold", color: "var(--text-muted)" }}>
                 {role === 'admin' && lowStockCount > 0 && <div className="noti-bell" onClick={() => setShowStatsModal(true)} title="Có mặt hàng sắp hết!"><span style={{ fontSize: "20px" }}>🔔</span><span className="noti-badge">{lowStockCount}</span></div>}
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--bg-input)", padding: "6px 12px", borderRadius: "6px", border: "1px solid var(--border-glass)", fontFamily: "monospace" }}>
-                  <span style={{ fontSize: "14px" }}>⏱️</span> {currentTime.toLocaleTimeString('vi-VN')} - {currentTime.toLocaleDateString('vi-VN')}
-                </div>
+                <LiveClock />
                 <CloudStatusBadge />
               </div>
             </div>
