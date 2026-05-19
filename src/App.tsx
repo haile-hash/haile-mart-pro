@@ -1241,7 +1241,7 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
   if (!isLoggedIn) {
     return (
       <>
-        <audio ref={bgMusicRef} loop src="/windy-hill.mp3" />
+        <audio ref={bgMusicRef} loop src="https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3" />
         <div className="login-wrapper">
           <style>{`
             .login-wrapper {
