@@ -1230,15 +1230,89 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
     );
   };
 
-  // GIAO DIỆN ĐĂNG NHẬP MỚI (CÓ NHẠC VÀ NỀN ĐỘNG)
+// HÀM BẬT/TẮT NHẠC DÙNG CHUNG CHO CẢ APP
+  const toggleMusic = () => {
+    if (isMusicPlaying) { bgMusicRef.current?.pause(); } 
+    else { bgMusicRef.current?.play().catch(e => console.log("Trình duyệt chặn:", e)); }
+    setIsMusicPlaying(!isMusicPlaying);
+  };
+
   if (!isLoggedIn) {
-    const toggleMusic = () => {
-      if (isMusicPlaying) { bgMusicRef.current?.pause(); } 
-      else { bgMusicRef.current?.play().catch(e => console.log("Trình duyệt chặn:", e)); }
-      setIsMusicPlaying(!isMusicPlaying);
-    };
+    return (
+      <>
+        {/* Trình phát nhạc và Nút bấm nằm CÙNG CẤP với giao diện đăng nhập */}
+        <audio ref={bgMusicRef} loop src="/Windy Hill.mp3" />
+        <button 
+          onClick={toggleMusic} 
+          style={{ position: "fixed", bottom: "30px", right: "30px", background: "rgba(255,255,255,0.8)", backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.8)", borderRadius: "50px", padding: "12px 25px", cursor: "pointer", boxShadow: "0 4px 15px rgba(0,0,0,0.08)", display: "flex", alignItems: "center", gap: "8px", fontWeight: "900", fontSize: "14px", color: "#475569", zIndex: 10000, transition: "all 0.3s" }}
+          onMouseEnter={e => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.transform = "scale(1.05) translateY(-5px)"; e.currentTarget.style.color = "#ef4444"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.8)"; e.currentTarget.style.transform = "none"; e.currentTarget.style.color = "#475569"; }}
+        >
+          {isMusicPlaying ? '⏸️ Tạm dừng nhạc' : '🎧 Bật nhạc Chill'}
+        </button>
+
+        <div key="login" className="login-wrapper">
+          <style>{`
+            .login-wrapper {
+              min-height: 100vh; width: 100vw; display: flex; justify-content: center; align-items: center;
+              background: linear-gradient(-45deg, #fbc2eb, #a6c1ee, #fccb90, #d57eeb);
+              background-size: 400% 400%; animation: gradientBG 15s ease infinite;
+              font-family: 'Inter', sans-serif; position: relative; overflow: hidden; margin: 0; padding: 0;
+            }
+            @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+            .floating-bubble { position: absolute; background: rgba(255,255,255,0.3); border-radius: 50%; animation: floatUp linear infinite; bottom: -100px; }
+            @keyframes floatUp { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; } }
+            .glass-login {
+              background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+              border: 1px solid rgba(255, 255, 255, 0.5); padding: 45px 35px; border-radius: 24px;
+              box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1); width: 340px; text-align: center; z-index: 10;
+              animation: fadeInUp 0.8s ease-out forwards;
+            }
+            @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+            .login-input { width: 100%; padding: 14px 15px; margin-bottom: 15px; border-radius: 12px; border: 2px solid transparent; background: rgba(255,255,255,0.9); box-sizing: border-box; outline: none; transition: 0.3s; font-size: 14px; font-weight: 600; box-shadow: inset 0 2px 5px rgba(0,0,0,0.02); }
+            .login-input:focus { border: 2px solid #ef4444; background: #fff; box-shadow: 0 0 15px rgba(239,68,68,0.15); }
+            .login-btn-submit { width: 100%; padding: 15px; background: linear-gradient(135deg, #ef4444, #f43f5e); color: #fff; border: none; border-radius: 12px; font-weight: 900; font-size: 15px; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(239,68,68,0.3); margin-top: 10px; letter-spacing: 1px; }
+            .login-btn-submit:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(239,68,68,0.5); }
+          `}</style>
+
+          <div className="floating-bubble" style={{ width: '80px', height: '80px', left: '10%', animationDuration: '8s' }}></div>
+          <div className="floating-bubble" style={{ width: '40px', height: '40px', left: '20%', animationDuration: '5s', animationDelay: '2s' }}></div>
+          <div className="floating-bubble" style={{ width: '60px', height: '60px', left: '75%', animationDuration: '10s', animationDelay: '1s' }}></div>
+          <div className="floating-bubble" style={{ width: '120px', height: '120px', left: '85%', animationDuration: '14s', animationDelay: '4s' }}></div>
+
+          <form className="glass-login" onSubmit={handleLogin}>
+            <div style={{ marginBottom: "30px" }}>
+              <h2 style={{ margin: "0 0 8px 0", color: "#e11d48", fontSize: "32px", fontWeight: "900", letterSpacing: "1px" }}>HẢI LÊ MART</h2>
+              <p style={{ margin: 0, fontSize: "14px", color: "#475569", fontWeight: "600" }}>🌞 Chúc bạn một ca làm việc đầy năng lượng!</p>
+            </div>
+            
+            <input className="login-input" placeholder="📧 Tên đăng nhập (Email)..." value={authUsername} onChange={e => setAuthUsername(e.target.value)} required />
+            <input className="login-input" type="password" placeholder="🔑 Mật khẩu..." value={authPassword} onChange={e => setAuthPassword(e.target.value)} required />
+            
+            <button className="login-btn-submit" type="submit" disabled={loading}>
+              {loading ? "⏳ ĐANG VÀO HỆ THỐNG..." : "🚀 VÀO CA LÀM VIỆC"}
+            </button>
+          </form>
+        </div>
+      </>
+    );
+  }
 
     return (
+    <>
+      {/* Phải LẶP LẠI đoạn này ở vị trí y hệt để React hiểu là "giữ nguyên bài nhạc, không ngắt" */}
+      <audio ref={bgMusicRef} loop src="/Windy Hill.mp3" />
+      <button 
+        onClick={toggleMusic} 
+        style={{ position: "fixed", bottom: "30px", right: "30px", background: "rgba(255,255,255,0.8)", backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.8)", borderRadius: "50px", padding: "12px 25px", cursor: "pointer", boxShadow: "0 4px 15px rgba(0,0,0,0.08)", display: "flex", alignItems: "center", gap: "8px", fontWeight: "900", fontSize: "14px", color: "#475569", zIndex: 10000, transition: "all 0.3s" }}
+        onMouseEnter={e => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.transform = "scale(1.05) translateY(-5px)"; e.currentTarget.style.color = "#ef4444"; }}
+        onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.8)"; e.currentTarget.style.transform = "none"; e.currentTarget.style.color = "#475569"; }}
+      >
+        {isMusicPlaying ? '⏸️ Tạm dừng nhạc' : '🎧 Bật nhạc Chill'}
+      </button>
+
+      {/* CODE CŨ CỦA DASHBOARD NẰM BÊN TRONG DIV NÀY */}
+      <div key="dashboard" onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
       <div className="login-wrapper">
         <style>{`
           .login-wrapper {
@@ -2510,5 +2584,9 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
         </div>
       </div>
     </div>
+  );
+}
+</div>
+    </>
   );
 }
