@@ -71,7 +71,12 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState("");
  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const bgMusicRef = useRef(null);
-  
+  // HÀM ĐIỀU KHIỂN NHẠC DÙNG CHUNG
+  const toggleMusic = () => {
+    if (isMusicPlaying) { bgMusicRef.current?.pause(); } 
+    else { bgMusicRef.current?.play().catch(e => console.log("Trình duyệt chặn:", e)); }
+    setIsMusicPlaying(!isMusicPlaying);
+  };
   const [startingCash, setStartingCash] = useState<number>(() => {
     const cached = localStorage.getItem("mart_starting_cash");
     return (cached && cached !== "0") ? Number(cached) : 5000000;
@@ -1231,12 +1236,14 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
   };
 
   // GIAO DIỆN ĐĂNG NHẬP MỚI (CÓ NHẠC VÀ NỀN ĐỘNG)
+  // GIAO DIỆN ĐĂNG NHẬP MỚI (CÓ NHẠC VÀ NỀN ĐỘNG)
   if (!isLoggedIn) {
-    const toggleMusic = () => {
-      if (isMusicPlaying) { bgMusicRef.current?.pause(); } 
-      else { bgMusicRef.current?.play().catch(e => console.log("Trình duyệt chặn:", e)); }
-      setIsMusicPlaying(!isMusicPlaying);
-    };
+    return (
+      <>
+        {/* Đặt Audio ở đây để nhạc không bị tắt khi chuyển màn hình */}
+        <audio ref={bgMusicRef} loop src="/nhac.mp3" />
+        
+        <div className="login-wrapper">
 
     return (
       <div className="login-wrapper">
@@ -1284,8 +1291,7 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
         <div className="floating-bubble" style={{ width: '60px', height: '60px', left: '75%', animationDuration: '10s', animationDelay: '1s' }}></div>
         <div className="floating-bubble" style={{ width: '120px', height: '120px', left: '85%', animationDuration: '14s', animationDelay: '4s' }}></div>
 
-        {/* Trình phát nhạc ẩn */}
-        <audio ref={bgMusicRef} loop src="https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3" />
+        
         
         {/* Nút điều khiển nhạc */}
         <button className="music-btn" onClick={toggleMusic}>
@@ -1311,8 +1317,13 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
 
 
   return (
-    <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
-      <style>{styles}</style>
+    return (
+    <>
+      {/* Phải có thẻ audio ở đây, giống hệt màn hình đăng nhập */}
+      <audio ref={bgMusicRef} loop src="/nhac.mp3" />
+
+      <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
+        <style>{styles}</style>
       {/* Thêm nền động Gradient */}
       <style>{`
         .animated-bg-mesh {
@@ -2510,5 +2521,6 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
         </div>
       </div>
     </div>
+      </>
   );
 }
