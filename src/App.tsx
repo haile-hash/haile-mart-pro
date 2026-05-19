@@ -1284,8 +1284,8 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
         <div className="floating-bubble" style={{ width: '60px', height: '60px', left: '75%', animationDuration: '10s', animationDelay: '1s' }}></div>
         <div className="floating-bubble" style={{ width: '120px', height: '120px', left: '85%', animationDuration: '14s', animationDelay: '4s' }}></div>
 
-        {/* Trình phát nhạc ẩn */}
-        <audio ref={bgMusicRef} loop src="https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3" />
+{/* Trình phát nhạc ẩn */}
+<audio ref={bgMusicRef} loop src="/Windy Hill.mp3" />
         
         {/* Nút điều khiển nhạc */}
         <button className="music-btn" onClick={toggleMusic}>
