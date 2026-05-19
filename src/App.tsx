@@ -1385,8 +1385,19 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
 
 
   return (
-    <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
-      <style>{styles}</style>
+    <>
+      <audio ref={bgMusicRef} loop src="/Windy Hill.mp3" />
+      <button 
+        onClick={toggleMusic} 
+        style={{ position: "fixed", bottom: "30px", right: "30px", background: "rgba(255,255,255,0.8)", backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.8)", borderRadius: "50px", padding: "12px 25px", cursor: "pointer", boxShadow: "0 4px 15px rgba(0,0,0,0.08)", display: "flex", alignItems: "center", gap: "8px", fontWeight: "900", fontSize: "14px", color: "#475569", zIndex: 10000, transition: "all 0.3s" }}
+        onMouseEnter={e => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.transform = "scale(1.05) translateY(-5px)"; e.currentTarget.style.color = "#ef4444"; }}
+        onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.8)"; e.currentTarget.style.transform = "none"; e.currentTarget.style.color = "#475569"; }}
+      >
+        {isMusicPlaying ? '⏸️ Tạm dừng nhạc' : '🎧 Bật nhạc Chill'}
+      </button>
+
+      <div key="dashboard" onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
+        <style>{styles}</style>
       {/* Thêm nền động Gradient */}
       <style>{`
         .animated-bg-mesh {
@@ -2584,8 +2595,7 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
         </div>
       </div>
     </div>
-  );
-}
+ 
 </div>
     </>
   );
