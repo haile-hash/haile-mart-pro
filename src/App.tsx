@@ -1308,11 +1308,7 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
       </div>
     );
   }
-          </button>
-        </form>
-      </div>
-    );
-  }
+
 
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
