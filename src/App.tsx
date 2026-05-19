@@ -537,14 +537,30 @@ export default function App() {
   const handleNextToQR = () => { 
     if (cart.length === 0) return alert("Giỏ hàng trống!"); 
     if (custPhone && !customers[custPhone] && !custName) return alert("Nhập Tên khách mới!"); 
-    if (voucherInput.trim() !== "" && appliedVoucherAmount === 0) { const code = voucherInput.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); } else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); } else { return alert("❌ Mã Voucher không hợp lệ! Vui lòng kiểm tra lại hoặc xóa mã đi để tiếp tục."); } } 
+    
+    // Tự động nhận diện Voucher kể cả khi nhân viên quên bấm Enter
+    if (voucherInput.trim() !== "" && appliedVoucherAmount === 0) { 
+      const code = voucherInput.trim().toUpperCase(); 
+      const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; 
+      if (VOUCHERS[code]) { 
+        setAppliedVoucherAmount(VOUCHERS[code]); 
+      } else if (!isNaN(Number(code)) && Number(code) > 0) { 
+        setAppliedVoucherAmount(Number(code)); 
+      } else { 
+        return alert("❌ Mã Voucher không hợp lệ! Vui lòng xóa mã đi hoặc nhập lại."); 
+      } 
+    } 
+    
     setCheckoutStep(2); 
   };
 
-  const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 'GHI NỢ' | 'KẾT HỢP') => {
-    if (cart.some(i => !i.qty || i.qty <= 0)) { playSound('error'); return alert("Lỗi số lượng!") } if (payMethod === 'GHI NỢ' && !custPhone) return alert("Ghi nợ cần SĐT!");
+const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 'GHI NỢ' | 'KẾT HỢP') => {
+    if (cart.some(i => !i.qty || i.qty <= 0)) { playSound('error'); return alert("Lỗi số lượng!") } 
+    if (payMethod === 'GHI NỢ' && !custPhone) return alert("Ghi nợ cần SĐT!");
+    
     setLoading(true); let logs: any[] = [];
     
+    // Đã sửa logic: Trừ Voucher ngay trên tổng giá trị để khớp với UI
     const baseTotal = cartTotalAmountDisplay; 
     const subTotal = Math.round(baseTotal / (1 + VAT_RATE)); 
     const vatTotal = baseTotal - subTotal;
@@ -1713,8 +1729,11 @@ export default function App() {
             <div className="glass" style={{ padding: "25px", width: "350px" }} onClick={e => e.stopPropagation()}>
               <h3 style={{ color: "#ef4444", margin: "0", textAlign: "center" }}>🧧 THANH TOÁN</h3>
               <div style={{ display: "flex", position: "relative", marginTop: "15px" }}>
+                <div style={{ display: "flex", position: "relative", marginTop: "15px" }}>
                 <input type="text" placeholder="👉 Nhập mã Voucher..." value={voucherInput} onChange={(e) => setVoucherInput(e.target.value)} onKeyDown={handleVoucherSubmit} style={{ flex: 1, padding: "12px", borderRadius: "10px 0 0 10px", border: "2px dashed #f59e0b", outline: "none", boxSizing: "border-box" }} />
+                
                 <button onClick={() => { const code = voucherInput.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); playSound('success'); } else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); playSound('success'); } else { playSound('error'); alert("Mã Voucher lỗi!"); setAppliedVoucherAmount(0); } }} style={{ padding: "0 15px", background: "#f59e0b", border: "none", cursor: "pointer", color: "white", fontWeight: "bold", borderLeft: "1px solid #d97706" }}>ÁP DỤNG</button>
+                
                 <button onClick={() => setScannerMode('voucher')} style={{ padding: "0 15px", background: "#f59e0b", border: "none", borderRadius: "0 10px 10px 0", cursor: "pointer", color: "white", fontSize: "18px", borderLeft: "1px solid #d97706" }}>📷</button>
               </div>
               {appliedVoucherAmount > 0 && <div style={{ color: "#059669", fontSize: "12px", fontWeight: "bold", marginTop: "4px", textAlign: "center" }}>✅ Đã áp dụng giảm: {appliedVoucherAmount.toLocaleString()}đ</div>}
