@@ -75,8 +75,9 @@ export default function App() {
   
   // HÀM ĐIỀU KHIỂN NHẠC DÙNG CHUNG
   const toggleMusic = () => {
-    if (isMusicPlaying) { bgMusicRef.current?.pause(); } 
-    else { bgMusicRef.current?.play().catch(e => console.log("Trình duyệt chặn:", e)); }
+    const audio = document.getElementById("bg-music"); // <--- Gọi thẳng ra file HTML
+    if (isMusicPlaying) { audio?.pause(); } 
+    else { audio?.play().catch(e => console.log("Trình duyệt chặn:", e)); }
     setIsMusicPlaying(!isMusicPlaying);
   };
 
@@ -1241,9 +1242,6 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
   if (!isLoggedIn) {
     return (
       <>
-        <audio ref={bgMusicRef} loop src="https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3" />
-        <div className="login-wrapper">
-          <style>{`
             .login-wrapper {
               min-height: 100vh; width: 100vw; display: flex; justify-content: center; align-items: center;
               background: linear-gradient(-45deg, #fbc2eb, #a6c1ee, #fccb90, #d57eeb);
@@ -1311,8 +1309,8 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
   }
 
   return (
-    <>
-      <audio ref={bgMusicRef} loop src="/windy-hill.mp3" />
+    <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
+      <style>{styles}</style>
 
       <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
         <style>{styles}</style>
@@ -2508,6 +2506,5 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
           </div>
         </div>
       </div>
-    </>
-  );
+   );
 }  
