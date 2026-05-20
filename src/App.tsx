@@ -557,10 +557,20 @@ export default function App() {
   };
 
   const syncInventoryCheck = async () => {
-    if(!navigator.onLine) return alert("Cần có mạng để lưu kết quả kiểm kho!"); if(!window.confirm("Xác nhận ghi đè số lượng tồn kho trên máy bằng số lượng thực tế?")) return;
+    if(!navigator.onLine) return alert("Cần có mạng để lưu kết quả kiểm kho!"); 
+    if(!window.confirm("Xác nhận ghi đè số lượng tồn kho trên máy bằng số lượng thực tế?")) return;
     setLoading(true); let count = 0;
-    for (const [id, actualQty] of Object.entries(actualStockInput)) { const p = products.find(x => x.id === id); if(p && p.stock !== actualQty) { await supabase.from("products").update({ stock: actualQty }).eq("id", id); logAudit("KIỂM KHO", `Cập nhật ${p.name}`, { tu_so: p.stock, thanh_so: actualQty, lech: actualQty - p.stock }); count++; } }
-    alert(`✅ Đã đồng bộ chênh lệch ${count} sản phẩm!`); setShowInventoryModal(false); setActualStockInput({}); fetchProducts(); setLoading(false);
+    for (const [id, actualQty] of Object.entries(actualStockInput)) { 
+      // Ép kiểu String cho cả 2 bên để đảm bảo so sánh chuẩn xác 100%
+      const p = products.find(x => String(x.id) === String(id)); 
+      if(p && p.stock !== actualQty) { 
+        await supabase.from("products").update({ stock: actualQty }).eq("id", p.id); 
+        logAudit("KIỂM KHO", `Cập nhật ${p.name}`, { tu_so: p.stock, thanh_so: actualQty, lech: actualQty - p.stock }); 
+        count++; 
+      } 
+    }
+    alert(`✅ Đã đồng bộ chênh lệch ${count} sản phẩm!`); 
+    setShowInventoryModal(false); setActualStockInput({}); fetchProducts(); setLoading(false);
   };
   
   const requestSort = (key: string) => { if (sortConfig && sortConfig.key === key) { if (sortConfig.direction === 'asc') setSortConfig({ key, direction: 'desc' }); else setSortConfig(null) } else { setSortConfig({ key, direction: 'asc' }) } };
