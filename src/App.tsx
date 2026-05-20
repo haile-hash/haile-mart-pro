@@ -69,17 +69,8 @@ export default function App() {
   const [shift, setShift] = useState(() => localStorage.getItem("mart_shift") || "Ca Sáng");
   const [authUsername, setAuthUsername] = useState("");
   const [authPassword, setAuthPassword] = useState("");
-const [isMusicPlaying, setIsMusicPlaying] = useState(false);
-  
-  // Điều khiển nhạc ở file index.html
-  const toggleMusic = () => {
-    const audio = document.getElementById("bg-music");
-    if (audio) {
-      if (isMusicPlaying) { audio.pause(); } 
-      else { audio.play().catch(e => console.log("Lỗi:", e)); }
-      setIsMusicPlaying(!isMusicPlaying);
-    }
-  };
+ const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+  const bgMusicRef = useRef(null);
   
   const [startingCash, setStartingCash] = useState<number>(() => {
     const cached = localStorage.getItem("mart_starting_cash");
@@ -1239,7 +1230,13 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
     );
   };
 
-
+  // GIAO DIỆN ĐĂNG NHẬP MỚI (CÓ NHẠC VÀ NỀN ĐỘNG)
+  if (!isLoggedIn) {
+    const toggleMusic = () => {
+      if (isMusicPlaying) { bgMusicRef.current?.pause(); } 
+      else { bgMusicRef.current?.play().catch(e => console.log("Trình duyệt chặn:", e)); }
+      setIsMusicPlaying(!isMusicPlaying);
+    };
 
     return (
       <div className="login-wrapper">
@@ -1287,7 +1284,8 @@ const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 
         <div className="floating-bubble" style={{ width: '60px', height: '60px', left: '75%', animationDuration: '10s', animationDelay: '1s' }}></div>
         <div className="floating-bubble" style={{ width: '120px', height: '120px', left: '85%', animationDuration: '14s', animationDelay: '4s' }}></div>
 
-
+        {/* Trình phát nhạc ẩn */}
+        <audio ref={bgMusicRef} loop src="https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3" />
         
         {/* Nút điều khiển nhạc */}
         <button className="music-btn" onClick={toggleMusic}>
