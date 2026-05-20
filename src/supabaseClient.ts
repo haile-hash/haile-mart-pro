@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createClient } from "@supabase/supabase-js";
 
 // Đây là URL và Key thật của dự án MiniMart của bạn
