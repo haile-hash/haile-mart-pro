@@ -731,7 +731,7 @@ const renderPrintArea = () => (
       <div className="animated-bg-mesh"></div>
 
       {/* 👉 BẠN THAY LINK NHẠC BẰNG LINK CỦA BẠN TẠI ĐÂY NHÉ 👈 */}
-      <audio ref={bgMusicRef} loop src="https://cdn.pixabay.com/audio/2023/10/24/audio_338a0f5a7d.mp3" preload="auto" />
+      <audio ref={bgMusicRef} loop src="/Windy Hill.mp3" preload="auto" />
       <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} />
       
       {renderPrintArea()}
