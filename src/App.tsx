@@ -720,18 +720,18 @@ const renderPrintArea = () => (
 
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
+      {/* CSS Toàn cục */}
       <style>{styles}</style> 
       <style>{`
         .animated-bg-mesh { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; background: linear-gradient(135deg, #ffedd5 0%, #fef08a 50%, #fed7aa 100%); background-size: 400% 400%; animation: gradientBgAnim 15s ease infinite; opacity: 0.8; }
         @keyframes gradientBgAnim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
         [data-theme='dark'] .animated-bg-mesh { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%); opacity: 1; }
-        
-        .music-btn { position: fixed; bottom: 30px; right: 30px; background: rgba(255,255,255,0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.8); border-radius: 50px; padding: 12px 25px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.08); display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 14px; color: #475569; transition: all 0.3s; z-index: 10000; }
-        .music-btn:hover { background: #fff; transform: scale(1.05) translateY(-5px); color: #ef4444; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
       `}</style>
       <div className="animated-bg-mesh"></div>
-      <audio ref={bgMusicRef} loop src="https://cdn.pixabay.com/audio/2023/10/24/audio_338a0f5a7d.mp3" />
-      <button className="music-btn no-print" onClick={() => { if (isMusicPlaying) { bgMusicRef.current?.pause(); } else { bgMusicRef.current?.play().catch(e => console.log("Trình duyệt chặn:", e)); } setIsMusicPlaying(!isMusicPlaying); }}>{isMusicPlaying ? '⏸️ Tắt nhạc' : '🎧 Bật nhạc Chill'}</button>
+
+      {/* 👉 BẠN THAY LINK NHẠC BẰNG LINK CỦA BẠN TẠI ĐÂY NHÉ 👈 */}
+      <audio ref={bgMusicRef} loop src="https://cdn.pixabay.com/audio/2023/10/24/audio_338a0f5a7d.mp3" preload="auto" />
       <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} />
       
       {renderPrintArea()}
