@@ -1,3 +1,13 @@
+TypeScript
+/* eslint-disable */
+// @ts-nocheck
+
+import React, { useEffect, useState, useMemo, useRef } from "react";
+import { supabase } from "./supabaseClient";
+import { 
+  styles, formatCategoryStr, parseGift, cleanName, 
+  getActualPrice, getCustomerTier, playSound 
+} from "./utils/helpers";
 import { 
   styles, formatCategoryStr, parseGift, cleanName, 
   getActualPrice, getCustomerTier, playSound 
