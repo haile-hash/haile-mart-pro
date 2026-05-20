@@ -26,8 +26,49 @@ export const SettingsModal = ({
           <div style={{ marginBottom: "10px" }}>
             <label style={{ fontSize: "11px", fontWeight: "bold", color: "var(--text-muted)" }}>Ngân hàng:</label>
             <select value={newBankBin} onChange={e => setNewBankBin(e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: "6px", boxSizing: "border-box", marginTop: "4px" }}>
-              <option value="970422">MBBank</option><option value="970436">Vietcombank</option><option value="970407">Techcombank</option><option value="970415">VietinBank</option><option value="970418">BIDV</option><option value="970405">Agribank</option><option value="970416">ACB</option><option value="970432">VPBank</option><option value="970423">TPBank</option><option value="970403">Sacombank</option><option value="970441">VIB</option><option value="970443">SHB</option><option value="970431">Eximbank</option><option value="970426">MSB</option><option value="970437">HDBank</option><option value="970428">Nam A Bank</option><option value="970412">PVcomBank</option><option value="970414">OceanBank</option><option value="970433">Vietbank</option>
-            </select>
+  <option value="970422">MBBank (MB)</option>
+  <option value="970436">Vietcombank (VCB)</option>
+  <option value="970415">VietinBank (CTG)</option>
+  <option value="970418">BIDV</option>
+  <option value="970405">Agribank (VBA)</option>
+  <option value="970407">Techcombank (TCB)</option>
+  <option value="970416">ACB</option>
+  <option value="970432">VPBank (VPB)</option>
+  <option value="970423">TPBank (TPB)</option>
+  <option value="970403">Sacombank (STB)</option>
+  <option value="970441">VIB</option>
+  <option value="970443">SHB</option>
+  <option value="970431">Eximbank (EIB)</option>
+  <option value="970426">MSB</option>
+  <option value="970437">HDBank (HDB)</option>
+  <option value="970449">LienVietPostBank (LPB)</option>
+  <option value="970448">OCB</option>
+  <option value="970440">SeABank (SSB)</option>
+  <option value="970406">DongA Bank (DAB)</option>
+  <option value="970409">Bac A Bank (BAB)</option>
+  <option value="970429">SCB</option>
+  <option value="970452">Kienlongbank (KLB)</option>
+  <option value="970428">Nam A Bank (NAB)</option>
+  <option value="970427">VietABank (VAB)</option>
+  <option value="970419">NCB</option>
+  <option value="970438">BaoViet Bank (BVB)</option>
+  <option value="970412">PVcomBank (PVCB)</option>
+  <option value="970414">OceanBank (OJB)</option>
+  <option value="970433">Vietbank (VBB)</option>
+  <option value="970446">COOPBANK</option>
+  <option value="970400">Saigonbank (SGB)</option>
+  <option value="970430">PG Bank (PGB)</option>
+  <option value="970454">Bản Việt (BVBank)</option>
+  <option value="970458">United Overseas Bank (UOB)</option>
+  <option value="970410">Standard Chartered (SCVN)</option>
+  <option value="970455">IBK (Hàn Quốc)</option>
+  <option value="970456">VRB (Việt Nga)</option>
+  <option value="546034">CAKE by VPBank</option>
+  <option value="546035">Ubank by VPBank</option>
+  <option value="963388">Timo by Bản Việt</option>
+  <option value="970490">Viettel Money</option>
+  <option value="970495">VNPT Money</option>
+</select>
           </div>
           <div style={{ marginBottom: "10px" }}>
             <label style={{ fontSize: "11px", fontWeight: "bold", color: "var(--text-muted)" }}>Số tài khoản:</label>
