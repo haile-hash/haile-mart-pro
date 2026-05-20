@@ -1333,8 +1333,91 @@ export default function App() {
     </>
   );
 
+  // 👉 BƯỚC 5: DÁN ĐOẠN LOGIN VỪA CẮT VÀO ĐÂY NHÉ 👈
+  if (!isLoggedIn) {
+    const toggleMusic = () => {
+      if (isMusicPlaying) { bgMusicRef.current?.pause(); } 
+      else { bgMusicRef.current?.play().catch(e => console.log("Trình duyệt chặn:", e)); }
+      setIsMusicPlaying(!isMusicPlaying);
+    };
+
+    return (
+      <div className="login-wrapper">
+        <style>{`
+          .login-wrapper {
+            min-height: 100vh; width: 100vw; display: flex; justify-content: center; align-items: center;
+            background: linear-gradient(-45deg, #fbc2eb, #a6c1ee, #fccb90, #d57eeb);
+            background-size: 400% 400%; animation: gradientBG 15s ease infinite;
+            font-family: 'Inter', sans-serif; position: relative; overflow: hidden; margin: 0; padding: 0;
+          }
+          @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+          
+          /* Bóng bóng bay lên */
+          .floating-bubble { position: absolute; background: rgba(255,255,255,0.3); border-radius: 50%; animation: floatUp linear infinite; bottom: -100px; }
+          @keyframes floatUp { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; } }
+          
+          /* Form kính mờ (Glassmorphism) */
+          .glass-login {
+            background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.5); padding: 45px 35px; border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1); width: 340px; text-align: center; z-index: 10;
+            animation: fadeInUp 0.8s ease-out forwards;
+          }
+          @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+          
+          /* Input & Button */
+          .login-input { width: 100%; padding: 14px 15px; margin-bottom: 15px; border-radius: 12px; border: 2px solid transparent; background: rgba(255,255,255,0.9); box-sizing: border-box; outline: none; transition: 0.3s; font-size: 14px; font-weight: 600; box-shadow: inset 0 2px 5px rgba(0,0,0,0.02); }
+          .login-input:focus { border: 2px solid #ef4444; background: #fff; box-shadow: 0 0 15px rgba(239,68,68,0.15); }
+          .login-btn-submit { width: 100%; padding: 15px; background: linear-gradient(135deg, #ef4444, #f43f5e); color: #fff; border: none; border-radius: 12px; font-weight: 900; font-size: 15px; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(239,68,68,0.3); margin-top: 10px; letter-spacing: 1px; }
+          .login-btn-submit:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(239,68,68,0.5); }
+          
+          /* Nút bật nhạc */
+          .music-btn {
+            position: fixed; bottom: 30px; right: 30px; background: rgba(255,255,255,0.6); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.8); border-radius: 50px; padding: 12px 25px; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08); display: flex; align-items: center; gap: 8px;
+            font-weight: 900; font-size: 14px; color: #475569; transition: all 0.3s; z-index: 100;
+          }
+          .music-btn:hover { background: #fff; transform: scale(1.05) translateY(-5px); color: #ef4444; }
+        `}</style>
+
+        {/* Các bong bóng nền */}
+        <div className="floating-bubble" style={{ width: '80px', height: '80px', left: '10%', animationDuration: '8s' }}></div>
+        <div className="floating-bubble" style={{ width: '40px', height: '40px', left: '20%', animationDuration: '5s', animationDelay: '2s' }}></div>
+        <div className="floating-bubble" style={{ width: '60px', height: '60px', left: '75%', animationDuration: '10s', animationDelay: '1s' }}></div>
+        <div className="floating-bubble" style={{ width: '120px', height: '120px', left: '85%', animationDuration: '14s', animationDelay: '4s' }}></div>
+
+        {/* Trình phát nhạc ẩn */}
+        <audio ref={bgMusicRef} loop src="https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3" />
+        
+        {/* Nút điều khiển nhạc */}
+        <button className="music-btn" onClick={toggleMusic}>
+          {isMusicPlaying ? '⏸️ Tạm dừng nhạc' : '🎧 Bật nhạc Chill'}
+        </button>
+
+        <form className="glass-login" onSubmit={handleLogin}>
+          <div style={{ marginBottom: "30px" }}>
+            <h2 style={{ margin: "0 0 8px 0", color: "#e11d48", fontSize: "32px", fontWeight: "900", letterSpacing: "1px" }}>HẢI LÊ MART</h2>
+            <p style={{ margin: 0, fontSize: "14px", color: "#475569", fontWeight: "600" }}>🌞 Chúc bạn một ca làm việc đầy năng lượng!</p>
+          </div>
+          
+          <input className="login-input" placeholder="📧 Tên đăng nhập (Email)..." value={authUsername} onChange={e => setAuthUsername(e.target.value)} required />
+          <input className="login-input" type="password" placeholder="🔑 Mật khẩu..." value={authPassword} onChange={e => setAuthPassword(e.target.value)} required />
+          
+          <button className="login-btn-submit" type="submit" disabled={loading}>
+            {loading ? "⏳ ĐANG VÀO HỆ THỐNG..." : "🚀 VÀO CA LÀM VIỆC"}
+          </button>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
+      
+      {/* Thêm dòng này để web nhận CSS nhé */}
+      <style>{styles}</style> 
+
       <style>{`
         .animated-bg-mesh { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; background: linear-gradient(135deg, #ffedd5 0%, #fef08a 50%, #fed7aa 100%); background-size: 400% 400%; animation: gradientBgAnim 15s ease infinite; opacity: 0.8; }
         @keyframes gradientBgAnim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
@@ -1430,7 +1513,11 @@ export default function App() {
                 {role === 'admin' && (
                   <div style={{ display: "flex", gap: "8px" }}>
                     <div onClick={() => setShowInputForm(!showInputForm)} style={{ padding: "10px 15px", borderRadius: "6px", fontWeight: "bold", color: "#ef4444", cursor: "pointer", border: "1px dashed #ef4444", fontSize: "12px", display: "flex", alignItems: "center" }}>{showInputForm ? "➖ ĐÓNG" : "➕ NHẬP LẺ"}</div>
-                    <label style={{ cursor: "pointer", padding: "10px 15px", borderRadius: "6px", fontWeight: "bold", color: "#10b981", border: "1px dashed #10b981", fontSize: "12px", display: "flex", alignItems: "center" }}>📁 TỪ FILE<input type="file" accept=".csv, .xlsx, .xls" onChange={handleFileUpload} style={{ display: "none" }} /></label>
+                    
+                    <label style={{ cursor: "pointer", padding: "10px 15px", borderRadius: "6px", fontWeight: "bold", color: "#10b981", border: "1px dashed #10b981", fontSize: "12px", display: "flex", alignItems: "center" }}>
+                      📁 TỪ FILE
+                      <input type="file" accept=".csv, .xlsx, .xls" onChange={handleFileUpload} style={{ display: "none" }} />
+                    </label>
                     <button onClick={downloadSampleCSV} style={{ padding: "10px 15px", borderRadius: "6px", fontWeight: "bold", color: "#3b82f6", cursor: "pointer", border: "1px dashed #3b82f6", fontSize: "12px", display: "flex", alignItems: "center", background: "transparent" }}>📥 FILE MẪU</button>
                   </div>
                 )}
@@ -1463,11 +1550,38 @@ export default function App() {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ color: "#10b981", fontSize: "10px", borderBottom: "2px solid var(--border-glass)", position: "sticky", top: 0, background: "var(--bg-glass)", zIndex: 1 }}>
-                      <th style={{ textAlign: "left", padding: "10px 4px" }}><div style={{ display: "flex", alignItems: "center", gap: "4px", width: "max-content" }}><span onClick={() => requestSort('name')} style={{ cursor: "pointer", userSelect: "none" }}>SẢN PHẨM</span>{renderHeaderIcon('name')}</div>{renderFilterPopup('name', 'TÊN SẢN PHẨM', uniqueNames)}</th>
-                      <th style={{ textAlign: "center", padding: "10px 4px" }}><div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}><span onClick={() => requestSort('stock')} style={{ cursor: "pointer", userSelect: "none" }}>TỒN</span>{renderHeaderIcon('stock')}</div>{renderFilterPopup('stock', 'SỐ LƯỢNG TỒN', uniqueStocks)}</th>
-                      {role === 'admin' && (<th style={{ textAlign: "center", padding: "10px 4px" }}><div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}><span onClick={() => requestSort('import_price')} style={{ cursor: "pointer", userSelect: "none" }}>GIÁ VỐN</span>{renderHeaderIcon('import_price')}</div>{renderFilterPopup('import_price', 'GIÁ VỐN', uniqueImportPrices, (v) => v.toLocaleString() + 'đ')}</th>)}
-                      <th style={{ textAlign: "center", padding: "10px 4px" }}><div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}><span onClick={() => requestSort('sale_price')} style={{ cursor: "pointer", userSelect: "none" }}>GIÁ BÁN</span>{renderHeaderIcon('sale_price')}</div>{renderFilterPopup('sale_price', 'GIÁ BÁN', uniqueSalePrices, (v) => v.toLocaleString() + 'đ')}</th>
-                      <th style={{ textAlign: "center", padding: "10px 4px", lineHeight: "1.2" }}><div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}><span onClick={() => requestSort('expiry_date')} style={{ cursor: "pointer", userSelect: "none" }}>HẠN SỬ DỤNG</span>{renderHeaderIcon('expiry_date')}</div>{renderFilterPopup('expiry_date', 'HẠN SỬ DỤNG', uniqueExpiries, (v) => v ? new Date(v).toLocaleDateString('vi-VN') : '---')}</th>
+                      <th style={{ textAlign: "left", padding: "10px 4px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px", width: "max-content" }}>
+                          <span onClick={() => requestSort('name')} style={{ cursor: "pointer", userSelect: "none" }}>SẢN PHẨM</span>{renderHeaderIcon('name')}
+                        </div>
+                        {renderFilterPopup('name', 'TÊN SẢN PHẨM', uniqueNames)}
+                      </th>
+                      <th style={{ textAlign: "center", padding: "10px 4px" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                          <span onClick={() => requestSort('stock')} style={{ cursor: "pointer", userSelect: "none" }}>TỒN</span>{renderHeaderIcon('stock')}
+                        </div>
+                        {renderFilterPopup('stock', 'SỐ LƯỢNG TỒN', uniqueStocks)}
+                      </th>
+                      {role === 'admin' && (
+                        <th style={{ textAlign: "center", padding: "10px 4px" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                            <span onClick={() => requestSort('import_price')} style={{ cursor: "pointer", userSelect: "none" }}>GIÁ VỐN</span>{renderHeaderIcon('import_price')}
+                          </div>
+                          {renderFilterPopup('import_price', 'GIÁ VỐN', uniqueImportPrices, (v) => v.toLocaleString() + 'đ')}
+                        </th>
+                      )}
+                      <th style={{ textAlign: "center", padding: "10px 4px" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                          <span onClick={() => requestSort('sale_price')} style={{ cursor: "pointer", userSelect: "none" }}>GIÁ BÁN</span>{renderHeaderIcon('sale_price')}
+                        </div>
+                        {renderFilterPopup('sale_price', 'GIÁ BÁN', uniqueSalePrices, (v) => v.toLocaleString() + 'đ')}
+                      </th>
+                      <th style={{ textAlign: "center", padding: "10px 4px", lineHeight: "1.2" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                          <span onClick={() => requestSort('expiry_date')} style={{ cursor: "pointer", userSelect: "none" }}>HẠN SỬ DỤNG</span>{renderHeaderIcon('expiry_date')}
+                        </div>
+                        {renderFilterPopup('expiry_date', 'HẠN SỬ DỤNG', uniqueExpiries, (v) => v ? new Date(v).toLocaleDateString('vi-VN') : '---')}
+                      </th>
                       <th style={{ textAlign: "right", padding: "10px 4px" }}></th>
                     </tr>
                   </thead>
@@ -1477,18 +1591,36 @@ export default function App() {
                       return (
                         <tr key={p.id} style={{ borderBottom: "1px solid var(--border-glass)", background: isNearExpiry ? "rgba(239, 68, 68, 0.1)" : "transparent" }}>
                           <td style={{ padding: "12px 4px" }}>
-                            <div style={{ fontSize: "14px", fontWeight: "bold" }}>{role === 'admin' ? p.name : cleanName(p.name)} {isNearExpiry && <span style={{ color: "#ef4444", fontSize: "9px", border: "1px solid #ef4444", padding: "1px 2px", borderRadius: "2px" }}>⚠️</span>} {p.isHappyHour && <span style={{ color: "#ea580c", fontSize: "9px", fontStyle: "italic" }}>[Giờ Vàng]</span>}</div>
-                            <div style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "2px" }}>{p.product_code} • <span style={{ cursor: role === 'admin' ? 'pointer' : 'default', textDecoration: role === 'admin' ? 'underline' : 'none' }} onClick={() => role === 'admin' && handleEdit(p.id, 'category', p.category || "Khác", true)}>{p.category || "Khác"}</span></div>
-                            {gift.text ? (<div style={{ fontSize: "10px", color: "#10b981", fontWeight: "bold", cursor: role === 'admin' ? 'pointer' : 'default', marginTop: "2px" }} onClick={() => role === 'admin' && handleEdit(p.id, 'gift_info', p.gift_info, true)}>🎁 Tặng: {gift.text} {gift.cond > 1 ? `(Mua ≥ ${gift.cond})` : ''}</div>) : (role === 'admin' && <div style={{ fontSize: "9px", color: "var(--border-glass)", cursor: "pointer", marginTop: "2px" }} onClick={() => handleEdit(p.id, 'gift_info', '', true)}>+ Thêm quà</div>)}
+                            <div style={{ fontSize: "14px", fontWeight: "bold" }}>
+                              {role === 'admin' ? p.name : cleanName(p.name)} {isNearExpiry && <span style={{ color: "#ef4444", fontSize: "9px", border: "1px solid #ef4444", padding: "1px 2px", borderRadius: "2px" }}>⚠️</span>} {p.isHappyHour && <span style={{ color: "#ea580c", fontSize: "9px", fontStyle: "italic" }}>[Giờ Vàng]</span>}
+                            </div>
+                            <div style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "2px" }}>
+                              {p.product_code} • <span style={{ cursor: role === 'admin' ? 'pointer' : 'default', textDecoration: role === 'admin' ? 'underline' : 'none' }} onClick={() => role === 'admin' && handleEdit(p.id, 'category', p.category || "Khác", true)}>{p.category || "Khác"}</span>
+                            </div>
+                            {gift.text ? (
+                              <div style={{ fontSize: "10px", color: "#10b981", fontWeight: "bold", cursor: role === 'admin' ? 'pointer' : 'default', marginTop: "2px" }} onClick={() => role === 'admin' && handleEdit(p.id, 'gift_info', p.gift_info, true)}>
+                                🎁 Tặng: {gift.text} {gift.cond > 1 ? `(Mua ≥ ${gift.cond})` : ''}
+                              </div>
+                            ) : (
+                              role === 'admin' && <div style={{ fontSize: "9px", color: "var(--border-glass)", cursor: "pointer", marginTop: "2px" }} onClick={() => handleEdit(p.id, 'gift_info', '', true)}>+ Thêm quà</div>
+                            )}
                           </td>
-                          <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "14px", color: isOutOfStock ? "var(--text-muted)" : (isLowStock ? "#ef4444" : "var(--text-main)") }}>{p.stock} {isLowStock && <span title="Sắp hết hàng" style={{ fontSize: "10px" }}>📉</span>}</td>
+                          <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "14px", color: isOutOfStock ? "var(--text-muted)" : (isLowStock ? "#ef4444" : "var(--text-main)") }}>
+                            {p.stock} {isLowStock && <span title="Sắp hết hàng" style={{ fontSize: "10px" }}>📉</span>}
+                          </td>
                           {role === 'admin' && <td style={{ textAlign: "center", color: "var(--text-muted)", fontSize: "12px" }}>{p.import_price?.toLocaleString()}</td>}
                           <td style={{ textAlign: "center" }}>
                             <div style={{ color: isP ? "var(--text-muted)" : "#10b981", textDecoration: isP ? "line-through" : "none", fontSize: isP ? "11px" : "14px", fontWeight: "bold", cursor: role === 'admin' ? "pointer" : "default" }} onClick={() => role === 'admin' && handleEdit(p.id, 'sale_price', p.sale_price)}>{p.sale_price.toLocaleString()}</div>
-                            {isP ? (<div style={{ color: "#ef4444", fontWeight: "900", fontSize: "14px", cursor: role === 'admin' ? "pointer" : "default" }} onClick={() => role === 'admin' && handleEdit(p.id, 'promo_price', p.promo_price)}>🔥 {p.promo_price.toLocaleString()}</div>) : (role === 'admin' && <div style={{ fontSize: "9px", color: "var(--border-glass)", cursor: "pointer", marginTop: "2px" }} onClick={() => handleEdit(p.id, 'promo_price', 0)}>🏷️ +Thêm KM</div>)}
+                            {isP ? (
+                              <div style={{ color: "#ef4444", fontWeight: "900", fontSize: "14px", cursor: role === 'admin' ? "pointer" : "default" }} onClick={() => role === 'admin' && handleEdit(p.id, 'promo_price', p.promo_price)}>🔥 {p.promo_price.toLocaleString()}</div>
+                            ) : (
+                              role === 'admin' && <div style={{ fontSize: "9px", color: "var(--border-glass)", cursor: "pointer", marginTop: "2px" }} onClick={() => handleEdit(p.id, 'promo_price', 0)}>🏷️ +Thêm KM</div>
+                            )}
                           </td>
                           <td style={{ textAlign: "center", fontSize: "11px" }}>
-                            <div style={{ color: isNearExpiry ? "#ef4444" : "#b91c1c", fontWeight: "bold", cursor: role === 'admin' ? "pointer" : "default" }} onClick={() => role === 'admin' && handleEdit(p.id, 'expiry_date', p.expiry_date, true)}>{isOutOfStock ? "---" : (p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : "---")}</div>
+                            <div style={{ color: isNearExpiry ? "#ef4444" : "#b91c1c", fontWeight: "bold", cursor: role === 'admin' ? "pointer" : "default" }} onClick={() => role === 'admin' && handleEdit(p.id, 'expiry_date', p.expiry_date, true)}>
+                              {isOutOfStock ? "---" : (p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : "---")}
+                            </div>
                             <div style={{ color: "var(--text-muted)", marginTop: "2px" }}>{isOutOfStock ? "---" : dText}</div>
                           </td>
                           <td style={{ textAlign: "right", padding: "12px 4px" }}>
@@ -1522,7 +1654,10 @@ export default function App() {
                 
                 {cartTotalAmountDisplay > 0 && (
                   <div style={{ background: "rgba(239, 68, 68, 0.1)", padding: "12px 15px", borderRadius: "8px", border: "1px solid #fecaca", marginBottom: "15px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div><span style={{ fontSize: "12px", fontWeight: "bold", color: "#ef4444" }}>TỔNG CỘNG:</span><div style={{ fontSize: "24px", fontWeight: "900", color: "#ef4444" }}>{cartTotalAmountDisplay.toLocaleString()}đ</div></div>
+                    <div>
+                      <span style={{ fontSize: "12px", fontWeight: "bold", color: "#ef4444" }}>TỔNG CỘNG:</span>
+                      <div style={{ fontSize: "24px", fontWeight: "900", color: "#ef4444" }}>{cartTotalAmountDisplay.toLocaleString()}đ</div>
+                    </div>
                     <button onClick={() => { setIsCheckoutOpen(true); setCheckoutStep(1) }} style={{ padding: "12px 25px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer", fontSize: "14px" }}>THANH TOÁN</button>
                   </div>
                 )}
@@ -1590,7 +1725,9 @@ export default function App() {
                                       <button onClick={() => handleRefund(log.id)} disabled={(log.refunded_qty || 0) >= log.qty} style={{ fontSize: "9px", padding: "2px 6px", border: "1px solid var(--border-glass)", background: (log.refunded_qty || 0) >= log.qty ? "var(--bg-main)" : "var(--bg-input)", color: (log.refunded_qty || 0) >= log.qty ? "var(--text-muted)" : "var(--text-main)", cursor: (log.refunded_qty || 0) >= log.qty ? "not-allowed" : "pointer", borderRadius: "4px" }}>
                                         {(log.refunded_qty || 0) >= log.qty ? "Đã hoàn" : `↩️ Hoàn ${log.qty - (log.refunded_qty || 0)}`}
                                       </button>
-                                      <button onClick={() => handleReprint(log.time)} style={{ fontSize: "9px", padding: "2px 6px", border: "1px solid var(--border-glass)", background: "var(--bg-input)", color: "var(--text-main)", cursor: "pointer", borderRadius: "4px" }} title="In lại Hóa đơn thời điểm này">🖨️ In lại</button>
+                                      <button onClick={() => handleReprint(log.time)} style={{ fontSize: "9px", padding: "2px 6px", border: "1px solid var(--border-glass)", background: "var(--bg-input)", color: "var(--text-main)", cursor: "pointer", borderRadius: "4px" }} title="In lại Hóa đơn thời điểm này">
+                                        🖨️ In lại
+                                      </button>
                                     </>
                                   )}
                                 </div>
