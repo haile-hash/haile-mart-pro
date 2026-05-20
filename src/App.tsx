@@ -56,6 +56,9 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("mart_theme") === "dark");
 
   // 2. STATE QUẢN LÝ MODALS (CỬA SỔ)
+  const [newBankBin, setNewBankBin] = useState("");
+  const [newBankAcc, setNewBankAcc] = useState("");
+  const [newBankNameStr, setNewBankNameStr] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [showInputForm, setShowInputForm] = useState(false);
   const [showDebtModal, setShowDebtModal] = useState(false);
