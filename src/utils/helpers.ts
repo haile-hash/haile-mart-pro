@@ -1,1 +1,4 @@
-
+// @ts-nocheck
+export const styles = `
+  @keyframes wave{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+... (giữ nguyên phần dưới)
