@@ -41,8 +41,6 @@ import { SettingsModal } from "./components/modals/SettingsModal";
 import { PinModal } from "./components/modals/PinModal"; 
 import { ScannerLinkModal } from "./components/modals/ScannerLinkModal"; 
 import { MobileScanner } from "./components/MobileScanner"; 
-
-// 📦 IMPORT MODAL NHẬP HÀNG
 import { PurchaseOrderModal } from "./components/modals/PurchaseOrderModal";
 
 export default function App() {
@@ -84,7 +82,7 @@ export default function App() {
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   
   const [showScannerLinkModal, setShowScannerLinkModal] = useState(false);
-  const [showPOModal, setShowPOModal] = useState(false); // 📦 State cho PO Modal
+  const [showPOModal, setShowPOModal] = useState(false); 
 
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -383,7 +381,6 @@ export default function App() {
   const addExpense = async () => { if (!expName || !expAmount) return toast.error("Vui lòng nhập chi phí!"); const newE = { id: Date.now(), date: new Date().toLocaleDateString('vi-VN'), name: expName, amount: Number(expAmount) }; setExpenses(prev => [newE, ...prev]); setExpName(""); setExpAmount(""); logAudit("GHI CHI PHÍ", `${expName}: ${expAmount}đ`, newE); toast.success("Đã ghi nhận!"); };
   const deleteExpense = async (id: any) => { setExpenses(prev => prev.filter(e => e.id !== id)); if (navigator.onLine) await supabase.from('expenses').delete().eq('id', id); };
   
-  // 📦 HÀM LƯU PHIẾU NHẬP HÀNG (PO) VÀ CỘNG KHO/CÔNG NỢ
   const handleSavePO = async (supplier: any, items: any[], totalAmount: number, paidAmount: number, note: string) => {
     if (!navigator.onLine) return toast.error("Cần mạng để lưu Phiếu Nhập Hàng!");
     setLoading(true);
@@ -774,7 +771,6 @@ export default function App() {
   const requestSort = (key: string) => { if (sortConfig && sortConfig.key === key) { if (sortConfig.direction === 'asc') setSortConfig({ key, direction: 'desc' }); else setSortConfig(null) } else { setSortConfig({ key, direction: 'asc' }) } };
   const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
 
-
   // =====================================================================
   // 5. GIAO DIỆN (RENDER)
   // =====================================================================
@@ -919,7 +915,6 @@ export default function App() {
         showModal={showScannerLinkModal} setShowModal={setShowScannerLinkModal} 
       />
 
-      {/* 📦 RENDER BẢNG PHIẾU NHẬP HÀNG (PO) */}
       <PurchaseOrderModal 
         showModal={showPOModal} setShowModal={setShowPOModal} suppliers={suppliers} products={products} handleSavePO={handleSavePO} loading={loading}
       />
@@ -939,7 +934,6 @@ export default function App() {
       
       <Toaster position="top-right" reverseOrder={false} />
 
-      </div>
       <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} />
       
       {renderPrintArea()}
