@@ -8,18 +8,14 @@ import {
 } from "./utils/helpers";
 import { useOfflineSync } from "./hooks/useOfflineSync";
 
-// THƯ VIỆN THÔNG BÁO MỚI
 import { Toaster, toast } from "react-hot-toast";
 
-// IMPORT "TỪ ĐIỂN" TYPESCRIPT
 import { Product, CartItem, Customer, AuditLog, TransactionLog, HeldOrder } from "./types";
 
-// CÁC CUSTOM HOOKS
 import { useUIState } from "./hooks/useUIState";
 import { useProductInput } from "./hooks/useProductInput";
 import { useCheckoutState } from "./hooks/useCheckoutState";
 
-// CÁC COMPONENT GIAO DIỆN (UI)
 import { Header } from "./components/layout/Header";
 import { ProductSearchAndActions } from "./components/products/ProductSearchAndActions";
 import { ProductInputForm } from "./components/products/ProductInputForm";
@@ -27,7 +23,6 @@ import { ProductTable } from "./components/products/ProductTable";
 import { CartPanel } from "./components/cart/CartPanel";
 import { HistoryPanel } from "./components/history/HistoryPanel";
 
-// CÁC MODALS
 import { CashFlowModal } from "./components/modals/CashFlowModal";
 import { AuditDetailModal } from "./components/modals/AuditDetailModal";
 import { HoldOrdersModal } from "./components/modals/HoldOrdersModal";
@@ -43,7 +38,7 @@ import { ExpenseModal } from "./components/modals/ExpenseModal";
 import { SupplierModal } from "./components/modals/SupplierModal";
 import { MarketingModal } from "./components/modals/MarketingModal";
 import { SettingsModal } from "./components/modals/SettingsModal";
-import { PinModal } from "./components/modals/PinModal"; // ⬅️ Modal bảo mật mới
+import { PinModal } from "./components/modals/PinModal"; 
 
 export default function App() {
   const VAT_RATE = 0.1;
@@ -66,12 +61,15 @@ export default function App() {
   const [bankBin, setBankBin] = useState("");
   const [bankAcc, setBankAcc] = useState("");
   const [bankNameStr, setBankNameStr] = useState("");
+  const [happyStart, setHappyStart] = useState("11:00");
+  const [happyEnd, setHappyEnd] = useState("13:00");
 
   const [newBankBin, setNewBankBin] = useState("");
   const [newBankAcc, setNewBankAcc] = useState("");
   const [newBankNameStr, setNewBankNameStr] = useState("");
+  const [newHappyStart, setNewHappyStart] = useState("11:00");
+  const [newHappyEnd, setNewHappyEnd] = useState("13:00");
 
-  // 🔐 STATE CHO TÍNH NĂNG MÃ PIN BẢO MẬT
   const [adminPin, setAdminPin] = useState("1234");
   const [showPinModal, setShowPinModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
@@ -179,7 +177,6 @@ export default function App() {
 
   useEffect(() => { const handleAfterPrint = () => setPrintMode(null); window.addEventListener("afterprint", handleAfterPrint); return () => window.removeEventListener("afterprint", handleAfterPrint) }, []);
 
-
   // =====================================================================
   // 3. TÍNH TOÁN DATA MOMS (useMemo)
   // =====================================================================
@@ -277,13 +274,12 @@ export default function App() {
   // =====================================================================
   // 4. ACTION FUNCTIONS (HÀM XỬ LÝ SỰ KIỆN)
   // =====================================================================
-  // 🚀 HÀM BỌC KIỂM TRA MÃ PIN QUẢN LÝ (SECURITY WRAPPER)
   const executeWithAdminCheck = (action: () => void) => {
     if (role === 'admin') {
-      action(); // Nếu tài khoản là Admin, cho qua thẳng không đòi PIN
+      action(); 
     } else {
-      setPendingAction(() => action); // Lưu lại hành động chờ xét duyệt
-      setShowPinModal(true); // Bật popup đòi mã PIN
+      setPendingAction(() => action);
+      setShowPinModal(true); 
     }
   };
 
@@ -293,21 +289,31 @@ export default function App() {
       if (data) {
         setBankBin(data.bank_bin); setBankAcc(data.bank_acc); setBankNameStr(data.bank_name_str);
         setNewBankBin(data.bank_bin); setNewBankAcc(data.bank_acc); setNewBankNameStr(data.bank_name_str);
-        if (data.admin_pin) setAdminPin(data.admin_pin); // Tải mã PIN từ Cloud
+        if (data.admin_pin) setAdminPin(data.admin_pin);
+        
+        // Cập nhật state Giờ vàng
+        if (data.happy_hour_start) { setHappyStart(data.happy_hour_start); setNewHappyStart(data.happy_hour_start); }
+        if (data.happy_hour_end) { setHappyEnd(data.happy_hour_end); setNewHappyEnd(data.happy_hour_end); }
       }
       if (error) console.error("Lỗi tải settings:", error);
     } catch (err) { console.error(err); }
   };
 
-  const updateSettingsToCloud = async (bin: string, acc: string, nameStr: string) => {
+  const updateSettingsToCloud = async (bin: string, acc: string, nameStr: string, hStart: string, hEnd: string) => {
     if (!navigator.onLine) return toast.error("Mất mạng! Không thể lưu cài đặt lên Cloud.");
     setLoading(true);
     try {
-      const { error } = await supabase.from("settings").update({ bank_bin: bin, bank_acc: acc, bank_name_str: nameStr, updated_at: new Date().toISOString() }).eq("id", 1);
+      const { error } = await supabase.from("settings").update({ 
+        bank_bin: bin, bank_acc: acc, bank_name_str: nameStr, 
+        happy_hour_start: hStart, happy_hour_end: hEnd,
+        updated_at: new Date().toISOString() 
+      }).eq("id", 1);
+      
       if (!error) {
         setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr);
+        setHappyStart(hStart); setHappyEnd(hEnd);
         logAudit("CÀI ĐẶT", "Cập nhật Cấu hình hệ thống lên Cloud");
-        toast.success("Đã lưu cấu hình bảo mật lên mây thành công!");
+        toast.success("Đã lưu cấu hình lên mây thành công!");
         setShowSettings(false);
       } else { toast.error("Lỗi lưu dữ liệu: " + error.message); }
     } catch (err) { console.error(err); } finally { setLoading(false); }
@@ -317,18 +323,18 @@ export default function App() {
     const bin = newBankBin.trim();
     const acc = newBankAcc.trim();
     const nameStr = newBankNameStr.trim().toUpperCase();
-    if (!bin || !acc || !nameStr) return toast.error("Vui lòng điền đầy đủ thông tin tài khoản ngân hàng!");
-    updateSettingsToCloud(bin, acc, nameStr);
+    if (!bin || !acc || !nameStr || !newHappyStart || !newHappyEnd) return toast.error("Vui lòng điền đầy đủ thông tin!");
+    updateSettingsToCloud(bin, acc, nameStr, newHappyStart, newHappyEnd);
   };
 
   const logAudit = async (action: string, detail: string, extraData: any = null) => { const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user_name: role === 'admin' ? 'Quản lý' : 'Thu ngân', shift, action, detail, extra_data: extraData ? JSON.stringify(extraData) : null }; setAuditLogs(prev => [newLog, ...prev].slice(0, 300)); };
   const fetchProducts = async () => { const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false }); if (data) setProducts(data) };
   const findProductByCode = (code: string) => { const rawCode = code.trim(); let matches = products.filter(prod => prod.product_code === rawCode || String(prod.product_code).startsWith(`${rawCode}-`)); let available = matches.filter(p => p.stock > 0); if (available.length > 0) { available.sort((a, b) => { if (!a.expiry_date) return 1; if (!b.expiry_date) return -1; return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime() }); return available[0] } return matches.length > 0 ? matches[0] : null };
+  
   const handleLogin = async (e: React.FormEvent) => { e.preventDefault(); let u = authUsername.trim().toLowerCase(); const p = authPassword.trim(); if (!u.includes('@')) { u = u + '@hailemart.com'; } localStorage.setItem("mart_starting_cash", startingCash.toString()); setLoading(true); const { data, error } = await supabase.auth.signInWithPassword({ email: u, password: p }); if (error) { toast.error(`Đăng nhập thất bại: Kiểm tra lại tài khoản hoặc mật khẩu.`); setLoading(false); return; } const userRole = u.includes('admin') ? 'admin' : 'staff'; setIsLoggedIn(true); setRole(userRole); localStorage.setItem("mart_shift", shift); localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", userRole); logAudit("ĐĂNG NHẬP", "Mở ca", { start_cash: startingCash, role: userRole }); setLoading(false); };
   const handleLogoutClick = () => setShowHandoverModal(true);
   const confirmHandover = async () => { try { logAudit("CHỐT CA", `Bàn giao: ${currentShiftStats.rev.toLocaleString()}đ`, { ...currentShiftStats }); if (navigator.onLine) { await supabase.auth.signOut(); } } catch (error) { console.error("Lỗi đăng xuất khỏi máy chủ:", error); } finally { localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role"); setIsLoggedIn(false); setShowHandoverModal(false); window.location.reload(); } };
   
-  // 🔐 KHÓA BẢO MẬT: Sửa số điện thoại khách hàng
   const handleEditPhone = async (oldPhone: string) => {
     executeWithAdminCheck(() => {
       const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customers[newPhone]) return toast.error("SĐT đã tồn tại!"); const cData = customers[oldPhone]; const newC = { ...cData, phone: newPhone }; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = newC; delete updated[oldPhone]; return updated }); setHistory((prev: any) => prev.map((h: any) => { if (h.customer && h.customer.includes(oldPhone)) { return { ...h, customer: h.customer.replace(oldPhone, newPhone) } } return h })); logAudit("SỬA SĐT KH", `Đổi ${oldPhone} -> ${newPhone}`); toast.success("Cập nhật thành công! (Sẽ tự động đồng bộ lên Cloud)"); }
@@ -354,8 +360,54 @@ export default function App() {
   const deleteHeldOrder = async (id: any) => { setHeldOrders(prev => prev.filter(o => o.id !== id)); logAudit("XÓA ĐƠN", `Xóa đơn lưu tạm`); if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', id); };
 
   const handleBarcodeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => { document.getElementById('search-barcode')?.focus(); if (e.key === 'Enter') { e.preventDefault(); const p = findProductByCode(barcodeInput); if (p) handleSelectSuggest(p); else { const matchedPhone = Object.keys(customers).find(phone => phone === barcodeInput.trim() || customers[phone].cardCode === barcodeInput.trim()); if (matchedPhone) { playSound('success'); setCustomerInput(customers[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setBarcodeInput("") } else { playSound('error'); toast.error("Mã không hợp lệ!") } } } };
-  const addToCart = (p_input: any) => { handleSelectSuggest(p_input) };
   
+  // 🚀 KIỂM TRA GIỜ VÀNG KHI THÊM VÀO GIỎ HÀNG
+  const handleSelectSuggest = (p_input: any) => {
+    const baseCode = String(p_input.product_code).split('-')[0]; 
+    const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); 
+    if (totalStock <= 0) { playSound('error'); return toast.error("Sản phẩm đã hết hàng!"); }
+    
+    // Tự động kiểm tra thời gian hiện tại
+    const currentTime = new Date();
+    const currentTotalMins = currentTime.getHours() * 60 + currentTime.getMinutes();
+    const [startH, startM] = happyStart.split(':').map(Number);
+    const [endH, endM] = happyEnd.split(':').map(Number);
+    const startTotalMins = startH * 60 + startM;
+    const endTotalMins = endH * 60 + endM;
+
+    let isHappyNow = false;
+    if (startTotalMins <= endTotalMins) {
+       isHappyNow = currentTotalMins >= startTotalMins && currentTotalMins <= endTotalMins;
+    } else {
+       // Xử lý trường hợp giờ bắt đầu lớn hơn giờ kết thúc (VD: 22:00 -> 02:00 sáng)
+       isHappyNow = currentTotalMins >= startTotalMins || currentTotalMins <= endTotalMins;
+    }
+
+    // Nếu đang trong Giờ Vàng và sản phẩm có cài Giá KM -> Ép nó thành hàng Giờ Vàng
+    let itemToCart = { ...p_input };
+    if (isHappyNow && p_input.promo_price > 0 && p_input.promo_price < p_input.sale_price) {
+      itemToCart.isHappyHour = true;
+    }
+
+    const price = getActualPrice(itemToCart); 
+    const repName = cleanName(itemToCart.name);
+    
+    setCart(prev => {
+      const exist = prev.find(item => cleanName(item.product.name) === repName && !!item.product.isHappyHour === !!itemToCart.isHappyHour);
+      if (exist) { 
+        const newQty = exist.qty + 1; if (newQty > totalStock) { playSound('error'); return prev; } 
+        playSound('success'); 
+        return prev.map(i => (cleanName(i.product.name) === repName && !!i.product.isHappyHour === !!itemToCart.isHappyHour) ? { ...i, qty: newQty, total: Math.round(newQty * price * (1 + VAT_RATE)) } : i); 
+      } else { 
+        playSound('success'); 
+        return [...prev, { product: itemToCart, qty: 1, total: Math.round(price * (1 + VAT_RATE)) }]; 
+      }
+    });
+    setScanMessage({ text: `✅ Thêm: ${repName} ${itemToCart.isHappyHour ? '⭐' : ''}`, type: 'success' }); setBarcodeInput(""); setShowSuggestions(false); setTimeout(() => setScanMessage(null), 2000);
+  };
+  
+  const addToCart = (p_input: any) => { handleSelectSuggest(p_input) };
+
   const adjustCartQty = (productId: any, delta: number) => {
     let exceedStock = false;
     setCart(prev => {
@@ -381,16 +433,6 @@ export default function App() {
   const clearCart = () => { if (window.confirm("Hủy toàn bộ?")) { resetCheckout(); } };
   const handleVoucherSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); const code = voucherInput.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); playSound('success') } else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); playSound('success') } else { playSound('error'); toast.error("Mã Voucher lỗi!"); setAppliedVoucherAmount(0) } } };
   const handleCustomerInputChange = (e: React.ChangeEvent<HTMLInputElement>) => { const val = e.target.value; setCustomerInput(val); const matchedPhone = Object.keys(customers).find(phone => phone === val.trim() || customers[phone].cardCode === val.trim()); if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setUseWallet(false) } else { setCustPhone(val); setCustName(""); setUseWallet(false) } };
-  
-  const handleSelectSuggest = (p_input: any) => {
-    const baseCode = String(p_input.product_code).split('-')[0]; const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); if (totalStock <= 0) { playSound('error'); return toast.error("Sản phẩm đã hết hàng!"); }
-    const price = getActualPrice(p_input); const repName = cleanName(p_input.name);
-    setCart(prev => {
-      const exist = prev.find(item => cleanName(item.product.name) === repName);
-      if (exist) { const newQty = exist.qty + 1; if (newQty > totalStock) { playSound('error'); return prev; } playSound('success'); return prev.map(i => cleanName(i.product.name) === repName ? { ...i, qty: newQty, total: Math.round(newQty * price * (1 + VAT_RATE)) } : i); } else { playSound('success'); return [...prev, { product: p_input, qty: 1, total: Math.round(price * (1 + VAT_RATE)) }]; }
-    });
-    setScanMessage({ text: `✅ Thêm: ${repName}`, type: 'success' }); setBarcodeInput(""); setShowSuggestions(false); setTimeout(() => setScanMessage(null), 2000);
-  };
 
   const handleNextToQR = () => { 
     if (cart.length === 0) return toast.error("Giỏ hàng trống!"); if (custPhone && !customers[custPhone] && !custName) return toast.error("Vui lòng nhập Tên khách mới!"); 
@@ -426,7 +468,6 @@ export default function App() {
     setCheckoutStep(3); if (navigator.onLine) fetchProducts(); setLoading(false);
   };
 
-  // 🔐 KHÓA BẢO MẬT: Bấm nút Hoàn tiền trả hàng
   const handleRefund = async (logId: any) => {
     executeWithAdminCheck(() => {
       const logIndex = history.findIndex(l => l.id === logId); if (logIndex === -1) return;
@@ -599,14 +640,12 @@ export default function App() {
     if (fileNameStr.endsWith('.xlsx') || fileNameStr.endsWith('.xls')) { if (!(window as any).XLSX) return toast.loading("Thư viện Excel đang tải, vui lòng thử lại sau vài giây!"); const reader = new FileReader(); reader.onload = (event) => { try { const data = new Uint8Array(event.target?.result as ArrayBuffer); const workbook = (window as any).XLSX.read(data, { type: 'array' }); const firstSheet = workbook.Sheets[workbook.SheetNames[0]]; const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false }); processData(jsonData); } catch(err) { console.error(err); toast.error("Lỗi định dạng cấu trúc khi đọc file Excel."); } }; reader.readAsArrayBuffer(file); } else { const reader = new FileReader(); reader.onload = (event) => { const text = event.target?.result as string; const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''))); processData(lines); }; reader.readAsText(file); } e.target.value = '';
   };
   
-  // 🔐 KHÓA BẢO MẬT: Xóa sản phẩm khỏi kho
   const handleDelete = async (id: any, name: any) => {
     executeWithAdminCheck(async () => {
       if (!navigator.onLine) return toast.error("Cần có mạng để thao tác Kho!"); if (window.confirm(`Xóa vĩnh viễn ${name}?`)) { await supabase.from("products").delete().eq("id", id); logAudit("XÓA SP", `Xóa: ${name}`); fetchProducts() }
     });
   };
   
-  // 🔐 KHÓA BẢO MẬT: Sửa thông tin giá bán/quà tặng sản phẩm inline
   const handleEdit = async (id: any, field: string, old: any, isText: boolean = false) => {
     executeWithAdminCheck(async () => {
       if (!navigator.onLine) return toast.error("Cần có mạng để thao tác Kho!"); let label = field; if (field === 'category') label = 'Danh mục'; if (field === 'sale_price') label = 'Giá bán'; if (field === 'promo_price') label = 'Giá KM'; if (field === 'gift_info') label = 'Quà tặng'; if (field === 'expiry_date') label = 'HSD'; const val = window.prompt(`Sửa ${label}:`, old || ""); if (val !== null) { let updateData: any = isText ? (field === 'category' ? formatCategoryStr(val) : val) : (parseInt(val) || 0); if (field === 'gift_info' && val.trim() === '') updateData = null; await supabase.from("products").update({ [field]: updateData }).eq("id", id); logAudit("SỬA THÔNG TIN", `ID ${id} - ${label}`, { old, new: updateData }); fetchProducts() }
@@ -753,7 +792,17 @@ export default function App() {
       <ExpenseModal showExpenseModal={showExpenseModal} setShowExpenseModal={setShowExpenseModal} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} expenses={expenses} addExpense={addExpense} deleteExpense={deleteExpense} />
       <SupplierModal showSupplierModal={showSupplierModal} setShowSupplierModal={setShowSupplierModal} supName={supName} setSupName={setSupName} supPhone={supPhone} setSupPhone={setSupPhone} supItem={supItem} setSupItem={setSupItem} addSupplier={addSupplier} suppliers={suppliers} deleteSupplier={deleteSupplier} />
       <MarketingModal showMarketingModal={showMarketingModal} setShowMarketingModal={setShowMarketingModal} marketingTier={marketingTier} setMarketingTier={setMarketingTier} marketingMsg={marketingMsg} setMarketingMsg={setMarketingMsg} sendMarketingEmails={sendMarketingEmails} loading={loading} />
-      <SettingsModal showSettings={showSettings} setShowSettings={setShowSettings} newBankBin={newBankBin} setNewBankBin={setNewBankBin} newBankAcc={newBankAcc} setNewBankAcc={setNewBankAcc} newBankNameStr={newBankNameStr} setNewBankNameStr={setNewBankNameStr} saveSettings={saveSettings} />
+      
+      {/* TRUYỀN GIỜ VÀNG VÀO SETTINGS */}
+      <SettingsModal 
+        showSettings={showSettings} setShowSettings={setShowSettings} 
+        newBankBin={newBankBin} setNewBankBin={setNewBankBin} 
+        newBankAcc={newBankAcc} setNewBankAcc={setNewBankAcc} 
+        newBankNameStr={newBankNameStr} setNewBankNameStr={setNewBankNameStr} 
+        newHappyStart={newHappyStart} setNewHappyStart={setNewHappyStart}
+        newHappyEnd={newHappyEnd} setNewHappyEnd={setNewHappyEnd}
+        saveSettings={saveSettings} 
+      />
       {showHandoverModal && (<HandoverModal role={role} shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onClose={() => setShowHandoverModal(false)} onConfirm={confirmHandover} />)}
 
       <CashFlowModal cashFlowModalInfo={cashFlowModalInfo} setCashFlowModalInfo={setCashFlowModalInfo} shift={shift} todayStrStr={todayStrStr} currentShiftCashFlow={currentShiftCashFlow} currentShiftStats={currentShiftStats} />
@@ -788,12 +837,8 @@ export default function App() {
         scannerMode={scannerMode} setScannerMode={setScannerMode} scanMessage={scanMessage} 
       />
 
-      {/* 🔐 RENDER MODAL MÃ PIN BẢO MẬT MỚI */}
       <PinModal 
-        showPinModal={showPinModal} 
-        setShowPinModal={setShowPinModal} 
-        correctPin={adminPin} 
-        onSuccess={() => { if (pendingAction) { pendingAction(); setPendingAction(null); } }} 
+        showPinModal={showPinModal} setShowPinModal={setShowPinModal} correctPin={adminPin} onSuccess={() => { if (pendingAction) { pendingAction(); setPendingAction(null); } }} 
       />
     </>
   );
@@ -809,7 +854,6 @@ export default function App() {
       `}</style>
       <div className="animated-bg-mesh"></div>
       
-      {/* GẮN MÁY TẠO TOAST */}
       <Toaster position="top-right" reverseOrder={false} />
 
       <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} />
