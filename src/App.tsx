@@ -892,7 +892,7 @@ export default function App() {
       
       <Toaster position="top-right" reverseOrder={false} />
 
-      {/* 📱 NÚT BẤM MÃ QR CHUYÊN NGHIỆP, SANG TRỌNG (SECONDARY BUTTON) */}
+      {/* 📱 NÚT BẤM MÁY QUÉT (GIAO DIỆN PREMIUM SVG) */}
       {isLoggedIn && (
         <button 
           className="no-print" 
@@ -900,27 +900,37 @@ export default function App() {
           style={{ 
             position: 'absolute', 
             top: '94px',      
-            left: '150px',    
+            left: '145px',    
             zIndex: 900, 
-            background: '#ffffff', 
-            color: '#1e3a8a', /* Chữ xanh biển đậm đồng bộ với MENU */
-            border: '1px solid #cbd5e1', 
-            borderRadius: '6px', 
-            padding: '0 12px', 
-            height: '38px',   
-            fontWeight: '700', 
-            boxShadow: '0 1px 2px rgba(0,0,0,0.05)', 
+            background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)', 
+            color: '#ffffff', 
+            border: 'none', 
+            borderRadius: '8px', 
+            padding: '0 16px', 
+            height: '40px',   
+            fontWeight: '800', 
+            boxShadow: '0 4px 14px rgba(29, 78, 216, 0.4)', 
             cursor: 'pointer', 
             display: 'flex', 
             alignItems: 'center', 
-            gap: '6px', 
-            transition: 'all 0.2s', 
-            fontSize: '13px' 
+            gap: '8px', 
+            transition: 'transform 0.2s, box-shadow 0.2s', 
+            fontSize: '13px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px'
           }}
-          onMouseOver={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#94a3b8'; }}
-          onMouseOut={e => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+          onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(29, 78, 216, 0.6)'; }}
+          onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(29, 78, 216, 0.4)'; }}
         >
-          <span style={{ fontSize: "16px" }}>📱</span> Máy Quét
+          {/* ICON MÁY QUÉT CHUYÊN NGHIỆP */}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+            <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+            <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+            <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+            <line x1="7" y1="12" x2="17" y2="12"></line>
+          </svg>
+          MÁY QUÉT
         </button>
       )}
 
