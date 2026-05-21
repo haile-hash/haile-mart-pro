@@ -892,36 +892,36 @@ export default function App() {
       
       <Toaster position="top-right" reverseOrder={false} />
 
-      {/* 📱 NÚT BẤM MÁY QUÉT (ĐÃ ĐỒNG BỘ KÍCH THƯỚC VÀ SIZE CHỮ VỚI MENU) */}
+      {/* 📱 NÚT BẤM MÁY QUÉT (ĐÃ ĐÚC CÙNG KHUÔN VỚI NÚT MENU) */}
       {isLoggedIn && (
         <button 
           className="no-print" 
           onClick={() => setShowScannerLinkModal(true)} 
           style={{ 
             position: 'absolute', 
-            top: '95px',      
-            left: '140px',    
+            top: '97px',         /* Chỉnh cao độ cho bằng mép MENU */
+            left: '105px',       /* Xích lại gần MENU vì nút đã nhỏ lại */
             zIndex: 900, 
-            background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)', 
+            background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', 
             color: '#ffffff', 
             border: 'none', 
-            borderRadius: '8px', 
-            padding: '0 15px', 
-            height: '36px',   /* Ép về đúng 36px để bằng nút MENU */
-            fontWeight: 'bold', /* Trả về in đậm tiêu chuẩn, không bị béo chữ */
-            boxShadow: '0 4px 10px rgba(29, 78, 216, 0.3)', 
+            borderRadius: '6px', /* Bo góc 6px giống hệt MENU */
+            padding: '0 12px',   
+            height: '32px',      /* Ép chiều cao xuống 32px bằng đúng MENU */
+            fontWeight: '900',   /* In đậm tối đa (Black) giống chữ MENU */
+            boxShadow: '0 2px 4px rgba(37, 99, 235, 0.3)', 
             cursor: 'pointer', 
             display: 'flex', 
             alignItems: 'center', 
             gap: '6px', 
-            transition: 'transform 0.2s, box-shadow 0.2s', 
-            fontSize: '13px', /* Size chữ bằng đúng chữ MENU */
+            transition: 'all 0.2s', 
+            fontSize: '12px',    /* Ép size chữ nhỏ lại bằng MENU */
             textTransform: 'uppercase'
           }}
-          onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 15px rgba(29, 78, 216, 0.5)'; }}
-          onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 10px rgba(29, 78, 216, 0.3)'; }}
+          onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 8px rgba(37, 99, 235, 0.4)'; }}
+          onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 4px rgba(37, 99, 235, 0.3)'; }}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
             <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
             <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
