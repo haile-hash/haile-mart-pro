@@ -11,9 +11,16 @@ export const MobileScanner = () => {
       if ((window as any).Html5QrcodeScanner) {
         scanner = new (window as any).Html5QrcodeScanner(
           "qr-reader-mobile", 
-          { fps: 15, qrbox: { width: 250, height: 150 }, rememberLastUsedCamera: true }, 
+          { 
+            fps: 15, 
+            qrbox: { width: 250, height: 150 }, 
+            rememberLastUsedCamera: true,
+            // ĐÂY LÀ DÒNG ÉP DÙNG CAMERA SAU (MÔI TRƯỜNG) 👇
+            videoConstraints: { facingMode: "environment" } 
+          }, 
           false
         );
+        
         scanner.render(async (text: string) => {
           if (text && text !== lastScan) {
             setLastScan(text);
@@ -50,7 +57,7 @@ export const MobileScanner = () => {
       <Toaster position="top-center" />
       <h2 style={{ color: "#38bdf8", marginBottom: "5px", fontSize: "24px" }}>📱 MÁY QUÉT CẦM TAY</h2>
       <p style={{ fontSize: "14px", color: "#94a3b8", marginBottom: "20px", padding: "0 20px" }}>
-        Hướng camera vào mã vạch sản phẩm. Dữ liệu sẽ tự động bắn lên máy tính thu ngân trong 0.1s 🚀
+        Hướng camera sau vào mã vạch sản phẩm. Dữ liệu sẽ tự động bắn lên máy tính trong 0.1s 🚀
       </p>
       <div id="qr-reader-mobile" style={{ width: "100%", maxWidth: "400px", margin: "0 auto", background: "#fff", borderRadius: "16px", overflow: "hidden", border: "4px solid #38bdf8", boxShadow: "0 0 20px rgba(56,189,248,0.3)" }}></div>
     </div>
