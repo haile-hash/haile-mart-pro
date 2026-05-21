@@ -1,12 +1,17 @@
 /* eslint-disable */
 // @ts-nocheck
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { supabase } from "./supabaseClient";
 import { 
   styles, formatCategoryStr, parseGift, cleanName, 
   getActualPrice, getCustomerTier, playSound 
 } from "./utils/helpers";
 import { useOfflineSync } from "./hooks/useOfflineSync";
+
+// CÁC CUSTOM HOOKS MỚI TẠO ĐỂ DỌN DẸP STATE
+import { useUIState } from "./hooks/useUIState";
+import { useProductInput } from "./hooks/useProductInput";
+import { useCheckoutState } from "./hooks/useCheckoutState";
 
 // CÁC COMPONENT GIAO DIỆN (UI) MỚI TÁCH
 import { Header } from "./components/layout/Header";
@@ -21,6 +26,12 @@ import { CashFlowModal } from "./components/modals/CashFlowModal";
 import { AuditDetailModal } from "./components/modals/AuditDetailModal";
 import { HoldOrdersModal } from "./components/modals/HoldOrdersModal";
 import { CheckoutModal } from "./components/modals/CheckoutModal";
+import { StatsModal } from "./components/modals/StatsModal";
+import { InventoryModal } from "./components/modals/InventoryModal";
+import { CustomerModal } from "./components/modals/CustomerModal";
+import { DebtModal } from "./components/modals/DebtModal";
+import { AuditModal } from "./components/modals/AuditModal";
+import { ScannerModal } from "./components/modals/ScannerModal";
 
 // CÁC MODALS LỚN ĐÃ CÓ SẴN
 import { HandoverModal } from "./components/modals/HandoverModal";
@@ -37,7 +48,7 @@ export default function App() {
   const EMAILJS_PUBLIC_KEY = process.env.REACT_APP_EMAILJS_PUBLIC_KEY || "5ric0kxuwNPlUleAv";
   
   // =====================================================================
-  // 1. TOÀN BỘ STATE CỦA ỨNG DỤNG
+  // 1. STATE CỦA ỨNG DỤNG (Đã được gom nhóm tối ưu)
   // =====================================================================
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem("mart_logged_in") === "true");
   const [role, setRole] = useState(() => localStorage.getItem("mart_role") || "staff");
@@ -49,22 +60,10 @@ export default function App() {
   const [bankBin, setBankBin] = useState(() => localStorage.getItem("mart_bank_bin") || "970422");
   const [bankAcc, setBankAcc] = useState(() => localStorage.getItem("mart_bank_acc") || "0680124181004");
   const [bankNameStr, setBankNameStr] = useState(() => localStorage.getItem("mart_bank_name") || "LE HONG HAI");
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem("mart_theme") === "dark");
 
-  const [showSettings, setShowSettings] = useState(false);
-  const [showInputForm, setShowInputForm] = useState(false);
-  const [showDebtModal, setShowDebtModal] = useState(false);
-  const [showStatsModal, setShowStatsModal] = useState(false);
-  const [showCustomerModal, setShowCustomerModal] = useState(false);
-  const [showHandoverModal, setShowHandoverModal] = useState(false);
-  const [showAuditModal, setShowAuditModal] = useState(false);
-  const [showHoldModal, setShowHoldModal] = useState(false);
-  const [showExpenseModal, setShowExpenseModal] = useState(false);
-  const [showSupplierModal, setShowSupplierModal] = useState(false);
-  const [showMarketingModal, setShowMarketingModal] = useState(false);
-  const [showInventoryModal, setShowInventoryModal] = useState(false);
-  const [cashFlowModalInfo, setCashFlowModalInfo] = useState<'TIỀN MẶT' | 'CHUYỂN KHOẢN' | null>(null);
-  const [selectedAuditLog, setSelectedAuditLog] = useState<any>(null);
+  const [newBankBin, setNewBankBin] = useState(() => localStorage.getItem("mart_bank_bin") || "970422");
+  const [newBankAcc, setNewBankAcc] = useState(() => localStorage.getItem("mart_bank_acc") || "0680124181004");
+  const [newBankNameStr, setNewBankNameStr] = useState(() => localStorage.getItem("mart_bank_name") || "LE HONG HAI");
 
   const [products, setProducts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -74,26 +73,11 @@ export default function App() {
   const [openFilter, setOpenFilter] = useState<string | null>(null);
   const [filters, setFilters] = useState<Record<string, any[]>>({});
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [showMainMenu, setShowMainMenu] = useState(false);
   
   const [actualStockInput, setActualStockInput] = useState<Record<string, number>>({});
   const [inventorySearchTerm, setInventorySearchTerm] = useState("");
   const [invFilter, setInvFilter] = useState('ALL');
-  const [newCode, setNewCode] = useState("");
-  const [newName, setNewName] = useState("");
-  const [newImportPrice, setNewImportPrice] = useState("");
-  const [newPrice, setNewPrice] = useState("");
-  const [newPromoPrice, setNewPromoPrice] = useState("");
-  const [newGiftCondition, setNewGiftCondition] = useState("1");
-  const [newGiftInfo, setNewGiftInfo] = useState("");
-  const [newStock, setNewStock] = useState("");
-  const [newExpiry, setNewExpiry] = useState("");
-  const [newCategory, setNewCategory] = useState("Đồ uống");
-
-  const [newBankBin, setNewBankBin] = useState(() => localStorage.getItem("mart_bank_bin") || "970422");
-  const [newBankAcc, setNewBankAcc] = useState(() => localStorage.getItem("mart_bank_acc") || "0680124181004");
-  const [newBankNameStr, setNewBankNameStr] = useState(() => localStorage.getItem("mart_bank_name") || "LE HONG HAI");
-
+  
   const [expName, setExpName] = useState("");
   const [expAmount, setExpAmount] = useState("");
   const [supName, setSupName] = useState("");
@@ -107,27 +91,16 @@ export default function App() {
   const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
   const [logSearchTerm, setLogSearchTerm] = useState("");
   const [logTypeFilter, setLogTypeFilter] = useState("Tất cả");
-
-  const [scannerMode, setScannerMode] = useState<'product' | 'voucher' | 'customer' | null>(null);
-  const [scannedCodeObj, setScannedCodeObj] = useState<any>(null);
   const [scanMessage, setScanMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
   const [printBarcodeProduct, setPrintBarcodeProduct] = useState<any>(null);
   const [printCustomer, setPrintCustomer] = useState<any>(null);
   const [barcodeCount, setBarcodeCount] = useState<number>(30);
-  const [printMode, setPrintMode] = useState<'receipt' | 'barcode' | 'customer_card' | 'invoice_a4' | null>(null);
+  const [selectedAuditLog, setSelectedAuditLog] = useState<any>(null);
 
-  const [cart, setCart] = useState<any[]>([]);
-  const [barcodeInput, setBarcodeInput] = useState("");
-  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [checkoutStep, setCheckoutStep] = useState(1);
-  const [customerInput, setCustomerInput] = useState("");
-  const [custPhone, setCustPhone] = useState("");
-  const [custName, setCustName] = useState("");
-  const [useWallet, setUseWallet] = useState(false);
-  const [voucherInput, setVoucherInput] = useState("");
-  const [appliedVoucherAmount, setAppliedVoucherAmount] = useState<number>(0);
-  const [customerGiven, setCustomerGiven] = useState<number | "">("");
-  const [lastOrder, setLastOrder] = useState<any>(null);
+  // 🚀 Bung dữ liệu từ Custom Hooks
+  const { darkMode, setDarkMode, showSettings, setShowSettings, showInputForm, setShowInputForm, showDebtModal, setShowDebtModal, showStatsModal, setShowStatsModal, showCustomerModal, setShowCustomerModal, showHandoverModal, setShowHandoverModal, showAuditModal, setShowAuditModal, showHoldModal, setShowHoldModal, showExpenseModal, setShowExpenseModal, showSupplierModal, setShowSupplierModal, showMarketingModal, setShowMarketingModal, showInventoryModal, setShowInventoryModal, showMainMenu, setShowMainMenu, cashFlowModalInfo, setCashFlowModalInfo, scannerMode, setScannerMode, printMode, setPrintMode } = useUIState();
+  const { newCode, setNewCode, newName, setNewName, newImportPrice, setNewImportPrice, newPrice, setNewPrice, newPromoPrice, setNewPromoPrice, newGiftCondition, setNewGiftCondition, newGiftInfo, setNewGiftInfo, newStock, setNewStock, newExpiry, setNewExpiry, newCategory, setNewCategory, resetProductForm } = useProductInput();
+  const { cart, setCart, barcodeInput, setBarcodeInput, isCheckoutOpen, setIsCheckoutOpen, checkoutStep, setCheckoutStep, customerInput, setCustomerInput, custPhone, setCustPhone, custName, setCustName, useWallet, setUseWallet, voucherInput, setVoucherInput, appliedVoucherAmount, setAppliedVoucherAmount, customerGiven, setCustomerGiven, lastOrder, setLastOrder, resetCheckout } = useCheckoutState();
 
   const [customers, setCustomers] = useState<any>(() => { const s = localStorage.getItem("mart_customers"); return s ? JSON.parse(s) : {} });
   const [heldOrders, setHeldOrders] = useState<any[]>(() => { const s = localStorage.getItem("mart_held_orders"); return s ? JSON.parse(s) : [] });
@@ -313,7 +286,7 @@ export default function App() {
   
   const saveSettings = () => { if (!newBankBin || !newBankAcc || !newBankNameStr) return alert("Điền đủ!"); setBankBin(newBankBin); localStorage.setItem("mart_bank_bin", newBankBin); setBankAcc(newBankAcc); localStorage.setItem("mart_bank_acc", newBankAcc); setBankNameStr(newBankNameStr); localStorage.setItem("mart_bank_name", newBankNameStr); logAudit("CÀI ĐẶT", "Cập nhật Cấu hình"); alert("✅ Đã lưu!"); setShowSettings(false) };
   
-  const handleHoldOrder = async () => { if (cart.length === 0) return; const newO = { id: Date.now(), time: new Date().toLocaleTimeString('vi-VN'), cart: [...cart] }; setHeldOrders(prev => [...prev, newO]); logAudit("LƯU TẠM", `Lưu giỏ ${cart.length} món`); setCart([]); setCustPhone(""); setCustName(""); setCustomerInput("") };
+  const handleHoldOrder = async () => { if (cart.length === 0) return; const newO = { id: Date.now(), time: new Date().toLocaleTimeString('vi-VN'), cart: [...cart] }; setHeldOrders(prev => [...prev, newO]); logAudit("LƯU TẠM", `Lưu giỏ ${cart.length} món`); resetCheckout(); };
   const restoreOrder = async (order: any) => { if (cart.length > 0) return alert("Thanh toán giỏ hiện tại trước!"); setCart(order.cart); setHeldOrders(prev => prev.filter(o => o.id !== order.id)); if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', order.id); setShowHoldModal(false); };
   const deleteHeldOrder = async (id: any) => { setHeldOrders(prev => prev.filter(o => o.id !== id)); logAudit("XÓA ĐƠN", `Xóa đơn lưu tạm`); if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', id); };
 
@@ -342,7 +315,7 @@ export default function App() {
   
   const handleDirectQtyBlur = (productId: any, val: string) => { if (val === '' || parseInt(val) <= 0 || isNaN(parseInt(val))) { setCart(prev => prev.map(i => { if (i.product.id === productId) { const price = getActualPrice(i.product); return { ...i, qty: 1, total: Math.round(1 * price * (1 + VAT_RATE)) } } return i })) } };
   const removeFromCart = (productId: any) => { setCart(cart.filter(item => item.product.id !== productId)) };
-  const clearCart = () => { if (window.confirm("Hủy toàn bộ?")) { setCart([]); setCustName(""); setCustPhone(""); setCustomerInput("") } };
+  const clearCart = () => { if (window.confirm("Hủy toàn bộ?")) { resetCheckout(); } };
   const handleVoucherSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); const code = voucherInput.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); playSound('success') } else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); playSound('success') } else { playSound('error'); alert("Mã Voucher lỗi!"); setAppliedVoucherAmount(0) } } };
   const handleCustomerInputChange = (e: React.ChangeEvent<HTMLInputElement>) => { const val = e.target.value; setCustomerInput(val); const matchedPhone = Object.keys(customers).find(phone => phone === val.trim() || customers[phone].cardCode === val.trim()); if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setUseWallet(false) } else { setCustPhone(val); setCustName(""); setUseWallet(false) } };
   
@@ -439,7 +412,7 @@ export default function App() {
      setLastOrder(rOrder); setPrintMode('receipt'); setTimeout(() => window.print(), 500);
   };
 
-  const closeCheckout = () => { setCart([]); setIsCheckoutOpen(false); setCheckoutStep(1); setCustPhone(""); setCustName(""); setCustomerInput(""); setUseWallet(false); setVoucherInput(""); setAppliedVoucherAmount(0); setCustomerGiven(""); setLastOrder(null) };
+  const closeCheckout = () => { resetCheckout() };
   
   const sendReceiptEmail = async () => {
     if (!lastOrder) return; let savedEmail = (lastOrder.custPhone && customers[lastOrder.custPhone] && customers[lastOrder.custPhone].email) ? customers[lastOrder.custPhone].email : ""; 
@@ -496,7 +469,7 @@ export default function App() {
       if (added > 0) { const lg = { id: Date.now(), shift: shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }; setHistory(prev => [lg, ...prev]); } 
       logAudit("NHẬP MỚI", `${newName} (+${added})`, { code: baseCode, importPrice: impPrice, salePrice }); alert(`Nhập thành công!${syncMsg}`);
     }
-    setNewCode(""); setNewName(""); setNewCategory("Đồ uống"); setNewImportPrice(""); setNewPrice(""); setNewPromoPrice(""); setNewGiftCondition("1"); setNewGiftInfo(""); setNewStock(""); setNewExpiry(""); fetchProducts(); setLoading(false); setShowInputForm(false);
+    resetProductForm(); fetchProducts(); setLoading(false); setShowInputForm(false);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -707,31 +680,36 @@ export default function App() {
       <SettingsModal showSettings={showSettings} setShowSettings={setShowSettings} newBankBin={newBankBin} setNewBankBin={setNewBankBin} newBankAcc={newBankAcc} setNewBankAcc={setNewBankAcc} newBankNameStr={newBankNameStr} setNewBankNameStr={setNewBankNameStr} saveSettings={saveSettings} />
       {showHandoverModal && (<HandoverModal role={role} shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onClose={() => setShowHandoverModal(false)} onConfirm={confirmHandover} />)}
 
-      {/* RENDER CÁC COMPONENT MODAL MỚI TÁCH */}
-      <CashFlowModal 
-        cashFlowModalInfo={cashFlowModalInfo} 
-        setCashFlowModalInfo={setCashFlowModalInfo} 
-        shift={shift} todayStrStr={todayStrStr} 
-        currentShiftCashFlow={currentShiftCashFlow} 
-        currentShiftStats={currentShiftStats} 
-      />
+      <CashFlowModal cashFlowModalInfo={cashFlowModalInfo} setCashFlowModalInfo={setCashFlowModalInfo} shift={shift} todayStrStr={todayStrStr} currentShiftCashFlow={currentShiftCashFlow} currentShiftStats={currentShiftStats} />
       <AuditDetailModal selectedAuditLog={selectedAuditLog} setSelectedAuditLog={setSelectedAuditLog} />
       <HoldOrdersModal showHoldModal={showHoldModal} setShowHoldModal={setShowHoldModal} heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={deleteHeldOrder} />
+      
       <CheckoutModal 
-        isCheckoutOpen={isCheckoutOpen} setIsCheckoutOpen={setIsCheckoutOpen}
-        checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep}
-        voucherInput={voucherInput} setVoucherInput={setVoucherInput}
-        customerInput={customerInput} setCustomerInput={setCustomerInput}
-        custPhone={custPhone} setCustPhone={setCustPhone}
-        custName={custName} setCustName={setCustName}
-        useWallet={useWallet} setUseWallet={setUseWallet}
-        appliedVoucherAmount={appliedVoucherAmount} setAppliedVoucherAmount={setAppliedVoucherAmount}
-        customerGiven={customerGiven} setCustomerGiven={setCustomerGiven}
-        finalToPay={finalToPay} customers={customers} isOnline={isOnline}
-        bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} loading={loading}
-        handleVoucherSubmit={handleVoucherSubmit} handleCustomerInputChange={handleCustomerInputChange}
-        setScannerMode={setScannerMode} handleNextToQR={handleNextToQR} confirmCheckout={confirmCheckout}
-        setPrintMode={setPrintMode} sendReceiptEmail={sendReceiptEmail} closeCheckout={closeCheckout}
+        isCheckoutOpen={isCheckoutOpen} setIsCheckoutOpen={setIsCheckoutOpen} checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} voucherInput={voucherInput} setVoucherInput={setVoucherInput} customerInput={customerInput} setCustomerInput={setCustomerInput} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} useWallet={useWallet} setUseWallet={setUseWallet} appliedVoucherAmount={appliedVoucherAmount} setAppliedVoucherAmount={setAppliedVoucherAmount} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} finalToPay={finalToPay} customers={customers} isOnline={isOnline} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} loading={loading} handleVoucherSubmit={handleVoucherSubmit} handleCustomerInputChange={handleCustomerInputChange} setScannerMode={setScannerMode} handleNextToQR={handleNextToQR} confirmCheckout={confirmCheckout} setPrintMode={setPrintMode} sendReceiptEmail={sendReceiptEmail} closeCheckout={closeCheckout}
+      />
+
+      <StatsModal 
+        showStatsModal={showStatsModal} setShowStatsModal={setShowStatsModal} reportStartDate={reportStartDate} setReportStartDate={setReportStartDate} reportEndDate={reportEndDate} setReportEndDate={setReportEndDate} exportToCSV={exportToCSV} sendInventoryAlertEmail={sendInventoryAlertEmail} handleSendEmailReport={handleSendEmailReport} filteredStats={filteredStats} chartData={chartData} topSelling={topSelling} products={products} 
+      />
+      
+      <InventoryModal 
+        showInventoryModal={showInventoryModal} setShowInventoryModal={setShowInventoryModal} inventorySearchTerm={inventorySearchTerm} setInventorySearchTerm={setInventorySearchTerm} handleInventorySearchEnter={handleInventorySearchEnter} invFilter={invFilter} setInvFilter={setInvFilter} exportInventoryCSV={exportInventoryCSV} handleImportInventoryCSV={handleImportInventoryCSV} products={products} actualStockInput={actualStockInput} setActualStockInput={setActualStockInput} handleInvInputKeyDown={handleInvInputKeyDown} syncInventoryCheck={syncInventoryCheck} loading={loading} 
+      />
+
+      <CustomerModal 
+        showCustomerModal={showCustomerModal} setShowCustomerModal={setShowCustomerModal} customers={customers} setCustomers={setCustomers} logAudit={logAudit} handleEditPhone={handleEditPhone} printCustomerCard={printCustomerCard} sendCardEmail={sendCardEmail} shareToZalo={shareToZalo} 
+      />
+      
+      <DebtModal 
+        showDebtModal={showDebtModal} setShowDebtModal={setShowDebtModal} customers={customers} handlePayDebt={handlePayDebt} 
+      />
+      
+      <AuditModal 
+        showAuditModal={showAuditModal} setShowAuditModal={setShowAuditModal} auditLogs={auditLogs} exportAuditToCSV={exportAuditToCSV} setSelectedAuditLog={setSelectedAuditLog} 
+      />
+      
+      <ScannerModal 
+        scannerMode={scannerMode} setScannerMode={setScannerMode} scanMessage={scanMessage} 
       />
     </>
   );
