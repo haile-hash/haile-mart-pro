@@ -40,7 +40,15 @@ import { MarketingModal } from "./components/modals/MarketingModal";
 import { SettingsModal } from "./components/modals/SettingsModal";
 import { PinModal } from "./components/modals/PinModal"; 
 
+// 📱 IMPORT COMPONENT MÁY QUÉT ĐIỆN THOẠI MỚI TẠO
+import { MobileScanner } from "./components/MobileScanner"; 
+
 export default function App() {
+  // 🚀 ĐIỀU HƯỚNG: NẾU LINK LÀ ĐIỆN THOẠI, HIỂN THỊ MÁY QUÉT LUÔN!
+  if (typeof window !== "undefined" && window.location.search.includes("scanner=true")) {
+    return <MobileScanner />;
+  }
+
   const VAT_RATE = 0.1;
   const EMAILJS_SERVICE_ID = process.env.REACT_APP_EMAILJS_SERVICE_ID;
   const EMAILJS_TEMPLATE_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_ID;
@@ -150,7 +158,19 @@ export default function App() {
       loadCloudData(); 
       fetchSettingsFromCloud(); 
       
-      const channel = supabase.channel("db_changes").on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts()).on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData()).subscribe();
+      const channel = supabase.channel("db_changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts())
+        .on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData())
+        .on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData())
+        .on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData())
+        .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData())
+        // 📡 LẮNG NGHE TÍN HIỆU TỪ ĐIỆN THOẠI BẮN VỀ
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload) => {
+           playSound('success'); // Kêu Bíp trên máy tính
+           setScannedCodeObj({ code: payload.new.code, time: Date.now() }); // Tự động đưa vào giỏ hàng
+        })
+        .subscribe();
+        
       const script = document.createElement("script"); script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"; script.onload = () => { (window as any).emailjs.init(EMAILJS_PUBLIC_KEY || "5ric0kxuwNPlUleAv"); }; document.head.appendChild(script);
       const xlsxScript = document.createElement("script"); xlsxScript.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; document.head.appendChild(xlsxScript);
       return () => { supabase.removeChannel(channel) };
@@ -168,9 +188,20 @@ export default function App() {
 
   useEffect(() => {
     if (scannedCodeObj) {
-      if (scannerMode === 'product') { const p = findProductByCode(scannedCodeObj.code); if (p) handleSelectSuggest(p); else { const matchedPhone = Object.keys(customers).find(phone => phone === scannedCodeObj.code.trim() || customers[phone].cardCode === scannedCodeObj.code.trim()); if (matchedPhone) { playSound('success'); setCustomerInput(customers[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setScanMessage({ text: `✅ KH VIP: ${customers[matchedPhone].name}`, type: 'success' }) } else { playSound('error'); setScanMessage({ text: `❌ Lỗi mã`, type: 'error' }) } setTimeout(() => setScannerMode(null), 1500) } }
-      else if (scannerMode === 'voucher') { const code = scannedCodeObj.code.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); setVoucherInput(code); playSound('success'); setScanMessage({ text: `✅ Giảm ${VOUCHERS[code].toLocaleString()}đ`, type: 'success' }) } else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); setVoucherInput(code); playSound('success'); setScanMessage({ text: `✅ Giảm ${Number(code).toLocaleString()}đ`, type: 'success' }) } else { playSound('error'); toast.error("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0) } setTimeout(() => setScannerMode(null), 1000) }
-      else if (scannerMode === 'customer') { const val = scannedCodeObj.code.trim(); setCustomerInput(val); const matchedPhone = Object.keys(customers).find(phone => phone === val || customers[phone].cardCode === val); if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); playSound('success'); setScanMessage({ text: `✅ Nhận diện VIP: ${customers[matchedPhone].name}`, type: 'success' }) } else { setCustPhone(val); setCustName(""); playSound('success'); setScanMessage({ text: `✅ Đã quét mã (Khách mới)`, type: 'success' }) } setTimeout(() => setScannerMode(null), 1000) }
+      // 🚀 NẾU SCANNER_MODE BỊ TRỐNG (tức là quét từ điện thoại hoặc máy tít ngoài), HỆ THỐNG VẪN TỰ ĐỘNG XỬ LÝ!
+      if (scannerMode === 'product' || scannerMode === null) { 
+        const p = findProductByCode(scannedCodeObj.code); 
+        if (p) handleSelectSuggest(p); 
+        else { 
+          const matchedPhone = Object.keys(customers).find(phone => phone === scannedCodeObj.code.trim() || customers[phone].cardCode === scannedCodeObj.code.trim()); 
+          if (matchedPhone) { playSound('success'); setCustomerInput(customers[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setScanMessage({ text: `✅ KH VIP: ${customers[matchedPhone].name}`, type: 'success' }) } 
+          else { playSound('error'); setScanMessage({ text: `❌ Lỗi mã`, type: 'error' }) } 
+        } 
+      }
+      else if (scannerMode === 'voucher') { const code = scannedCodeObj.code.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); setVoucherInput(code); playSound('success'); setScanMessage({ text: `✅ Giảm ${VOUCHERS[code].toLocaleString()}đ`, type: 'success' }) } else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); setVoucherInput(code); playSound('success'); setScanMessage({ text: `✅ Giảm ${Number(code).toLocaleString()}đ`, type: 'success' }) } else { playSound('error'); toast.error("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0) } }
+      else if (scannerMode === 'customer') { const val = scannedCodeObj.code.trim(); setCustomerInput(val); const matchedPhone = Object.keys(customers).find(phone => phone === val || customers[phone].cardCode === val); if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); playSound('success'); setScanMessage({ text: `✅ Nhận diện VIP: ${customers[matchedPhone].name}`, type: 'success' }) } else { setCustPhone(val); setCustName(""); playSound('success'); setScanMessage({ text: `✅ Đã quét mã (Khách mới)`, type: 'success' }) } }
+      
+      setTimeout(() => setScannerMode(null), 1000);
       setScannedCodeObj(null); setTimeout(() => setScanMessage(null), 1500)
     }
   }, [scannedCodeObj, products, scannerMode]);
@@ -291,7 +322,6 @@ export default function App() {
         setNewBankBin(data.bank_bin); setNewBankAcc(data.bank_acc); setNewBankNameStr(data.bank_name_str);
         if (data.admin_pin) setAdminPin(data.admin_pin);
         
-        // Cập nhật state Giờ vàng
         if (data.happy_hour_start) { setHappyStart(data.happy_hour_start); setNewHappyStart(data.happy_hour_start); }
         if (data.happy_hour_end) { setHappyEnd(data.happy_hour_end); setNewHappyEnd(data.happy_hour_end); }
       }
@@ -361,13 +391,11 @@ export default function App() {
 
   const handleBarcodeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => { document.getElementById('search-barcode')?.focus(); if (e.key === 'Enter') { e.preventDefault(); const p = findProductByCode(barcodeInput); if (p) handleSelectSuggest(p); else { const matchedPhone = Object.keys(customers).find(phone => phone === barcodeInput.trim() || customers[phone].cardCode === barcodeInput.trim()); if (matchedPhone) { playSound('success'); setCustomerInput(customers[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setBarcodeInput("") } else { playSound('error'); toast.error("Mã không hợp lệ!") } } } };
   
-  // 🚀 KIỂM TRA GIỜ VÀNG KHI THÊM VÀO GIỎ HÀNG
   const handleSelectSuggest = (p_input: any) => {
     const baseCode = String(p_input.product_code).split('-')[0]; 
     const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); 
     if (totalStock <= 0) { playSound('error'); return toast.error("Sản phẩm đã hết hàng!"); }
     
-    // Tự động kiểm tra thời gian hiện tại
     const currentTime = new Date();
     const currentTotalMins = currentTime.getHours() * 60 + currentTime.getMinutes();
     const [startH, startM] = happyStart.split(':').map(Number);
@@ -379,11 +407,9 @@ export default function App() {
     if (startTotalMins <= endTotalMins) {
        isHappyNow = currentTotalMins >= startTotalMins && currentTotalMins <= endTotalMins;
     } else {
-       // Xử lý trường hợp giờ bắt đầu lớn hơn giờ kết thúc (VD: 22:00 -> 02:00 sáng)
        isHappyNow = currentTotalMins >= startTotalMins || currentTotalMins <= endTotalMins;
     }
 
-    // Nếu đang trong Giờ Vàng và sản phẩm có cài Giá KM -> Ép nó thành hàng Giờ Vàng
     let itemToCart = { ...p_input };
     if (isHappyNow && p_input.promo_price > 0 && p_input.promo_price < p_input.sale_price) {
       itemToCart.isHappyHour = true;
@@ -793,7 +819,6 @@ export default function App() {
       <SupplierModal showSupplierModal={showSupplierModal} setShowSupplierModal={setShowSupplierModal} supName={supName} setSupName={setSupName} supPhone={supPhone} setSupPhone={setSupPhone} supItem={supItem} setSupItem={setSupItem} addSupplier={addSupplier} suppliers={suppliers} deleteSupplier={deleteSupplier} />
       <MarketingModal showMarketingModal={showMarketingModal} setShowMarketingModal={setShowMarketingModal} marketingTier={marketingTier} setMarketingTier={setMarketingTier} marketingMsg={marketingMsg} setMarketingMsg={setMarketingMsg} sendMarketingEmails={sendMarketingEmails} loading={loading} />
       
-      {/* TRUYỀN GIỜ VÀNG VÀO SETTINGS */}
       <SettingsModal 
         showSettings={showSettings} setShowSettings={setShowSettings} 
         newBankBin={newBankBin} setNewBankBin={setNewBankBin} 
