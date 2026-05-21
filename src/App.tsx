@@ -939,45 +939,6 @@ export default function App() {
       
       <Toaster position="top-right" reverseOrder={false} />
 
-      {/* 📱 CỤM NÚT CÔNG CỤ (GỘP CHUNG VÀO 1 KHUNG ĐỂ CHỐNG LỆCH 100%) */}
-      <div className="no-print" style={{ position: 'absolute', top: '97px', left: '135px', display: 'flex', gap: '10px', zIndex: 900 }}>
-        
-        {/* NÚT 1: MÁY QUÉT */}
-        {isLoggedIn && (
-          <button 
-            onClick={() => setShowScannerLinkModal(true)} 
-            style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', color: '#ffffff', border: 'none', borderRadius: '6px', padding: '0 12px', height: '32px', fontWeight: '900', boxShadow: '0 2px 4px rgba(37, 99, 235, 0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s', fontSize: '12px', textTransform: 'uppercase' }}
-            onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 8px rgba(37, 99, 235, 0.4)'; }}
-            onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 4px rgba(37, 99, 235, 0.3)'; }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
-              <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
-              <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
-              <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
-              <line x1="7" y1="12" x2="17" y2="12"></line>
-            </svg>
-            MÁY QUÉT
-          </button>
-        )}
-
-        {/* NÚT 2: NHẬP LÔ PO */}
-        {isLoggedIn && role === 'admin' && (
-          <button 
-            onClick={() => setShowPOModal(true)} 
-            style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#ffffff', border: 'none', borderRadius: '6px', padding: '0 12px', height: '32px', fontWeight: '900', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s', fontSize: '12px', textTransform: 'uppercase' }}
-            onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 8px rgba(5, 150, 105, 0.4)'; }}
-            onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 4px rgba(5, 150, 105, 0.3)'; }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="21 8 21 21 3 21 3 8"></polyline>
-              <rect x="1" y="3" width="22" height="5"></rect>
-              <line x1="10" y1="12" x2="14" y2="12"></line>
-            </svg>
-            NHẬP LÔ PO
-          </button>
-        )}
-
       </div>
       <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} />
       
