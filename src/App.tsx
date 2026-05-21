@@ -900,7 +900,7 @@ export default function App() {
           style={{ 
             position: 'absolute', 
             top: '97px',         /* Chỉnh cao độ cho bằng mép MENU */
-            left: '105px',       /* Xích lại gần MENU vì nút đã nhỏ lại */
+            left: '145px',       /* Xích lại gần MENU vì nút đã nhỏ lại */
             zIndex: 900, 
             background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', 
             color: '#ffffff', 
