@@ -8,24 +8,20 @@ import {
 } from "./utils/helpers";
 import { useOfflineSync } from "./hooks/useOfflineSync";
 
+// CÁC COMPONENT GIAO DIỆN (UI) MỚI TÁCH
+import { Header } from "./components/layout/Header";
+import { ProductSearchAndActions } from "./components/products/ProductSearchAndActions";
+import { ProductInputForm } from "./components/products/ProductInputForm";
+import { ProductTable } from "./components/products/ProductTable";
+import { CartPanel } from "./components/cart/CartPanel";
+import { HistoryPanel } from "./components/history/HistoryPanel";
+
+// MODALS
 import { HandoverModal } from "./components/modals/HandoverModal";
 import { ExpenseModal } from "./components/modals/ExpenseModal";
 import { SupplierModal } from "./components/modals/SupplierModal";
 import { MarketingModal } from "./components/modals/MarketingModal";
 import { SettingsModal } from "./components/modals/SettingsModal";
-
-const LiveClock = () => {
-  const [time, setTime] = React.useState(new Date());
-  React.useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--bg-input)", padding: "6px 12px", borderRadius: "6px", border: "1px solid var(--border-glass)", fontFamily: "monospace" }}>
-      <span style={{ fontSize: "14px" }}>⏱️</span> {time.toLocaleTimeString('vi-VN')} - {time.toLocaleDateString('vi-VN')}
-    </div>
-  );
-};
 
 export default function App() {
   const VAT_RATE = 0.1;
@@ -34,6 +30,9 @@ export default function App() {
   const EMAILJS_TEMPLATE_VIP_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_VIP_ID || "template_m1j9i7k";
   const EMAILJS_PUBLIC_KEY = process.env.REACT_APP_EMAILJS_PUBLIC_KEY || "5ric0kxuwNPlUleAv";
   
+  // =====================================================================
+  // 1. TOÀN BỘ STATE CỦA ỨNG DỤNG
+  // =====================================================================
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem("mart_logged_in") === "true");
   const [role, setRole] = useState(() => localStorage.getItem("mart_role") || "staff");
   const [shift, setShift] = useState(() => localStorage.getItem("mart_shift") || "Ca Sáng");
@@ -138,6 +137,9 @@ export default function App() {
     expenses, setExpenses, suppliers, setSuppliers
   });
 
+  // =====================================================================
+  // 2. EFFECTS & LISTENERS
+  // =====================================================================
   useEffect(() => {
     if (darkMode) { document.documentElement.setAttribute('data-theme', 'dark'); localStorage.setItem("mart_theme", "dark"); }
     else { document.documentElement.removeAttribute('data-theme'); localStorage.setItem("mart_theme", "light"); }
@@ -185,6 +187,10 @@ export default function App() {
 
   useEffect(() => { const handleAfterPrint = () => setPrintMode(null); window.addEventListener("afterprint", handleAfterPrint); return () => window.removeEventListener("afterprint", handleAfterPrint) }, []);
 
+
+  // =====================================================================
+  // 3. TÍNH TOÁN DATA MOMS (useMemo)
+  // =====================================================================
   const todayStrStr = new Date().toLocaleDateString('vi-VN');
   
   const currentShiftStats = useMemo(() => { 
@@ -203,6 +209,7 @@ export default function App() {
   }, [history, shift, todayStrStr, startingCash]);
 
   const currentShiftCashFlow = useMemo(() => {
+    // (Giữ nguyên logic cũ của bạn)
     if (!cashFlowModalInfo) return { thu: [], chi: [] };
     const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStrStr && h.shift === shift);
     const thu: any[] = []; const chi: any[] = [];
@@ -275,6 +282,10 @@ export default function App() {
     return filtered
   }, [products, searchTerm, selectedCategory, sortConfig, filters]);
 
+
+  // =====================================================================
+  // 4. ACTION FUNCTIONS (HÀM XỬ LÝ SỰ KIỆN)
+  // =====================================================================
   const logAudit = async (action: string, detail: string, extraData: any = null) => { const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user_name: role === 'admin' ? 'Quản lý' : 'Thu ngân', shift, action, detail, extra_data: extraData ? JSON.stringify(extraData) : null }; setAuditLogs(prev => [newLog, ...prev].slice(0, 300)); };
   const fetchProducts = async () => { const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false }); if (data) setProducts(data) };
   const findProductByCode = (code: string) => { const rawCode = code.trim(); let matches = products.filter(prod => prod.product_code === rawCode || String(prod.product_code).startsWith(`${rawCode}-`)); let available = matches.filter(p => p.stock > 0); if (available.length > 0) { available.sort((a, b) => { if (!a.expiry_date) return 1; if (!b.expiry_date) return -1; return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime() }); return available[0] } return matches.length > 0 ? matches[0] : null };
@@ -425,6 +436,7 @@ export default function App() {
   };
 
   const closeCheckout = () => { setCart([]); setIsCheckoutOpen(false); setCheckoutStep(1); setCustPhone(""); setCustName(""); setCustomerInput(""); setUseWallet(false); setVoucherInput(""); setAppliedVoucherAmount(0); setCustomerGiven(""); setLastOrder(null) };
+  
   const sendReceiptEmail = async () => {
     if (!lastOrder) return; let savedEmail = (lastOrder.custPhone && customers[lastOrder.custPhone] && customers[lastOrder.custPhone].email) ? customers[lastOrder.custPhone].email : ""; 
     let email = window.prompt("Nhập Email khách hàng:", savedEmail); if (!email) return; email = email.trim(); const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; if (!emailRegex.test(email)) return alert("❌ Lỗi: Địa chỉ Email không hợp lệ!");
@@ -443,6 +455,7 @@ export default function App() {
 
   const printCustomerCard = (phone: string) => { setPrintCustomer({ phone, ...customers[phone] }); setPrintMode('customer_card'); setTimeout(() => window.print(), 1000) };
   const shareToZalo = (phone: string) => { const cust = customers[phone]; const code = cust.cardCode || phone; navigator.clipboard.writeText(`Chào ${cust.name},\nCảm ơn bạn đã đồng hành cùng Hải Lê Mart!\n💳 Mã Thẻ VIP của bạn là: ${code}`).then(() => { alert(`💡 Đã copy lời chào. Đang mở Zalo...`); window.open(`https://zalo.me/${phone}`, '_blank') }).catch(() => { window.open(`https://zalo.me/${phone}`, '_blank') }) };
+  
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => { const code = e.target.value; setNewCode(code); const p = products.find((x: any) => x.product_code === code); if (p) { setNewName(cleanName(p.name)); setNewCategory(formatCategoryStr(p.category)); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewExpiry(p.expiry_date || ""); const gift = parseGift(p.gift_info); setNewGiftCondition(gift.cond.toString()); setNewGiftInfo(gift.text) } };
   
   const handleAddProduct = async (e: React.FormEvent) => {
@@ -494,21 +507,20 @@ export default function App() {
         for (let i = 1; i < lines.length; i++) {
           const cols = lines[i]; if (!cols || !Array.isArray(cols) || cols.join('').trim() === '') continue; 
           const pCode = String(cols[0] || "").trim(); 
-const pName = String(cols[1] || "").trim(); 
-const pCategory = formatCategoryStr(String(cols[2] || "")); 
-const pImpPrice = parseInt(String(cols[3] || "0").replace(/[,.]/g, '')) || 0; 
-const pSalePrice = parseInt(String(cols[4] || "0").replace(/[,.]/g, '')) || 0; 
-const pPromoPrice = parseInt(String(cols[5] || "0").replace(/[,.]/g, '')) || 0; 
+          const pName = String(cols[1] || "").trim(); 
+          const pCategory = formatCategoryStr(String(cols[2] || "")); 
+          const pImpPrice = parseInt(String(cols[3] || "0").replace(/[,.]/g, '')) || 0; 
+          const pSalePrice = parseInt(String(cols[4] || "0").replace(/[,.]/g, '')) || 0; 
+          const pPromoPrice = parseInt(String(cols[5] || "0").replace(/[,.]/g, '')) || 0; 
 
-// MỚI: Tách cột Điều Kiện (cols[6]) và Quà Tặng (cols[7]), sau đó tự động ghép lại
-const pGiftCond = String(cols[6] || "1").trim();
-const pGiftText = cols[7] ? String(cols[7]).trim() : "";
-const pGift = pGiftText !== "" ? `${pGiftCond};;;${pGiftText}` : null; 
+          const pGiftCond = String(cols[6] || "1").trim();
+          const pGiftText = cols[7] ? String(cols[7]).trim() : "";
+          const pGift = pGiftText !== "" ? `${pGiftCond};;;${pGiftText}` : null; 
 
-// Cập nhật lại vị trí index do đã chèn thêm 1 cột
-const pStock = parseInt(String(cols[8] || "0").replace(/[,.]/g, '')) || 0; 
-const pExpiry = cols[9] ? String(cols[9]).trim() : null;
+          const pStock = parseInt(String(cols[8] || "0").replace(/[,.]/g, '')) || 0; 
+          const pExpiry = cols[9] ? String(cols[9]).trim() : null;
           if (!pCode || !pName || pSalePrice <= 0) continue;
+          
           const baseCode = pCode; const allVariants = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)); 
           
           if (allVariants.length > 0) { 
@@ -543,20 +555,24 @@ const pExpiry = cols[9] ? String(cols[9]).trim() : null;
     const fileNameStr = file.name.toLowerCase();
     if (fileNameStr.endsWith('.xlsx') || fileNameStr.endsWith('.xls')) { if (!(window as any).XLSX) return alert("Thư viện Excel đang tải, vui lòng thử lại sau vài giây!"); const reader = new FileReader(); reader.onload = (event) => { try { const data = new Uint8Array(event.target?.result as ArrayBuffer); const workbook = (window as any).XLSX.read(data, { type: 'array' }); const firstSheet = workbook.Sheets[workbook.SheetNames[0]]; const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false }); processData(jsonData); } catch(err) { console.error(err); alert("Lỗi định dạng cấu trúc khi đọc file Excel."); } }; reader.readAsArrayBuffer(file); } else { const reader = new FileReader(); reader.onload = (event) => { const text = event.target?.result as string; const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''))); processData(lines); }; reader.readAsText(file); } e.target.value = '';
   };
+  
   const handleDelete = async (id: any, name: any) => { if (!navigator.onLine) return alert("Cần có mạng để thao tác Kho!"); if (window.confirm(`Xóa vĩnh viễn ${name}?`)) { await supabase.from("products").delete().eq("id", id); logAudit("XÓA SP", `Xóa: ${name}`); fetchProducts() } };
+  
   const handleEdit = async (id: any, field: string, old: any, isText: boolean = false) => { if (!navigator.onLine) return alert("Cần có mạng để thao tác Kho!"); let label = field; if (field === 'category') label = 'Danh mục'; if (field === 'sale_price') label = 'Giá bán'; if (field === 'promo_price') label = 'Giá KM'; if (field === 'gift_info') label = 'Quà tặng'; if (field === 'expiry_date') label = 'HSD'; const val = window.prompt(`Sửa ${label}:`, old || ""); if (val !== null) { let updateData: any = isText ? (field === 'category' ? formatCategoryStr(val) : val) : (parseInt(val) || 0); if (field === 'gift_info' && val.trim() === '') updateData = null; await supabase.from("products").update({ [field]: updateData }).eq("id", id); logAudit("SỬA THÔNG TIN", `ID ${id} - ${label}`, { old, new: updateData }); fetchProducts() } };
+  
   const handlePrintBarcode = (p: any) => { const q = window.prompt(`SL tem in: ${cleanName(p.name)}`, "30"); if (q && parseInt(q) > 0) { setPrintBarcodeProduct(p); setBarcodeCount(parseInt(q)); setPrintMode('barcode'); setTimeout(() => window.print(), 1500) } };
- const downloadSampleCSV = () => { 
-  // Đã thêm cột ĐK Tặng (index 6) và dời các cột sau lên
-  const csv = "\uFEFFMã SP,Tên SP,Danh Mục,Giá Nhập,Giá Bán,Giá KM,ĐK Tặng,Quà Tặng,Số Lượng,Hạn Sử Dụng (YYYY-MM-DD)\nSP001,Mì Hảo Hảo,Đồ ăn liền,3000,5000,0,1,,100,2026-12-31\nSP002,Xúc xích,Đồ ăn liền,10000,15000,0,2,1 Cây Xúc Xích,50,2026-12-31"; 
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); 
-  const link = document.createElement("a"); 
-  link.href = URL.createObjectURL(blob); 
-  link.download = `Mau_Nhap_Kho.csv`; 
-  link.click() 
-};
+  
+  const downloadSampleCSV = () => { 
+    const csv = "\uFEFFMã SP,Tên SP,Danh Mục,Giá Nhập,Giá Bán,Giá KM,ĐK Tặng,Quà Tặng,Số Lượng,Hạn Sử Dụng (YYYY-MM-DD)\nSP001,Mì Hảo Hảo,Đồ ăn liền,3000,5000,0,1,,100,2026-12-31\nSP002,Xúc xích,Đồ ăn liền,10000,15000,0,2,1 Cây Xúc Xích,50,2026-12-31"; 
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); 
+    const link = document.createElement("a"); 
+    link.href = URL.createObjectURL(blob); 
+    link.download = `Mau_Nhap_Kho.csv`; 
+    link.click() 
+  };
   
   const exportToCSV = () => { let csv = "\uFEFFGiờ,Ca,Loại,Hình thức,Khách,Sản phẩm,SL,Tổng(VAT),Lợi nhuận\n"; history.forEach(log => { csv += `${new Date(Math.floor(log.id)).toLocaleString('vi-VN')},${log.shift || ""},${log.type},${log.paymentMethod || ""},${log.customer || "Khách lẻ"},${log.name},${log.qty},${Math.round(log.total)},${Math.round(log.profit || 0)}\n` }); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Bao_Cao_Ban_Hang.csv`; link.click() };
+  
   const exportAuditToCSV = () => { let csv = "\uFEFFThời gian,Người dùng,Ca,Hành động,Chi tiết,Dữ liệu mở rộng\n"; auditLogs.forEach(log => { csv += `${log.time},${log.user_name},${log.shift},${log.action},"${(log.detail || "").replace(/"/g, '""')}","${(log.extra_data || "").replace(/"/g, '""')}"\n` }); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Nhat_Ky_Thao_Tac.csv`; link.click() };
   
   const handleSendEmailReport = async () => {
@@ -589,56 +605,15 @@ const pExpiry = cols[9] ? String(cols[9]).trim() : null;
   };
   
   const requestSort = (key: string) => { if (sortConfig && sortConfig.key === key) { if (sortConfig.direction === 'asc') setSortConfig({ key, direction: 'desc' }); else setSortConfig(null) } else { setSortConfig({ key, direction: 'asc' }) } };
-  const handleFilterCheck = (col: string, val: any) => { setFilters(prev => { const cur = prev[col] || []; if (cur.includes(val)) return { ...prev, [col]: cur.filter(v => v !== val) }; return { ...prev, [col]: [...cur, val] } }) };
   const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
 
-  const renderHeaderIcon = (colKey: string) => { const isFiltered = filters[colKey]?.length > 0; const isSortedAsc = sortConfig?.key === colKey && sortConfig.direction === 'asc'; const isSortedDesc = sortConfig?.key === colKey && sortConfig.direction === 'desc'; let icon = '🔽'; if (isSortedAsc) icon = '🔼'; if (isSortedDesc) icon = '🔽'; return (<span onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === colKey ? null : colKey) }} style={{ cursor: "pointer", color: isFiltered || sortConfig?.key === colKey ? '#ef4444' : '#94a3b8', fontSize: "10px", padding: "2px", marginLeft: "4px", border: isFiltered ? "1px dashed #ef4444" : "1px solid transparent", borderRadius: "2px" }} title="Lọc">{icon}</span>) };
+
+  // =====================================================================
+  // 5. GIAO DIỆN (RENDER)
+  // =====================================================================
   
-  const renderFilterPopup = (colKey: string, title: string, uniqueValues: any[], formatVal?: (v: any) => string) => {
-    if (openFilter !== colKey) return null;
-    return (
-      <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: colKey === 'name' ? "0" : "50%", transform: colKey === 'name' ? "none" : "translateX(-50%)", background: "var(--bg-glass)", border: "1px solid var(--border-glass)", borderRadius: "8px", padding: "10px", zIndex: 999, boxShadow: "0 10px 25px -5px rgba(0,0,0,0.5)", minWidth: "160px", textAlign: "left", color: "var(--text-main)", fontWeight: "normal", fontSize: "12px", display: "flex", flexDirection: "column" }}>
-        <div style={{ marginTop: "10px", fontWeight: "bold", color: "var(--text-muted)", fontSize: "10px", marginBottom: "6px" }}>LỌC {title}:</div>
-        <div style={{ overflowY: "auto", flex: 1, maxHeight: "150px", border: "1px solid var(--border-glass)", borderRadius: "4px", padding: "4px" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px", cursor: "pointer", borderBottom: "1px dashed var(--border-glass)" }}><input type="checkbox" checked={!filters[colKey] || filters[colKey].length === 0} onChange={() => setFilters(prev => ({ ...prev, [colKey]: [] }))} /><span style={{ color: "#3b82f6", fontWeight: "bold" }}>Tất cả</span></label>
-          {uniqueValues.map((v, i) => (<label key={i} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px", cursor: "pointer", borderBottom: "1px dashed var(--border-glass)" }}><input type="checkbox" checked={filters[colKey]?.includes(v) || false} onChange={() => handleFilterCheck(colKey, v)} /><span>{formatVal ? formatVal(v) : v}</span></label>))}
-        </div>
-        {filters[colKey]?.length > 0 && (<div style={{ marginTop: "8px", textAlign: "center", cursor: "pointer", color: "#ef4444", fontWeight: "bold", fontSize: "11px", padding: "4px" }} onClick={() => setFilters(prev => ({ ...prev, [colKey]: [] }))}>❌ Bỏ lọc</div>)}
-      </div>
-    );
-  };
-
-  const HeaderLogo = () => (
-    <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-      <div 
-        className="logo-icon" 
-        onClick={() => {
-          if (isMusicPlaying) { bgMusicRef.current?.pause(); } 
-          else { bgMusicRef.current?.play().catch(e => console.log("Lỗi:", e)); }
-          setIsMusicPlaying(!isMusicPlaying);
-        }}
-        style={{ cursor: "pointer", position: "relative", transition: "transform 0.2s" }}
-        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
-        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-        title={isMusicPlaying ? "Tắt nhạc" : "Bật nhạc Chill"}
-      >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
-        {isMusicPlaying && <span style={{ position: "absolute", top: "-10px", right: "-10px", fontSize: "14px", animation: "spin 3s linear infinite" }}>🎵</span>}
-      </div>
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        <h1 style={{ margin: 0, fontSize: "22px", fontWeight: "900", letterSpacing: "0.5px", color: "var(--text-main)", lineHeight: "1", whiteSpace: "nowrap" }}>{[..."HẢI LÊ "].map((c, i) => <span key={i} style={{ display: "inline-block", animation: `wave 1.5s ease-in-out ${i * 0.06}s infinite` }}>{c === ' ' ? '\u00A0' : c}</span>)}<span style={{ color: "#dc2626" }}>{[..."MART"].map((c, i) => <span key={i} style={{ display: "inline-block", animation: `wave 1.5s ease-in-out ${(i + 7) * 0.06}s infinite` }}>{c === ' ' ? '\u00A0' : c}</span>)}</span></h1>
-        <div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "800", letterSpacing: "3px", textTransform: "uppercase", marginTop: "4px", whiteSpace: "nowrap" }}>{[..."ERP System"].map((c, i) => <span key={i} style={{ display: "inline-block", animation: `wave 1.5s ease-in-out ${(i + 11) * 0.06}s infinite` }}>{c === ' ' ? '\u00A0' : c}</span>)}</div>
-      </div>
-    </div>
-  );
-
-  const CloudStatusBadge = () => {
-    if (!isOnline) return (<div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#fef2f2", padding: "6px 12px", borderRadius: "6px", border: "1px solid #fca5a5", color: "#ef4444" }}><span style={{ height: "8px", width: "8px", background: "#ef4444", borderRadius: "50%", display: "inline-block" }}></span> Mất mạng (Lưu Offline)</div>);
-    if (syncStatus === 'syncing') return (<div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#eff6ff", padding: "6px 12px", borderRadius: "6px", border: "1px solid #bfdbfe", color: "#3b82f6" }}><span style={{ height: "8px", width: "8px", background: "#3b82f6", borderRadius: "50%", display: "inline-block", animation: "pulse-fast 1s infinite" }}></span> Đang đồng bộ mây...</div>);
-    if (syncStatus === 'error') return (<div onClick={syncAllOfflineData} style={{ display: "flex", alignItems: "center", gap: "6px", background: "#fff7ed", padding: "6px 12px", borderRadius: "6px", border: "1px solid #fed7aa", color: "#ea580c", cursor: "pointer", color: "var(--text-main)" }} title="Bấm để thử lại"><span style={{ height: "8px", width: "8px", background: "#ea580c", borderRadius: "50%", display: "inline-block" }}></span> Lỗi Đám mây 🔄</div>);
-    return (<div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#ecfdf5", padding: "6px 12px", borderRadius: "6px", border: "1px solid #a7f3d0", color: "#059669" }}><span style={{ height: "8px", width: "8px", background: "#10b981", borderRadius: "50%", display: "inline-block" }}></span> Đã lưu Đám Mây</div>);
-  };
-const renderPrintArea = () => (
+  // (Giữ lại các Modal in ấn ở trong App vì nó dùng state trực tiếp)
+  const renderPrintArea = () => (
     <>
       {lastOrder && printMode === 'receipt' && (
         <div className="print-only">
@@ -721,6 +696,7 @@ const renderPrintArea = () => (
       )}
     </>
   );
+
   const renderModals = () => (
     <>
       <ExpenseModal showExpenseModal={showExpenseModal} setShowExpenseModal={setShowExpenseModal} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} expenses={expenses} addExpense={addExpense} deleteExpense={deleteExpense} />
@@ -744,7 +720,6 @@ const renderPrintArea = () => (
 
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
-      {/* CSS Toàn cục */}
       <style>{styles}</style> 
       <style>{`
         .animated-bg-mesh { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; background: linear-gradient(135deg, #ffedd5 0%, #fef08a 50%, #fed7aa 100%); background-size: 400% 400%; animation: gradientBgAnim 15s ease infinite; opacity: 0.8; }
@@ -754,7 +729,6 @@ const renderPrintArea = () => (
       `}</style>
       <div className="animated-bg-mesh"></div>
 
-      {/* 👉 BẠN THAY LINK NHẠC BẰNG LINK CỦA BẠN TẠI ĐÂY NHÉ 👈 */}
       <audio ref={bgMusicRef} loop src="/Windy Hill.mp3" preload="auto" />
       <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} />
       
@@ -785,249 +759,153 @@ const renderPrintArea = () => (
       ) : (
         <div className="no-print" style={{ padding: "15px", position: "relative", minHeight: "100vh", overflowX: "auto" }}>
           <div style={{ maxWidth: "1500px", margin: "0 auto", minWidth: "1000px" }}>
-            <div className="glass" style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: "12px", marginBottom: "12px", borderBottom: "4px solid #ef4444" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <HeaderLogo />
-                <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-                  {(new Date().getHours() >= 20 || new Date().getHours() < 6) && <span style={{ fontSize: "11px", background: "#fef08a", color: "#b45309", padding: "4px 8px", borderRadius: "4px", fontWeight: "bold" }}>🌙 HAPPY HOUR</span>}
-                  <div style={{ width: "2px", height: "30px", background: "var(--border-glass)" }}></div>
-                  <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
-                    {role === 'admin' && <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "bold" }}>VỐN</div><div style={{ fontSize: "15px", fontWeight: "900", color: "var(--text-main)" }}>{totalValue.toLocaleString()}đ</div></div>}
-                    <div className="cash-box" onClick={(e) => { e.stopPropagation(); setCashFlowModalInfo('TIỀN MẶT'); }} style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "bold" }}>TIỀN MẶT 👆</div><div style={{ fontSize: "15px", fontWeight: "900", color: currentShiftStats.cash < 0 ? "#ef4444" : "#059669" }}>{currentShiftStats.cash.toLocaleString()}đ</div></div>
-                    <div className="cash-box" onClick={(e) => { e.stopPropagation(); setCashFlowModalInfo('CHUYỂN KHOẢN'); }} style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "bold" }}>CHUYỂN KHOẢN 👆</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#3b82f6" }}>{currentShiftStats.transfer.toLocaleString()}đ</div></div>
-                    {role === 'admin' && <div style={{ textAlign: "center", whiteSpace: "nowrap" }}><div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "bold" }}>LÃI</div><div style={{ fontSize: "15px", fontWeight: "900", color: currentShiftStats.prof < 0 ? "#ef4444" : "#ea580c" }}>{currentShiftStats.prof.toLocaleString()}đ</div></div>}
-                  </div>
-                  <div style={{ width: "2px", height: "30px", background: "var(--border-glass)" }}></div>
-                  <button onClick={() => setDarkMode(!darkMode)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }} title="Bật/tắt Giao diện tối">{darkMode ? "☀️" : "🌙"}</button>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <div style={{ textAlign: "right", lineHeight: "1.2", whiteSpace: "nowrap" }}><div style={{ fontSize: "13px", fontWeight: "bold", color: "var(--text-main)" }}>{role === 'admin' ? "Quản lý" : "Thu ngân"}</div><div style={{ fontSize: "11px", color: "var(--text-muted)" }}>{shift}</div></div>
-                    <button onClick={handleLogoutClick} style={{ padding: "10px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} title="Đăng xuất"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg></button>
-                  </div>
-                </div>
-              </div>
-              <div style={{ display: "flex", borderTop: "1px dashed var(--border-glass)", paddingTop: "12px", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ position: "relative" }}>
-                  <button onClick={(e) => { e.stopPropagation(); setShowMainMenu(!showMainMenu) }} style={{ padding: "8px 24px", background: "#1e3a8a", color: "#fff", border: "none", borderRadius: "8px", fontSize: "14px", fontWeight: "900", letterSpacing: "1px", cursor: "pointer", boxShadow: "0 4px 10px rgba(30,58,138,0.3)" }}>MENU</button>
-                  {showMainMenu && (
-                    <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "110%", left: 0, background: "var(--bg-glass)", border: "1px solid var(--border-glass)", borderRadius: "10px", minWidth: "250px", boxShadow: "0 10px 25px rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", flexDirection: "column", padding: "8px" }}>
-                      {role === 'admin' && <div onClick={() => { setShowMainMenu(false); setShowStatsModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px solid var(--border-glass)", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "16px" }}>📊</span> Báo Cáo Doanh Thu</div>}
-                      {role === 'admin' && <div onClick={() => { setShowMainMenu(false); setShowCustomerModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px solid var(--border-glass)", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "16px" }}>🤝</span> Quản Lý Khách Hàng VIP</div>}
-                      {role === 'admin' && <div onClick={() => { setShowMainMenu(false); setShowInventoryModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px solid var(--border-glass)", display: "flex", alignItems: "center", gap: "10px", color: "#10b981" }}><span style={{ fontSize: "16px" }}>📦</span> Kiểm Kho Định Kỳ</div>}
-                      <div onClick={() => { setShowMainMenu(false); setShowDebtModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px solid var(--border-glass)", display: "flex", alignItems: "center", gap: "10px", color: "#ef4444" }}><span style={{ fontSize: "16px" }}>📓</span> Sổ Nợ Khách Hàng</div>
-                      {role === 'admin' && <div onClick={() => { setShowMainMenu(false); setShowAuditModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px dashed var(--border-glass)", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "16px" }}>🕵️</span> Lịch Sử Thao Tác</div>}
-                      {role === 'admin' && (
-                        <>
-                          <div onClick={() => { setShowMainMenu(false); setShowExpenseModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px solid var(--border-glass)", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "16px" }}>💸</span> Nhập Chi Phí (Điện/Nước)</div>
-                          <div onClick={() => { setShowMainMenu(false); setShowSupplierModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px solid var(--border-glass)", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "16px" }}>🏭</span> Danh Sách Nhà Cung Cấp</div>
-                          <div onClick={() => { setShowMainMenu(false); setShowMarketingModal(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", borderBottom: "1px dashed var(--border-glass)", color: "#8b5cf6", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "16px" }}>📢</span> Gửi Email Marketing</div>
-                          <div onClick={() => { setShowMainMenu(false); setNewBankBin(bankBin); setNewBankAcc(bankAcc); setNewBankNameStr(bankNameStr); setShowSettings(true) }} style={{ padding: "12px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "16px" }}>⚙️</span> Cài Đặt Hệ Thống</div>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div style={{ display: "flex", gap: "15px", alignItems: "center", fontSize: "12px", fontWeight: "bold", color: "var(--text-muted)" }}>
-                  {role === 'admin' && lowStockCount > 0 && <div className="noti-bell" onClick={() => setShowStatsModal(true)} title="Có mặt hàng sắp hết!"><span style={{ fontSize: "20px" }}>🔔</span><span className="noti-badge">{lowStockCount}</span></div>}
-                  <LiveClock />
-                  <CloudStatusBadge />
-                </div>
-              </div>
-            </div>
+            
+            {/* ======================================= */}
+            {/* COMPONENT HEADER MỚI                      */}
+            {/* ======================================= */}
+            <Header 
+              role={role}
+              shift={shift}
+              totalValue={totalValue}
+              currentShiftStats={currentShiftStats}
+              setCashFlowModalInfo={setCashFlowModalInfo}
+              darkMode={darkMode}
+              setDarkMode={setDarkMode}
+              handleLogoutClick={handleLogoutClick}
+              showMainMenu={showMainMenu}
+              setShowMainMenu={setShowMainMenu}
+              setShowStatsModal={setShowStatsModal}
+              setShowCustomerModal={setShowCustomerModal}
+              setShowInventoryModal={setShowInventoryModal}
+              setShowDebtModal={setShowDebtModal}
+              setShowAuditModal={setShowAuditModal}
+              setShowExpenseModal={setShowExpenseModal}
+              setShowSupplierModal={setShowSupplierModal}
+              setShowMarketingModal={setShowMarketingModal}
+              setNewBankBin={setNewBankBin}
+              setNewBankAcc={setNewBankAcc}
+              setNewBankNameStr={setNewBankNameStr}
+              bankBin={bankBin}
+              bankAcc={bankAcc}
+              bankNameStr={bankNameStr}
+              setShowSettings={setShowSettings}
+              lowStockCount={lowStockCount}
+              isOnline={isOnline}
+              syncStatus={syncStatus}
+              syncAllOfflineData={syncAllOfflineData}
+            />
             
             <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: "10px" }}>
               <div className="glass" style={{ padding: "12px" }}>
-                <div style={{ display: "flex", gap: "15px", marginBottom: "15px", alignItems: "center" }}>
-                  <div style={{ position: "relative", flex: 1, display: "flex" }}>
-                    <input id="search-barcode" placeholder="👉 QUẸT MÃ VẠCH (F1)..." value={barcodeInput} onChange={e => { setBarcodeInput(e.target.value); setShowSuggestions(true) }} onKeyDown={handleBarcodeSubmit} onClick={() => setShowSuggestions(true)} style={{ flex: 1, padding: "10px 15px", borderRadius: "6px 0 0 6px", border: "2px solid #ef4444", fontSize: "14px", fontWeight: "bold", outline: "none", boxSizing: "border-box", color: "#ef4444" }} />
-                    <button onClick={() => setScannerMode('product')} style={{ padding: "0 15px", background: "#ef4444", border: "none", borderRadius: "0 6px 6px 0", cursor: "pointer", color: "white", fontSize: "18px" }}>📷</button>
-                    {showSuggestions && barcodeInput.trim() !== "" && (
-                      <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--bg-glass)", border: "1px solid #ef4444", borderRadius: "6px", marginTop: "4px", zIndex: 100, maxHeight: "250px", overflowY: "auto", boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.5)" }}>
-                        {products.filter(p => String(cleanName(p.name) || "").toLowerCase().includes(String(barcodeInput || "").toLowerCase()) || String(p.product_code || "").toLowerCase().includes(String(barcodeInput || "").toLowerCase())).slice(0, 10).map((p, idx) => (
-                          <div key={idx} onClick={() => handleSelectSuggest(p)} style={{ padding: "8px 12px", borderBottom: "1px solid var(--border-glass)", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }} onMouseEnter={e => e.currentTarget.style.background = 'var(--border-glass)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                            <div><div style={{ fontWeight: "bold", color: "var(--text-main)", fontSize: "13px" }}>{cleanName(p.name)}</div><div style={{ fontSize: "10px", color: "var(--text-muted)" }}>Tồn: <b style={{ color: p.stock < 10 ? "#ef4444" : "#10b981" }}>{p.stock}</b></div></div>
-                            <div style={{ fontWeight: "bold", color: "#ef4444", fontSize: "13px" }}>{getActualPrice(p).toLocaleString()}đ</div>
-                          </div>
-                        ))}
-                        {products.filter(p => String(cleanName(p.name) || "").toLowerCase().includes(String(barcodeInput || "").toLowerCase()) || String(p.product_code || "").toLowerCase().includes(String(barcodeInput || "").toLowerCase())).length === 0 && (<div style={{ padding: "10px", textAlign: "center", color: "var(--text-muted)", fontSize: "12px" }}>Không tìm thấy sản phẩm</div>)}
-                      </div>
-                    )}
-                  </div>
-                  {role === 'admin' && (
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <div onClick={() => setShowInputForm(!showInputForm)} style={{ padding: "10px 15px", borderRadius: "6px", fontWeight: "bold", color: "#ef4444", cursor: "pointer", border: "1px dashed #ef4444", fontSize: "12px", display: "flex", alignItems: "center" }}>{showInputForm ? "➖ ĐÓNG" : "➕ NHẬP LẺ"}</div>
-                      <label style={{ cursor: "pointer", padding: "10px 15px", borderRadius: "6px", fontWeight: "bold", color: "#10b981", border: "1px dashed #10b981", fontSize: "12px", display: "flex", alignItems: "center" }}>📁 TỪ FILE<input type="file" accept=".csv, .xlsx, .xls" onChange={handleFileUpload} style={{ display: "none" }} /></label>
-                      <button onClick={downloadSampleCSV} style={{ padding: "10px 15px", borderRadius: "6px", fontWeight: "bold", color: "#3b82f6", cursor: "pointer", border: "1px dashed #3b82f6", fontSize: "12px", display: "flex", alignItems: "center", background: "transparent" }}>📥 FILE MẪU</button>
-                    </div>
-                  )}
-                </div>
+                
+                {/* ======================================= */}
+                {/* COMPONENT TÌM KIẾM & NÚT CÔNG CỤ TỪ FILE  */}
+                {/* ======================================= */}
+                <ProductSearchAndActions 
+                  role={role}
+                  barcodeInput={barcodeInput}
+                  setBarcodeInput={setBarcodeInput}
+                  showSuggestions={showSuggestions}
+                  setShowSuggestions={setShowSuggestions}
+                  handleBarcodeSubmit={handleBarcodeSubmit}
+                  setScannerMode={setScannerMode}
+                  products={products}
+                  handleSelectSuggest={handleSelectSuggest}
+                  showInputForm={showInputForm}
+                  setShowInputForm={setShowInputForm}
+                  handleFileUpload={handleFileUpload}
+                  downloadSampleCSV={downloadSampleCSV}
+                />
 
+                {/* ======================================= */}
+                {/* COMPONENT FORM NHẬP LẺ                  */}
+                {/* ======================================= */}
                 {showInputForm && role === 'admin' && (
-                  <form onSubmit={handleAddProduct} style={{ background: "var(--bg-input)", padding: "15px", borderRadius: "8px", border: "1px solid var(--border-glass)", marginBottom: "15px" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr 1fr 1fr", gap: "10px", marginBottom: "10px" }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">MÃ SẢN PHẨM</span><input placeholder="VD: SP001" value={newCode} onChange={handleCodeChange} style={{ padding: "8px", borderRadius: "4px" }} /></div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">TÊN HÀNG HÓA</span><input placeholder="VD: Bia Tiger" value={newName} onChange={e => setNewName(e.target.value)} style={{ padding: "8px", borderRadius: "4px" }} /></div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">PHÂN LOẠI</span><input list="category-list" placeholder="Chọn / Nhập..." value={newCategory} onChange={e => setNewCategory(e.target.value)} style={{ padding: "8px", borderRadius: "4px" }} /><datalist id="category-list">{categories.filter(c => c !== 'Tất cả').map(c => <option key={c} value={c} />)}</datalist></div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">GIÁ VỐN (Đ)</span><input type="number" placeholder="0" value={newImportPrice} onChange={e => setNewImportPrice(e.target.value)} style={{ padding: "8px", borderRadius: "4px" }} /></div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">GIÁ BÁN (Đ)</span><input type="number" placeholder="0" value={newPrice} onChange={e => setNewPrice(e.target.value)} style={{ padding: "8px", borderRadius: "4px" }} /></div>
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.5fr 0.8fr 80px", gap: "10px" }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label-red">GIÁ KHUYẾN MÃI</span><input type="number" placeholder="0 (Bỏ trống)" value={newPromoPrice} onChange={e => setNewPromoPrice(e.target.value)} style={{ padding: "8px", borderRadius: "4px", border: "1px solid #ef4444" }} /></div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">HẠN SỬ DỤNG</span><input type="date" value={newExpiry} onChange={e => setNewExpiry(e.target.value)} style={{ padding: "8px", borderRadius: "4px", fontFamily: "sans-serif" }} /></div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label-green">ĐIỀU KIỆN & QUÀ TẶNG</span><div style={{ display: "flex", gap: "4px" }}><input type="number" placeholder="Từ..." value={newGiftCondition} onChange={e => setNewGiftCondition(e.target.value)} style={{ width: "45px", padding: "8px", borderRadius: "4px", border: "1px solid #10b981" }} title="Số lượng cần mua" /><input type="text" placeholder="Tên quà..." value={newGiftInfo} onChange={e => setNewGiftInfo(e.target.value)} style={{ flex: 1, padding: "8px", borderRadius: "4px", border: "1px solid #10b981" }} /></div></div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><span className="input-label">SỐ LƯỢNG NHẬP</span><input type="number" placeholder="0" value={newStock} onChange={e => setNewStock(e.target.value)} style={{ padding: "8px", borderRadius: "4px" }} /></div>
-                      <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end" }}><button type="submit" disabled={loading} style={{ padding: "8px", height: "35px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "4px", fontWeight: "bold", fontSize: "12px", cursor: "pointer" }}>LƯU</button></div>
-                    </div>
-                  </form>
+                  <ProductInputForm 
+                    handleAddProduct={handleAddProduct}
+                    newCode={newCode} handleCodeChange={handleCodeChange}
+                    newName={newName} setNewName={setNewName}
+                    newCategory={newCategory} setNewCategory={setNewCategory}
+                    categories={categories}
+                    newImportPrice={newImportPrice} setNewImportPrice={setNewImportPrice}
+                    newPrice={newPrice} setNewPrice={setNewPrice}
+                    newPromoPrice={newPromoPrice} setNewPromoPrice={setNewPromoPrice}
+                    newExpiry={newExpiry} setNewExpiry={setNewExpiry}
+                    newGiftCondition={newGiftCondition} setNewGiftCondition={setNewGiftCondition}
+                    newGiftInfo={newGiftInfo} setNewGiftInfo={setNewGiftInfo}
+                    newStock={newStock} setNewStock={setNewStock}
+                    loading={loading}
+                  />
                 )}
 
                 <div style={{ display: "flex", gap: "8px", marginBottom: "15px", overflowX: "auto", paddingBottom: "4px" }}>
                   {categories.map(cat => <button key={cat} onClick={() => setSelectedCategory(cat)} className={`tab-btn ${selectedCategory === cat ? 'active' : ''}`}>{cat}</button>)}
                 </div>
 
-                <div style={{ maxHeight: "calc(100vh - 220px)", overflowY: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                    <thead>
-                      <tr style={{ color: "#10b981", fontSize: "10px", borderBottom: "2px solid var(--border-glass)", position: "sticky", top: 0, background: "var(--bg-glass)", zIndex: 1 }}>
-                        <th style={{ textAlign: "left", padding: "10px 4px" }}><div style={{ display: "flex", alignItems: "center", gap: "4px", width: "max-content" }}><span onClick={() => requestSort('name')} style={{ cursor: "pointer", userSelect: "none" }}>SẢN PHẨM</span>{renderHeaderIcon('name')}</div>{renderFilterPopup('name', 'TÊN SẢN PHẨM', uniqueNames)}</th>
-                        <th style={{ textAlign: "center", padding: "10px 4px" }}><div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}><span onClick={() => requestSort('stock')} style={{ cursor: "pointer", userSelect: "none" }}>TỒN</span>{renderHeaderIcon('stock')}</div>{renderFilterPopup('stock', 'SỐ LƯỢNG TỒN', uniqueStocks)}</th>
-                        {role === 'admin' && (<th style={{ textAlign: "center", padding: "10px 4px" }}><div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}><span onClick={() => requestSort('import_price')} style={{ cursor: "pointer", userSelect: "none" }}>GIÁ VỐN</span>{renderHeaderIcon('import_price')}</div>{renderFilterPopup('import_price', 'GIÁ VỐN', uniqueImportPrices, (v) => v.toLocaleString() + 'đ')}</th>)}
-                        <th style={{ textAlign: "center", padding: "10px 4px" }}><div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}><span onClick={() => requestSort('sale_price')} style={{ cursor: "pointer", userSelect: "none" }}>GIÁ BÁN</span>{renderHeaderIcon('sale_price')}</div>{renderFilterPopup('sale_price', 'GIÁ BÁN', uniqueSalePrices, (v) => v.toLocaleString() + 'đ')}</th>
-                        <th style={{ textAlign: "center", padding: "10px 4px", lineHeight: "1.2" }}><div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}><span onClick={() => requestSort('expiry_date')} style={{ cursor: "pointer", userSelect: "none" }}>HẠN SỬ DỤNG</span>{renderHeaderIcon('expiry_date')}</div>{renderFilterPopup('expiry_date', 'HẠN SỬ DỤNG', uniqueExpiries, (v) => v ? new Date(v).toLocaleDateString('vi-VN') : '---')}</th>
-                        <th style={{ textAlign: "right", padding: "10px 4px" }}></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedAndFilteredProducts.map(p => {
-                        const isP = p.promo_price > 0; const d = Math.floor(Math.abs(new Date().getTime() - new Date(p.created_at).getTime()) / 86400000); const isOutOfStock = p.stock <= 0; const isNearExpiry = p.expiry_date && (new Date(p.expiry_date).getTime() - new Date().getTime()) / 86400000 <= 45 && !isOutOfStock; const isLowStock = p.stock > 0 && p.stock < 10; const gift = parseGift(p.gift_info); let dText = "Mới nhập hôm nay"; if (d === 1) dText = "Nhập hôm qua"; else if (d > 1) dText = `${d} ngày trước`;
-                        return (
-                          <tr key={p.id} style={{ borderBottom: "1px solid var(--border-glass)", background: isNearExpiry ? "rgba(239, 68, 68, 0.1)" : "transparent" }}>
-                            <td style={{ padding: "12px 4px" }}>
-                              <div style={{ fontSize: "14px", fontWeight: "bold" }}>{role === 'admin' ? p.name : cleanName(p.name)} {isNearExpiry && <span style={{ color: "#ef4444", fontSize: "9px", border: "1px solid #ef4444", padding: "1px 2px", borderRadius: "2px" }}>⚠️</span>} {p.isHappyHour && <span style={{ color: "#ea580c", fontSize: "9px", fontStyle: "italic" }}>[Giờ Vàng]</span>}</div>
-                              <div style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "2px" }}>{p.product_code} • <span style={{ cursor: role === 'admin' ? 'pointer' : 'default', textDecoration: role === 'admin' ? 'underline' : 'none' }} onClick={() => role === 'admin' && handleEdit(p.id, 'category', p.category || "Khác", true)}>{p.category || "Khác"}</span></div>
-                              {gift.text ? (<div style={{ fontSize: "10px", color: "#10b981", fontWeight: "bold", cursor: role === 'admin' ? 'pointer' : 'default', marginTop: "2px" }} onClick={() => role === 'admin' && handleEdit(p.id, 'gift_info', p.gift_info, true)}>🎁 Tặng: {gift.text} {gift.cond > 1 ? `(Mua ≥ ${gift.cond})` : ''}</div>) : (role === 'admin' && <div style={{ fontSize: "9px", color: "var(--border-glass)", cursor: "pointer", marginTop: "2px" }} onClick={() => handleEdit(p.id, 'gift_info', '', true)}>+ Thêm quà</div>)}
-                            </td>
-                            <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "14px", color: isOutOfStock ? "var(--text-muted)" : (isLowStock ? "#ef4444" : "var(--text-main)") }}>{p.stock} {isLowStock && <span title="Sắp hết hàng" style={{ fontSize: "10px" }}>📉</span>}</td>
-                            {role === 'admin' && <td style={{ textAlign: "center", color: "var(--text-muted)", fontSize: "12px" }}>{p.import_price?.toLocaleString()}</td>}
-                            <td style={{ textAlign: "center" }}>
-                              <div style={{ color: isP ? "var(--text-muted)" : "#10b981", textDecoration: isP ? "line-through" : "none", fontSize: isP ? "11px" : "14px", fontWeight: "bold", cursor: role === 'admin' ? "pointer" : "default" }} onClick={() => role === 'admin' && handleEdit(p.id, 'sale_price', p.sale_price)}>{p.sale_price.toLocaleString()}</div>
-                              {isP ? (<div style={{ color: "#ef4444", fontWeight: "900", fontSize: "14px", cursor: role === 'admin' ? "pointer" : "default" }} onClick={() => role === 'admin' && handleEdit(p.id, 'promo_price', p.promo_price)}>🔥 {p.promo_price.toLocaleString()}</div>) : (role === 'admin' && <div style={{ fontSize: "9px", color: "var(--border-glass)", cursor: "pointer", marginTop: "2px" }} onClick={() => handleEdit(p.id, 'promo_price', 0)}>🏷️ +Thêm KM</div>)}
-                            </td>
-                            <td style={{ textAlign: "center", fontSize: "11px" }}>
-                              <div style={{ color: isNearExpiry ? "#ef4444" : "#b91c1c", fontWeight: "bold", cursor: role === 'admin' ? "pointer" : "default" }} onClick={() => role === 'admin' && handleEdit(p.id, 'expiry_date', p.expiry_date, true)}>{isOutOfStock ? "---" : (p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : "---")}</div>
-                              <div style={{ color: "var(--text-muted)", marginTop: "2px" }}>{isOutOfStock ? "---" : dText}</div>
-                            </td>
-                            <td style={{ textAlign: "right", padding: "12px 4px" }}>
-                              <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}>
-                                <button className="add-to-cart-btn" onClick={() => addToCart(p)}>+ GIỎ</button>
-                                {role === 'admin' && <button onClick={() => handlePrintBarcode(p)} style={{ padding: "6px 8px", background: "var(--border-glass)", color: "var(--text-main)", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "11px" }} title="In tem mã vạch">🖨️ Tem</button>}
-                                {role === 'admin' && <button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "14px", padding: 0 }}>🗑️</button>}
-                              </div>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                {/* ======================================= */}
+                {/* COMPONENT BẢNG DANH SÁCH SẢN PHẨM         */}
+                {/* ======================================= */}
+                <ProductTable 
+                  role={role}
+                  sortedAndFilteredProducts={sortedAndFilteredProducts}
+                  requestSort={requestSort}
+                  handleEdit={handleEdit}
+                  addToCart={addToCart}
+                  handlePrintBarcode={handlePrintBarcode}
+                  handleDelete={handleDelete}
+                  sortConfig={sortConfig}
+                  filters={filters}
+                  setFilters={setFilters}
+                  openFilter={openFilter}
+                  setOpenFilter={setOpenFilter}
+                  uniqueNames={uniqueNames}
+                  uniqueStocks={uniqueStocks}
+                  uniqueImportPrices={uniqueImportPrices}
+                  uniqueSalePrices={uniqueSalePrices}
+                  uniqueExpiries={uniqueExpiries}
+                />
               </div>
               
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                <div className="glass" style={{ padding: "15px", flex: 1.5, minHeight: "45vh", display: "flex", flexDirection: "column" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", borderBottom: "2px dashed var(--border-glass)", paddingBottom: "12px" }}>
-                    <div style={{ display: "flex", flexDirection: "column" }}>
-                      <h3 style={{ margin: 0, color: "#ef4444", fontSize: "15px", textTransform: "uppercase" }}>🛒 GIỎ HÀNG ({cart.reduce((s, i) => s + (Number(i.qty) || 0), 0)} món)</h3>
-                      {custName && <div style={{ fontSize: "11px", color: "#10b981", fontWeight: "bold", marginTop: "2px" }}>👤 VIP: {custName} <span style={{ cursor: "pointer", color: "#ef4444", marginLeft: "4px" }} onClick={() => { setCustName(""); setCustPhone(""); setCustomerInput("") }} title="Xóa khách khỏi giỏ">✖</span></div>}
-                    </div>
-                    <div style={{ display: "flex", gap: "6px" }}>
-                      {heldOrders.length > 0 && <button onClick={() => setShowHoldModal(true)} style={{ fontSize: "10px", padding: "6px 8px", background: "var(--bg-input)", color: "#f59e0b", border: "1px solid #fde68a", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>📂 TẠM LƯU ({heldOrders.length})</button>}
-                      {cart.length > 0 && <button onClick={handleHoldOrder} style={{ fontSize: "10px", padding: "6px 8px", background: "var(--bg-input)", color: "#ea580c", border: "1px solid #fdba74", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>⏸️ LƯU TẠM (F4)</button>}
-                      {cart.length > 0 && <button onClick={clearCart} style={{ fontSize: "10px", padding: "6px 8px", background: "var(--bg-input)", color: "#ef4444", border: "1px solid #fca5a5", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>🗑️ HỦY HẾT</button>}
-                    </div>
-                  </div>
-                  
-                  {cartTotalAmountDisplay > 0 && (
-                    <div style={{ background: "rgba(239, 68, 68, 0.1)", padding: "12px 15px", borderRadius: "8px", border: "1px solid #fecaca", marginBottom: "15px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div><span style={{ fontSize: "12px", fontWeight: "bold", color: "#ef4444" }}>TỔNG CỘNG:</span><div style={{ fontSize: "24px", fontWeight: "900", color: "#ef4444" }}>{cartTotalAmountDisplay.toLocaleString()}đ</div></div>
-                      <button onClick={() => { setIsCheckoutOpen(true); setCheckoutStep(1) }} style={{ padding: "12px 25px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer", fontSize: "14px" }}>THANH TOÁN</button>
-                    </div>
-                  )}
-                  
-                  <div style={{ flex: 1, overflowY: "auto", paddingRight: "4px" }}>
-                    {cart.length === 0 && <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: "12px", marginTop: "15px" }}>Giỏ hàng trống</div>}
-                    {cart.map((item, idx) => {
-                      const gift = parseGift(item.product.gift_info); const gQty = gift.cond > 0 ? Math.floor(item.qty / gift.cond) : 0; const hasGift = gift.text && gQty > 0;
-                      return (
-                        <div key={idx} style={{ padding: "8px 0", borderBottom: "1px dashed var(--border-glass)", fontSize: "12px", display: "flex", flexDirection: "column", gap: "6px" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <span style={{ fontWeight: "bold", color: "var(--text-main)", flex: 1, fontSize: "13px" }}>{cleanName(item.product.name)} {item.product.isHappyHour && <span style={{ color: "#ea580c", fontSize: "10px" }}>[Giờ Vàng]</span>}</span>
-                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                              <button className="qty-btn" style={{background:"var(--border-glass)", border:"none", borderRadius:"4px", cursor:"pointer", color: "var(--text-main)"}} onClick={() => adjustCartQty(item.product.id, -1)}>-</button>
-                              <input className="qty-input" style={{ fontSize: "13px", padding: "4px 0", width: "32px", background:"var(--bg-input)", color:"var(--text-main)", border:"1px solid var(--border-glass)" }} type="number" value={item.qty} onChange={e => handleDirectQtyChange(item.product.id, e.target.value)} onBlur={e => handleDirectQtyBlur(item.product.id, e.target.value)} onFocus={e => e.target.select()} title="Bấm để nhập số lượng" />
-                              <button className="qty-btn" style={{background:"var(--border-glass)", border:"none", borderRadius:"4px", cursor:"pointer", color: "var(--text-main)"}} onClick={() => adjustCartQty(item.product.id, 1)}>+</button>
-                              <button onClick={() => removeFromCart(item.product.id)} style={{ border: "none", background: "none", color: "#ef4444", cursor: "pointer", fontSize: "18px", marginLeft: "4px", fontWeight: "bold" }}>×</button>
-                            </div>
-                          </div>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-                            <span>{hasGift && <span style={{ color: "#10b981", fontSize: "10px", fontStyle: "italic" }}>+ 🎁 Tặng: {gQty} x {gift.text}</span>}</span>
-                            <span style={{ color: "#ef4444", fontWeight: "bold", fontSize: "14px" }}>{Math.round(item.total).toLocaleString()}đ</span>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
                 
-                <div className="glass" style={{ padding: "15px", height: "35vh", display: "flex", flexDirection: "column" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
-                    <div style={{ display: "flex", gap: "8px", flex: 1 }}>
-                      <input placeholder="🔍 Tìm giao dịch..." value={logSearchTerm} onChange={e => setLogSearchTerm(e.target.value)} style={{ padding: "6px 10px", borderRadius: "6px", outline: "none", fontSize: "12px", flex: 1 }} />
-                      <select value={logTypeFilter} onChange={e => setLogTypeFilter(e.target.value)} style={{ padding: "6px", borderRadius: "6px", outline: "none", fontSize: "12px", fontWeight: "bold" }}>
-                        <option value="Tất cả">Tất cả</option><option value="BÁN">Bán hàng</option><option value="NHẬP">Nhập hàng</option><option value="TRẢ HÀNG">Trả hàng</option><option value="GHI NỢ">Ghi nợ</option><option value="THU NỢ">Thu nợ</option>
-                      </select>
-                      <button onClick={exportToCSV} style={{ padding: "6px 10px", background: "#10b981", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "11px" }} title="Xuất toàn bộ lịch sử">📥 EXCEL</button>
-                    </div>
-                  </div>
-                  
-                  <div style={{ flex: 1, overflowY: "auto", paddingRight: "4px" }}>
-                    {Object.keys(groupedHistory).length === 0 && <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: "11px", marginTop: "15px" }}>Không tìm thấy dữ liệu phù hợp</div>}
-                    {Object.keys(groupedHistory).map((date) => (
-                      <div key={date}>
-                        <div onClick={() => toggleDateGroup(date)} style={{ background: "var(--bg-input)", padding: "6px 10px", fontSize: "11px", fontWeight: "bold", border: "1px solid var(--border-glass)", borderRadius: "4px", marginTop: "6px", display: "flex", justifyContent: "space-between", cursor: "pointer", color: "#f59e0b" }}>
-                          <span>📅 {date}</span><span>{expandedDates[date] ?? true ? "▼" : "▶"}</span>
-                        </div>
-                        {(expandedDates[date] ?? true) && (
-                          <div style={{ padding: "0 4px" }}>
-                            {groupedHistory[date].map((log: any) => (
-                              <div key={log.id} style={{ fontSize: "11px", padding: "6px 0", borderBottom: "1px dashed var(--border-glass)", display: "flex", flexDirection: "column" }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
-                                  <span><b style={{ color: log.type === 'TRẢ HÀNG' ? '#ef4444' : 'var(--text-main)' }}>[{log.type}]</b> {cleanName(log.name)} {log.qty>0&&`x${log.qty}`} {log.refunded_qty > 0 && <span style={{ color: "#ef4444", fontSize: "9px" }}>(Đã hoàn {log.refunded_qty})</span>}</span>
-                                  {log.type === "BÁN" && <span style={{ color: "#10b981", fontWeight: "bold" }}>+{Math.round(log.total).toLocaleString()} <span style={{ fontSize: "9px", color: "var(--text-muted)", fontWeight: "normal" }}>({log.paymentMethod === 'CHUYỂN KHOẢN' ? 'CK' : (log.paymentMethod === 'KẾT HỢP' ? 'KH' : (log.paymentMethod === 'QUẸT THẺ' ? 'THẺ' : 'TM'))})</span></span>}
-                                  {log.type === "TRẢ HÀNG" && <span style={{ color: "#ef4444", fontWeight: "bold" }}>{Math.round(log.total).toLocaleString()} <span style={{ fontSize: "9px", color: "var(--text-muted)", fontWeight: "normal" }}>({log.paymentMethod === 'VÍ ĐIỂM' ? 'VÍ' : (log.paymentMethod === 'CHUYỂN KHOẢN' ? 'CK' : 'TM')})</span></span>}
-                                  {log.type === "GHI NỢ" && <span style={{ color: "#ea580c", fontWeight: "bold" }}>Nợ: {Math.round(log.total).toLocaleString()}</span>}
-                                  {log.type === "THU NỢ" && <span style={{ color: "#10b981", fontWeight: "bold" }}>+{Math.round(log.total).toLocaleString()} <span style={{ fontSize: "9px", color: "var(--text-muted)", fontWeight: "normal" }}>({log.paymentMethod === 'CHUYỂN KHOẢN' ? 'CK' : 'TM'})</span></span>}
-                                </div>
-                                <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text-muted)", marginTop: "4px", width: "100%" }}>
-                                  <span>{log.customer}</span>
-                                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                                    <span>{log.t}</span>
-                                    {log.type === 'BÁN' && log.product_id !== 'DISCOUNT' && (
-                                      <>
-                                        <button onClick={() => handleRefund(log.id)} disabled={(log.refunded_qty || 0) >= log.qty} style={{ fontSize: "9px", padding: "2px 6px", border: "1px solid var(--border-glass)", background: (log.refunded_qty || 0) >= log.qty ? "var(--bg-main)" : "var(--bg-input)", color: (log.refunded_qty || 0) >= log.qty ? "var(--text-muted)" : "var(--text-main)", cursor: (log.refunded_qty || 0) >= log.qty ? "not-allowed" : "pointer", borderRadius: "4px" }}>
-                                          {(log.refunded_qty || 0) >= log.qty ? "Đã hoàn" : `↩️ Hoàn ${log.qty - (log.refunded_qty || 0)}`}
-                                        </button>
-                                        <button onClick={() => handleReprint(log.time)} style={{ fontSize: "9px", padding: "2px 6px", border: "1px solid var(--border-glass)", background: "var(--bg-input)", color: "var(--text-main)", cursor: "pointer", borderRadius: "4px" }} title="In lại Hóa đơn thời điểm này">🖨️ In lại</button>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                {/* ======================================= */}
+                {/* COMPONENT GIỎ HÀNG (BÊN PHẢI TRÊN)        */}
+                {/* ======================================= */}
+                <CartPanel 
+                  cart={cart}
+                  custName={custName}
+                  heldOrders={heldOrders}
+                  cartTotalAmountDisplay={cartTotalAmountDisplay}
+                  setShowHoldModal={setShowHoldModal}
+                  handleHoldOrder={handleHoldOrder}
+                  clearCart={clearCart}
+                  setCustName={setCustName}
+                  setCustPhone={setCustPhone}
+                  setCustomerInput={setCustomerInput}
+                  setIsCheckoutOpen={setIsCheckoutOpen}
+                  setCheckoutStep={setCheckoutStep}
+                  adjustCartQty={adjustCartQty}
+                  handleDirectQtyChange={handleDirectQtyChange}
+                  handleDirectQtyBlur={handleDirectQtyBlur}
+                  removeFromCart={removeFromCart}
+                />
+                
+                {/* ======================================= */}
+                {/* COMPONENT LỊCH SỬ GIAO DỊCH (BÊN PHẢI DƯỚI)*/}
+                {/* ======================================= */}
+                <HistoryPanel 
+                  logSearchTerm={logSearchTerm}
+                  setLogSearchTerm={setLogSearchTerm}
+                  logTypeFilter={logTypeFilter}
+                  setLogTypeFilter={setLogTypeFilter}
+                  exportToCSV={exportToCSV}
+                  groupedHistory={groupedHistory}
+                  expandedDates={expandedDates}
+                  toggleDateGroup={toggleDateGroup}
+                  handleRefund={handleRefund}
+                  handleReprint={handleReprint}
+                />
+                
               </div>
             </div>
           </div>
