@@ -738,24 +738,117 @@ export default function App() {
       {!isLoggedIn ? (
         <div className="login-wrapper">
           <style>{`
-            .login-wrapper { min-height: 100vh; width: 100vw; display: flex; justify-content: center; align-items: center; background: transparent; font-family: 'Inter', sans-serif; position: relative; overflow: hidden; margin: 0; padding: 0; }
-            .floating-bubble { position: absolute; background: rgba(255,255,255,0.3); border-radius: 50%; animation: floatUp linear infinite; bottom: -100px; }
-            @keyframes floatUp { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; } }
-            .glass-login { background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.5); padding: 45px 35px; border-radius: 24px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1); width: 340px; text-align: center; z-index: 10; animation: fadeInUp 0.8s ease-out forwards; }
-            @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-            .login-input { width: 100%; padding: 14px 15px; margin-bottom: 15px; border-radius: 12px; border: 2px solid transparent; background: rgba(255,255,255,0.9); box-sizing: border-box; outline: none; transition: 0.3s; font-size: 14px; font-weight: 600; box-shadow: inset 0 2px 5px rgba(0,0,0,0.02); }
-            .login-input:focus { border: 2px solid #ef4444; background: #fff; box-shadow: 0 0 15px rgba(239,68,68,0.15); }
-            .login-btn-submit { width: 100%; padding: 15px; background: linear-gradient(135deg, #ef4444, #f43f5e); color: #fff; border: none; border-radius: 12px; font-weight: 900; font-size: 15px; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(239,68,68,0.3); margin-top: 10px; letter-spacing: 1px; }
-            .login-btn-submit:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(239,68,68,0.5); }
+            .login-wrapper { min-height: 100vh; width: 100vw; display: flex; justify-content: center; align-items: center; background: transparent; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; position: relative; overflow: hidden; margin: 0; padding: 0; }
+            
+            /* Bong bóng trang trí nền */
+            .floating-bubble { position: absolute; background: rgba(255,255,255,0.4); border-radius: 50%; animation: floatUp linear infinite; bottom: -120px; filter: blur(2px); }
+            @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-120vh) scale(1.2); opacity: 0; } }
+            
+            /* Form đăng nhập chính */
+            .glass-login { 
+              background: rgba(255, 255, 255, 0.95); 
+              backdrop-filter: blur(20px); 
+              border: 1px solid rgba(255, 255, 255, 0.8); 
+              padding: 40px 35px; 
+              border-radius: 20px; 
+              box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.1); 
+              width: 100%; 
+              max-width: 360px; 
+              z-index: 10; 
+              animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
+            }
+            @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+            
+            /* Tiêu đề */
+            .login-header { text-align: center; margin-bottom: 30px; }
+            .login-title { font-size: 26px; font-weight: 900; letter-spacing: -0.5px; margin: 0 0 6px 0; color: #0f172a; text-transform: uppercase; }
+            .login-title span { color: #e11d48; }
+            .login-subtitle { font-size: 13px; color: #64748b; font-weight: 500; margin: 0; }
+            
+            /* Input Group có Icon */
+            .input-group { position: relative; margin-bottom: 16px; }
+            .input-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #94a3b8; display: flex; pointer-events: none; }
+            .login-input { 
+              width: 100%; 
+              padding: 14px 14px 14px 44px; 
+              border-radius: 12px; 
+              border: 1.5px solid #e2e8f0; 
+              background: #f8fafc; 
+              box-sizing: border-box; 
+              outline: none; 
+              transition: all 0.2s ease; 
+              font-size: 14px; 
+              color: #1e293b; 
+              font-weight: 500; 
+            }
+            .login-input::placeholder { color: #94a3b8; font-weight: 400; }
+            .login-input:focus { border-color: #e11d48; background: #fff; box-shadow: 0 0 0 4px rgba(225, 29, 72, 0.1); }
+            .login-input:focus + .input-icon svg { stroke: #e11d48; }
+            
+            /* Nút submit */
+            .login-btn-submit { 
+              width: 100%; 
+              padding: 14px; 
+              background: #e11d48; 
+              color: #fff; 
+              border: none; 
+              border-radius: 12px; 
+              font-weight: 700; 
+              font-size: 14px; 
+              cursor: pointer; 
+              transition: all 0.2s ease; 
+              box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25); 
+              margin-top: 10px; 
+              display: flex; 
+              justify-content: center; 
+              align-items: center; 
+              gap: 8px;
+            }
+            .login-btn-submit:hover:not(:disabled) { background: #be123c; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(225, 29, 72, 0.35); }
+            .login-btn-submit:disabled { opacity: 0.7; cursor: not-allowed; }
           `}</style>
-          <div className="floating-bubble" style={{ width: '80px', height: '80px', left: '10%', animationDuration: '8s' }}></div><div className="floating-bubble" style={{ width: '40px', height: '40px', left: '20%', animationDuration: '5s', animationDelay: '2s' }}></div><div className="floating-bubble" style={{ width: '60px', height: '60px', left: '75%', animationDuration: '10s', animationDelay: '1s' }}></div><div className="floating-bubble" style={{ width: '120px', height: '120px', left: '85%', animationDuration: '14s', animationDelay: '4s' }}></div>
+          
+          <div className="floating-bubble" style={{ width: '100px', height: '100px', left: '10%', animationDuration: '8s' }}></div>
+          <div className="floating-bubble" style={{ width: '50px', height: '50px', left: '25%', animationDuration: '5s', animationDelay: '2s' }}></div>
+          <div className="floating-bubble" style={{ width: '80px', height: '80px', left: '70%', animationDuration: '10s', animationDelay: '1s' }}></div>
+          <div className="floating-bubble" style={{ width: '140px', height: '140px', left: '85%', animationDuration: '14s', animationDelay: '4s' }}></div>
+          
           <form className="glass-login" onSubmit={handleLogin}>
-            <div style={{ marginBottom: "30px" }}><h2 style={{ margin: "0 0 8px 0", color: "#e11d48", fontSize: "32px", fontWeight: "900", letterSpacing: "1px" }}>HẢI LÊ MART</h2><p style={{ margin: 0, fontSize: "14px", color: "#475569", fontWeight: "600" }}>🌞 Chúc bạn một ca làm việc đầy năng lượng!</p></div>
-            <input className="login-input" placeholder="📧 Tên đăng nhập (Email)..." value={authUsername} onChange={e => setAuthUsername(e.target.value)} required />
-            <input className="login-input" type="password" placeholder="🔑 Mật khẩu..." value={authPassword} onChange={e => setAuthPassword(e.target.value)} required />
-            <button className="login-btn-submit" type="submit" disabled={loading}>{loading ? "⏳ ĐANG VÀO HỆ THỐNG..." : "🚀 VÀO CA LÀM VIỆC"}</button>
+            <div className="login-header">
+              <h2 className="login-title">HẢI LÊ <span>MART</span></h2>
+              <p className="login-subtitle">Hệ thống Quản lý ERP & POS</p>
+            </div>
+            
+            <div className="input-group">
+              <input className="login-input" placeholder="Tên đăng nhập (Email)..." value={authUsername} onChange={e => setAuthUsername(e.target.value)} required />
+              <div className="input-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+              </div>
+            </div>
+            
+            <div className="input-group">
+              <input className="login-input" type="password" placeholder="Mật khẩu truy cập..." value={authPassword} onChange={e => setAuthPassword(e.target.value)} required />
+              <div className="input-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+              </div>
+            </div>
+            
+            <button className="login-btn-submit" type="submit" disabled={loading}>
+              {loading ? (
+                <>
+                  <svg style={{ animation: "spin 1s linear infinite" }} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>
+                  ĐANG KIỂM TRA...
+                </>
+              ) : (
+                <>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+                  ĐĂNG NHẬP HỆ THỐNG
+                </>
+              )}
+            </button>
           </form>
         </div>
+      ) : (
       ) : (
         <div className="no-print" style={{ padding: "15px", position: "relative", minHeight: "100vh", overflowX: "auto" }}>
           <div style={{ maxWidth: "1500px", margin: "0 auto", minWidth: "1000px" }}>
