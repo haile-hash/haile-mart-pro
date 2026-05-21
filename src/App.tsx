@@ -884,12 +884,12 @@ export default function App() {
       
       <Toaster position="top-right" reverseOrder={false} />
 
-      {/* 📱 NÚT BẤM MÃ QR (ĐÃ DỜI LÊN CÙNG HÀNG VỚI NÚT MENU Ở TRÊN CÙNG) */}
+      {/* 📱 NÚT BẤM MÃ QR (ĐÃ DỜI XUỐNG CẠNH NÚT MENU) */}
       {isLoggedIn && (
         <button 
           className="no-print" 
           onClick={() => setShowScannerLinkModal(true)} 
-          style={{ position: 'absolute', top: '15px', right: '15px', zIndex: 900, background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 15px', fontWeight: 'bold', boxShadow: '0 4px 6px -1px rgba(14, 165, 233, 0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s', fontSize: '13px' }}
+          style={{ position: 'absolute', top: '90px', left: '120px', zIndex: 900, background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 15px', fontWeight: 'bold', boxShadow: '0 4px 6px -1px rgba(14, 165, 233, 0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s', fontSize: '13px' }}
           onMouseOver={e => e.currentTarget.style.transform = 'scale(1.05)'}
           onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
         >
