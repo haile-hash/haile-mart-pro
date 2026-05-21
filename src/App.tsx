@@ -944,7 +944,7 @@ export default function App() {
         <button 
           className="no-print" 
           onClick={() => setShowScannerLinkModal(true)} 
-          style={{ position: 'absolute', top: '97px', left: '105px', zIndex: 900, background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', color: '#ffffff', border: 'none', borderRadius: '6px', padding: '0 12px', height: '32px', fontWeight: '900', boxShadow: '0 2px 4px rgba(37, 99, 235, 0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s', fontSize: '12px', textTransform: 'uppercase' }}
+          style={{ position: 'absolute', top: '97px', left: '125px', zIndex: 900, background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', color: '#ffffff', border: 'none', borderRadius: '6px', padding: '0 12px', height: '32px', fontWeight: '900', boxShadow: '0 2px 4px rgba(37, 99, 235, 0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s', fontSize: '12px', textTransform: 'uppercase' }}
           onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 8px rgba(37, 99, 235, 0.4)'; }}
           onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 4px rgba(37, 99, 235, 0.3)'; }}
         >
@@ -959,12 +959,12 @@ export default function App() {
         </button>
       )}
 
-      {/* 📦 NÚT BẤM MỞ PHIẾU NHẬP HÀNG (PO) - ĐẶT CẠNH MÁY QUÉT */}
+      {/* 📦 NÚT BẤM MỞ PHIẾU NHẬP HÀNG (PO) */}
       {isLoggedIn && role === 'admin' && (
         <button 
           className="no-print" 
           onClick={() => setShowPOModal(true)} 
-          style={{ position: 'absolute', top: '97px', left: '220px', zIndex: 900, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#ffffff', border: 'none', borderRadius: '6px', padding: '0 12px', height: '32px', fontWeight: '900', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s', fontSize: '12px', textTransform: 'uppercase' }}
+          style={{ position: 'absolute', top: '97px', left: '245px', zIndex: 900, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#ffffff', border: 'none', borderRadius: '6px', padding: '0 12px', height: '32px', fontWeight: '900', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s', fontSize: '12px', textTransform: 'uppercase' }}
           onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 8px rgba(5, 150, 105, 0.4)'; }}
           onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 4px rgba(5, 150, 105, 0.3)'; }}
         >
@@ -976,7 +976,6 @@ export default function App() {
           NHẬP LÔ PO
         </button>
       )}
-
       <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} />
       
       {renderPrintArea()}
