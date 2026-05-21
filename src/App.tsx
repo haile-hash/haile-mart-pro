@@ -884,12 +884,31 @@ export default function App() {
       
       <Toaster position="top-right" reverseOrder={false} />
 
-      {/* 📱 NÚT BẤM MÃ QR (ĐÃ DỜI XUỐNG CẠNH NÚT MENU) */}
+      {/* 📱 NÚT BẤM MÃ QR (ĐÃ CHỈNH LẠI THẲNG HÀNG TẮP VỚI MENU) */}
       {isLoggedIn && (
         <button 
           className="no-print" 
           onClick={() => setShowScannerLinkModal(true)} 
-          style={{ position: 'absolute', top: '100px', left: '150px', zIndex: 900, background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 15px', fontWeight: 'bold', boxShadow: '0 4px 6px -1px rgba(14, 165, 233, 0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s', fontSize: '13px' }}
+          style={{ 
+            position: 'absolute', 
+            top: '96px',      /* Đẩy xuống 6px để bằng mép trên với MENU */
+            left: '115px',    /* Xích lại gần MENU một chút cho vừa vặn */
+            zIndex: 900, 
+            background: '#0ea5e9', 
+            color: '#fff', 
+            border: 'none', 
+            borderRadius: '8px', 
+            padding: '0 15px', 
+            height: '36px',   /* Cố định chiều cao ngang bằng nút MENU */
+            fontWeight: 'bold', 
+            boxShadow: '0 4px 6px -1px rgba(14, 165, 233, 0.3)', 
+            cursor: 'pointer', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '6px', 
+            transition: 'all 0.2s', 
+            fontSize: '13px' 
+          }}
           onMouseOver={e => e.currentTarget.style.transform = 'scale(1.05)'}
           onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
         >
