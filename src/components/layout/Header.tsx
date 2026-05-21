@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-// 1. COMPONENT ĐỒNG HỒ (Chỉ dùng nội bộ trong Header)
+// 1. COMPONENT ĐỒNG HỒ
 const LiveClock = () => {
   const [time, setTime] = useState(new Date());
   useEffect(() => {
@@ -14,7 +14,7 @@ const LiveClock = () => {
   );
 };
 
-// 2. INTERFACE ĐỊNH NGHĨA CÁC DỮ LIỆU APP.TSX TRUYỀN XUỐNG
+// 2. INTERFACE ĐỊNH NGHĨA
 interface HeaderProps {
   role: string;
   shift: string;
@@ -25,11 +25,9 @@ interface HeaderProps {
   setDarkMode: (val: boolean) => void;
   handleLogoutClick: () => void;
   
-  // Các state quản lý Menu
   showMainMenu: boolean;
   setShowMainMenu: (val: boolean) => void;
   
-  // Các hàm mở Modal chức năng
   setShowStatsModal: (val: boolean) => void;
   setShowCustomerModal: (val: boolean) => void;
   setShowInventoryModal: (val: boolean) => void;
@@ -40,7 +38,6 @@ interface HeaderProps {
   setShowMarketingModal: (val: boolean) => void;
   setShowSettings: (val: boolean) => void;
   
-  // Cài đặt hệ thống
   setNewBankBin: (val: string) => void;
   setNewBankAcc: (val: string) => void;
   setNewBankNameStr: (val: string) => void;
@@ -48,7 +45,6 @@ interface HeaderProps {
   bankAcc: string;
   bankNameStr: string;
   
-  // Thông báo & Trạng thái mạng
   lowStockCount: number;
   isOnline: boolean;
   syncStatus: string;
@@ -66,7 +62,6 @@ export const Header: React.FC<HeaderProps> = ({
   bankBin, bankAcc, bankNameStr,
   lowStockCount, isOnline, syncStatus, syncAllOfflineData
 }) => {
-  // Quản lý nhạc nền tích hợp thẳng vào Header
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const bgMusicRef = useRef<HTMLAudioElement>(null);
 
@@ -105,11 +100,13 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <h1 style={{ margin: 0, fontSize: "22px", fontWeight: "900", letterSpacing: "0.5px", color: "var(--text-main)", lineHeight: "1", whiteSpace: "nowrap" }}>
-              {[..."HẢI LÊ "].map((c, i) => <span key={i} style={{ display: "inline-block", animation: `wave 1.5s ease-in-out ${i * 0.06}s infinite` }}>{c === ' ' ? '\u00A0' : c}</span>)}
-              <span style={{ color: "#dc2626" }}>{[..."MART"].map((c, i) => <span key={i} style={{ display: "inline-block", animation: `wave 1.5s ease-in-out ${(i + 7) * 0.06}s infinite` }}>{c === ' ' ? '\u00A0' : c}</span>)}</span>
+              {/* ĐÃ FIX TS2569 BẰNG .split("") */}
+              {"HẢI LÊ ".split("").map((c, i) => <span key={i} style={{ display: "inline-block", animation: `wave 1.5s ease-in-out ${i * 0.06}s infinite` }}>{c === ' ' ? '\u00A0' : c}</span>)}
+              <span style={{ color: "#dc2626" }}>{"MART".split("").map((c, i) => <span key={i} style={{ display: "inline-block", animation: `wave 1.5s ease-in-out ${(i + 7) * 0.06}s infinite` }}>{c === ' ' ? '\u00A0' : c}</span>)}</span>
             </h1>
             <div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "800", letterSpacing: "3px", textTransform: "uppercase", marginTop: "4px", whiteSpace: "nowrap" }}>
-              {[..."ERP System"].map((c, i) => <span key={i} style={{ display: "inline-block", animation: `wave 1.5s ease-in-out ${(i + 11) * 0.06}s infinite` }}>{c === ' ' ? '\u00A0' : c}</span>)}
+              {/* ĐÃ FIX TS2569 BẰNG .split("") */}
+              {"ERP System".split("").map((c, i) => <span key={i} style={{ display: "inline-block", animation: `wave 1.5s ease-in-out ${(i + 11) * 0.06}s infinite` }}>{c === ' ' ? '\u00A0' : c}</span>)}
             </div>
           </div>
         </div>
