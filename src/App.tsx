@@ -892,7 +892,7 @@ export default function App() {
           style={{ 
             position: 'absolute', 
             top: '96px',      /* Đẩy xuống 6px để bằng mép trên với MENU */
-            left: '115px',    /* Xích lại gần MENU một chút cho vừa vặn */
+            left: '150px',    /* Xích lại gần MENU một chút cho vừa vặn */
             zIndex: 900, 
             background: '#0ea5e9', 
             color: '#fff', 
