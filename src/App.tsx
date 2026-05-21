@@ -38,8 +38,8 @@ export default function App() {
   const [shift, setShift] = useState(() => localStorage.getItem("mart_shift") || "Ca Sáng");
   const [authUsername, setAuthUsername] = useState("");
   const [authPassword, setAuthPassword] = useState("");
-  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
-  const bgMusicRef = useRef(null);
+  
+  
   const [startingCash, setStartingCash] = useState<number>(() => { const cached = localStorage.getItem("mart_starting_cash"); return (cached && cached !== "0") ? Number(cached) : 5000000; });
   const [bankBin, setBankBin] = useState(() => localStorage.getItem("mart_bank_bin") || "970422");
   const [bankAcc, setBankAcc] = useState(() => localStorage.getItem("mart_bank_acc") || "0680124181004");
@@ -729,7 +729,7 @@ export default function App() {
       `}</style>
       <div className="animated-bg-mesh"></div>
 
-      <audio ref={bgMusicRef} loop src="/Windy Hill.mp3" preload="auto" />
+     
       <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} />
       
       {renderPrintArea()}
