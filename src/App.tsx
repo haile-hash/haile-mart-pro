@@ -42,6 +42,9 @@ import { PinModal } from "./components/modals/PinModal";
 import { ScannerLinkModal } from "./components/modals/ScannerLinkModal"; 
 import { MobileScanner } from "./components/MobileScanner"; 
 
+// 📦 IMPORT MODAL NHẬP HÀNG
+import { PurchaseOrderModal } from "./components/modals/PurchaseOrderModal";
+
 export default function App() {
   if (typeof window !== "undefined" && window.location.search.includes("scanner=true")) {
     return <MobileScanner />;
@@ -81,6 +84,7 @@ export default function App() {
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   
   const [showScannerLinkModal, setShowScannerLinkModal] = useState(false);
+  const [showPOModal, setShowPOModal] = useState(false); // 📦 State cho PO Modal
 
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -109,9 +113,7 @@ export default function App() {
   const [logSearchTerm, setLogSearchTerm] = useState("");
   const [logTypeFilter, setLogTypeFilter] = useState("Tất cả");
   
-  // 🚀 ĐÂY LÀ HÀNG ĐỢI (QUEUE) ĐỂ XỬ LÝ QUÉT NHIỀU MÃ CÙNG LÚC MÀ KHÔNG BỊ RỚT NHỊP
   const [scanQueue, setScanQueue] = useState<string[]>([]);
-  
   const [scanMessage, setScanMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
   const [printBarcodeProduct, setPrintBarcodeProduct] = useState<Product | null>(null);
   const [printCustomer, setPrintCustomer] = useState<Customer | null>(null);
@@ -145,7 +147,7 @@ export default function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isLoggedIn || isCheckoutOpen || showPinModal || showAuditModal || showCustomerModal || showSettings || showInputForm || showInventoryModal || cashFlowModalInfo) return;
+      if (!isLoggedIn || isCheckoutOpen || showPinModal || showAuditModal || showCustomerModal || showSettings || showInputForm || showInventoryModal || cashFlowModalInfo || showPOModal) return;
       if (e.key === 'F1') { e.preventDefault(); document.getElementById('search-barcode')?.focus(); }
       if (e.key === 'F2') { e.preventDefault(); if (cart.length > 0) confirmCheckout('TIỀN MẶT'); }
       if (e.key === 'F3') { e.preventDefault(); if (cart.length > 0) confirmCheckout('CHUYỂN KHOẢN'); }
@@ -153,7 +155,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isLoggedIn, isCheckoutOpen, showPinModal, cart, showAuditModal, showCustomerModal, showSettings, showInputForm, showInventoryModal, cashFlowModalInfo]);
+  }, [isLoggedIn, isCheckoutOpen, showPinModal, cart, showAuditModal, showCustomerModal, showSettings, showInputForm, showInventoryModal, cashFlowModalInfo, showPOModal]);
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -168,7 +170,6 @@ export default function App() {
         .on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData())
         .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData())
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload) => {
-           // Ném mã mới vào hàng đợi để không bị trôi
            setScanQueue(prev => [...prev, payload.new.code]);
         })
         .subscribe();
@@ -188,7 +189,6 @@ export default function App() {
     }
   }, [scannerMode]);
 
-  // 🚀 THUẬT TOÁN XỬ LÝ HÀNG ĐỢI QUÉT MÃ TUẦN TỰ (CHỐNG LỖI MẤT NHỊP)
   useEffect(() => {
     if (scanQueue.length > 0) {
       const currentCode = scanQueue[0];
@@ -209,11 +209,9 @@ export default function App() {
       
       setTimeout(() => setScannerMode(null), 1000);
       setTimeout(() => setScanMessage(null), 1500);
-
-      // Xử lý xong 1 mã thì rút mã đó ra khỏi hàng đợi để tiếp tục xử lý mã tiếp theo
       setScanQueue(prev => prev.slice(1));
     }
-  }, [scanQueue, products, scannerMode]); // Chạy lại liên tục mỗi khi hàng đợi có món mới
+  }, [scanQueue, products, scannerMode]);
 
   useEffect(() => { const handleAfterPrint = () => setPrintMode(null); window.addEventListener("afterprint", handleAfterPrint); return () => window.removeEventListener("afterprint", handleAfterPrint) }, []);
 
@@ -385,6 +383,50 @@ export default function App() {
   const addExpense = async () => { if (!expName || !expAmount) return toast.error("Vui lòng nhập chi phí!"); const newE = { id: Date.now(), date: new Date().toLocaleDateString('vi-VN'), name: expName, amount: Number(expAmount) }; setExpenses(prev => [newE, ...prev]); setExpName(""); setExpAmount(""); logAudit("GHI CHI PHÍ", `${expName}: ${expAmount}đ`, newE); toast.success("Đã ghi nhận!"); };
   const deleteExpense = async (id: any) => { setExpenses(prev => prev.filter(e => e.id !== id)); if (navigator.onLine) await supabase.from('expenses').delete().eq('id', id); };
   
+  // 📦 HÀM LƯU PHIẾU NHẬP HÀNG (PO) VÀ CỘNG KHO/CÔNG NỢ
+  const handleSavePO = async (supplier: any, items: any[], totalAmount: number, paidAmount: number, note: string) => {
+    if (!navigator.onLine) return toast.error("Cần mạng để lưu Phiếu Nhập Hàng!");
+    setLoading(true);
+    try {
+      const debtAmount = totalAmount - paidAmount;
+      const poCode = "PO" + Date.now().toString().slice(-6);
+      
+      await supabase.from('purchase_orders').insert([{
+        po_code: poCode,
+        supplier_name: supplier.name,
+        supplier_phone: supplier.phone,
+        total_amount: totalAmount,
+        paid_amount: paidAmount,
+        debt_amount: debtAmount,
+        note: note
+      }]);
+
+      if (debtAmount > 0) {
+        const newDebt = (supplier.debt || 0) + debtAmount;
+        await supabase.from('suppliers').update({ debt: newDebt }).eq('id', supplier.id);
+        setSuppliers(prev => prev.map(s => s.id === supplier.id ? { ...s, debt: newDebt } : s));
+      }
+
+      for (const item of items) {
+        const p = products.find(x => x.id === item.product.id);
+        if (p) {
+          const newStock = p.stock + item.qty;
+          await supabase.from('products').update({ stock: newStock, import_price: item.importPrice }).eq('id', p.id);
+          const lg = { id: Date.now() + Math.random(), shift: shift, type: "NHẬP PO", name: p.name, qty: item.qty, total: item.qty * item.importPrice, time: new Date().toLocaleString('vi-VN') } as any; 
+          setHistory(prev => [lg, ...prev]);
+        }
+      }
+
+      logAudit("NHẬP HÀNG PO", `Mã ${poCode} từ ${supplier.name} (Nợ: ${debtAmount.toLocaleString()}đ)`);
+      toast.success("Đã lưu Phiếu Nhập & Cộng Kho thành công!");
+      fetchProducts();
+      setShowPOModal(false);
+    } catch(err: any) {
+       toast.error("Lỗi hệ thống: " + err.message);
+    }
+    setLoading(false);
+  };
+
   const sendMarketingEmails = async () => {
     if (!marketingMsg) return toast.error("Vui lòng nhập nội dung!"); if (!window.confirm("Giới hạn 200 mail/tháng. Gửi?")) return;
     setLoading(true); const targetCustomers = Object.keys(customers).filter(phone => { const c = customers[phone]; if (!c.email) return false; if (marketingTier === "Tất cả") return true; return getCustomerTier(c.totalSpent).name.includes(marketingTier) });
@@ -876,6 +918,11 @@ export default function App() {
       <ScannerLinkModal 
         showModal={showScannerLinkModal} setShowModal={setShowScannerLinkModal} 
       />
+
+      {/* 📦 RENDER BẢNG PHIẾU NHẬP HÀNG (PO) */}
+      <PurchaseOrderModal 
+        showModal={showPOModal} setShowModal={setShowPOModal} suppliers={suppliers} products={products} handleSavePO={handleSavePO} loading={loading}
+      />
     </>
   );
 
@@ -892,32 +939,12 @@ export default function App() {
       
       <Toaster position="top-right" reverseOrder={false} />
 
-      {/* 📱 NÚT BẤM MÁY QUÉT (ĐÃ ĐÚC CÙNG KHUÔN VỚI NÚT MENU) */}
+      {/* 📱 NÚT BẤM MÁY QUÉT */}
       {isLoggedIn && (
         <button 
           className="no-print" 
           onClick={() => setShowScannerLinkModal(true)} 
-          style={{ 
-            position: 'absolute', 
-            top: '98.5px',         /* Chỉnh cao độ cho bằng mép MENU */
-            left: '145px',       /* Xích lại gần MENU vì nút đã nhỏ lại */
-            zIndex: 900, 
-            background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', 
-            color: '#ffffff', 
-            border: 'none', 
-            borderRadius: '6px', /* Bo góc 6px giống hệt MENU */
-            padding: '0 12px',   
-            height: '32px',      /* Ép chiều cao xuống 32px bằng đúng MENU */
-            fontWeight: '900',   /* In đậm tối đa (Black) giống chữ MENU */
-            boxShadow: '0 2px 4px rgba(37, 99, 235, 0.3)', 
-            cursor: 'pointer', 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '6px', 
-            transition: 'all 0.2s', 
-            fontSize: '12px',    /* Ép size chữ nhỏ lại bằng MENU */
-            textTransform: 'uppercase'
-          }}
+          style={{ position: 'absolute', top: '97px', left: '105px', zIndex: 900, background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', color: '#ffffff', border: 'none', borderRadius: '6px', padding: '0 12px', height: '32px', fontWeight: '900', boxShadow: '0 2px 4px rgba(37, 99, 235, 0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s', fontSize: '12px', textTransform: 'uppercase' }}
           onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 8px rgba(37, 99, 235, 0.4)'; }}
           onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 4px rgba(37, 99, 235, 0.3)'; }}
         >
@@ -929,6 +956,24 @@ export default function App() {
             <line x1="7" y1="12" x2="17" y2="12"></line>
           </svg>
           MÁY QUÉT
+        </button>
+      )}
+
+      {/* 📦 NÚT BẤM MỞ PHIẾU NHẬP HÀNG (PO) - ĐẶT CẠNH MÁY QUÉT */}
+      {isLoggedIn && role === 'admin' && (
+        <button 
+          className="no-print" 
+          onClick={() => setShowPOModal(true)} 
+          style={{ position: 'absolute', top: '97px', left: '220px', zIndex: 900, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#ffffff', border: 'none', borderRadius: '6px', padding: '0 12px', height: '32px', fontWeight: '900', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s', fontSize: '12px', textTransform: 'uppercase' }}
+          onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 8px rgba(5, 150, 105, 0.4)'; }}
+          onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 4px rgba(5, 150, 105, 0.3)'; }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="21 8 21 21 3 21 3 8"></polyline>
+            <rect x="1" y="3" width="22" height="5"></rect>
+            <line x1="10" y1="12" x2="14" y2="12"></line>
+          </svg>
+          NHẬP LÔ PO
         </button>
       )}
 
