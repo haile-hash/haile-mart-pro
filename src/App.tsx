@@ -8,12 +8,12 @@ import {
 } from "./utils/helpers";
 import { useOfflineSync } from "./hooks/useOfflineSync";
 
-// CÁC CUSTOM HOOKS MỚI TẠO ĐỂ DỌN DẸP STATE
+// CÁC CUSTOM HOOKS
 import { useUIState } from "./hooks/useUIState";
 import { useProductInput } from "./hooks/useProductInput";
 import { useCheckoutState } from "./hooks/useCheckoutState";
 
-// CÁC COMPONENT GIAO DIỆN (UI) MỚI TÁCH
+// CÁC COMPONENT GIAO DIỆN (UI)
 import { Header } from "./components/layout/Header";
 import { ProductSearchAndActions } from "./components/products/ProductSearchAndActions";
 import { ProductInputForm } from "./components/products/ProductInputForm";
@@ -21,7 +21,7 @@ import { ProductTable } from "./components/products/ProductTable";
 import { CartPanel } from "./components/cart/CartPanel";
 import { HistoryPanel } from "./components/history/HistoryPanel";
 
-// CÁC MODALS NỘI BỘ MỚI TÁCH
+// CÁC MODALS
 import { CashFlowModal } from "./components/modals/CashFlowModal";
 import { AuditDetailModal } from "./components/modals/AuditDetailModal";
 import { HoldOrdersModal } from "./components/modals/HoldOrdersModal";
@@ -32,8 +32,6 @@ import { CustomerModal } from "./components/modals/CustomerModal";
 import { DebtModal } from "./components/modals/DebtModal";
 import { AuditModal } from "./components/modals/AuditModal";
 import { ScannerModal } from "./components/modals/ScannerModal";
-
-// CÁC MODALS LỚN ĐÃ CÓ SẴN
 import { HandoverModal } from "./components/modals/HandoverModal";
 import { ExpenseModal } from "./components/modals/ExpenseModal";
 import { SupplierModal } from "./components/modals/SupplierModal";
@@ -42,13 +40,13 @@ import { SettingsModal } from "./components/modals/SettingsModal";
 
 export default function App() {
   const VAT_RATE = 0.1;
-  const EMAILJS_SERVICE_ID = process.env.REACT_APP_EMAILJS_SERVICE_ID || "service_7ie990l";
-  const EMAILJS_TEMPLATE_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_ID || "template_t91erhg";
-  const EMAILJS_TEMPLATE_VIP_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_VIP_ID || "template_m1j9i7k";
-  const EMAILJS_PUBLIC_KEY = process.env.REACT_APP_EMAILJS_PUBLIC_KEY || "5ric0kxuwNPlUleAv";
+  const EMAILJS_SERVICE_ID = process.env.REACT_APP_EMAILJS_SERVICE_ID;
+  const EMAILJS_TEMPLATE_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_ID;
+  const EMAILJS_TEMPLATE_VIP_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_VIP_ID;
+  const EMAILJS_PUBLIC_KEY = process.env.REACT_APP_EMAILJS_PUBLIC_KEY;
   
   // =====================================================================
-  // 1. STATE CỦA ỨNG DỤNG (Đã được gom nhóm tối ưu)
+  // 1. STATE CỦA ỨNG DỤNG
   // =====================================================================
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem("mart_logged_in") === "true");
   const [role, setRole] = useState(() => localStorage.getItem("mart_role") || "staff");
@@ -57,13 +55,15 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState("");
   
   const [startingCash, setStartingCash] = useState<number>(() => { const cached = localStorage.getItem("mart_starting_cash"); return (cached && cached !== "0") ? Number(cached) : 5000000; });
-  const [bankBin, setBankBin] = useState(() => localStorage.getItem("mart_bank_bin") || "970422");
-  const [bankAcc, setBankAcc] = useState(() => localStorage.getItem("mart_bank_acc") || "0680124181004");
-  const [bankNameStr, setBankNameStr] = useState(() => localStorage.getItem("mart_bank_name") || "LE HONG HAI");
+  
+  // 🚀 TRỐNG MẶC ĐỊNH - CHỜ TẢI TỪ CLOUD VỀ ĐỂ BẢO MẬT
+  const [bankBin, setBankBin] = useState("");
+  const [bankAcc, setBankAcc] = useState("");
+  const [bankNameStr, setBankNameStr] = useState("");
 
-  const [newBankBin, setNewBankBin] = useState(() => localStorage.getItem("mart_bank_bin") || "970422");
-  const [newBankAcc, setNewBankAcc] = useState(() => localStorage.getItem("mart_bank_acc") || "0680124181004");
-  const [newBankNameStr, setNewBankNameStr] = useState(() => localStorage.getItem("mart_bank_name") || "LE HONG HAI");
+  const [newBankBin, setNewBankBin] = useState("");
+  const [newBankAcc, setNewBankAcc] = useState("");
+  const [newBankNameStr, setNewBankNameStr] = useState("");
 
   const [products, setProducts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -98,7 +98,6 @@ export default function App() {
   const [barcodeCount, setBarcodeCount] = useState<number>(30);
   const [selectedAuditLog, setSelectedAuditLog] = useState<any>(null);
 
-  // 🚀 Bung dữ liệu từ Custom Hooks
   const { darkMode, setDarkMode, showSettings, setShowSettings, showInputForm, setShowInputForm, showDebtModal, setShowDebtModal, showStatsModal, setShowStatsModal, showCustomerModal, setShowCustomerModal, showHandoverModal, setShowHandoverModal, showAuditModal, setShowAuditModal, showHoldModal, setShowHoldModal, showExpenseModal, setShowExpenseModal, showSupplierModal, setShowSupplierModal, showMarketingModal, setShowMarketingModal, showInventoryModal, setShowInventoryModal, showMainMenu, setShowMainMenu, cashFlowModalInfo, setCashFlowModalInfo, scannerMode, setScannerMode, printMode, setPrintMode } = useUIState();
   const { newCode, setNewCode, newName, setNewName, newImportPrice, setNewImportPrice, newPrice, setNewPrice, newPromoPrice, setNewPromoPrice, newGiftCondition, setNewGiftCondition, newGiftInfo, setNewGiftInfo, newStock, setNewStock, newExpiry, setNewExpiry, newCategory, setNewCategory, resetProductForm } = useProductInput();
   const { cart, setCart, barcodeInput, setBarcodeInput, isCheckoutOpen, setIsCheckoutOpen, checkoutStep, setCheckoutStep, customerInput, setCustomerInput, custPhone, setCustPhone, custName, setCustName, useWallet, setUseWallet, voucherInput, setVoucherInput, appliedVoucherAmount, setAppliedVoucherAmount, customerGiven, setCustomerGiven, lastOrder, setLastOrder, resetCheckout } = useCheckoutState();
@@ -138,9 +137,12 @@ export default function App() {
 
   useEffect(() => {
     if (isLoggedIn) {
-      fetchProducts(); loadCloudData();
+      fetchProducts(); 
+      loadCloudData(); 
+      fetchSettingsFromCloud(); // Tải tự động số TK ngân hàng
+      
       const channel = supabase.channel("db_changes").on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts()).on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData()).subscribe();
-      const script = document.createElement("script"); script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"; script.onload = () => { (window as any).emailjs.init(EMAILJS_PUBLIC_KEY); }; document.head.appendChild(script);
+      const script = document.createElement("script"); script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"; script.onload = () => { (window as any).emailjs.init(EMAILJS_PUBLIC_KEY || "5ric0kxuwNPlUleAv"); }; document.head.appendChild(script);
       const xlsxScript = document.createElement("script"); xlsxScript.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; document.head.appendChild(xlsxScript);
       return () => { supabase.removeChannel(channel) };
     }
@@ -264,6 +266,40 @@ export default function App() {
   // =====================================================================
   // 4. ACTION FUNCTIONS (HÀM XỬ LÝ SỰ KIỆN)
   // =====================================================================
+  // 🚀 TẢI VÀ LƯU CẤU HÌNH NGÂN HÀNG LÊN SUPABASE
+  const fetchSettingsFromCloud = async () => {
+    try {
+      const { data, error } = await supabase.from("settings").select("*").eq("id", 1).single();
+      if (data) {
+        setBankBin(data.bank_bin); setBankAcc(data.bank_acc); setBankNameStr(data.bank_name_str);
+        setNewBankBin(data.bank_bin); setNewBankAcc(data.bank_acc); setNewBankNameStr(data.bank_name_str);
+      }
+      if (error) console.error("Lỗi tải settings:", error);
+    } catch (err) { console.error(err); }
+  };
+
+  const updateSettingsToCloud = async (bin: string, acc: string, nameStr: string) => {
+    if (!navigator.onLine) return alert("Mất mạng! Không thể lưu cài đặt lên Cloud.");
+    setLoading(true);
+    try {
+      const { error } = await supabase.from("settings").update({ bank_bin: bin, bank_acc: acc, bank_name_str: nameStr, updated_at: new Date().toISOString() }).eq("id", 1);
+      if (!error) {
+        setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr);
+        logAudit("CÀI ĐẶT", "Cập nhật Cấu hình hệ thống lên Cloud");
+        alert("✅ Đã lưu cấu hình bảo mật lên mây thành công!");
+        setShowSettings(false);
+      } else { alert("❌ Lỗi lưu dữ liệu: " + error.message); }
+    } catch (err) { console.error(err); } finally { setLoading(false); }
+  };
+
+  const saveSettings = () => { 
+    const bin = newBankBin.trim();
+    const acc = newBankAcc.trim();
+    const nameStr = newBankNameStr.trim().toUpperCase();
+    if (!bin || !acc || !nameStr) return alert("Vui lòng điền đầy đủ thông tin tài khoản ngân hàng!");
+    updateSettingsToCloud(bin, acc, nameStr);
+  };
+
   const logAudit = async (action: string, detail: string, extraData: any = null) => { const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user_name: role === 'admin' ? 'Quản lý' : 'Thu ngân', shift, action, detail, extra_data: extraData ? JSON.stringify(extraData) : null }; setAuditLogs(prev => [newLog, ...prev].slice(0, 300)); };
   const fetchProducts = async () => { const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false }); if (data) setProducts(data) };
   const findProductByCode = (code: string) => { const rawCode = code.trim(); let matches = products.filter(prod => prod.product_code === rawCode || String(prod.product_code).startsWith(`${rawCode}-`)); let available = matches.filter(p => p.stock > 0); if (available.length > 0) { available.sort((a, b) => { if (!a.expiry_date) return 1; if (!b.expiry_date) return -1; return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime() }); return available[0] } return matches.length > 0 ? matches[0] : null };
@@ -284,8 +320,6 @@ export default function App() {
     for (const phone of targetCustomers) { const c = customers[phone]; try { await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { to_email: c.email, order_id: "THÔNG BÁO ƯU ĐÃI", time: new Date().toLocaleString('vi-VN'), items_list: `💌 Lời nhắn từ Hải Lê Mart:\n\n${marketingMsg}`, total_amount: "Quà Tặng", payment_method: "Khách VIP", change_amount: "0đ", barcode_url: "" }); successCount++ } catch (error: any) { console.error("EmailJS Error", error); } }
     logAudit("GỬI MAIL MKT", `Gửi ${successCount} mail cho tập ${marketingTier}`); setLoading(false); setShowMarketingModal(false); alert(`✅ Đã gửi ${successCount} mail!`)
   };
-  
-  const saveSettings = () => { if (!newBankBin || !newBankAcc || !newBankNameStr) return alert("Điền đủ!"); setBankBin(newBankBin); localStorage.setItem("mart_bank_bin", newBankBin); setBankAcc(newBankAcc); localStorage.setItem("mart_bank_acc", newBankAcc); setBankNameStr(newBankNameStr); localStorage.setItem("mart_bank_name", newBankNameStr); logAudit("CÀI ĐẶT", "Cập nhật Cấu hình"); alert("✅ Đã lưu!"); setShowSettings(false) };
   
   const handleHoldOrder = async () => { if (cart.length === 0) return; const newO = { id: Date.now(), time: new Date().toLocaleTimeString('vi-VN'), cart: [...cart] }; setHeldOrders(prev => [...prev, newO]); logAudit("LƯU TẠM", `Lưu giỏ ${cart.length} món`); resetCheckout(); };
   const restoreOrder = async (order: any) => { if (cart.length > 0) return alert("Thanh toán giỏ hiện tại trước!"); setCart(order.cart); setHeldOrders(prev => prev.filter(o => o.id !== order.id)); if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', order.id); setShowHoldModal(false); };
