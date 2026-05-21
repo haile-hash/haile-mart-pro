@@ -900,7 +900,7 @@ export default function App() {
           style={{ 
             position: 'absolute', 
             top: '94px',      
-            left: '110px',    
+            left: '150px',    
             zIndex: 900, 
             background: '#ffffff', 
             color: '#1e3a8a', /* Chữ xanh biển đậm đồng bộ với MENU */
