@@ -39,7 +39,6 @@ export default function App() {
   const [authUsername, setAuthUsername] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   
-  
   const [startingCash, setStartingCash] = useState<number>(() => { const cached = localStorage.getItem("mart_starting_cash"); return (cached && cached !== "0") ? Number(cached) : 5000000; });
   const [bankBin, setBankBin] = useState(() => localStorage.getItem("mart_bank_bin") || "970422");
   const [bankAcc, setBankAcc] = useState(() => localStorage.getItem("mart_bank_acc") || "0680124181004");
@@ -209,7 +208,6 @@ export default function App() {
   }, [history, shift, todayStrStr, startingCash]);
 
   const currentShiftCashFlow = useMemo(() => {
-    // (Giữ nguyên logic cũ của bạn)
     if (!cashFlowModalInfo) return { thu: [], chi: [] };
     const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStrStr && h.shift === shift);
     const thu: any[] = []; const chi: any[] = [];
@@ -729,7 +727,6 @@ export default function App() {
       `}</style>
       <div className="animated-bg-mesh"></div>
 
-     
       <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} />
       
       {renderPrintArea()}
@@ -739,71 +736,21 @@ export default function App() {
         <div className="login-wrapper">
           <style>{`
             .login-wrapper { min-height: 100vh; width: 100vw; display: flex; justify-content: center; align-items: center; background: transparent; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; position: relative; overflow: hidden; margin: 0; padding: 0; }
-            
-            /* Bong bóng trang trí nền */
             .floating-bubble { position: absolute; background: rgba(255,255,255,0.4); border-radius: 50%; animation: floatUp linear infinite; bottom: -120px; filter: blur(2px); }
             @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-120vh) scale(1.2); opacity: 0; } }
-            
-            /* Form đăng nhập chính */
-            .glass-login { 
-              background: rgba(255, 255, 255, 0.95); 
-              backdrop-filter: blur(20px); 
-              border: 1px solid rgba(255, 255, 255, 0.8); 
-              padding: 40px 35px; 
-              border-radius: 20px; 
-              box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.1); 
-              width: 100%; 
-              max-width: 360px; 
-              z-index: 10; 
-              animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
-            }
+            .glass-login { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.8); padding: 40px 35px; border-radius: 20px; box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.1); width: 100%; max-width: 360px; z-index: 10; animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
             @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-            
-            /* Tiêu đề */
             .login-header { text-align: center; margin-bottom: 30px; }
             .login-title { font-size: 26px; font-weight: 900; letter-spacing: -0.5px; margin: 0 0 6px 0; color: #0f172a; text-transform: uppercase; }
             .login-title span { color: #e11d48; }
             .login-subtitle { font-size: 13px; color: #64748b; font-weight: 500; margin: 0; }
-            
-            /* Input Group có Icon */
             .input-group { position: relative; margin-bottom: 16px; }
             .input-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #94a3b8; display: flex; pointer-events: none; }
-            .login-input { 
-              width: 100%; 
-              padding: 14px 14px 14px 44px; 
-              border-radius: 12px; 
-              border: 1.5px solid #e2e8f0; 
-              background: #f8fafc; 
-              box-sizing: border-box; 
-              outline: none; 
-              transition: all 0.2s ease; 
-              font-size: 14px; 
-              color: #1e293b; 
-              font-weight: 500; 
-            }
+            .login-input { width: 100%; padding: 14px 14px 14px 44px; border-radius: 12px; border: 1.5px solid #e2e8f0; background: #f8fafc; box-sizing: border-box; outline: none; transition: all 0.2s ease; font-size: 14px; color: #1e293b; font-weight: 500; }
             .login-input::placeholder { color: #94a3b8; font-weight: 400; }
             .login-input:focus { border-color: #e11d48; background: #fff; box-shadow: 0 0 0 4px rgba(225, 29, 72, 0.1); }
             .login-input:focus + .input-icon svg { stroke: #e11d48; }
-            
-            /* Nút submit */
-            .login-btn-submit { 
-              width: 100%; 
-              padding: 14px; 
-              background: #e11d48; 
-              color: #fff; 
-              border: none; 
-              border-radius: 12px; 
-              font-weight: 700; 
-              font-size: 14px; 
-              cursor: pointer; 
-              transition: all 0.2s ease; 
-              box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25); 
-              margin-top: 10px; 
-              display: flex; 
-              justify-content: center; 
-              align-items: center; 
-              gap: 8px;
-            }
+            .login-btn-submit { width: 100%; padding: 14px; background: #e11d48; color: #fff; border: none; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25); margin-top: 10px; display: flex; justify-content: center; align-items: center; gap: 8px; }
             .login-btn-submit:hover:not(:disabled) { background: #be123c; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(225, 29, 72, 0.35); }
             .login-btn-submit:disabled { opacity: 0.7; cursor: not-allowed; }
           `}</style>
@@ -848,7 +795,6 @@ export default function App() {
             </button>
           </form>
         </div>
-      ) : (
       ) : (
         <div className="no-print" style={{ padding: "15px", position: "relative", minHeight: "100vh", overflowX: "auto" }}>
           <div style={{ maxWidth: "1500px", margin: "0 auto", minWidth: "1000px" }}>
