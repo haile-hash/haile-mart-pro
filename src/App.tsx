@@ -91,6 +91,7 @@ export default function App() {
   const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
   const [logSearchTerm, setLogSearchTerm] = useState("");
   const [logTypeFilter, setLogTypeFilter] = useState("Tất cả");
+  const [scannedCodeObj, setScannedCodeObj] = useState<any>(null);
   const [scanMessage, setScanMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
   const [printBarcodeProduct, setPrintBarcodeProduct] = useState<any>(null);
   const [printCustomer, setPrintCustomer] = useState<any>(null);
