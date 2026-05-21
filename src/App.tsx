@@ -889,7 +889,7 @@ export default function App() {
         <button 
           className="no-print" 
           onClick={() => setShowScannerLinkModal(true)} 
-          style={{ position: 'absolute', top: '85px', left: '150px', zIndex: 900, background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 15px', fontWeight: 'bold', boxShadow: '0 4px 6px -1px rgba(14, 165, 233, 0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s', fontSize: '13px' }}
+          style={{ position: 'absolute', top: '100px', left: '150px', zIndex: 900, background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 15px', fontWeight: 'bold', boxShadow: '0 4px 6px -1px rgba(14, 165, 233, 0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s', fontSize: '13px' }}
           onMouseOver={e => e.currentTarget.style.transform = 'scale(1.05)'}
           onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
         >
