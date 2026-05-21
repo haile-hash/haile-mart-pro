@@ -899,7 +899,7 @@ export default function App() {
           onClick={() => setShowScannerLinkModal(true)} 
           style={{ 
             position: 'absolute', 
-            top: '98px',         /* Chỉnh cao độ cho bằng mép MENU */
+            top: '98.5px',         /* Chỉnh cao độ cho bằng mép MENU */
             left: '145px',       /* Xích lại gần MENU vì nút đã nhỏ lại */
             zIndex: 900, 
             background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', 
