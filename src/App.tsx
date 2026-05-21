@@ -39,12 +39,10 @@ import { SupplierModal } from "./components/modals/SupplierModal";
 import { MarketingModal } from "./components/modals/MarketingModal";
 import { SettingsModal } from "./components/modals/SettingsModal";
 import { PinModal } from "./components/modals/PinModal"; 
-
-// 📱 IMPORT COMPONENT MÁY QUÉT ĐIỆN THOẠI MỚI TẠO
+import { ScannerLinkModal } from "./components/modals/ScannerLinkModal"; // 📱 Nút mở QR Code
 import { MobileScanner } from "./components/MobileScanner"; 
 
 export default function App() {
-  // 🚀 ĐIỀU HƯỚNG: NẾU LINK LÀ ĐIỆN THOẠI, HIỂN THỊ MÁY QUÉT LUÔN!
   if (typeof window !== "undefined" && window.location.search.includes("scanner=true")) {
     return <MobileScanner />;
   }
@@ -81,6 +79,8 @@ export default function App() {
   const [adminPin, setAdminPin] = useState("1234");
   const [showPinModal, setShowPinModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  
+  const [showScannerLinkModal, setShowScannerLinkModal] = useState(false); // 📱 Trạng thái bật/tắt QR Code
 
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -164,10 +164,9 @@ export default function App() {
         .on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData())
         .on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData())
         .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData())
-        // 📡 LẮNG NGHE TÍN HIỆU TỪ ĐIỆN THOẠI BẮN VỀ
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload) => {
-           playSound('success'); // Kêu Bíp trên máy tính
-           setScannedCodeObj({ code: payload.new.code, time: Date.now() }); // Tự động đưa vào giỏ hàng
+           playSound('success'); 
+           setScannedCodeObj({ code: payload.new.code, time: Date.now() }); 
         })
         .subscribe();
         
@@ -188,7 +187,6 @@ export default function App() {
 
   useEffect(() => {
     if (scannedCodeObj) {
-      // 🚀 NẾU SCANNER_MODE BỊ TRỐNG (tức là quét từ điện thoại hoặc máy tít ngoài), HỆ THỐNG VẪN TỰ ĐỘNG XỬ LÝ!
       if (scannerMode === 'product' || scannerMode === null) { 
         const p = findProductByCode(scannedCodeObj.code); 
         if (p) handleSelectSuggest(p); 
@@ -865,6 +863,11 @@ export default function App() {
       <PinModal 
         showPinModal={showPinModal} setShowPinModal={setShowPinModal} correctPin={adminPin} onSuccess={() => { if (pendingAction) { pendingAction(); setPendingAction(null); } }} 
       />
+
+      {/* 📱 RENDER MODAL MÃ QR MÁY QUÉT */}
+      <ScannerLinkModal 
+        showModal={showScannerLinkModal} setShowModal={setShowScannerLinkModal} 
+      />
     </>
   );
 
@@ -880,6 +883,19 @@ export default function App() {
       <div className="animated-bg-mesh"></div>
       
       <Toaster position="top-right" reverseOrder={false} />
+
+      {/* 📱 NÚT BẤM NỔI BẬT QR CODE (GÓC DƯỚI BÊN TRÁI) */}
+      {isLoggedIn && (
+        <button 
+          className="no-print" 
+          onClick={() => setShowScannerLinkModal(true)} 
+          style={{ position: 'fixed', bottom: '20px', left: '20px', zIndex: 900, background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: '50px', padding: '12px 20px', fontWeight: 'bold', boxShadow: '0 10px 15px -3px rgba(14, 165, 233, 0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s' }}
+          onMouseOver={e => e.currentTarget.style.transform = 'scale(1.05)'}
+          onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
+        >
+          <span style={{ fontSize: "18px" }}>📱</span> Mã QR Máy Quét
+        </button>
+      )}
 
       <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} />
       
