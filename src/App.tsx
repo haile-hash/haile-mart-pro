@@ -39,7 +39,7 @@ import { SupplierModal } from "./components/modals/SupplierModal";
 import { MarketingModal } from "./components/modals/MarketingModal";
 import { SettingsModal } from "./components/modals/SettingsModal";
 import { PinModal } from "./components/modals/PinModal"; 
-import { ScannerLinkModal } from "./components/modals/ScannerLinkModal"; // 📱 Nút mở QR Code
+import { ScannerLinkModal } from "./components/modals/ScannerLinkModal"; 
 import { MobileScanner } from "./components/MobileScanner"; 
 
 export default function App() {
@@ -80,7 +80,7 @@ export default function App() {
   const [showPinModal, setShowPinModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   
-  const [showScannerLinkModal, setShowScannerLinkModal] = useState(false); // 📱 Trạng thái bật/tắt QR Code
+  const [showScannerLinkModal, setShowScannerLinkModal] = useState(false);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -108,7 +108,10 @@ export default function App() {
   const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
   const [logSearchTerm, setLogSearchTerm] = useState("");
   const [logTypeFilter, setLogTypeFilter] = useState("Tất cả");
-  const [scannedCodeObj, setScannedCodeObj] = useState<{code: string, time: number} | null>(null);
+  
+  // 🚀 ĐÂY LÀ HÀNG ĐỢI (QUEUE) ĐỂ XỬ LÝ QUÉT NHIỀU MÃ CÙNG LÚC MÀ KHÔNG BỊ RỚT NHỊP
+  const [scanQueue, setScanQueue] = useState<string[]>([]);
+  
   const [scanMessage, setScanMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
   const [printBarcodeProduct, setPrintBarcodeProduct] = useState<Product | null>(null);
   const [printCustomer, setPrintCustomer] = useState<Customer | null>(null);
@@ -165,8 +168,8 @@ export default function App() {
         .on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData())
         .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData())
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload) => {
-           playSound('success'); 
-           setScannedCodeObj({ code: payload.new.code, time: Date.now() }); 
+           // Ném mã mới vào hàng đợi để không bị trôi
+           setScanQueue(prev => [...prev, payload.new.code]);
         })
         .subscribe();
         
@@ -179,30 +182,38 @@ export default function App() {
   useEffect(() => {
     if (scannerMode !== null) {
       let scanner: any; let lastScanTime = 0;
-      const loadScanner = () => { if ((window as any).Html5QrcodeScanner) { scanner = new (window as any).Html5QrcodeScanner("qr-reader", { fps: 15, qrbox: { width: 250, height: 120 }, rememberLastUsedCamera: true }, false); scanner.render((text: string) => { const now = Date.now(); if (now - lastScanTime < 1500) return; lastScanTime = now; setScannedCodeObj({ code: text, time: now }) }, undefined) } };
+      const loadScanner = () => { if ((window as any).Html5QrcodeScanner) { scanner = new (window as any).Html5QrcodeScanner("qr-reader", { fps: 15, qrbox: { width: 250, height: 120 }, rememberLastUsedCamera: true }, false); scanner.render((text: string) => { const now = Date.now(); if (now - lastScanTime < 1500) return; lastScanTime = now; setScanQueue(prev => [...prev, text]); }, undefined) } };
       if (!(window as any).Html5QrcodeScanner) { const script = document.createElement("script"); script.src = "https://unpkg.com/html5-qrcode"; script.onload = loadScanner; document.head.appendChild(script) } else loadScanner();
       return () => { if (scanner) scanner.clear().catch(() => { }) }
     }
   }, [scannerMode]);
 
+  // 🚀 THUẬT TOÁN XỬ LÝ HÀNG ĐỢI QUÉT MÃ TUẦN TỰ (CHỐNG LỖI MẤT NHỊP)
   useEffect(() => {
-    if (scannedCodeObj) {
+    if (scanQueue.length > 0) {
+      const currentCode = scanQueue[0];
+
       if (scannerMode === 'product' || scannerMode === null) { 
-        const p = findProductByCode(scannedCodeObj.code); 
-        if (p) handleSelectSuggest(p); 
-        else { 
-          const matchedPhone = Object.keys(customers).find(phone => phone === scannedCodeObj.code.trim() || customers[phone].cardCode === scannedCodeObj.code.trim()); 
+        const p = findProductByCode(currentCode); 
+        if (p) {
+           handleSelectSuggest(p); 
+           playSound('success');
+        } else { 
+          const matchedPhone = Object.keys(customers).find(phone => phone === currentCode.trim() || customers[phone].cardCode === currentCode.trim()); 
           if (matchedPhone) { playSound('success'); setCustomerInput(customers[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setScanMessage({ text: `✅ KH VIP: ${customers[matchedPhone].name}`, type: 'success' }) } 
           else { playSound('error'); setScanMessage({ text: `❌ Lỗi mã`, type: 'error' }) } 
         } 
       }
-      else if (scannerMode === 'voucher') { const code = scannedCodeObj.code.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); setVoucherInput(code); playSound('success'); setScanMessage({ text: `✅ Giảm ${VOUCHERS[code].toLocaleString()}đ`, type: 'success' }) } else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); setVoucherInput(code); playSound('success'); setScanMessage({ text: `✅ Giảm ${Number(code).toLocaleString()}đ`, type: 'success' }) } else { playSound('error'); toast.error("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0) } }
-      else if (scannerMode === 'customer') { const val = scannedCodeObj.code.trim(); setCustomerInput(val); const matchedPhone = Object.keys(customers).find(phone => phone === val || customers[phone].cardCode === val); if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); playSound('success'); setScanMessage({ text: `✅ Nhận diện VIP: ${customers[matchedPhone].name}`, type: 'success' }) } else { setCustPhone(val); setCustName(""); playSound('success'); setScanMessage({ text: `✅ Đã quét mã (Khách mới)`, type: 'success' }) } }
+      else if (scannerMode === 'voucher') { const code = currentCode.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); setVoucherInput(code); playSound('success'); setScanMessage({ text: `✅ Giảm ${VOUCHERS[code].toLocaleString()}đ`, type: 'success' }) } else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); setVoucherInput(code); playSound('success'); setScanMessage({ text: `✅ Giảm ${Number(code).toLocaleString()}đ`, type: 'success' }) } else { playSound('error'); toast.error("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0) } }
+      else if (scannerMode === 'customer') { const val = currentCode.trim(); setCustomerInput(val); const matchedPhone = Object.keys(customers).find(phone => phone === val || customers[phone].cardCode === val); if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); playSound('success'); setScanMessage({ text: `✅ Nhận diện VIP: ${customers[matchedPhone].name}`, type: 'success' }) } else { setCustPhone(val); setCustName(""); playSound('success'); setScanMessage({ text: `✅ Đã quét mã (Khách mới)`, type: 'success' }) } }
       
       setTimeout(() => setScannerMode(null), 1000);
-      setScannedCodeObj(null); setTimeout(() => setScanMessage(null), 1500)
+      setTimeout(() => setScanMessage(null), 1500);
+
+      // Xử lý xong 1 mã thì rút mã đó ra khỏi hàng đợi để tiếp tục xử lý mã tiếp theo
+      setScanQueue(prev => prev.slice(1));
     }
-  }, [scannedCodeObj, products, scannerMode]);
+  }, [scanQueue, products, scannerMode]); // Chạy lại liên tục mỗi khi hàng đợi có món mới
 
   useEffect(() => { const handleAfterPrint = () => setPrintMode(null); window.addEventListener("afterprint", handleAfterPrint); return () => window.removeEventListener("afterprint", handleAfterPrint) }, []);
 
@@ -420,17 +431,15 @@ export default function App() {
       const exist = prev.find(item => cleanName(item.product.name) === repName && !!item.product.isHappyHour === !!itemToCart.isHappyHour);
       if (exist) { 
         const newQty = exist.qty + 1; if (newQty > totalStock) { playSound('error'); return prev; } 
-        playSound('success'); 
         return prev.map(i => (cleanName(i.product.name) === repName && !!i.product.isHappyHour === !!itemToCart.isHappyHour) ? { ...i, qty: newQty, total: Math.round(newQty * price * (1 + VAT_RATE)) } : i); 
       } else { 
-        playSound('success'); 
         return [...prev, { product: itemToCart, qty: 1, total: Math.round(price * (1 + VAT_RATE)) }]; 
       }
     });
     setScanMessage({ text: `✅ Thêm: ${repName} ${itemToCart.isHappyHour ? '⭐' : ''}`, type: 'success' }); setBarcodeInput(""); setShowSuggestions(false); setTimeout(() => setScanMessage(null), 2000);
   };
   
-  const addToCart = (p_input: any) => { handleSelectSuggest(p_input) };
+  const addToCart = (p_input: any) => { handleSelectSuggest(p_input); playSound('success'); };
 
   const adjustCartQty = (productId: any, delta: number) => {
     let exceedStock = false;
@@ -864,7 +873,6 @@ export default function App() {
         showPinModal={showPinModal} setShowPinModal={setShowPinModal} correctPin={adminPin} onSuccess={() => { if (pendingAction) { pendingAction(); setPendingAction(null); } }} 
       />
 
-      {/* 📱 RENDER MODAL MÃ QR MÁY QUÉT */}
       <ScannerLinkModal 
         showModal={showScannerLinkModal} setShowModal={setShowScannerLinkModal} 
       />
@@ -884,24 +892,24 @@ export default function App() {
       
       <Toaster position="top-right" reverseOrder={false} />
 
-      {/* 📱 NÚT BẤM MÃ QR (ĐÃ CHỈNH LẠI THẲNG HÀNG TẮP VỚI MENU) */}
+      {/* 📱 NÚT BẤM MÃ QR CHUYÊN NGHIỆP, SANG TRỌNG (SECONDARY BUTTON) */}
       {isLoggedIn && (
         <button 
           className="no-print" 
           onClick={() => setShowScannerLinkModal(true)} 
           style={{ 
             position: 'absolute', 
-            top: '96px',      /* Đẩy xuống 6px để bằng mép trên với MENU */
-            left: '150px',    /* Xích lại gần MENU một chút cho vừa vặn */
+            top: '94px',      
+            left: '110px',    
             zIndex: 900, 
-            background: '#0ea5e9', 
-            color: '#fff', 
-            border: 'none', 
-            borderRadius: '8px', 
-            padding: '0 15px', 
-            height: '36px',   /* Cố định chiều cao ngang bằng nút MENU */
-            fontWeight: 'bold', 
-            boxShadow: '0 4px 6px -1px rgba(14, 165, 233, 0.3)', 
+            background: '#ffffff', 
+            color: '#1e3a8a', /* Chữ xanh biển đậm đồng bộ với MENU */
+            border: '1px solid #cbd5e1', 
+            borderRadius: '6px', 
+            padding: '0 12px', 
+            height: '38px',   
+            fontWeight: '700', 
+            boxShadow: '0 1px 2px rgba(0,0,0,0.05)', 
             cursor: 'pointer', 
             display: 'flex', 
             alignItems: 'center', 
@@ -909,10 +917,10 @@ export default function App() {
             transition: 'all 0.2s', 
             fontSize: '13px' 
           }}
-          onMouseOver={e => e.currentTarget.style.transform = 'scale(1.05)'}
-          onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
+          onMouseOver={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#94a3b8'; }}
+          onMouseOut={e => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
         >
-          <span style={{ fontSize: "16px" }}>📱</span> Kết nối Máy Quét
+          <span style={{ fontSize: "16px" }}>📱</span> Máy Quét
         </button>
       )}
 
