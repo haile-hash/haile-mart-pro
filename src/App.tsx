@@ -1053,6 +1053,7 @@ export default function App() {
             
             <Header 
               role={role} shift={shift} totalValue={totalValue} currentShiftStats={currentShiftStats} setCashFlowModalInfo={setCashFlowModalInfo} darkMode={darkMode} setDarkMode={setDarkMode} handleLogoutClick={handleLogoutClick} showMainMenu={showMainMenu} setShowMainMenu={setShowMainMenu} setShowStatsModal={setShowStatsModal} setShowCustomerModal={setShowCustomerModal} setShowInventoryModal={setShowInventoryModal} setShowDebtModal={setShowDebtModal} setShowAuditModal={setShowAuditModal} setShowExpenseModal={setShowExpenseModal} setShowSupplierModal={setShowSupplierModal} setShowMarketingModal={setShowMarketingModal} setNewBankBin={setNewBankBin} setNewBankAcc={setNewBankAcc} setNewBankNameStr={setNewBankNameStr} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} setShowSettings={setShowSettings} lowStockCount={lowStockCount} isOnline={isOnline} syncStatus={syncStatus} syncAllOfflineData={syncAllOfflineData}
+              setShowScannerLinkModal={setShowScannerLinkModal} setShowPOModal={setShowPOModal}
             />
             
             <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: "10px" }}>
