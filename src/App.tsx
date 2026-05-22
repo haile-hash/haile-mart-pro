@@ -350,11 +350,34 @@ export default function App() {
   const handleVoucherSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); const code = voucherInput.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); playSound('success') } else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); playSound('success') } else { playSound('error'); toast.error("Mã Voucher lỗi!"); setAppliedVoucherAmount(0) } } };
   const handleCustomerInputChange = (e: React.ChangeEvent<HTMLInputElement>) => { const val = e.target.value; setCustomerInput(val); const matchedPhone = Object.keys(customers).find(phone => phone === val.trim() || customers[phone].cardCode === val.trim()); if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setUseWallet(false) } else { setCustPhone(val); setCustName(""); setUseWallet(false) } };
 
+  // 🔥 3 HÀM QUAN TRỌNG ĐÃ ĐƯỢC PHỤC HỒI CHỐNG LỖI RESTOREORDER
+  const handleHoldOrder = async () => { 
+    if (cart.length === 0) return; 
+    const newO = { id: Date.now(), time: new Date().toLocaleTimeString('vi-VN'), cart: [...cart] }; 
+    setHeldOrders(prev => [...prev, newO]); 
+    logAudit("LƯU TẠM", `Lưu giỏ ${cart.length} món`); 
+    resetCheckout(); 
+    toast.success("Đã lưu tạm đơn hàng!"); 
+  };
+  const restoreOrder = async (order: any) => { 
+    if (cart.length > 0) return toast.error("Vui lòng thanh toán giỏ hàng hiện tại trước!"); 
+    setCart(order.cart); 
+    setHeldOrders(prev => prev.filter(o => o.id !== order.id)); 
+    if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', order.id); 
+    setShowHoldModal(false); 
+  };
+  const deleteHeldOrder = async (id: any) => { 
+    setHeldOrders(prev => prev.filter(o => o.id !== id)); 
+    logAudit("XÓA ĐƠN", `Xóa đơn lưu tạm`); 
+    if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', id); 
+  };
+
   const handleNextToQR = () => { 
     if (cart.length === 0) return toast.error("Giỏ hàng trống!"); if (custPhone && !customers[custPhone] && !custName) return toast.error("Vui lòng nhập Tên khách mới!"); 
     setCheckoutStep(2); 
   };
 
+  // TÍCH HỢP PHƯƠNG THỨC THANH TOÁN ZALO PAY
   const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 'GHI NỢ' | 'KẾT HỢP' | 'QUẸT THẺ' | 'ZALO PAY') => {
     if (cart.some(i => !i.qty || i.qty <= 0)) { playSound('error'); return toast.error("Lỗi số lượng sản phẩm!") }
     setLoading(true); let logs: any[] = []; const baseTotal = cartTotalAmountDisplay; const subTotal = Math.round(baseTotal / (1 + VAT_RATE)); const vatTotal = baseTotal - subTotal;
@@ -391,9 +414,11 @@ export default function App() {
       {lastOrder && printMode === 'receipt' && (
         <div className="print-only">
           <div className="print-receipt-container">
-            <div style={{ textAlign: "center", marginBottom: "8px" }}><h2 style={{ margin: 0, fontSize: "20px", fontWeight: 900 }}>HẢI LÊ MART</h2></div>
+            <div style={{ textAlign: "center", marginBottom: "8px" }}><h2 style={{ margin: 0, fontSize: "20px", fontWeight: 900 }}>HẢI LÊ MART</h2><div style={{ fontSize: "11px" }}>Tòa Nhà ATS, 252 Hoàng Quốc Việt, HN</div></div>
             <div style={{ borderBottom: "1px dashed #000", marginBottom: "8px" }}></div>
-            <table style={{ width: "100%", fontSize: "12px" }}>
+            <table style={{ width: "100%", fontSize: "11px", marginBottom: "4px", borderCollapse: "collapse" }}><tbody><tr><td style={{ textAlign: "left" }}><b>HĐ:</b> {lastOrder.orderId}</td><td style={{ textAlign: "right" }}><b>Ca:</b> {shift}</td></tr><tr><td style={{ textAlign: "left" }}><b>Ngày:</b> {lastOrder.time}</td><td style={{ textAlign: "right" }}><b>TN:</b> {role}</td></tr></tbody></table>
+            <div style={{ borderBottom: "1px dashed #000", marginBottom: "6px" }}></div>
+            <table style={{ width: "100%", fontSize: "12px", borderCollapse: "collapse" }}>
               <tbody>
                 {lastOrder.cart.map((i: any, x: number) => {
                   const p = Math.round(getActualPrice(i.product)); const t = Math.round(i.qty * p * (1 + VAT_RATE));
@@ -407,7 +432,7 @@ export default function App() {
               </tbody>
             </table>
             <div style={{ borderBottom: "2px dashed #000", margin: "6px 0" }}></div>
-            <table style={{ width: "100%", fontSize: "16px", fontWeight: 900 }}><tbody><tr><td>TỔNG ĐƠN:</td><td style={{ textAlign: "right" }}>{Math.round(lastOrder.finalTotal).toLocaleString()}đ</td></tr></tbody></table>
+            <table style={{ width: "100%", fontSize: "16px", fontWeight: 900, borderCollapse: "collapse" }}><tbody><tr><td>TỔNG ĐƠN:</td><td style={{ textAlign: "right" }}>{Math.round(lastOrder.finalTotal).toLocaleString()}đ</td></tr></tbody></table>
             <div style={{ marginTop: "4px", fontSize: "11px", textAlign: "right" }}>Phương thức: <i>{lastOrder.paymentMethod}</i></div>
           </div>
         </div>
