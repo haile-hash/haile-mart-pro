@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 
 interface HeaderProps {
   role: string;
@@ -43,7 +44,6 @@ export const Header: React.FC<HeaderProps> = ({
   setShowScannerLinkModal, setShowPOModal
 }) => {
   const [timeStr, setTimeStr] = useState("");
-  const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -59,11 +59,13 @@ export const Header: React.FC<HeaderProps> = ({
     return "#10b981";
   };
 
+  // 🎵 GỌI NHẠC TRỰC TIẾP TỪ JAVASCRIPT (KHÔNG DÙNG THẺ AUDIO NỮA)
   const playLogoMusic = () => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(e => console.log("Cần click chuột vào trang trước khi phát nhạc:", e));
-    }
+    const audio = new Audio("/Windy Hill.mp3"); 
+    audio.play().catch(e => {
+      console.log("Trình duyệt chặn nhạc:", e);
+      toast.error("Trình duyệt chặn âm thanh tự động. Hãy click chuột vài lần vào trang rồi thử lại nhé!"); 
+    });
   };
 
   return (
@@ -83,9 +85,6 @@ export const Header: React.FC<HeaderProps> = ({
           transform: scale(1.05);
         }
       `}</style>
-
-      {/* 🎵 Đã xử lý dấu cách thành %20 để nhận file Windy Hill.mp3 */}
-      <audio ref={audioRef} src="/Windy%20Hill.mp3" preload="auto" />
 
       {/* --- KHU VỰC THÔNG TIN CHÍNH --- */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
