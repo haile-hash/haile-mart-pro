@@ -1,5 +1,3 @@
-/* eslint-disable */
-// @ts-nocheck
 import React, { useState, useEffect, useRef } from 'react';
 
 interface HeaderProps {
@@ -45,7 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
   setShowScannerLinkModal, setShowPOModal
 }) => {
   const [timeStr, setTimeStr] = useState("");
-  const audioRef = useRef<HTMLAudioElement>(null); // Móc vào thẻ nhạc
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -61,27 +59,39 @@ export const Header: React.FC<HeaderProps> = ({
     return "#10b981";
   };
 
-  // 🎵 HÀM PHÁT NHẠC WINDY BẤT TỬ
   const playLogoMusic = () => {
     if (audioRef.current) {
-      audioRef.current.currentTime = 0; // Tua lại từ đầu bài
-      audioRef.current.play().catch(e => {
-        console.log("Trình duyệt chặn auto-play, bấm lại lần nữa để kích hoạt:", e);
-      });
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(e => console.log("Cần click chuột vào trang trước khi phát nhạc:", e));
     }
   };
 
   return (
     <div className="glass" style={{ padding: "12px 20px", marginBottom: "15px", display: "flex", flexDirection: "column", gap: "10px", position: "relative" }}>
       
-      {/* 🎵 ĐÃ EMBED SẴN FILE WINDY Ở ROOT DỰ ÁN */}
-      <audio ref={audioRef} src="/windy.mp3" preload="auto" />
+      {/* 🌊 CSS Hiệu ứng lượn sóng cho Logo */}
+      <style>{`
+        @keyframes waveAnimation {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-6px); }
+        }
+        .logo-wavy {
+          animation: waveAnimation 2.5s ease-in-out infinite;
+        }
+        .logo-wavy:hover {
+          animation-play-state: paused;
+          transform: scale(1.05);
+        }
+      `}</style>
+
+      {/* 🎵 Đã xử lý dấu cách thành %20 để nhận file Windy Hill.mp3 */}
+      <audio ref={audioRef} src="/Windy%20Hill.mp3" preload="auto" />
 
       {/* --- KHU VỰC THÔNG TIN CHÍNH --- */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         
-        {/* Logo Click Phát Nhạc Windy */}
-        <div onClick={playLogoMusic} style={{ display: "flex", alignItems: "center", gap: "15px", cursor: "pointer", transition: "all 0.2s" }} onMouseOver={e => e.currentTarget.style.transform = 'scale(1.02)'} onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'} title="Bấm vào Logo để thưởng thức nhạc Windy!">
+        {/* Lắp class lượn sóng vào Logo */}
+        <div className="logo-wavy" onClick={playLogoMusic} style={{ display: "flex", alignItems: "center", gap: "15px", cursor: "pointer", transition: "transform 0.2s" }} title="Bấm vào Logo để thưởng thức nhạc Windy!">
           <div style={{ background: "#ef4444", color: "#fff", padding: "10px", borderRadius: "12px", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: "0 4px 10px rgba(239,68,68,0.3)" }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
           </div>
@@ -116,7 +126,7 @@ export const Header: React.FC<HeaderProps> = ({
            </div>
         </div>
 
-        {/* Nhân viên & Ca */}
+        {/* Nhân viên & Nút Tắt */}
         <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
            <button onClick={() => setDarkMode(!darkMode)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>{darkMode ? "☀️" : "🌙"}</button>
            <div style={{ textAlign: "right" }}>
@@ -134,7 +144,6 @@ export const Header: React.FC<HeaderProps> = ({
       {/* --- KHU VỰC MENU & TRẠNG THÁI MÂY --- */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         
-        {/* Ngăn hiệu ứng click xuyên thấu */}
         <button
           onClick={(e) => { e.stopPropagation(); setShowMainMenu(!showMainMenu); }}
           style={{ background: "#1e3a8a", color: "#fff", border: "none", borderRadius: "6px", padding: "6px 16px", fontWeight: "900", cursor: "pointer", letterSpacing: "1px", boxShadow: "0 2px 4px rgba(30,58,138,0.3)" }}
@@ -153,7 +162,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* --- MENU SỔ XUỐNG CHUYÊN NGHIỆP --- */}
+      {/* --- MENU SỔ XUỐNG --- */}
       {showMainMenu && (
         <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: "20px", background: "rgba(255,255,255,0.98)", backdropFilter: "blur(16px)", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "10px", width: "270px", zIndex: 1000, boxShadow: "0 10px 25px rgba(0,0,0,0.15)", display: "flex", flexDirection: "column", gap: "5px" }}>
           
