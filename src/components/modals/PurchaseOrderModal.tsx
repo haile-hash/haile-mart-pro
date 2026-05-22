@@ -79,7 +79,7 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({ showModa
           </button>
         </div>
 
-        {/* BODY MODAL (Đã fix lỗi scrollbar ngang) */}
+        {/* BODY MODAL */}
         <div style={{ padding: "24px", overflowY: "auto", overflowX: "hidden", display: "flex", flexDirection: "column", gap: "20px", background: "#fafafa" }}>
           
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", width: "100%" }}>
