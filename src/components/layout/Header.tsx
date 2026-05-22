@@ -63,12 +63,11 @@ export const Header: React.FC<HeaderProps> = ({
     return "#10b981";
   };
 
-  // 🎵 Logic Điều khiển Nhạc 3 BƯỚC theo đúng yêu cầu của Sếp
+  // 🎵 Logic Điều khiển Nhạc 3 BƯỚC 
   const toggleMusic = () => {
     if (!audioRef.current) return;
     
     if (musicState === 0) {
-      // Đang tắt -> Bấm để PHÁT
       audioRef.current.play().then(() => {
         setMusicState(1);
         toast.success("Đang phát nhạc Windy Hill 🎵");
@@ -77,14 +76,12 @@ export const Header: React.FC<HeaderProps> = ({
         toast.error("Không tìm thấy file nhạc Windy Hill.mp3!");
       });
     } else if (musicState === 1) {
-      // Đang phát -> Bấm để NGỪNG (Pause)
       audioRef.current.pause();
       setMusicState(2);
       toast("Đã tạm ngừng nhạc!", { icon: "⏸️" });
     } else if (musicState === 2) {
-      // Đang ngừng -> Bấm để TẮT (Stop & Reset về 0)
       audioRef.current.pause();
-      audioRef.current.currentTime = 0; // Tua lại từ đầu
+      audioRef.current.currentTime = 0; 
       setMusicState(0);
       toast("Đã tắt hẳn nhạc!", { icon: "⏹️" });
     }
@@ -153,7 +150,6 @@ export const Header: React.FC<HeaderProps> = ({
         }
       `}</style>
 
-      {/* 🎵 Đã thêm thuộc tính loop để bài hát lặp lại vô tận không bao giờ dừng */}
       <audio ref={audioRef} src="/Windy%20Hill.mp3" preload="auto" loop />
 
       {/* --- KHU VỰC THÔNG TIN CHÍNH --- */}
@@ -161,7 +157,8 @@ export const Header: React.FC<HeaderProps> = ({
         
         <div className="national-flag-container" onClick={toggleMusic} style={{ display: "flex", alignItems: "center", gap: "12px", cursor: "pointer", padding: "10px 20px", borderRadius: "12px", minWidth: "300px", overflow: "hidden" }} title={getMusicTooltip()}>
           
-          <div style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "60px", color: "#ffff00", opacity: 0.4, pointerEvents: "none", selectStyle: "none" }}>★</div>
+          {/* ĐÃ FIX LỖI USERSELECT Ở ĐÂY */}
+          <div style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "60px", color: "#ffff00", opacity: 0.4, pointerEvents: "none", userSelect: "none" }}>★</div>
           
           <div style={{ position: "relative" }}>
             <div style={{ background: "#ffff00", color: "#da251d", padding: "8px", borderRadius: "10px", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", transition: "all 0.2s", opacity: musicState === 2 ? 0.7 : 1 }}>
