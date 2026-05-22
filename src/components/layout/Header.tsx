@@ -1,5 +1,3 @@
-/* eslint-disable */
-// @ts-nocheck
 import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 
@@ -47,7 +45,9 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [timeStr, setTimeStr] = useState("");
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  
+  // 🎵 Quản lý 3 trạng thái nhạc: 0 (Tắt), 1 (Đang phát), 2 (Tạm ngừng)
+  const [musicState, setMusicState] = useState<0 | 1 | 2>(0);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -63,20 +63,37 @@ export const Header: React.FC<HeaderProps> = ({
     return "#10b981";
   };
 
+  // 🎵 Logic Điều khiển Nhạc 3 BƯỚC theo đúng yêu cầu của Sếp
   const toggleMusic = () => {
     if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      audioRef.current.currentTime = 0; 
+    
+    if (musicState === 0) {
+      // Đang tắt -> Bấm để PHÁT
       audioRef.current.play().then(() => {
-        setIsPlaying(true);
+        setMusicState(1);
+        toast.success("Đang phát nhạc Windy Hill 🎵");
       }).catch(e => {
         console.error("Lỗi nhạc:", e);
-        toast.error("Không tìm thấy file nhạc Windy Hill.mp3 trong thư mục public!");
+        toast.error("Không tìm thấy file nhạc Windy Hill.mp3!");
       });
+    } else if (musicState === 1) {
+      // Đang phát -> Bấm để NGỪNG (Pause)
+      audioRef.current.pause();
+      setMusicState(2);
+      toast("Đã tạm ngừng nhạc!", { icon: "⏸️" });
+    } else if (musicState === 2) {
+      // Đang ngừng -> Bấm để TẮT (Stop & Reset về 0)
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0; // Tua lại từ đầu
+      setMusicState(0);
+      toast("Đã tắt hẳn nhạc!", { icon: "⏹️" });
     }
+  };
+
+  const getMusicTooltip = () => {
+    if (musicState === 0) return "Bấm để Phát nhạc";
+    if (musicState === 1) return "Bấm để Tạm ngừng";
+    return "Bấm để Tắt nhạc";
   };
 
   const WavyText = ({ text, color, startDelay }: { text: string, color: string, startDelay: number }) => (
@@ -92,7 +109,6 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <div className="glass" style={{ padding: "12px 20px", marginBottom: "15px", display: "flex", flexDirection: "column", gap: "10px", position: "relative" }}>
       
-      {/* 🌊 SIÊU ĐỘC QUYỀN: CSS ANIMATION LÁ CỜ PHẤP PHỚI VÀ HIỆU ỨNG LUỒNG SÓNG SATIN MƯỢT MÀ */}
       <style>{`
         @keyframes flagFlutter {
           0%, 100% { transform: perspective(600px) rotateX(2deg) rotateY(1deg) skewY(-1deg); }
@@ -104,7 +120,7 @@ export const Header: React.FC<HeaderProps> = ({
         }
         .national-flag-container {
           position: relative;
-          background-color: #da251d; /* Màu đỏ cờ chuẩn quốc gia */
+          background-color: #da251d;
           background-image: linear-gradient(115deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.15) 25%, rgba(0,0,0,0.2) 50%, rgba(255,255,255,0.15) 75%, rgba(255,255,255,0) 100%);
           background-size: 400px 100%;
           animation: flagFlutter 3s ease-in-out infinite, satinWave 3s linear infinite;
@@ -137,22 +153,25 @@ export const Header: React.FC<HeaderProps> = ({
         }
       `}</style>
 
-      <audio ref={audioRef} src="/Windy%20Hill.mp3" preload="auto" onEnded={() => setIsPlaying(false)} />
+      {/* 🎵 Đã thêm thuộc tính loop để bài hát lặp lại vô tận không bao giờ dừng */}
+      <audio ref={audioRef} src="/Windy%20Hill.mp3" preload="auto" loop />
 
       {/* --- KHU VỰC THÔNG TIN CHÍNH --- */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         
-        {/* BẢO HÀNH: LOGO NỀN LÁ CỜ ĐỎ SAO VÀNG PHẤP PHỚI 100% MƯỢT MÀ */}
-        <div className="national-flag-container" onClick={toggleMusic} style={{ display: "flex", alignItems: "center", gap: "12px", cursor: "pointer", padding: "10px 20px", borderRadius: "12px", minWidth: "300px", overflow: "hidden" }} title="Bấm vào để Nghe/Tắt nhạc Windy Hill!">
+        <div className="national-flag-container" onClick={toggleMusic} style={{ display: "flex", alignItems: "center", gap: "12px", cursor: "pointer", padding: "10px 20px", borderRadius: "12px", minWidth: "300px", overflow: "hidden" }} title={getMusicTooltip()}>
           
-          {/* Ngôi sao vàng linh hồn tổ quốc ẩn ngầm phía sau */}
           <div style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "60px", color: "#ffff00", opacity: 0.4, pointerEvents: "none", selectStyle: "none" }}>★</div>
           
           <div style={{ position: "relative" }}>
-            <div style={{ background: "#ffff00", color: "#da251d", padding: "8px", borderRadius: "10px", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+            <div style={{ background: "#ffff00", color: "#da251d", padding: "8px", borderRadius: "10px", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", transition: "all 0.2s", opacity: musicState === 2 ? 0.7 : 1 }}>
+              {musicState === 2 ? (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+              ) : (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+              )}
             </div>
-            {isPlaying && (
+            {musicState === 1 && (
               <>
                 <div className="spin-note-item" style={{ '--tx': '-25px', animationDelay: '0s' } as React.CSSProperties}>🎵</div>
                 <div className="spin-note-item" style={{ '--tx': '25px', animationDelay: '0.5s' } as React.CSSProperties}>🎶</div>
@@ -200,7 +219,6 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* --- MENU HAI HÀNG NGANG CHUYÊN NGHIỆP --- */}
       {showMainMenu && (
         <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: "20px", background: "rgba(255,255,255,0.98)", backdropFilter: "blur(16px)", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "12px", width: "480px", zIndex: 1000, boxShadow: "0 10px 25px rgba(0,0,0,0.15)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
           {setShowScannerLinkModal && (
