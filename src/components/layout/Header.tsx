@@ -30,7 +30,6 @@ interface HeaderProps {
   isOnline: boolean;
   syncStatus: string;
   syncAllOfflineData: () => void;
-  // 2 Dòng mới để nhận tín hiệu từ App.tsx
   setShowScannerLinkModal?: (val: boolean) => void;
   setShowPOModal?: (val: boolean) => void;
 }
@@ -59,14 +58,21 @@ export const Header: React.FC<HeaderProps> = ({
     return "#10b981";
   };
 
+  // 🎵 KHÔI PHỤC TÍNH NĂNG NHẠC KHI BẤM LOGO
+  const playLogoMusic = () => {
+    // Bạn có thể thay link nhạc mp3/ogg khác vào đây nếu muốn nhé
+    const audio = new Audio("https://actions.google.com/sounds/v1/alarms/bugle_tune.ogg");
+    audio.play().catch(() => {});
+  };
+
   return (
     <div className="glass" style={{ padding: "12px 20px", marginBottom: "15px", display: "flex", flexDirection: "column", gap: "10px", position: "relative" }}>
       
       {/* --- KHU VỰC THÔNG TIN CHÍNH --- */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         
-        {/* Logo */}
-        <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+        {/* Logo có gắn lại sự kiện click phát nhạc */}
+        <div onClick={playLogoMusic} style={{ display: "flex", alignItems: "center", gap: "15px", cursor: "pointer" }} title="Bấm vào để nghe nhạc!">
           <div style={{ background: "#ef4444", color: "#fff", padding: "10px", borderRadius: "12px", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: "0 4px 10px rgba(239,68,68,0.3)" }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
           </div>
@@ -119,9 +125,9 @@ export const Header: React.FC<HeaderProps> = ({
       {/* --- KHU VỰC MENU & TRẠNG THÁI MÂY --- */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         
-        {/* NÚT MENU TỔNG */}
+        {/* SỬA LỖI CLICK: Thêm e.stopPropagation() để không bị bong bóng event */}
         <button
-          onClick={() => setShowMainMenu(!showMainMenu)}
+          onClick={(e) => { e.stopPropagation(); setShowMainMenu(!showMainMenu); }}
           style={{ background: "#1e3a8a", color: "#fff", border: "none", borderRadius: "6px", padding: "6px 16px", fontWeight: "900", cursor: "pointer", letterSpacing: "1px", boxShadow: "0 2px 4px rgba(30,58,138,0.3)" }}
         >
           MENU
@@ -141,9 +147,8 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* --- DANH SÁCH MENU DROPDOWN TỰ SỔ XUỐNG --- */}
       {showMainMenu && (
-        <div style={{ position: "absolute", top: "100%", left: "20px", background: "var(--bg-glass)", backdropFilter: "blur(16px)", border: "1px solid var(--border-glass)", borderRadius: "12px", padding: "10px", width: "260px", zIndex: 1000, boxShadow: "0 10px 25px rgba(0,0,0,0.2)", display: "flex", flexDirection: "column", gap: "5px" }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: "20px", background: "var(--bg-glass)", backdropFilter: "blur(16px)", border: "1px solid var(--border-glass)", borderRadius: "12px", padding: "10px", width: "260px", zIndex: 1000, boxShadow: "0 10px 25px rgba(0,0,0,0.2)", display: "flex", flexDirection: "column", gap: "5px" }}>
           
-          {/* 🌟 2 TÍNH NĂNG CON CƯNG ĐÃ ĐƯỢC CHUYỂN VÀO ĐÂY */}
           {setShowScannerLinkModal && (
             <button onClick={() => { setShowScannerLinkModal(true); setShowMainMenu(false); }} style={{ padding: "12px 10px", textAlign: "left", background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", display: "flex", alignItems: "center", gap: "8px", boxShadow: "0 2px 5px rgba(37,99,235,0.3)" }}>
               📱 Kết nối Máy Quét Cầm Tay
@@ -157,7 +162,6 @@ export const Header: React.FC<HeaderProps> = ({
           
           {setShowScannerLinkModal && <div style={{ borderBottom: "1px solid var(--border-glass)", margin: "5px 0" }}></div>}
 
-          {/* CÁC TÍNH NĂNG CŨ */}
           <button onClick={() => { setShowStatsModal(true); setShowMainMenu(false) }} style={{ padding: "10px", textAlign: "left", background: "transparent", color: "var(--text-main)", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold" }}>📊 Báo Cáo Doanh Thu</button>
           <button onClick={() => { setShowCustomerModal(true); setShowMainMenu(false) }} style={{ padding: "10px", textAlign: "left", background: "transparent", color: "var(--text-main)", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold" }}>👥 Khách Hàng VIP</button>
           <button onClick={() => { setShowDebtModal(true); setShowMainMenu(false) }} style={{ padding: "10px", textAlign: "left", background: "transparent", color: "var(--text-main)", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold" }}>📒 Sổ Nợ Khách Hàng</button>
