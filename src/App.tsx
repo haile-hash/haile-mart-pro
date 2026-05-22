@@ -49,10 +49,12 @@ export default function App() {
   }
 
   const VAT_RATE = 0.1;
-  const EMAILJS_SERVICE_ID = process.env.REACT_APP_EMAILJS_SERVICE_ID;
-  const EMAILJS_TEMPLATE_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_ID;
-  const EMAILJS_TEMPLATE_VIP_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_VIP_ID;
-  const EMAILJS_PUBLIC_KEY = process.env.REACT_APP_EMAILJS_PUBLIC_KEY;
+  
+  // 🔥 ĐÃ ĐÓNG ĐINH CÁC MÃ EMAILJS CỦA SẾP VÀO ĐÂY, BỎ QUA VERCEL ENV
+  const EMAILJS_SERVICE_ID = "service_7ie990l";
+  const EMAILJS_TEMPLATE_ID = "template_m1j9i7k";
+  const EMAILJS_TEMPLATE_VIP_ID = "template_t91erhg";
+  const EMAILJS_PUBLIC_KEY = "5ric0kxuwNPlUleAv";
   
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem("mart_logged_in") === "true");
   const [role, setRole] = useState(() => localStorage.getItem("mart_role") || "staff");
@@ -146,7 +148,12 @@ export default function App() {
     if (isLoggedIn) {
       fetchProducts(); loadCloudData(); fetchSettingsFromCloud(); 
       const channel = supabase.channel("db_changes").on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts()).on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData()).on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload) => { setScanQueue(prev => [...prev, payload.new.code]); }).subscribe();
-      const script = document.createElement("script"); script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"; script.onload = () => { (window as any).emailjs.init(EMAILJS_PUBLIC_KEY || "5ric0kxuwNPlUleAv"); }; document.head.appendChild(script);
+      
+      const script = document.createElement("script"); 
+      script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"; 
+      script.onload = () => { (window as any).emailjs.init(EMAILJS_PUBLIC_KEY); }; 
+      document.head.appendChild(script);
+      
       const xlsxScript = document.createElement("script"); xlsxScript.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; document.head.appendChild(xlsxScript);
       return () => { supabase.removeChannel(channel) };
     }
@@ -260,7 +267,7 @@ export default function App() {
   }, [products, searchTerm, selectedCategory, sortConfig, filters]);
 
   // =====================================================================
-  // 4. ACTION FUNCTIONS (CÁC HÀM XỬ LÝ SỰ KIỆN - CHUẨN 100%)
+  // 4. ACTION FUNCTIONS
   // =====================================================================
 
   const executeWithAdminCheck = (action: () => void) => { if (role === 'admin') { action(); } else { setPendingAction(() => action); setShowPinModal(true); } };
@@ -273,7 +280,7 @@ export default function App() {
   };
 
   const updateSettingsToCloud = async (bin: string, acc: string, nameStr: string, hStart: string, hEnd: string) => {
-    if (!navigator.onLine) return toast.error("Mất mạng! Không thể lưu cài đặt lên Cloud."); setLoading(true);
+    if (!navigator.onLine) return toast.error("Mất mạng! Không thể lưu."); setLoading(true);
     try {
       const { error } = await supabase.from("settings").update({ bank_bin: bin, bank_acc: acc, bank_name_str: nameStr, happy_hour_start: hStart, happy_hour_end: hEnd, updated_at: new Date().toISOString() }).eq("id", 1);
       if (!error) { setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr); setHappyStart(hStart); setHappyEnd(hEnd); toast.success("Lưu thành công!"); setShowSettings(false); }
@@ -796,7 +803,6 @@ export default function App() {
       
       <CheckoutModal isCheckoutOpen={isCheckoutOpen} setIsCheckoutOpen={setIsCheckoutOpen} checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} voucherInput={voucherInput} setVoucherInput={setVoucherInput} customerInput={customerInput} setCustomerInput={setCustomerInput} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} useWallet={useWallet} setUseWallet={setUseWallet} appliedVoucherAmount={appliedVoucherAmount} setAppliedVoucherAmount={setAppliedVoucherAmount} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} finalToPay={finalToPay} customers={customers} isOnline={isOnline} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} loading={loading} handleVoucherSubmit={handleVoucherSubmit} handleCustomerInputChange={handleCustomerInputChange} setScannerMode={setScannerMode} handleNextToQR={handleNextToQR} confirmCheckout={confirmCheckout} setPrintMode={setPrintMode} sendReceiptEmail={sendReceiptEmail} closeCheckout={closeCheckout} />
       
-      {/* ĐÃ BỔ SUNG TOÀN BỘ CÁC TRƯỜNG HỢP PROP ĐỂ CHỐNG LỖI CÁC NÚT XUẤT/NHẬP */}
       <StatsModal showStatsModal={showStatsModal} setShowStatsModal={setShowStatsModal} reportStartDate={reportStartDate} setReportStartDate={setReportStartDate} reportEndDate={reportEndDate} setReportEndDate={setReportEndDate} exportToCSV={exportToCSV} onExportCSV={exportToCSV} handleExportCSV={exportToCSV} sendInventoryAlertEmail={sendInventoryAlertEmail} onSendAlert={sendInventoryAlertEmail} handleSendEmailReport={handleSendEmailReport} onSendReport={handleSendEmailReport} filteredStats={filteredStats} chartData={chartData} topSelling={topSelling} products={products} />
       
       <InventoryModal showInventoryModal={showInventoryModal} setShowInventoryModal={setShowInventoryModal} inventorySearchTerm={inventorySearchTerm} setInventorySearchTerm={setInventorySearchTerm} handleInventorySearchEnter={handleInventorySearchEnter} invFilter={invFilter} setInvFilter={setInvFilter} exportInventoryCSV={exportInventoryCSV} onExport={exportInventoryCSV} handleImportInventoryCSV={handleImportInventoryCSV} onImport={handleImportInventoryCSV} products={products} actualStockInput={actualStockInput} setActualStockInput={setActualStockInput} handleInvInputKeyDown={handleInvInputKeyDown} syncInventoryCheck={syncInventoryCheck} onSync={syncInventoryCheck} loading={loading} />
@@ -804,7 +810,6 @@ export default function App() {
       <CustomerModal showCustomerModal={showCustomerModal} setShowCustomerModal={setShowCustomerModal} customers={customers} setCustomers={setCustomers} logAudit={logAudit} handleEditPhone={handleEditPhone} printCustomerCard={printCustomerCard} sendCardEmail={sendCardEmail} shareToZalo={shareToZalo} />
       <DebtModal showDebtModal={showDebtModal} setShowDebtModal={setShowDebtModal} customers={customers} handlePayDebt={handlePayDebt} />
       
-      {/* KHÔI PHỤC BẢNG HIỂN THỊ CHI TIẾT NHẬT KÝ THAO TÁC */}
       <AuditModal showAuditModal={showAuditModal} setShowAuditModal={setShowAuditModal} auditLogs={auditLogs} exportAuditToCSV={exportAuditToCSV} setSelectedAuditLog={setSelectedAuditLog} setSelectedLog={setSelectedAuditLog} onViewDetail={setSelectedAuditLog} onRowClick={setSelectedAuditLog} />
       <AuditDetailModal selectedAuditLog={selectedAuditLog} setSelectedAuditLog={setSelectedAuditLog} showModal={!!selectedAuditLog} setShowModal={(val: boolean) => !val && setSelectedAuditLog(null)} selectedLog={selectedAuditLog} setSelectedLog={setSelectedAuditLog} />
 
@@ -852,7 +857,6 @@ export default function App() {
             <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: "10px" }}>
               <div className="glass" style={{ padding: "12px" }}>
                 
-                {/* TRUYỀN ĐA DẠNG PROPS ĐỂ NÚT NHẬP LẺ, TỪ FILE, MẪU FILE CHẮC CHẮN HOẠT ĐỘNG */}
                 <ProductSearchAndActions 
                   role={role} 
                   barcodeInput={barcodeInput} 
@@ -879,7 +883,6 @@ export default function App() {
                   handleDownloadSample={downloadSampleCSV}
                 />
                 
-                {/* HIỆN LẠI KHU VỰC NHẬP HÀNG LẺ BỊ MẤT TRƯỚC ĐÓ */}
                 {showInputForm && (
                   <ProductInputForm
                     newCode={newCode} handleCodeChange={handleCodeChange}
