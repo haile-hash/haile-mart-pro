@@ -58,11 +58,15 @@ export const Header: React.FC<HeaderProps> = ({
     return "#10b981";
   };
 
-  // 🎵 KHÔI PHỤC TÍNH NĂNG NHẠC KHI BẤM LOGO
+  // 🎵 KHÔI PHỤC TÍNH NĂNG NHẠC VỚI LINK SIÊU ỔN ĐỊNH
   const playLogoMusic = () => {
-    // Bạn có thể thay link nhạc mp3/ogg khác vào đây nếu muốn nhé
-    const audio = new Audio("https://actions.google.com/sounds/v1/alarms/bugle_tune.ogg");
-    audio.play().catch(() => {});
+    const audio = new Audio("https://cdnjs.cloudflare.com/ajax/libs/ion-sound/3.0.7/sounds/ta-da.mp3");
+    audio.play().catch((err) => {
+      console.log("Lỗi link 1, chuyển sang nhạc dự phòng...", err);
+      // Link dự phòng nếu link trên chết
+      const fallback = new Audio("https://www.soundjay.com/buttons/sounds/button-09.mp3");
+      fallback.play().catch(e => console.log("Cả 2 link đều bị trình duyệt chặn:", e));
+    });
   };
 
   return (
@@ -71,8 +75,8 @@ export const Header: React.FC<HeaderProps> = ({
       {/* --- KHU VỰC THÔNG TIN CHÍNH --- */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         
-        {/* Logo có gắn lại sự kiện click phát nhạc */}
-        <div onClick={playLogoMusic} style={{ display: "flex", alignItems: "center", gap: "15px", cursor: "pointer" }} title="Bấm vào để nghe nhạc!">
+        {/* Logo gắn nhạc */}
+        <div onClick={playLogoMusic} style={{ display: "flex", alignItems: "center", gap: "15px", cursor: "pointer", transition: "transform 0.2s" }} onMouseOver={e => e.currentTarget.style.transform = 'scale(1.02)'} onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'} title="Bấm vào để nghe nhạc giải trí!">
           <div style={{ background: "#ef4444", color: "#fff", padding: "10px", borderRadius: "12px", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: "0 4px 10px rgba(239,68,68,0.3)" }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
           </div>
@@ -125,7 +129,6 @@ export const Header: React.FC<HeaderProps> = ({
       {/* --- KHU VỰC MENU & TRẠNG THÁI MÂY --- */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         
-        {/* SỬA LỖI CLICK: Thêm e.stopPropagation() để không bị bong bóng event */}
         <button
           onClick={(e) => { e.stopPropagation(); setShowMainMenu(!showMainMenu); }}
           style={{ background: "#1e3a8a", color: "#fff", border: "none", borderRadius: "6px", padding: "6px 16px", fontWeight: "900", cursor: "pointer", letterSpacing: "1px", boxShadow: "0 2px 4px rgba(30,58,138,0.3)" }}
