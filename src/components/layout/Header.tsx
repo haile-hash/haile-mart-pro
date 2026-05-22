@@ -45,7 +45,6 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [timeStr, setTimeStr] = useState("");
   
-  // 🎵 Quản lý trạng thái nhạc & nốt nhạc bay
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
@@ -63,15 +62,13 @@ export const Header: React.FC<HeaderProps> = ({
     return "#10b981";
   };
 
-  // 🎵 Điều khiển Bật/Tắt nhạc
   const toggleMusic = () => {
     if (!audioRef.current) return;
-    
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      audioRef.current.currentTime = 0; // Tua lại đầu bài
+      audioRef.current.currentTime = 0; 
       audioRef.current.play().then(() => {
         setIsPlaying(true);
       }).catch(e => {
@@ -81,11 +78,10 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
-  // 🌊 Hàm tạo chữ lượn sóng xịn xò (Từng chữ cái nhún nhảy)
   const WavyText = ({ text, color, startDelay }: { text: string, color: string, startDelay: number }) => (
     <span style={{ color, display: "flex" }}>
       {text.split('').map((char, i) => (
-        <span key={i} className="wave-char" style={{ animationDelay: `${startDelay + i * 0.1}s` }}>
+        <span key={i} className="wave-char" style={{ animationDelay: `${startDelay + i * 0.08}s` }}>
           {char === ' ' ? '\u00A0' : char}
         </span>
       ))}
@@ -95,19 +91,19 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <div className="glass" style={{ padding: "12px 20px", marginBottom: "15px", display: "flex", flexDirection: "column", gap: "10px", position: "relative" }}>
       
-      {/* KHỐI CSS ANIMATION ĐỘC QUYỀN CHO LOGO */}
       <style>{`
-        /* Chữ lượn sóng */
+        /* Chữ lượn sóng kích hoạt phần cứng GPU để mượt mà nhất */
         @keyframes waveCharAnim {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-4px); }
+          0%, 100% { transform: translate3d(0, 0, 0); }
+          50% { transform: translate3d(0, -6px, 0); }
         }
         .wave-char {
           display: inline-block;
-          animation: waveCharAnim 1s ease-in-out infinite;
+          animation: waveCharAnim 1.2s ease-in-out infinite;
+          will-change: transform;
+          backface-visibility: hidden;
         }
 
-        /* Nốt nhạc bay lượn xoay vòng */
         @keyframes floatSpin {
           0% { opacity: 0; transform: translate(0, 0) rotate(0deg) scale(0.5); }
           20% { opacity: 1; transform: translate(calc(var(--tx) * 0.2), -10px) rotate(70deg) scale(1); }
@@ -125,21 +121,15 @@ export const Header: React.FC<HeaderProps> = ({
         }
       `}</style>
 
-      {/* 🎵 Đã mã hóa dấu cách thành %20 để Vercel nhận diện được file */}
       <audio ref={audioRef} src="/Windy%20Hill.mp3" preload="auto" onEnded={() => setIsPlaying(false)} />
 
-      {/* --- KHU VỰC THÔNG TIN CHÍNH --- */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         
-        {/* LOGO GẮN NHẠC, CHỮ LƯỢN SÓNG VÀ NỐT NHẠC BAY */}
         <div onClick={toggleMusic} style={{ display: "flex", alignItems: "center", gap: "15px", cursor: "pointer", transition: "transform 0.2s" }} onMouseOver={e => e.currentTarget.style.transform = 'scale(1.02)'} onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'} title="Bấm vào để Nghe/Tắt nhạc Windy!">
-          
           <div style={{ position: "relative" }}>
             <div style={{ background: "#ef4444", color: "#fff", padding: "10px", borderRadius: "12px", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: "0 4px 10px rgba(239,68,68,0.3)" }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
             </div>
-            
-            {/* 🎶 Hạt nốt nhạc bung lụa khi isPlaying = true */}
             {isPlaying && (
               <>
                 <div className="spin-note" style={{ '--tx': '-30px', animationDelay: '0s' } as React.CSSProperties}>🎵</div>
@@ -149,59 +139,35 @@ export const Header: React.FC<HeaderProps> = ({
               </>
             )}
           </div>
-
           <div>
-            {/* Truyền vào 컴ponent Chữ Lượn Sóng */}
             <h1 style={{ margin: 0, fontSize: "22px", fontWeight: "900", letterSpacing: "1px", display: "flex" }}>
+              {/* Giảm khoảng cách delay giữa 2 chữ để luồng sóng liền mạch */}
               <WavyText text="HẢI LÊ " color="#b91c1c" startDelay={0} />
-              <WavyText text="MART" color="#ef4444" startDelay={0.7} />
+              <WavyText text="MART" color="#ef4444" startDelay={0.56} />
             </h1>
             <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold", letterSpacing: "3px", marginTop: "2px" }}>ERP SYSTEM</div>
           </div>
-
         </div>
 
-        {/* Chỉ số tài chính */}
         <div style={{ display: "flex", alignItems: "center", gap: "25px" }}>
-           <div style={{ background: "#fef08a", color: "#b45309", padding: "4px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: "bold", display: "flex", alignItems: "center", gap: "4px" }}>
-             🌙 HAPPY HOUR
-           </div>
+           <div style={{ background: "#fef08a", color: "#b45309", padding: "4px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: "bold", display: "flex", alignItems: "center", gap: "4px" }}>🌙 HAPPY HOUR</div>
            <div style={{ borderLeft: "1px solid #cbd5e1", height: "30px" }}></div>
-           <div style={{ textAlign: "center" }}>
-             <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold", textTransform: "uppercase" }}>Vốn</div>
-             <div style={{ fontSize: "15px", fontWeight: "900", color: "#475569" }}>{totalValue.toLocaleString()}đ</div>
-           </div>
-           <div style={{ textAlign: "center", cursor: "pointer" }} onClick={() => setCashFlowModalInfo('TIỀN MẶT')}>
-             <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold", textTransform: "uppercase" }}>Tiền mặt 👆</div>
-             <div style={{ fontSize: "15px", fontWeight: "900", color: "#10b981" }}>{currentShiftStats.cash.toLocaleString()}đ</div>
-           </div>
-           <div style={{ textAlign: "center", cursor: "pointer" }} onClick={() => setCashFlowModalInfo('CHUYỂN KHOẢN')}>
-             <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold", textTransform: "uppercase" }}>Chuyển khoản 👆</div>
-             <div style={{ fontSize: "15px", fontWeight: "900", color: "#3b82f6" }}>{currentShiftStats.transfer.toLocaleString()}đ</div>
-           </div>
+           <div style={{ textAlign: "center" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold", textTransform: "uppercase" }}>Vốn</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#475569" }}>{totalValue.toLocaleString()}đ</div></div>
+           <div style={{ textAlign: "center", cursor: "pointer" }} onClick={() => setCashFlowModalInfo('TIỀN MẶT')}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold", textTransform: "uppercase" }}>Tiền mặt 👆</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#10b981" }}>{currentShiftStats.cash.toLocaleString()}đ</div></div>
+           <div style={{ textAlign: "center", cursor: "pointer" }} onClick={() => setCashFlowModalInfo('CHUYỂN KHOẢN')}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold", textTransform: "uppercase" }}>Chuyển khoản 👆</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#3b82f6" }}>{currentShiftStats.transfer.toLocaleString()}đ</div></div>
            <div style={{ borderLeft: "1px solid #cbd5e1", height: "30px" }}></div>
-           <div style={{ textAlign: "center" }}>
-             <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold", textTransform: "uppercase" }}>Lãi</div>
-             <div style={{ fontSize: "15px", fontWeight: "900", color: "#ea580c" }}>{currentShiftStats.prof.toLocaleString()}đ</div>
-           </div>
+           <div style={{ textAlign: "center" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold", textTransform: "uppercase" }}>Lãi</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#ea580c" }}>{currentShiftStats.prof.toLocaleString()}đ</div></div>
         </div>
 
-        {/* Nhân viên & Nút Tắt */}
         <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
            <button onClick={() => setDarkMode(!darkMode)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>{darkMode ? "☀️" : "🌙"}</button>
-           <div style={{ textAlign: "right" }}>
-             <div style={{ fontSize: "13px", fontWeight: "bold", color: "#1e293b" }}>{role === 'admin' ? 'Quản lý' : 'Thu ngân'}</div>
-             <div style={{ fontSize: "11px", color: "#64748b" }}>{shift}</div>
-           </div>
-           <button onClick={handleLogoutClick} style={{ background: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", padding: "8px 12px", cursor: "pointer", display: "flex", alignItems: "center", boxShadow: "0 2px 4px rgba(239,68,68,0.3)" }}>
-             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-           </button>
+           <div style={{ textAlign: "right" }}><div style={{ fontSize: "13px", fontWeight: "bold", color: "#1e293b" }}>{role === 'admin' ? 'Quản lý' : 'Thu ngân'}</div><div style={{ fontSize: "11px", color: "#64748b" }}>{shift}</div></div>
+           <button onClick={handleLogoutClick} style={{ background: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", padding: "8px 12px", cursor: "pointer", display: "flex", alignItems: "center", boxShadow: "0 2px 4px rgba(239,68,68,0.3)" }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg></button>
         </div>
       </div>
 
       <div style={{ borderBottom: "1px dashed #cbd5e1" }}></div>
 
-      {/* --- KHU VỰC MENU & TRẠNG THÁI MÂY --- */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         
         <button
@@ -212,46 +178,41 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
 
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <div style={{ fontSize: "11px", color: "#64748b", background: "#f8fafc", padding: "6px 12px", borderRadius: "6px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: "6px" }}>
-            ⏱ {timeStr}
-          </div>
-          <button onClick={syncAllOfflineData} style={{ fontSize: "11px", color: getSyncColor(), background: "#f8fafc", padding: "6px 12px", borderRadius: "6px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontWeight: "bold" }}>
-            <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: getSyncColor() }}></div>
-            {isOnline ? syncStatus : "Mất mạng"}
-          </button>
+          <div style={{ fontSize: "11px", color: "#64748b", background: "#f8fafc", padding: "6px 12px", borderRadius: "6px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: "6px" }}>⏱ {timeStr}</div>
+          <button onClick={syncAllOfflineData} style={{ fontSize: "11px", color: getSyncColor(), background: "#f8fafc", padding: "6px 12px", borderRadius: "6px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontWeight: "bold" }}><div style={{ width: "8px", height: "8px", borderRadius: "50%", background: getSyncColor() }}></div>{isOnline ? syncStatus : "Mất mạng"}</button>
         </div>
       </div>
 
       {/* --- MENU SỔ XUỐNG --- */}
       {showMainMenu && (
-        <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: "20px", background: "rgba(255,255,255,0.98)", backdropFilter: "blur(16px)", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "10px", width: "270px", zIndex: 1000, boxShadow: "0 10px 25px rgba(0,0,0,0.15)", display: "flex", flexDirection: "column", gap: "5px" }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: "20px", background: "rgba(255,255,255,0.98)", backdropFilter: "blur(16px)", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "12px", width: "480px", zIndex: 1000, boxShadow: "0 10px 25px rgba(0,0,0,0.15)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
           
           {setShowScannerLinkModal && (
-            <button onClick={() => { setShowScannerLinkModal(true); setShowMainMenu(false); }} style={{ padding: "12px 10px", textAlign: "left", background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", display: "flex", alignItems: "center", gap: "8px", boxShadow: "0 2px 5px rgba(37,99,235,0.2)" }}>
+            <button onClick={() => { setShowScannerLinkModal(true); setShowMainMenu(false); }} style={{ gridColumn: role === 'admin' ? "auto" : "1 / -1", padding: "12px 10px", textAlign: "left", background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", display: "flex", alignItems: "center", gap: "8px", boxShadow: "0 2px 5px rgba(37,99,235,0.2)" }}>
               📱 Kết nối Máy Quét Cầm Tay
             </button>
           )}
           {role === 'admin' && setShowPOModal && (
             <button onClick={() => { setShowPOModal(true); setShowMainMenu(false); }} style={{ padding: "12px 10px", textAlign: "left", background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", display: "flex", alignItems: "center", gap: "8px", boxShadow: "0 2px 5px rgba(5,150,105,0.2)" }}>
-              📦 Phiếu Nhập Hàng & Công Nợ
+              📦 Nhập Hàng & Công Nợ
             </button>
           )}
           
-          {setShowScannerLinkModal && <div style={{ borderBottom: "1px solid #e2e8f0", margin: "5px 0" }}></div>}
+          {setShowScannerLinkModal && <div style={{ gridColumn: "1 / -1", borderBottom: "1px solid #e2e8f0", margin: "4px 0" }}></div>}
 
-          <button onClick={() => { setShowStatsModal(true); setShowMainMenu(false) }} style={{ padding: "10px", textAlign: "left", background: "transparent", color: "#1e293b", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold" }}>📊 Báo Cáo Doanh Thu</button>
-          <button onClick={() => { setShowCustomerModal(true); setShowMainMenu(false) }} style={{ padding: "10px", textAlign: "left", background: "transparent", color: "#1e293b", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold" }}>👥 Khách Hàng VIP</button>
-          <button onClick={() => { setShowDebtModal(true); setShowMainMenu(false) }} style={{ padding: "10px", textAlign: "left", background: "transparent", color: "#1e293b", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold" }}>📒 Sổ Nợ Khách Hàng</button>
+          <button onClick={() => { setShowStatsModal(true); setShowMainMenu(false) }} style={{ padding: "10px", textAlign: "left", background: "transparent", color: "#1e293b", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", transition: "background 0.2s" }} onMouseOver={e=>e.currentTarget.style.background="#f1f5f9"} onMouseOut={e=>e.currentTarget.style.background="transparent"}>📊 Báo Cáo Doanh Thu</button>
+          <button onClick={() => { setShowCustomerModal(true); setShowMainMenu(false) }} style={{ padding: "10px", textAlign: "left", background: "transparent", color: "#1e293b", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", transition: "background 0.2s" }} onMouseOver={e=>e.currentTarget.style.background="#f1f5f9"} onMouseOut={e=>e.currentTarget.style.background="transparent"}>👥 Khách Hàng VIP</button>
+          <button onClick={() => { setShowDebtModal(true); setShowMainMenu(false) }} style={{ padding: "10px", textAlign: "left", background: "transparent", color: "#1e293b", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", transition: "background 0.2s" }} onMouseOver={e=>e.currentTarget.style.background="#f1f5f9"} onMouseOut={e=>e.currentTarget.style.background="transparent"}>📒 Sổ Nợ Khách Hàng</button>
           
           {role === 'admin' && (
             <>
-              <div style={{ borderBottom: "1px solid #e2e8f0", margin: "5px 0" }}></div>
-              <button onClick={() => { setShowInventoryModal(true); setShowMainMenu(false) }} style={{ padding: "10px", textAlign: "left", background: "transparent", color: "#1e293b", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold" }}>📦 Kiểm Kho Thực Tế {lowStockCount > 0 && <span style={{ background: "#ef4444", color: "#fff", padding: "2px 6px", borderRadius: "10px", fontSize: "10px", marginLeft: "5px" }}>{lowStockCount} sp sắp hết</span>}</button>
-              <button onClick={() => { setShowSupplierModal(true); setShowMainMenu(false) }} style={{ padding: "10px", textAlign: "left", background: "transparent", color: "#1e293b", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold" }}>🏢 Quản Lý Nhà Cung Cấp</button>
-              <button onClick={() => { setShowExpenseModal(true); setShowMainMenu(false) }} style={{ padding: "10px", textAlign: "left", background: "transparent", color: "#1e293b", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold" }}>💸 Sổ Ghi Chi Phí</button>
-              <button onClick={() => { setShowMarketingModal(true); setShowMainMenu(false) }} style={{ padding: "10px", textAlign: "left", background: "transparent", color: "#1e293b", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold" }}>💌 Chăm Sóc KH (Email/Zalo)</button>
-              <button onClick={() => { setShowAuditModal(true); setShowMainMenu(false) }} style={{ padding: "10px", textAlign: "left", background: "transparent", color: "#1e293b", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold" }}>👁 Nhật Ký Thao Tác</button>
-              <button onClick={() => { setShowSettings(true); setShowMainMenu(false) }} style={{ padding: "10px", textAlign: "left", background: "transparent", color: "#1e293b", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold" }}>⚙ Cài Đặt Hệ Thống</button>
+              <div style={{ gridColumn: "1 / -1", borderBottom: "1px solid #e2e8f0", margin: "4px 0" }}></div>
+              <button onClick={() => { setShowInventoryModal(true); setShowMainMenu(false) }} style={{ padding: "10px", textAlign: "left", background: "transparent", color: "#1e293b", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", transition: "background 0.2s" }} onMouseOver={e=>e.currentTarget.style.background="#f1f5f9"} onMouseOut={e=>e.currentTarget.style.background="transparent"}>📦 Kiểm Kho {lowStockCount > 0 && <span style={{ background: "#ef4444", color: "#fff", padding: "2px 6px", borderRadius: "10px", fontSize: "10px", marginLeft: "5px" }}>{lowStockCount} sp sắp hết</span>}</button>
+              <button onClick={() => { setShowSupplierModal(true); setShowMainMenu(false) }} style={{ padding: "10px", textAlign: "left", background: "transparent", color: "#1e293b", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", transition: "background 0.2s" }} onMouseOver={e=>e.currentTarget.style.background="#f1f5f9"} onMouseOut={e=>e.currentTarget.style.background="transparent"}>🏢 Nhà Cung Cấp</button>
+              <button onClick={() => { setShowExpenseModal(true); setShowMainMenu(false) }} style={{ padding: "10px", textAlign: "left", background: "transparent", color: "#1e293b", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", transition: "background 0.2s" }} onMouseOver={e=>e.currentTarget.style.background="#f1f5f9"} onMouseOut={e=>e.currentTarget.style.background="transparent"}>💸 Sổ Ghi Chi Phí</button>
+              <button onClick={() => { setShowMarketingModal(true); setShowMainMenu(false) }} style={{ padding: "10px", textAlign: "left", background: "transparent", color: "#1e293b", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", transition: "background 0.2s" }} onMouseOver={e=>e.currentTarget.style.background="#f1f5f9"} onMouseOut={e=>e.currentTarget.style.background="transparent"}>💌 Chăm Sóc KH (Zalo)</button>
+              <button onClick={() => { setShowAuditModal(true); setShowMainMenu(false) }} style={{ padding: "10px", textAlign: "left", background: "transparent", color: "#1e293b", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", transition: "background 0.2s" }} onMouseOver={e=>e.currentTarget.style.background="#f1f5f9"} onMouseOut={e=>e.currentTarget.style.background="transparent"}>👁 Nhật Ký Thao Tác</button>
+              <button onClick={() => { setShowSettings(true); setShowMainMenu(false) }} style={{ padding: "10px", textAlign: "left", background: "transparent", color: "#1e293b", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "bold", transition: "background 0.2s" }} onMouseOver={e=>e.currentTarget.style.background="#f1f5f9"} onMouseOut={e=>e.currentTarget.style.background="transparent"}>⚙ Cài Đặt Hệ Thống</button>
             </>
           )}
         </div>
