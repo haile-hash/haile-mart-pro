@@ -181,7 +181,9 @@ export default function App() {
     shiftLogs.forEach(h => { 
       if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += h.total; 
       if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') { 
-        if (h.paymentMethod === 'CHUYỂN KHOẢN' || h.paymentMethod === 'QUẸT THẺ' || h.paymentMethod === 'ZALO PAY') transfer += h.total; else if (h.paymentMethod === 'TIỀN MẶT' || h.paymentMethod === 'KẾT HỢP') { if(h.paymentMethod === 'KẾT HỢP' && h.split_cash) { cash += h.split_cash; transfer += (h.total - h.split_cash); } else { cash += h.total; } }
+        if (h.paymentMethod === 'CHUYỂN KHOẢN' || h.paymentMethod === 'QUẸT THẺ' || h.paymentMethod === 'ZALO PAY') transfer += h.total; else if (h.paymentMethod === 'TIỀN MẶT' || h.paymentMethod === 'KẾT HỢP') {
+          if(h.paymentMethod === 'KẾT HỢP' && h.split_cash) { cash += h.split_cash; transfer += (h.total - h.split_cash); } else { cash += h.total; }
+        }
       } 
       prof += (h.profit || 0) 
     }); 
@@ -225,6 +227,10 @@ export default function App() {
 
   const totalValue = Math.round(products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
   const lowStockCount = products.filter(p => p.stock > 0 && p.stock < 10).length;
+  
+  // Dữ liệu dùng truyền cho Dropdown Categories ở Modal nhập lẻ
+  const categories = ["Tất cả", ...Array.from(new Set(products.map(p => formatCategoryStr(p.category))))];
+  
   const cartTotalAmountDisplay = cart.reduce((sum, item) => sum + item.total, 0);
   const currentTier = getCustomerTier(customers[custPhone]?.totalSpent || 0);
   const tierDiscountAmount = custPhone ? Math.round(cartTotalAmountDisplay * currentTier.discountRate) : 0;
@@ -237,7 +243,6 @@ export default function App() {
   const uniqueImportPrices = useMemo(() => Array.from(new Set(products.map(p => p.import_price || 0))).sort((a, b) => a - b), [products]);
   const uniqueSalePrices = useMemo(() => Array.from(new Set(products.map(p => p.sale_price))).sort((a, b) => a - b), [products]);
   const uniqueExpiries = useMemo(() => Array.from(new Set(products.map(p => p.expiry_date).filter(Boolean))).sort(), [products]);
-  const categories = ["Tất cả", ...Array.from(new Set(products.map(p => formatCategoryStr(p.category))))];
   
   const sortedAndFilteredProducts = useMemo(() => {
     const todayTime = new Date().getTime(); const safeSearch = String(searchTerm || "").toLowerCase();
@@ -256,7 +261,7 @@ export default function App() {
   }, [products, searchTerm, selectedCategory, sortConfig, filters]);
 
   // =====================================================================
-  // 4. ACTION FUNCTIONS (CÁC HÀM XỬ LÝ SỰ KIỆN - CHUẨN 100%)
+  // 4. ACTION FUNCTIONS (ĐẢM BẢO CHUẨN XÁC KHÔNG SÓT)
   // =====================================================================
 
   const executeWithAdminCheck = (action: () => void) => { if (role === 'admin') { action(); } else { setPendingAction(() => action); setShowPinModal(true); } };
@@ -269,7 +274,7 @@ export default function App() {
   };
 
   const updateSettingsToCloud = async (bin: string, acc: string, nameStr: string, hStart: string, hEnd: string) => {
-    if (!navigator.onLine) return toast.error("Mất mạng!"); setLoading(true);
+    if (!navigator.onLine) return toast.error("Mất mạng! Không thể lưu."); setLoading(true);
     try {
       const { error } = await supabase.from("settings").update({ bank_bin: bin, bank_acc: acc, bank_name_str: nameStr, happy_hour_start: hStart, happy_hour_end: hEnd, updated_at: new Date().toISOString() }).eq("id", 1);
       if (!error) { setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr); setHappyStart(hStart); setHappyEnd(hEnd); toast.success("Lưu thành công!"); setShowSettings(false); }
@@ -284,7 +289,9 @@ export default function App() {
   };
   
   const fetchProducts = async () => { const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false }); if (data) setProducts(data) };
+  
   const findProductByCode = (code: string) => { const rawCode = code.trim(); let matches = products.filter(prod => prod.product_code === rawCode || String(prod.product_code).startsWith(`${rawCode}-`)); let available = matches.filter(p => p.stock > 0); if (available.length > 0) { available.sort((a, b) => { if (!a.expiry_date) return 1; if (!b.expiry_date) return -1; return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime() }); return available[0] } return matches.length > 0 ? matches[0] : null };
+  
   const handleLogin = async (e: React.FormEvent) => { e.preventDefault(); let u = authUsername.trim().toLowerCase(); const p = authPassword.trim(); if (!u.includes('@')) { u = u + '@hailemart.com'; } localStorage.setItem("mart_starting_cash", startingCash.toString()); setLoading(true); const { error } = await supabase.auth.signInWithPassword({ email: u, password: p }); if (error) { toast.error(`Đăng nhập thất bại.`); setLoading(false); return; } const userRole = u.includes('admin') ? 'admin' : 'staff'; setIsLoggedIn(true); setRole(userRole); localStorage.setItem("mart_shift", shift); localStorage.setItem("mart_logged_in", "true"); localStorage.setItem("mart_role", userRole); setLoading(false); };
   const handleLogoutClick = () => setShowHandoverModal(true);
   const confirmHandover = async () => { try { if (navigator.onLine) { await supabase.auth.signOut(); } } catch (error) {} finally { localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role"); setIsLoggedIn(false); window.location.reload(); } };
@@ -294,13 +301,10 @@ export default function App() {
   const addExpense = async () => { if (!expName || !expAmount) return toast.error("Nhập chi phí!"); setExpenses(prev => [{ id: Date.now(), date: new Date().toLocaleDateString('vi-VN'), name: expName, amount: Number(expAmount) }, ...prev]); setExpName(""); setExpAmount(""); toast.success("Đã ghi nhận chi phí!"); };
   const deleteExpense = async (id: any) => { setExpenses(prev => prev.filter(e => e.id !== id)); if (navigator.onLine) await supabase.from('expenses').delete().eq('id', id); };
 
-  // ===============================================
-  // 🔥 CÁC HÀM XỬ LÝ THANH TOÁN QUAN TRỌNG NHẤT
-  // ===============================================
   const closeCheckout = () => { resetCheckout() };
   const handleHoldOrder = async () => { if (cart.length === 0) return; const newO = { id: Date.now(), time: new Date().toLocaleTimeString('vi-VN'), cart: [...cart] }; setHeldOrders(prev => [...prev, newO]); logAudit("LƯU TẠM", `Lưu giỏ ${cart.length} món`); resetCheckout(); toast.success("Đã lưu tạm đơn hàng!"); };
-  const restoreOrder = async (order: any) => { if (cart.length > 0) return toast.error("Vui lòng thanh toán giỏ hiện tại trước!"); setCart(order.cart); setHeldOrders(prev => prev.filter(o => o.id !== order.id)); if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', order.id); setShowHoldModal(false); };
-  const deleteHeldOrder = async (id: any) => { setHeldOrders(prev => prev.filter(o => o.id !== id)); logAudit("XÓA ĐƠN", `Xóa đơn lưu tạm`); if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', id); };
+  const restoreOrder = async (order: any) => { if (cart.length > 0) return toast.error("Vui lòng thanh toán giỏ hiện tại trước!"); setCart(order.cart); setHeldOrders(prev => prev.filter(o => o.id !== order.id)); if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', order.id); setShowHoldModal(false); toast.success("Đã mở lại đơn tạm!"); };
+  const deleteHeldOrder = async (id: any) => { setHeldOrders(prev => prev.filter(o => o.id !== id)); logAudit("XÓA ĐƠN", `Xóa đơn lưu tạm`); if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', id); toast.success("Đã xóa đơn tạm!"); };
 
   const handleVoucherSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -335,7 +339,7 @@ export default function App() {
 
   const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 'GHI NỢ' | 'KẾT HỢP' | 'QUẸT THẺ' | 'ZALO PAY') => {
     if (cart.some(i => !i.qty || i.qty <= 0)) { playSound('error'); return toast.error("Lỗi số lượng sản phẩm!") }
-    if (payMethod === 'GHI NỢ' && !custPhone) return toast.error("Thanh toán Ghi nợ cần số điện thoại!");
+    if (payMethod === 'GHI NỢ' && !custPhone) return toast.error("Thanh toán Ghi nợ cần SĐT Khách hàng!");
     
     setLoading(true); 
     try {
@@ -355,9 +359,6 @@ export default function App() {
   const handleRefund = async (logId: any) => { executeWithAdminCheck(() => { const log = history.find(l => l.id === logId); if (!log || log.type !== 'BÁN') return; setHistory(prev => [{ id: Date.now(), shift, type: "TRẢ HÀNG", name: "HOÀN đơn: " + log.name, qty: log.qty, total: -log.total, profit: -(log.profit || 0), customer: log.customer, paymentMethod: "TIỀN MẶT", time: new Date().toLocaleString('vi-VN') }, ...prev]); toast.success("Hoàn đơn thành công!"); }); };
   const handlePayDebt = async (phone: string) => { const currentDebt = customers[phone]?.debt || 0; if (currentDebt <= 0) return toast.error("Khách không có nợ!"); setCustomers(prev => ({ ...prev, [phone]: { ...prev[phone], debt: 0 } })); toast.success("Đã xóa nợ!"); };
 
-  // ===============================================
-  // 🔥 CÁC HÀM IN ẤN & GỬI EMAIL CHUẨN THỰC TẾ
-  // ===============================================
   const handleReprint = (timeStr: string) => {
     const logsInBill = history.filter(h => h.time === timeStr && h.type === 'BÁN' && h.product_id !== 'DISCOUNT'); const discountLog = history.find(h => h.time === timeStr && h.product_id === 'DISCOUNT');
     if(logsInBill.length === 0) return toast.error("Không tìm thấy dữ liệu hóa đơn!");
@@ -384,26 +385,12 @@ export default function App() {
   };
 
   const printCustomerCard = (phone: string) => { setPrintCustomer({ phone, ...customers[phone] }); setPrintMode('customer_card'); setTimeout(() => window.print(), 1000) };
+  const shareToZalo = (phone: string) => { const cust = customers[phone]; const code = cust.cardCode || phone; navigator.clipboard.writeText(`Chào ${cust.name},\nCảm ơn bạn đã đồng hành cùng Hải Lê Mart!\n💳 Mã Thẻ VIP của bạn là: ${code}`).then(() => { toast.success(`Đã copy lời chào. Đang mở Zalo...`); window.open(`https://zalo.me/${phone}`, '_blank') }).catch(() => { window.open(`https://zalo.me/${phone}`, '_blank') }) };
   
-  const shareToZalo = (phone: string) => { 
-    const cust = customers[phone]; const code = cust.cardCode || phone; 
-    navigator.clipboard.writeText(`Chào ${cust.name},\nCảm ơn bạn đã đồng hành cùng Hải Lê Mart!\n💳 Mã Thẻ VIP của bạn là: ${code}`).then(() => { 
-      toast.success(`Đã copy lời chào. Đang mở Zalo...`); window.open(`https://zalo.me/${phone}`, '_blank') 
-    }).catch(() => { window.open(`https://zalo.me/${phone}`, '_blank') }) 
-  };
-
-  // ===============================================
-  // 🔥 CÁC HÀM XỬ LÝ SẢN PHẨM & TỒN KHO THẬT
-  // ===============================================
-
-  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => { 
-    const code = e.target.value; setNewCode(code); 
-    const p = products.find((x: any) => x.product_code === code); 
-    if (p) { setNewName(cleanName(p.name)); setNewCategory(formatCategoryStr(p.category)); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewExpiry(p.expiry_date || ""); const gift = parseGift(p.gift_info); setNewGiftCondition(gift.cond.toString()); setNewGiftInfo(gift.text) } 
-  };
+  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => { const code = e.target.value; setNewCode(code); const p = products.find((x: any) => x.product_code === code); if (p) { setNewName(cleanName(p.name)); setNewCategory(formatCategoryStr(p.category)); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewExpiry(p.expiry_date || ""); const gift = parseGift(p.gift_info); setNewGiftCondition(gift.cond.toString()); setNewGiftInfo(gift.text) } };
   
   const handleAddProduct = async (e: React.FormEvent) => {
-    e.preventDefault(); if (!navigator.onLine) return toast.error("Cần có mạng để thao tác Kho!"); setLoading(true);
+    e.preventDefault(); if (!navigator.onLine) return toast.error("Cần mạng để thao tác Kho!"); setLoading(true);
     try {
       const added = parseInt(newStock || "0"); const impPrice = parseInt(newImportPrice); const salePrice = parseInt(newPrice); const promo = parseInt(newPromoPrice) || 0; const finalGiftInfo = newGiftInfo.trim() !== "" ? `${newGiftCondition};;;${newGiftInfo}` : null; const baseCode = newCode.trim(); const formattedCat = formatCategoryStr(newCategory);
       const allVariants = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)); const exist = allVariants.find(p => p.product_code === baseCode); let syncMsg = "";
@@ -632,7 +619,7 @@ export default function App() {
   const clearCart = () => { if (window.confirm("Hủy toàn bộ?")) { resetCheckout(); } };
 
   // ===============================================
-  // 🔥 RENDER GIAO DIỆN CHÍNH (Đã KHÔI PHỤC A4, NHẬP LẺ)
+  // 🔥 RENDER GIAO DIỆN CHÍNH
   // ===============================================
   const renderPrintArea = () => (
     <>
@@ -823,12 +810,13 @@ export default function App() {
                   handleDownloadSample={downloadSampleCSV}
                 />
                 
-                {/* HIỆN LẠI KHU VỰC NHẬP HÀNG LẺ */}
+                {/* ĐÃ BỔ SUNG CATEGORIES ĐỂ CHỐNG LỖI MÀN HÌNH TRẮNG KHI MỞ FORM */}
                 {showInputForm && (
                   <ProductInputForm
                     newCode={newCode} handleCodeChange={handleCodeChange}
                     newName={newName} setNewName={setNewName}
                     newCategory={newCategory} setNewCategory={setNewCategory}
+                    categories={categories}
                     newImportPrice={newImportPrice} setNewImportPrice={setNewImportPrice}
                     newPrice={newPrice} setNewPrice={setNewPrice}
                     newPromoPrice={newPromoPrice} setNewPromoPrice={setNewPromoPrice}
@@ -837,6 +825,8 @@ export default function App() {
                     newStock={newStock} setNewStock={setNewStock}
                     newExpiry={newExpiry} setNewExpiry={setNewExpiry}
                     handleAddProduct={handleAddProduct}
+                    onSubmit={handleAddProduct}
+                    onSave={handleAddProduct}
                     setShowInputForm={setShowInputForm}
                     onClose={() => setShowInputForm(false)}
                     onCancel={() => setShowInputForm(false)}
