@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 
 interface HeaderProps {
@@ -44,6 +44,10 @@ export const Header: React.FC<HeaderProps> = ({
   setShowScannerLinkModal, setShowPOModal
 }) => {
   const [timeStr, setTimeStr] = useState("");
+  
+  // 🎵 Quản lý trạng thái nhạc & nốt nhạc bay
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -59,45 +63,102 @@ export const Header: React.FC<HeaderProps> = ({
     return "#10b981";
   };
 
-  // 🎵 GỌI NHẠC TRỰC TIẾP TỪ JAVASCRIPT (KHÔNG DÙNG THẺ AUDIO NỮA)
-  const playLogoMusic = () => {
-    const audio = new Audio("/Windy Hill.mp3"); 
-    audio.play().catch(e => {
-      console.log("Trình duyệt chặn nhạc:", e);
-      toast.error("Trình duyệt chặn âm thanh tự động. Hãy click chuột vài lần vào trang rồi thử lại nhé!"); 
-    });
+  // 🎵 Điều khiển Bật/Tắt nhạc
+  const toggleMusic = () => {
+    if (!audioRef.current) return;
+    
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.currentTime = 0; // Tua lại đầu bài
+      audioRef.current.play().then(() => {
+        setIsPlaying(true);
+      }).catch(e => {
+        console.error("Lỗi phát nhạc:", e);
+        toast.error("Không tìm thấy file nhạc. Sếp kiểm tra lại file Windy Hill.mp3 trên GitHub nhé!");
+      });
+    }
   };
+
+  // 🌊 Hàm tạo chữ lượn sóng xịn xò (Từng chữ cái nhún nhảy)
+  const WavyText = ({ text, color, startDelay }: { text: string, color: string, startDelay: number }) => (
+    <span style={{ color, display: "flex" }}>
+      {text.split('').map((char, i) => (
+        <span key={i} className="wave-char" style={{ animationDelay: `${startDelay + i * 0.1}s` }}>
+          {char === ' ' ? '\u00A0' : char}
+        </span>
+      ))}
+    </span>
+  );
 
   return (
     <div className="glass" style={{ padding: "12px 20px", marginBottom: "15px", display: "flex", flexDirection: "column", gap: "10px", position: "relative" }}>
       
-      {/* 🌊 CSS Hiệu ứng lượn sóng cho Logo */}
+      {/* KHỐI CSS ANIMATION ĐỘC QUYỀN CHO LOGO */}
       <style>{`
-        @keyframes waveAnimation {
+        /* Chữ lượn sóng */
+        @keyframes waveCharAnim {
           0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-6px); }
+          50% { transform: translateY(-4px); }
         }
-        .logo-wavy {
-          animation: waveAnimation 2.5s ease-in-out infinite;
+        .wave-char {
+          display: inline-block;
+          animation: waveCharAnim 1s ease-in-out infinite;
         }
-        .logo-wavy:hover {
-          animation-play-state: paused;
-          transform: scale(1.05);
+
+        /* Nốt nhạc bay lượn xoay vòng */
+        @keyframes floatSpin {
+          0% { opacity: 0; transform: translate(0, 0) rotate(0deg) scale(0.5); }
+          20% { opacity: 1; transform: translate(calc(var(--tx) * 0.2), -10px) rotate(70deg) scale(1); }
+          80% { opacity: 1; transform: translate(calc(var(--tx) * 0.8), -40px) rotate(280deg) scale(1.2); }
+          100% { opacity: 0; transform: translate(var(--tx), -60px) rotate(360deg) scale(1.5); }
+        }
+        .spin-note {
+          position: absolute;
+          top: 0;
+          left: 20px;
+          font-size: 16px;
+          pointer-events: none;
+          animation: floatSpin 2s linear infinite;
+          z-index: 100;
         }
       `}</style>
+
+      {/* 🎵 Đã mã hóa dấu cách thành %20 để Vercel nhận diện được file */}
+      <audio ref={audioRef} src="/Windy%20Hill.mp3" preload="auto" onEnded={() => setIsPlaying(false)} />
 
       {/* --- KHU VỰC THÔNG TIN CHÍNH --- */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         
-        {/* Lắp class lượn sóng vào Logo */}
-        <div className="logo-wavy" onClick={playLogoMusic} style={{ display: "flex", alignItems: "center", gap: "15px", cursor: "pointer", transition: "transform 0.2s" }} title="Bấm vào Logo để thưởng thức nhạc Windy!">
-          <div style={{ background: "#ef4444", color: "#fff", padding: "10px", borderRadius: "12px", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: "0 4px 10px rgba(239,68,68,0.3)" }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+        {/* LOGO GẮN NHẠC, CHỮ LƯỢN SÓNG VÀ NỐT NHẠC BAY */}
+        <div onClick={toggleMusic} style={{ display: "flex", alignItems: "center", gap: "15px", cursor: "pointer", transition: "transform 0.2s" }} onMouseOver={e => e.currentTarget.style.transform = 'scale(1.02)'} onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'} title="Bấm vào để Nghe/Tắt nhạc Windy!">
+          
+          <div style={{ position: "relative" }}>
+            <div style={{ background: "#ef4444", color: "#fff", padding: "10px", borderRadius: "12px", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: "0 4px 10px rgba(239,68,68,0.3)" }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+            </div>
+            
+            {/* 🎶 Hạt nốt nhạc bung lụa khi isPlaying = true */}
+            {isPlaying && (
+              <>
+                <div className="spin-note" style={{ '--tx': '-30px', animationDelay: '0s' } as React.CSSProperties}>🎵</div>
+                <div className="spin-note" style={{ '--tx': '20px', animationDelay: '0.4s' } as React.CSSProperties}>🎶</div>
+                <div className="spin-note" style={{ '--tx': '-15px', animationDelay: '0.8s' } as React.CSSProperties}>🎵</div>
+                <div className="spin-note" style={{ '--tx': '35px', animationDelay: '1.2s' } as React.CSSProperties}>🎶</div>
+              </>
+            )}
           </div>
+
           <div>
-            <h1 style={{ margin: 0, fontSize: "22px", color: "#b91c1c", fontWeight: "900", letterSpacing: "1px" }}>HẢI LÊ <span style={{ color: "#ef4444" }}>MART</span></h1>
-            <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold", letterSpacing: "3px" }}>ERP SYSTEM</div>
+            {/* Truyền vào 컴ponent Chữ Lượn Sóng */}
+            <h1 style={{ margin: 0, fontSize: "22px", fontWeight: "900", letterSpacing: "1px", display: "flex" }}>
+              <WavyText text="HẢI LÊ " color="#b91c1c" startDelay={0} />
+              <WavyText text="MART" color="#ef4444" startDelay={0.7} />
+            </h1>
+            <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold", letterSpacing: "3px", marginTop: "2px" }}>ERP SYSTEM</div>
           </div>
+
         </div>
 
         {/* Chỉ số tài chính */}
