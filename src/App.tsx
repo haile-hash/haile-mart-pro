@@ -35,9 +35,6 @@ import { AuditModal } from "./components/modals/AuditModal";
 import { ScannerModal } from "./components/modals/ScannerModal";
 import { HandoverModal } from "./components/modals/HandoverModal";
 import { ExpenseModal } from "./components/modals/ExpenseModal";
-import { SupplierModal } from "./components/modals/SupplierModal";
-import { MarketingModal } from "./components/modals/MarketingModal";
-import { SettingsModal } from "./components/modals/SettingsModal";
 import { PinModal } from "./components/modals/PinModal"; 
 import { ScannerLinkModal } from "./components/modals/ScannerLinkModal"; 
 import { MobileScanner } from "./components/MobileScanner"; 
@@ -54,7 +51,7 @@ export default function App() {
   const EMAILJS_PUBLIC_KEY = process.env.REACT_APP_EMAILJS_PUBLIC_KEY || "5ric0kxuwNPlUleAv";
   
   // =====================================================================
-  // 1. KHAI BÁO BIẾN (STATES)
+  // 1. STATES CƠ BẢN
   // =====================================================================
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem("mart_logged_in") === "true");
   const [role, setRole] = useState(() => localStorage.getItem("mart_role") || "staff");
@@ -122,7 +119,7 @@ export default function App() {
   const [barcodeCount, setBarcodeCount] = useState<number>(30);
   const [selectedAuditLog, setSelectedAuditLog] = useState<AuditLog | null>(null);
 
-  // States dành riêng cho Phiếu nhập PO
+  // States dành riêng cho Phiếu PO
   const [poTab, setPoTab] = useState<'NEW' | 'RECEIVE'>('NEW');
   const [selectedSupplierId, setSelectedSupplierId] = useState("");
   const [poItems, setPoItems] = useState<any[]>([]);
@@ -288,9 +285,8 @@ export default function App() {
     return filtered
   }, [products, searchTerm, selectedCategory, sortConfig, filters]);
 
-
   // =====================================================================
-  // 4. ACTION FUNCTIONS
+  // 4. ACTION FUNCTIONS ĐÃ ĐƯỢC CHUẨN HÓA TOP-LEVEL
   // =====================================================================
 
   const executeWithAdminCheck = (action: () => void) => { if (role === 'admin') { action(); } else { setPendingAction(() => action); setShowPinModal(true); } };
@@ -337,9 +333,7 @@ export default function App() {
     if (!supName || !supPhone) return toast.error("Nhập đủ Tên/SĐT"); 
     const newId = Date.now();
     setSuppliers(prev => [{ id: newId, name: supName, phone: supPhone, address: supAddress, item: supItem, debt: 0 }, ...prev]); 
-    if (navigator.onLine) {
-        supabase.from('suppliers').insert([{ id: newId, name: supName, phone: supPhone, address: supAddress, item: supItem, debt: 0 }]).then();
-    }
+    if (navigator.onLine) { supabase.from('suppliers').insert([{ id: newId, name: supName, phone: supPhone, address: supAddress, item: supItem, debt: 0 }]).then(); }
     setSupName(""); setSupPhone(""); setSupAddress(""); setSupItem(""); toast.success("Thêm NCC thành công!"); 
   };
   const deleteSupplier = async (id: any) => { setSuppliers(prev => prev.filter(s => s.id !== id)); if (navigator.onLine) await supabase.from('suppliers').delete().eq('id', id); };
@@ -352,6 +346,7 @@ export default function App() {
   const restoreOrder = async (order: any) => { if (cart.length > 0) return toast.error("Vui lòng thanh toán giỏ hiện tại trước!"); setCart(order.cart); setHeldOrders(prev => prev.filter(o => o.id !== order.id)); if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', order.id); setShowHoldModal(false); toast.success("Đã mở lại đơn tạm!"); };
   const deleteHeldOrder = async (id: any) => { setHeldOrders(prev => prev.filter(o => o.id !== id)); logAudit("XÓA ĐƠN", `Xóa đơn lưu tạm`); if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', id); toast.success("Đã xóa đơn tạm!"); };
 
+  // 🔥 ĐÂY LÀ HÀM HANDLE VOUCHER (ĐÃ FIX LỖI "NOT DEFINED")
   const handleVoucherSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -370,11 +365,7 @@ export default function App() {
   const handleCustomerInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value; setCustomerInput(val);
     const matchedPhone = Object.keys(customers).find(phone => phone === val.trim() || customers[phone].cardCode === val.trim());
-    if (matchedPhone) {
-      setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setUseWallet(false);
-    } else {
-      setCustPhone(val); setCustName(""); setUseWallet(false);
-    }
+    if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setUseWallet(false); } else { setCustPhone(val); setCustName(""); setUseWallet(false); }
   };
 
   const handleNextToQR = () => { 
@@ -394,44 +385,18 @@ export default function App() {
 
       for (const item of cart) {
         if (navigator.onLine) await supabase.from("products").update({ stock: Math.max(0, item.product.stock - item.qty) }).eq("id", item.product.id);
-        
         let splitCashAmt = 0;
-        if(payMethod === 'KẾT HỢP') {
-           splitCashAmt = Math.round((Number(customerGiven) / finalTotal) * Math.round(item.qty * getActualPrice(item.product) * (1 + VAT_RATE)));
-        }
+        if(payMethod === 'KẾT HỢP') { splitCashAmt = Math.round((Number(customerGiven) / finalTotal) * Math.round(item.qty * getActualPrice(item.product) * (1 + VAT_RATE))); }
 
-        const newLog = { 
-          id: Date.now() + Math.random(), 
-          shift, 
-          type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", 
-          name: cleanName(item.product.name), 
-          qty: item.qty, 
-          total: item.total, 
-          profit: Math.round(item.qty * (getActualPrice(item.product) - (item.product.import_price || 0))), 
-          customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", 
-          product_id: item.product.id, 
-          paymentMethod: payMethod, 
-          split_cash: splitCashAmt, 
-          time: new Date().toLocaleString('vi-VN') 
-        };
+        const newLog = { id: Date.now() + Math.random(), shift, type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", name: cleanName(item.product.name), qty: item.qty, total: item.total, profit: Math.round(item.qty * (getActualPrice(item.product) - (item.product.import_price || 0))), customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id, paymentMethod: payMethod, split_cash: splitCashAmt, time: new Date().toLocaleString('vi-VN') };
         newLogs.push(newLog);
       }
       
       if (custPhone) {
         const earned = payMethod === 'GHI NỢ' ? 0 : Math.round(finalTotal * 0.02);
-        const updatedCust = { 
-            name: custName, 
-            wallet: payMethod === 'GHI NỢ' ? (customers[custPhone]?.wallet || 0) : Math.round((customers[custPhone]?.wallet || 0) - walletUsedAmount + earned), 
-            debt: (customers[custPhone]?.debt || 0) + (payMethod === 'GHI NỢ' ? finalTotal : 0), 
-            totalSpent: (customers[custPhone]?.totalSpent || 0) + (payMethod !== 'GHI NỢ' ? finalTotal : 0), 
-            email: customers[custPhone]?.email || "", 
-            address: customers[custPhone]?.address || "",
-            cardCode: customers[custPhone]?.cardCode || "" 
-        }; 
+        const updatedCust = { name: custName, wallet: payMethod === 'GHI NỢ' ? (customers[custPhone]?.wallet || 0) : Math.round((customers[custPhone]?.wallet || 0) - walletUsedAmount + earned), debt: (customers[custPhone]?.debt || 0) + (payMethod === 'GHI NỢ' ? finalTotal : 0), totalSpent: (customers[custPhone]?.totalSpent || 0) + (payMethod !== 'GHI NỢ' ? finalTotal : 0), email: customers[custPhone]?.email || "", address: customers[custPhone]?.address || "", cardCode: customers[custPhone]?.cardCode || "" }; 
         setCustomers(prev => ({ ...prev, [custPhone]: updatedCust })); 
-        if (navigator.onLine) { 
-            await supabase.from("customers").update({ wallet: updatedCust.wallet, debt: updatedCust.debt, totalSpent: updatedCust.totalSpent, name: updatedCust.name }).eq("phone", custPhone);
-        }
+        if (navigator.onLine) { await supabase.from("customers").upsert({ phone: custPhone, ...updatedCust }); }
       }
 
       setHistory(prev => [...newLogs, ...prev]);
@@ -642,49 +607,400 @@ export default function App() {
   };
   
   const addToCart = (p_input: any) => { handleSelectSuggest(p_input); playSound('success'); };
+  
   const adjustCartQty = (productId: any, delta: number) => { let exceedStock = false; setCart(prev => { const updated = prev.map(item => { if (item.product.id === productId) { const baseCode = String(item.product.product_code).split('-')[0]; const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); const newQty = item.qty + delta; if (newQty > totalStock) { exceedStock = true; return item; } const price = getActualPrice(item.product); return { ...item, qty: newQty, total: Math.round(newQty * price * (1 + VAT_RATE)) }; } return item; }); return updated.filter(item => item.qty > 0); }); if (exceedStock) playSound('error'); else if (delta > 0) playSound('success'); };
+  
   const handleDirectQtyChange = (productId: any, val: string) => { setCart(prev => { if (val === '') return prev.map(i => i.product.id === productId ? { ...i, qty: '' as any, total: 0 } : i); let num = parseInt(val); if (isNaN(num) || num < 0) return prev; let exceedStock = false; const updated = prev.map(i => { if (i.product.id === productId) { const baseCode = String(i.product.product_code).split('-')[0]; const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); if (num > totalStock) { exceedStock = true; num = totalStock; } const price = getActualPrice(i.product); return { ...i, qty: num, total: Math.round(num * price * (1 + VAT_RATE)) }; } return i; }); if (exceedStock) playSound('error'); return updated; }); };
+  
   const handleDirectQtyBlur = (productId: any, val: string) => { if (val === '' || parseInt(val) <= 0 || isNaN(parseInt(val))) { setCart(prev => prev.map(i => { if (i.product.id === productId) { const price = getActualPrice(i.product); return { ...i, qty: 1, total: Math.round(1 * price * (1 + VAT_RATE)) } } return i })) } };
+  
   const removeFromCart = (productId: any) => { setCart(cart.filter(item => item.product.id !== productId)) };
+  
   const clearCart = () => { if (window.confirm("Hủy toàn bộ?")) { resetCheckout(); } };
 
-  return (
-    <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
-      <style>{styles}</style> 
-      <style>{`
-        /* KHẮC PHỤC TRIỆT ĐỂ LOGO BỊ GIÃN DÀI VÀ KÉO SAO VÀO SÁT CHỮ T */
-        .logo-wrapper { display: inline-flex !important; align-items: center; padding: 10px 45px 10px 20px !important; position: relative; width: fit-content !important; min-width: 0 !important; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); border-radius: 12px; }
-        .logo-star { position: absolute !important; right: 12px !important; top: 50% !important; transform: translateY(-50%) !important; font-size: 28px !important; color: #f59e0b !important; margin: 0 !important; }
+  // ===============================================
+  // 🔥 RENDER GIAO DIỆN CHÍNH
+  // ===============================================
 
-        /* KHAI BÁO CSS CHO CÁC MODAL XỊN XÒ */
-        .custom-modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 99999; }
-        .custom-modal-box { background: white; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); width: 95%; overflow: hidden; display: flex; flex-direction: column; animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-        @keyframes modalPop { 0% { opacity: 0; transform: scale(0.95); } 100% { opacity: 1; transform: scale(1); } }
-        .custom-modal-header { padding: 20px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; }
-        .custom-modal-title { font-size: 1.25rem; font-weight: 800; color: #0f172a; margin: 0; text-transform: uppercase; letter-spacing: 0.5px; }
-        .custom-modal-close { background: none; border: none; font-size: 28px; color: #94a3b8; cursor: pointer; transition: color 0.2s; padding: 0; line-height: 1; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; }
-        .custom-modal-close:hover { color: #ef4444; background: #fee2e2; }
-        .custom-modal-body { padding: 24px; overflow-y: auto; }
-        .custom-input-group { margin-bottom: 16px; }
-        .custom-label { display: block; font-size: 0.85rem; font-weight: 700; color: #475569; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .custom-input { width: 100%; padding: 12px 16px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; outline: none; transition: all 0.2s; box-sizing: border-box; background: #f8fafc; color: #1e293b; font-weight: 500; }
-        .custom-input:focus { border-color: #3b82f6; background: #fff; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); }
-        .custom-btn-primary { width: 100%; padding: 14px; background: #10b981; color: white; font-weight: 800; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2); }
-        .custom-btn-primary:hover:not(:disabled) { background: #059669; transform: translateY(-1px); box-shadow: 0 6px 8px -1px rgba(16, 185, 129, 0.3); }
-        .custom-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+  const renderPrintArea = () => (
+    <>
+      {lastOrder && printMode === 'receipt' && (
+        <div className="print-only">
+          <div className="print-receipt-container">
+            <div style={{ textAlign: "center", marginBottom: "8px" }}><h2 style={{ margin: 0, fontSize: "20px", fontWeight: 900 }}>HẢI LÊ MART</h2><div style={{ fontSize: "11px" }}>Tòa Nhà ATS, 252 Hoàng Quốc Việt, HN</div></div>
+            <div style={{ borderBottom: "1px dashed #000", marginBottom: "8px" }}></div>
+            <table style={{ width: "100%", fontSize: "11px", marginBottom: "4px", borderCollapse: "collapse" }}><tbody><tr><td style={{ textAlign: "left" }}><b>HĐ:</b> {lastOrder.orderId}</td><td style={{ textAlign: "right" }}><b>Ca:</b> {shift}</td></tr><tr><td style={{ textAlign: "left" }}><b>Ngày:</b> {lastOrder.time}</td><td style={{ textAlign: "right" }}><b>TN:</b> {role}</td></tr></tbody></table>
+            
+            <div style={{ borderBottom: "1px dashed #000", marginBottom: "6px" }}></div>
+            <div style={{ fontSize: "11px", marginBottom: "8px", lineHeight: "1.5" }}>
+              {lastOrder.custPhone ? (
+                <>
+                  <div><b>Khách hàng:</b> {lastOrder.custName || 'Khách VIP'}</div>
+                  <div><b>SĐT:</b> {lastOrder.custPhone}</div>
+                  {customers[lastOrder.custPhone]?.email && <div><b>Email:</b> {customers[lastOrder.custPhone].email}</div>}
+                  {customers[lastOrder.custPhone]?.address && <div><b>Địa chỉ:</b> {customers[lastOrder.custPhone].address}</div>}
+                </>
+              ) : (<div><b>Khách hàng:</b> Khách lẻ</div>)}
+            </div>
 
-        .animated-bg-mesh { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; background: linear-gradient(135deg, #ffedd5 0%, #fef08a 50%, #fed7aa 100%); background-size: 400% 400%; animation: gradientBgAnim 15s ease infinite; opacity: 0.8; }
-        @keyframes gradientBgAnim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-        [data-theme='dark'] .animated-bg-mesh { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%); opacity: 1; }
-      `}</style>
-      <div className="animated-bg-mesh"></div>
-      <Toaster position="top-right" reverseOrder={false} />
+            <div style={{ borderBottom: "1px dashed #000", marginBottom: "8px" }}></div>
+            <table style={{ width: "100%", fontSize: "12px", borderCollapse: "collapse" }}>
+              <tbody>
+                {lastOrder.cart.map((i: any, x: number) => {
+                  const p = i.priceIncludingVat !== undefined ? Math.round(i.priceIncludingVat / (1 + VAT_RATE)) : Math.round(getActualPrice(i.product)); const t = i.priceIncludingVat !== undefined ? Math.round(i.priceIncludingVat * i.qty) : Math.round((Number(i.qty) || 0) * p * (1 + VAT_RATE)); const g = parseGift(i.product.gift_info); const gQty = g.cond > 0 ? Math.floor(i.qty / g.cond) : 0;
+                  return (
+                    <React.Fragment key={x}>
+                      <tr><td colSpan={2}><b>{cleanName(i.product.name)} {i.product.isHappyHour && <span style={{ fontSize: "9px" }}>[Giờ Vàng]</span>}</b></td></tr>
+                      <tr><td style={{ paddingBottom: "4px" }}>{i.qty} x {p.toLocaleString()}</td><td style={{ textAlign: "right", paddingBottom: "4px" }}>{t.toLocaleString()}</td></tr>
+                      {g.text && gQty > 0 && <tr><td colSpan={2} style={{ fontSize: "10px", fontStyle: "italic", paddingBottom: "4px" }}>+ 🎁 Tặng: {gQty} x {g.text}</td></tr>}
+                    </React.Fragment>
+                  )
+                })}
+              </tbody>
+            </table>
+            
+            <div style={{ borderBottom: "1px dashed #000", marginBottom: "8px", marginTop: "4px" }}></div>
+            <table style={{ width: "100%", fontSize: "12px", borderCollapse: "collapse" }}><tbody><tr><td style={{ padding: "2px 0" }}>Tiền hàng:</td><td style={{ textAlign: "right", padding: "2px 0" }}>{Math.round(lastOrder.subTotal).toLocaleString()}đ</td></tr><tr><td style={{ padding: "2px 0" }}>VAT (10%):</td><td style={{ textAlign: "right", padding: "2px 0" }}>{Math.round(lastOrder.vatTotal).toLocaleString()}đ</td></tr>{lastOrder.discount > 0 && <tr><td style={{ padding: "2px 0" }}>Giảm giá/Ví:</td><td style={{ textAlign: "right", padding: "2px 0" }}>-{Math.round(lastOrder.discount).toLocaleString()}đ</td></tr>}</tbody></table>
+            
+            <div style={{ borderBottom: "2px dashed #000", margin: "6px 0" }}></div>
+            <table style={{ width: "100%", fontSize: "16px", fontWeight: 900, borderCollapse: "collapse" }}><tbody><tr><td>{lastOrder.debtAmount > 0 ? "NỢ:" : "TỔNG ĐƠN:"}</td><td style={{ textAlign: "right" }}>{Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</td></tr></tbody></table>
+            
+            <div style={{ borderTop: "1px dotted #000", paddingTop: "6px", marginTop: "6px", fontSize: "12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Phương thức TT:</span><b>{lastOrder.paymentMethod}</b></div>
+              
+              {lastOrder.paymentMethod === 'TIỀN MẶT' && (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Khách đưa:</span><span>{Math.round(lastOrder.customerGiven || lastOrder.finalTotal).toLocaleString()}đ</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}><span>Thối lại:</span><span>{Math.round(Math.max(0, (lastOrder.customerGiven || lastOrder.finalTotal) - lastOrder.finalTotal)).toLocaleString()}đ</span></div>
+                </>
+              )}
 
-      <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} />
+              {lastOrder.paymentMethod === 'KẾT HỢP' && (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Tiền mặt:</span><span>{Math.round(lastOrder.customerGiven || 0).toLocaleString()}đ</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Chuyển khoản:</span><span>{Math.round(lastOrder.finalTotal - (lastOrder.customerGiven || 0)).toLocaleString()}đ</span></div>
+                </>
+              )}
+              
+              {lastOrder.paymentMethod === 'CHUYỂN KHOẢN' && (<div style={{ display: "flex", justifyContent: "space-between" }}><span>Trạng thái:</span><span>Đã chuyển khoản</span></div>)}
+              {lastOrder.paymentMethod === 'ZALO PAY' && (<div style={{ display: "flex", justifyContent: "space-between" }}><span>Trạng thái:</span><span>Đã thanh toán ZaloPay</span></div>)}
+              {lastOrder.paymentMethod === 'QUẸT THẺ' && (<div style={{ display: "flex", justifyContent: "space-between" }}><span>Trạng thái:</span><span>Đã quẹt thẻ POS</span></div>)}
+              {lastOrder.paymentMethod === 'GHI NỢ' && (<div style={{ display: "flex", justifyContent: "space-between" }}><span>Trạng thái:</span><span>Đã ghi vào sổ nợ</span></div>)}
+            </div>
+            
+            <div style={{ textAlign: "center", marginTop: "15px", fontSize: "11px" }}><b>CẢM ƠN QUÝ KHÁCH!</b></div>
+          </div>
+        </div>
+      )}
+
+      {printMode === 'invoice_a4' && lastOrder && (
+        <div className="print-flex print-a4-container">
+          <div style={{ width: "100%", fontFamily: "'Inter', sans-serif" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #000", paddingBottom: "10px", marginBottom: "20px" }}><div><h1 style={{ margin: 0, color: "#dc2626", fontSize: "28px" }}>HẢI LÊ MART</h1><p style={{ margin: "5px 0", fontSize: "14px" }}>Địa chỉ: Tòa Nhà ATS, 252 Hoàng Quốc Việt, Cầu Giấy, HN</p></div><div style={{ textAlign: "right" }}><h2 style={{ margin: 0, fontSize: "24px" }}>HÓA ĐƠN BÁN HÀNG</h2><p style={{ margin: "5px 0", fontSize: "14px" }}>Số: <b>{lastOrder.orderId}</b></p><p style={{ margin: "5px 0", fontSize: "14px" }}>Ngày: {lastOrder.time}</p></div></div>
+            
+            <div style={{ marginBottom: "20px", fontSize: "15px", display: "grid", gridTemplateColumns: "1fr 1fr" }}>
+              <div>
+                <p style={{ margin: "5px 0" }}><b>Khách hàng:</b> {lastOrder.custName || "Khách lẻ"}</p>
+                {lastOrder.custPhone && <p style={{ margin: "5px 0" }}><b>SĐT:</b> {lastOrder.custPhone}</p>}
+                {lastOrder.custPhone && customers[lastOrder.custPhone]?.email && <p style={{ margin: "5px 0" }}><b>Email:</b> {customers[lastOrder.custPhone].email}</p>}
+                {lastOrder.custPhone && customers[lastOrder.custPhone]?.address && <p style={{ margin: "5px 0" }}><b>Địa chỉ:</b> {customers[lastOrder.custPhone].address}</p>}
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <p style={{ margin: "5px 0" }}><b>Phương thức thanh toán:</b> {lastOrder.paymentMethod}</p>
+              </div>
+            </div>
+
+            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px" }}>
+              <thead><tr style={{ background: "#f1f5f9" }}><th style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>STT</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "left" }}>Tên hàng hóa</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>SL</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>Đơn giá</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>Thành tiền</th></tr></thead>
+              <tbody>{lastOrder.cart.map((item: any, index: number) => { const p = Math.round(getActualPrice(item.product)); const t = Math.round(item.qty * p * (1 + VAT_RATE)); return (<tr key={index}><td style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>{index + 1}</td><td style={{ border: "1px solid #000", padding: "10px" }}>{cleanName(item.product.name)}</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>{item.qty}</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{p.toLocaleString()}đ</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{t.toLocaleString()}đ</td></tr>); })}</tbody>
+            </table>
+            
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: "30px", fontSize: "15px" }}>
+              <div style={{ textAlign: "center", width: "40%" }}><b>Khách hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span></div>
+              <div style={{ textAlign: "right", width: "50%" }}>
+                <p style={{ margin: "5px 0" }}>Cộng tiền hàng: {Math.round(lastOrder.subTotal).toLocaleString()}đ</p>
+                <p style={{ margin: "5px 0" }}>Thuế GTGT (10%): {Math.round(lastOrder.vatTotal).toLocaleString()}đ</p>
+                {lastOrder.discount > 0 && <p style={{ margin: "5px 0" }}>Giảm giá/Ví: -{Math.round(lastOrder.discount).toLocaleString()}đ</p>}
+                
+                <h3 style={{ borderTop: "2px solid #000", paddingTop: "10px", margin: "10px 0" }}>TỔNG CỘNG: {Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</h3>
+                
+                {lastOrder.paymentMethod === 'TIỀN MẶT' && (
+                  <div style={{ fontSize: "14px", marginTop: "10px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>Khách đưa:</span> <span>{Math.round(lastOrder.customerGiven || lastOrder.finalTotal).toLocaleString()}đ</span></div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}><span>Thối lại:</span> <span>{Math.round(Math.max(0, (lastOrder.customerGiven || lastOrder.finalTotal) - lastOrder.finalTotal)).toLocaleString()}đ</span></div>
+                  </div>
+                )}
+                {lastOrder.paymentMethod === 'KẾT HỢP' && (
+                  <div style={{ fontSize: "14px", marginTop: "10px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Tiền mặt:</span> <span>{Math.round(lastOrder.customerGiven || 0).toLocaleString()}đ</span></div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Chuyển khoản:</span> <span>{Math.round(lastOrder.finalTotal - (lastOrder.customerGiven || 0)).toLocaleString()}đ</span></div>
+                  </div>
+                )}
+
+                <div style={{ textAlign: "center", marginTop: "40px" }}><b>Người bán hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, đóng dấu)</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
-      {renderPrintArea()}
+      {printMode === 'barcode' && printBarcodeProduct && (
+        <div className="print-flex">
+          <div className="print-barcode-sheet">
+            {Array.from({ length: barcodeCount }).map((_, i) => (
+              <div key={i} className="barcode-sticker">
+                <div style={{ fontSize: "9px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: "100%", textAlign: "center" }}>{cleanName(printBarcodeProduct.name)}</div>
+                <img src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(printBarcodeProduct.product_code)}&scale=2&height=10&includetext=false`} onError={(e) => { e.currentTarget.src = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(printBarcodeProduct.product_code)}&code=Code128&translate-esc=on`; }} style={{ maxWidth: "100%", height: "24px", margin: "2px 0" }} alt={printBarcodeProduct.product_code} />
+                <div style={{ fontSize: "8px", fontFamily: "monospace", letterSpacing: "1px", color: "#333", lineHeight: "1" }}>{printBarcodeProduct.product_code}</div>
+                <div style={{ fontSize: "12px", fontWeight: "900", color: "#000", lineHeight: "1.2" }}>{getActualPrice(printBarcodeProduct).toLocaleString()}đ</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       
-      <ExpenseModal showExpenseModal={showExpenseModal} setShowExpenseModal={setShowExpenseModal} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} expenses={expenses} addExpense={addExpense} deleteExpense={deleteExpense} />
+      {printMode === 'customer_card' && printCustomer && (
+        <div className="print-flex">
+          <div className="print-customer-card">
+            <div style={{ width: "85.6mm", height: "53.98mm", border: "3px solid #dc2626", borderRadius: "12px", padding: "15px", textAlign: "center", boxSizing: "border-box", display: "flex", flexDirection: "column", justifyContent: "center", background: "#fff7ed", fontFamily: "'Inter', sans-serif" }}>
+              <h2 style={{ margin: "0 0 5px 0", color: "#b91c1c", fontSize: "20px", textTransform: "uppercase", fontWeight: "900" }}>HẢI LÊ MART</h2>
+              <div style={{ fontSize: "10px", fontWeight: "bold", color: "#ea580c", letterSpacing: "2px", marginBottom: "10px" }}>THẺ KHÁCH HÀNG THÂN THIẾT</div>
+              <div style={{ fontSize: "18px", fontWeight: "bold", color: "#0f172a", textTransform: "uppercase" }}>{printCustomer.name}</div>
+              <img src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(printCustomer.cardCode || printCustomer.phone)}&scale=2&height=10&includetext=false`} onError={(e) => { e.currentTarget.src = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(printCustomer.cardCode || printCustomer.phone)}&code=Code128&translate-esc=on`; }} style={{ maxWidth: "100%", height: "45px", marginTop: "10px", margin: "10px auto 0 auto", display: "block" }} alt="barcode" />
+              <div style={{ fontSize: "12px", fontFamily: "monospace", letterSpacing: "2px", marginTop: "4px", fontWeight: "bold" }}>{printCustomer.cardCode || printCustomer.phone}</div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  const renderModals = () => {
+    
+    // UI Của Phiếu Nhập Hàng Mới (Có 2 Tab)
+    const CustomPOModal = () => {
+      if (!showPOModal) return null;
+      const [poTab, setPoTab] = useState<'NEW' | 'RECEIVE'>('NEW');
+      const [selectedSupplierId, setSelectedSupplierId] = useState("");
+      const [poItems, setPoItems] = useState<any[]>([]);
+      const [poSearch, setPoSearch] = useState("");
+      const [poNote, setPoNote] = useState("");
+      const [paidAmount, setPaidAmount] = useState<number>(0);
+      const [searchPoCode, setSearchPoCode] = useState("");
+      const [foundPO, setFoundPO] = useState<any>(null);
+      const [receiveItems, setReceiveItems] = useState<any[]>([]);
+
+      const handleAddPoItem = (p: Product) => {
+        const exist = poItems.find(i => i.product.id === p.id);
+        if (exist) { setPoItems(poItems.map(i => i.product.id === p.id ? { ...i, qty: i.qty + 1 } : i)); } else { setPoItems([{ product: p, qty: 1, importPrice: p.import_price || 0 }, ...poItems]); }
+        setPoSearch("");
+      };
+      const totalPOAmount = poItems.reduce((sum, item) => sum + (item.qty * item.importPrice), 0);
+
+      const handleSaveNewPO = async () => {
+        if (!selectedSupplierId) return toast.error("Vui lòng chọn Nhà Cung Cấp!");
+        if (poItems.length === 0) return toast.error("Phiếu nhập trống!");
+        const supplier = suppliers.find(s => s.id.toString() === selectedSupplierId);
+        if (!supplier) return;
+        setLoading(true);
+        try {
+          const debtAmount = totalPOAmount - paidAmount; const poCode = "PO" + Date.now().toString().slice(-6);
+          await supabase.from('purchase_orders_v2').insert([{ id: Date.now().toString(), po_code: poCode, supplier: supplier, items: poItems, total_amount: totalPOAmount, paid_amount: paidAmount, debt_amount: debtAmount, status: 'PENDING', note: poNote }]);
+          toast.success(`Đã lưu Phiếu Nhập ${poCode} thành công!`); setShowPOModal(false);
+        } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); }
+      };
+
+      const searchOldPO = async () => {
+        if (!searchPoCode.trim()) return; setLoading(true);
+        const { data, error } = await supabase.from('purchase_orders_v2').select('*').eq('po_code', searchPoCode.trim()).single();
+        if (error || !data) { toast.error("Không tìm thấy số PO này!"); } else { setFoundPO(data); setReceiveItems(data.items.map((i: any) => ({ ...i, damagedQty: 0 }))); }
+        setLoading(false);
+      };
+
+      const handleReceivePO = async () => {
+        if (!foundPO || receiveItems.length === 0) return; setLoading(true);
+        try {
+          let actualTotal = 0; let logs: any[] = [];
+          for (const item of receiveItems) {
+              const actualQty = item.qty - (item.damagedQty || 0);
+              actualTotal += actualQty * item.importPrice;
+              if (actualQty > 0) {
+                  const p = products.find(x => x.id === item.product.id);
+                  if (p) {
+                      await supabase.from('products').update({ stock: p.stock + actualQty, import_price: item.importPrice }).eq('id', p.id);
+                      logs.push({ id: Date.now() + Math.random(), shift, type: "NHẬP PO", name: p.name, qty: actualQty, total: actualQty * item.importPrice, time: new Date().toLocaleString('vi-VN') });
+                  }
+              }
+              if (item.damagedQty > 0) { logs.push({ id: Date.now() + Math.random(), shift, type: "TRẢ HÀNG NCC", name: item.product.name + " (Lỗi/Hỏng)", qty: item.damagedQty, total: 0, time: new Date().toLocaleString('vi-VN') }); }
+          }
+          
+          const finalDebt = actualTotal - foundPO.paid_amount;
+          if (finalDebt > 0 && foundPO.supplier) {
+              const supplierId = foundPO.supplier.id; const s = suppliers.find(x => x.id === supplierId);
+              if (s) { const newD = (s.debt || 0) + finalDebt; await supabase.from('suppliers').update({ debt: newD }).eq('id', supplierId); setSuppliers(prev => prev.map(x => x.id === supplierId ? { ...x, debt: newD } : x)); }
+          }
+
+          await supabase.from('purchase_orders_v2').update({ status: 'COMPLETED', items: receiveItems, total_amount: actualTotal }).eq('id', foundPO.id);
+          logs.forEach(lg => addTransactionAndSync(lg));
+          logAudit("NHẬN HÀNG PO", `Nhận mã ${foundPO.po_code} - Nợ phát sinh: ${finalDebt.toLocaleString()}đ`);
+          toast.success("Nhập Kho thành công!"); fetchProducts(); setShowPOModal(false);
+        } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); }
+      };
+
+      return (
+        <div className="custom-modal-overlay">
+          <div className="custom-modal-box" style={{ maxWidth: '1100px', height: '90vh' }}>
+            <div className="custom-modal-header">
+              <h2 className="custom-modal-title">📦 QUẢN LÝ PHIẾU NHẬP (PO)</h2>
+              <button className="custom-modal-close" onClick={() => setShowPOModal(false)}>&times;</button>
+            </div>
+            <div style={{ display: "flex", gap: "10px", padding: "15px", borderBottom: "1px solid #eee", background: "#fff" }}>
+              <button onClick={() => setPoTab('NEW')} className={`tab-btn ${poTab === 'NEW' ? 'active' : ''}`}>+ TẠO PO MỚI (CHỜ NHẬN)</button>
+              <button onClick={() => setPoTab('RECEIVE')} className={`tab-btn ${poTab === 'RECEIVE' ? 'active' : ''}`}>📥 TÌM & NHẬN HÀNG</button>
+            </div>
+            <div className="custom-modal-body" style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "20px", background: "#f1f5f9" }}>
+              {poTab === 'NEW' && (
+                <>
+                  <div style={{ background: "#fff", padding: "20px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+                    <h3 style={{ margin: "0 0 15px 0", fontSize: "16px", color: "#1e293b" }}>1. Chọn Nhà Cung Cấp</h3>
+                    <select className="custom-input" value={selectedSupplierId} onChange={e => setSelectedSupplierId(e.target.value)} style={{ marginBottom: "20px" }}>
+                      <option value="">-- Click để chọn NCC --</option>
+                      {suppliers.map((s: any) => <option key={s.id} value={s.id}>{s.name} - {s.phone}</option>)}
+                    </select>
+                    
+                    <h3 style={{ margin: "0 0 15px 0", fontSize: "16px", color: "#1e293b" }}>2. Tìm Sản Phẩm</h3>
+                    <input type="text" className="custom-input" placeholder="Nhập tên hoặc mã SP..." value={poSearch} onChange={e => setPoSearch(e.target.value)} />
+                    <div style={{ maxHeight: "250px", overflowY: "auto", background: "#fff", border: "1px solid #e2e8f0", borderRadius: "8px", marginTop: "10px" }}>
+                      {poSearch.trim() && products.filter(p => cleanName(p.name).toLowerCase().includes(poSearch.toLowerCase()) || String(p.product_code).toLowerCase().includes(poSearch.toLowerCase())).slice(0, 10).map(p => (
+                        <div key={p.id} onClick={() => handleAddPoItem(p)} style={{ padding: "12px", borderBottom: "1px solid #f1f5f9", cursor: "pointer" }}>
+                          <div style={{ fontWeight: "bold", color: "#0f172a" }}>{cleanName(p.name)}</div>
+                          <div style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>Mã: {p.product_code} | Giá nhập: {(p.import_price||0).toLocaleString()}đ</div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div style={{ marginTop: "20px" }}>
+                      <label className="custom-label">Ghi chú (Tùy chọn):</label>
+                      <textarea className="custom-input" placeholder="Ghi chú phiếu..." value={poNote} onChange={e => setPoNote(e.target.value)} rows={3} style={{ resize: "vertical" }} />
+                    </div>
+                  </div>
+
+                  <div style={{ background: "#fff", padding: "20px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", display: "flex", flexDirection: "column" }}>
+                    <h3 style={{ margin: "0 0 15px 0", color: "#1e293b" }}>Danh sách Sản Phẩm Sẽ Đặt</h3>
+                    <div style={{ flex: 1, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
+                      <table className="cart-table" style={{ margin: 0 }}>
+                        <thead><tr><th>Sản phẩm</th><th>Số lượng</th><th>Giá nhập (đ)</th><th>Thành tiền</th><th>Xóa</th></tr></thead>
+                        <tbody>
+                          {poItems.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", padding: "30px", color: "#94a3b8" }}>Chưa có sản phẩm nào được chọn</td></tr>}
+                          {poItems.map((item, idx) => (
+                            <tr key={idx}>
+                              <td>{cleanName(item.product.name)}</td>
+                              <td><input type="number" className="custom-input" style={{ padding: "6px", width: "70px", textAlign: "center" }} value={item.qty} onChange={e => { const val = parseInt(e.target.value)||1; setPoItems(poItems.map((i, ix) => ix === idx ? { ...i, qty: val } : i)) }} min="1" /></td>
+                              <td><input type="number" className="custom-input" style={{ padding: "6px", width: "110px", textAlign: "right" }} value={item.importPrice} onChange={e => { const val = parseInt(e.target.value)||0; setPoItems(poItems.map((i, ix) => ix === idx ? { ...i, importPrice: val } : i)) }} min="0" /></td>
+                              <td style={{ fontWeight: "bold", textAlign: "right", color: "#0f172a" }}>{(item.qty * item.importPrice).toLocaleString()}</td>
+                              <td style={{ textAlign: "center" }}><button onClick={() => setPoItems(poItems.filter((_, ix) => ix !== idx))} style={{ background: "none", color: "#ef4444", border: "none", cursor: "pointer", fontSize: "20px" }}>&times;</button></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                    <div style={{ background: "#f8fafc", padding: "20px", borderRadius: "10px", marginTop: "20px", border: "1px solid #e2e8f0" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
+                        <span style={{ fontSize: "16px", color: "#475569" }}>Tổng giá trị đơn hàng:</span>
+                        <b style={{ fontSize: "22px", color: "#0f172a" }}>{totalPOAmount.toLocaleString()}đ</b>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
+                        <span style={{ fontSize: "15px", color: "#475569" }}>Đã trả trước cho NCC:</span>
+                        <input type="number" className="custom-input" style={{ width: "200px", textAlign: "right", fontWeight: "bold", color: "#10b981" }} value={paidAmount} onChange={e => setPaidAmount(parseInt(e.target.value)||0)} min="0" />
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", paddingTop: "15px", borderTop: "1px dashed #cbd5e1" }}>
+                        <span style={{ fontSize: "16px", color: "#475569" }}>Công nợ sẽ ghi nhận:</span>
+                        <b style={{ fontSize: "20px", color: "#ef4444" }}>{(totalPOAmount - paidAmount).toLocaleString()}đ</b>
+                      </div>
+                      <button className="custom-btn-primary" onClick={handleSaveNewPO} disabled={loading} style={{ background: "#3b82f6", padding: "14px" }}>
+                        {loading ? "ĐANG LƯU..." : "💾 LƯU PHIẾU ĐẶT HÀNG"}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {poTab === 'RECEIVE' && (
+                <>
+                  <div style={{ background: "#fff", padding: "20px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+                    <h3 style={{ margin: "0 0 15px 0", fontSize: "16px", color: "#1e293b" }}>1. Tìm Phiếu Đặt Hàng</h3>
+                    <div style={{ display: "flex", gap: "10px" }}>
+                      <input type="text" className="custom-input" placeholder="VD: PO123456" value={searchPoCode} onChange={e => setSearchPoCode(e.target.value)} />
+                      <button className="custom-btn-primary" onClick={searchOldPO} disabled={loading} style={{ width: "100px", background: "#3b82f6" }}>TÌM</button>
+                    </div>
+                    
+                    {foundPO && (
+                      <div style={{ marginTop: "25px", padding: "20px", background: "#f8fafc", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                        <div style={{ marginBottom: "10px", display: "flex", justifyContent: "space-between" }}>
+                          <span style={{ color: "#64748b" }}>Số PO:</span>
+                          <span style={{ fontWeight: "bold", color: "#3b82f6" }}>{foundPO.po_code}</span>
+                        </div>
+                        <div style={{ marginBottom: "10px", display: "flex", justifyContent: "space-between" }}>
+                          <span style={{ color: "#64748b" }}>Nhà Cung Cấp:</span>
+                          <span style={{ fontWeight: "bold", color: "#0f172a" }}>{foundPO.supplier?.name}</span>
+                        </div>
+                        <div style={{ marginBottom: "10px", display: "flex", justifyContent: "space-between" }}>
+                          <span style={{ color: "#64748b" }}>Ngày tạo:</span>
+                          <span style={{ color: "#0f172a" }}>{new Date(foundPO.created_at).toLocaleString('vi-VN')}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", paddingTop: "10px", borderTop: "1px dashed #cbd5e1" }}>
+                          <span style={{ color: "#64748b" }}>Trạng thái:</span>
+                          <span style={{ color: foundPO.status === 'PENDING' ? '#f59e0b' : '#10b981', fontWeight: "bold" }}>{foundPO.status === 'PENDING' ? 'Đang chờ nhận' : 'Đã hoàn tất'}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ background: "#fff", padding: "20px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", display: "flex", flexDirection: "column" }}>
+                    <h3 style={{ margin: "0 0 15px 0", color: "#1e293b" }}>2. Đối Soát Hàng & Nhập Kho</h3>
+                    {foundPO ? (
+                      foundPO.status === 'COMPLETED' ? (
+                         <div style={{ textAlign: "center", padding: "40px", background: "#ecfdf5", color: "#059669", borderRadius: "12px", fontWeight: "bold", fontSize: "18px", border: "1px solid #a7f3d0", marginTop: "20px" }}>✅ PHIẾU NÀY ĐÃ ĐƯỢC NHẬP KHO XONG!</div>
+                      ) : (
+                        <>
+                          <div style={{ flex: 1, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
+                            <table className="cart-table" style={{ margin: 0 }}>
+                              <thead><tr><th style={{textAlign:"left"}}>Sản phẩm</th><th style={{textAlign:"center"}}>SL Đã Đặt</th><th style={{textAlign:"center"}}>Hàng Hỏng/Lỗi</th><th style={{textAlign:"center"}}>SL Sẽ Nhập</th></tr></thead>
+                              <tbody>
+                                {receiveItems.map((item, idx) => (
+                                  <tr key={idx}>
+                                    <td>{cleanName(item.product.name)}</td>
+                                    <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "16px", color: "#3b82f6" }}>{item.qty}</td>
+                                    <td style={{ textAlign: "center" }}><input type="number" className="custom-input" style={{ padding: "6px", width: "90px", textAlign: "center", color: "#ef4444", fontWeight: "bold", borderColor: item.damagedQty > 0 ? "#ef4444" : "#cbd5e1" }} value={item.damagedQty} onChange={e => { const val = parseInt(e.target.value)||0; if(val <= item.qty && val >= 0) setReceiveItems(receiveItems.map((i, ix) => ix === idx ? { ...i, damagedQty: val } : i)) }} min="0" max={item.qty} /></td>
+                                    <td style={{ textAlign: "center", fontWeight: "bold", color: "#10b981", fontSize: "18px" }}>{item.qty - (item.damagedQty || 0)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          
+                          <div style={{ background: "#f8fafc", padding: "20px", borderRadius: "10px", marginTop: "20px", border: "1px solid #e2e8f0" }}>
+                             <p style={{ fontStyle: "italic", color: "#64748b", margin: "0 0 15px 0", fontSize: "14px" }}>* Hệ thống sẽ tự động đối soát, cộng kho hàng thực tế và hoàn trả tiền công nợ hàng hỏng cho NCC.</p>
+                             <button className="custom-btn-primary" onClick={handleReceivePO} disabled={loading} style={{ padding: "14px", fontSize: "16px" }}>{loading ? "ĐANG XỬ LÝ..." : "✅ XÁC NHẬN NHẬN HÀNG"}</button>
+                          </div>
+                        </>
+                      )
+                    ) : (
+                      <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8", border: "2px dashed #e2e8f0", borderRadius: "12px", background: "#f8fafc", marginTop: "20px" }}>Vui lòng tìm kiếm số PO để tiếp tục</div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <>
+        <ExpenseModal showExpenseModal={showExpenseModal} setShowExpenseModal={setShowExpenseModal} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} expenses={expenses} addExpense={addExpense} deleteExpense={deleteExpense} />
         
         {/* MODAL SUPPLIER XỊN XÒ */}
         {showSupplierModal && (
@@ -758,157 +1074,6 @@ export default function App() {
           </div>
         )}
 
-        {/* MODAL PHIẾU NHẬP PO MỚI */}
-        {showPOModal && (
-          <div className="custom-modal-overlay">
-            <div className="custom-modal-box" style={{ maxWidth: '1100px', height: '90vh' }}>
-              <div className="custom-modal-header">
-                <h2 className="custom-modal-title">📦 QUẢN LÝ PHIẾU NHẬP (PO)</h2>
-                <button className="custom-modal-close" onClick={() => setShowPOModal(false)}>&times;</button>
-              </div>
-              <div style={{ display: "flex", gap: "10px", padding: "15px", borderBottom: "1px solid #eee", background: "#fff" }}>
-                <button onClick={() => setPoTab('NEW')} className={`tab-btn ${poTab === 'NEW' ? 'active' : ''}`}>+ TẠO PO MỚI (CHỜ NHẬN)</button>
-                <button onClick={() => setPoTab('RECEIVE')} className={`tab-btn ${poTab === 'RECEIVE' ? 'active' : ''}`}>📥 TÌM & NHẬN HÀNG</button>
-              </div>
-              <div className="custom-modal-body" style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "20px", background: "#f1f5f9" }}>
-                {poTab === 'NEW' && (
-                  <>
-                    <div style={{ background: "#fff", padding: "20px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
-                      <h3 style={{ margin: "0 0 15px 0", fontSize: "16px", color: "#1e293b" }}>1. Chọn Nhà Cung Cấp</h3>
-                      <select className="custom-input" value={selectedSupplierId} onChange={e => setSelectedSupplierId(e.target.value)} style={{ marginBottom: "20px" }}>
-                        <option value="">-- Click để chọn NCC --</option>
-                        {suppliers.map((s: any) => <option key={s.id} value={s.id}>{s.name} - {s.phone}</option>)}
-                      </select>
-                      
-                      <h3 style={{ margin: "0 0 15px 0", fontSize: "16px", color: "#1e293b" }}>2. Tìm Sản Phẩm</h3>
-                      <input type="text" className="custom-input" placeholder="Nhập tên hoặc mã SP..." value={poSearch} onChange={e => setPoSearch(e.target.value)} />
-                      <div style={{ maxHeight: "250px", overflowY: "auto", background: "#fff", border: "1px solid #e2e8f0", borderRadius: "8px", marginTop: "10px" }}>
-                        {poSearch.trim() && products.filter(p => cleanName(p.name).toLowerCase().includes(poSearch.toLowerCase()) || String(p.product_code).toLowerCase().includes(poSearch.toLowerCase())).slice(0, 10).map(p => (
-                          <div key={p.id} onClick={() => handleAddPoItem(p)} style={{ padding: "12px", borderBottom: "1px solid #f1f5f9", cursor: "pointer" }}>
-                            <div style={{ fontWeight: "bold", color: "#0f172a" }}>{cleanName(p.name)}</div>
-                            <div style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>Mã: {p.product_code} | Giá nhập: {(p.import_price||0).toLocaleString()}đ</div>
-                          </div>
-                        ))}
-                      </div>
-                      
-                      <div style={{ marginTop: "20px" }}>
-                        <label className="custom-label">Ghi chú (Tùy chọn):</label>
-                        <textarea className="custom-input" placeholder="Ghi chú phiếu..." value={poNote} onChange={e => setPoNote(e.target.value)} rows={3} style={{ resize: "vertical" }} />
-                      </div>
-                    </div>
-
-                    <div style={{ background: "#fff", padding: "20px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", display: "flex", flexDirection: "column" }}>
-                      <h3 style={{ margin: "0 0 15px 0", color: "#1e293b" }}>Danh sách Sản Phẩm Sẽ Đặt</h3>
-                      <div style={{ flex: 1, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
-                        <table className="cart-table" style={{ margin: 0 }}>
-                          <thead><tr><th>Sản phẩm</th><th>Số lượng</th><th>Giá nhập (đ)</th><th>Thành tiền</th><th>Xóa</th></tr></thead>
-                          <tbody>
-                            {poItems.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", padding: "30px", color: "#94a3b8" }}>Chưa có sản phẩm nào được chọn</td></tr>}
-                            {poItems.map((item, idx) => (
-                              <tr key={idx}>
-                                <td>{cleanName(item.product.name)}</td>
-                                <td><input type="number" className="custom-input" style={{ padding: "6px", width: "70px", textAlign: "center" }} value={item.qty} onChange={e => { const val = parseInt(e.target.value)||1; setPoItems(poItems.map((i, ix) => ix === idx ? { ...i, qty: val } : i)) }} min="1" /></td>
-                                <td><input type="number" className="custom-input" style={{ padding: "6px", width: "110px", textAlign: "right" }} value={item.importPrice} onChange={e => { const val = parseInt(e.target.value)||0; setPoItems(poItems.map((i, ix) => ix === idx ? { ...i, importPrice: val } : i)) }} min="0" /></td>
-                                <td style={{ fontWeight: "bold", textAlign: "right", color: "#0f172a" }}>{(item.qty * item.importPrice).toLocaleString()}</td>
-                                <td style={{ textAlign: "center" }}><button onClick={() => setPoItems(poItems.filter((_, ix) => ix !== idx))} style={{ background: "none", color: "#ef4444", border: "none", cursor: "pointer", fontSize: "20px" }}>&times;</button></td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      
-                      <div style={{ background: "#f8fafc", padding: "20px", borderRadius: "10px", marginTop: "20px", border: "1px solid #e2e8f0" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
-                          <span style={{ fontSize: "16px", color: "#475569" }}>Tổng giá trị đơn hàng:</span>
-                          <b style={{ fontSize: "22px", color: "#0f172a" }}>{totalPOAmount.toLocaleString()}đ</b>
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
-                          <span style={{ fontSize: "15px", color: "#475569" }}>Đã trả trước cho NCC:</span>
-                          <input type="number" className="custom-input" style={{ width: "200px", textAlign: "right", fontWeight: "bold", color: "#10b981" }} value={paidAmount} onChange={e => setPaidAmount(parseInt(e.target.value)||0)} min="0" />
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", paddingTop: "15px", borderTop: "1px dashed #cbd5e1" }}>
-                          <span style={{ fontSize: "16px", color: "#475569" }}>Công nợ sẽ ghi nhận:</span>
-                          <b style={{ fontSize: "20px", color: "#ef4444" }}>{(totalPOAmount - paidAmount).toLocaleString()}đ</b>
-                        </div>
-                        <button className="custom-btn-primary" onClick={handleSaveNewPO} disabled={loading} style={{ background: "#3b82f6", padding: "14px" }}>
-                          {loading ? "ĐANG LƯU..." : "💾 LƯU PHIẾU ĐẶT HÀNG"}
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {poTab === 'RECEIVE' && (
-                  <>
-                    <div style={{ background: "#fff", padding: "20px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
-                      <h3 style={{ margin: "0 0 15px 0", fontSize: "16px", color: "#1e293b" }}>1. Tìm Phiếu Đặt Hàng</h3>
-                      <div style={{ display: "flex", gap: "10px" }}>
-                        <input type="text" className="custom-input" placeholder="VD: PO123456" value={searchPoCode} onChange={e => setSearchPoCode(e.target.value)} />
-                        <button className="custom-btn-primary" onClick={searchOldPO} disabled={loading} style={{ width: "100px", background: "#3b82f6" }}>TÌM</button>
-                      </div>
-                      
-                      {foundPO && (
-                        <div style={{ marginTop: "25px", padding: "20px", background: "#f8fafc", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
-                          <div style={{ marginBottom: "10px", display: "flex", justifyContent: "space-between" }}>
-                            <span style={{ color: "#64748b" }}>Số PO:</span>
-                            <span style={{ fontWeight: "bold", color: "#3b82f6" }}>{foundPO.po_code}</span>
-                          </div>
-                          <div style={{ marginBottom: "10px", display: "flex", justifyContent: "space-between" }}>
-                            <span style={{ color: "#64748b" }}>Nhà Cung Cấp:</span>
-                            <span style={{ fontWeight: "bold", color: "#0f172a" }}>{foundPO.supplier?.name}</span>
-                          </div>
-                          <div style={{ marginBottom: "10px", display: "flex", justifyContent: "space-between" }}>
-                            <span style={{ color: "#64748b" }}>Ngày tạo:</span>
-                            <span style={{ color: "#0f172a" }}>{new Date(foundPO.created_at).toLocaleString('vi-VN')}</span>
-                          </div>
-                          <div style={{ display: "flex", justifyContent: "space-between", paddingTop: "10px", borderTop: "1px dashed #cbd5e1" }}>
-                            <span style={{ color: "#64748b" }}>Trạng thái:</span>
-                            <span style={{ color: foundPO.status === 'PENDING' ? '#f59e0b' : '#10b981', fontWeight: "bold" }}>{foundPO.status === 'PENDING' ? 'Đang chờ nhận' : 'Đã hoàn tất'}</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div style={{ background: "#fff", padding: "20px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", display: "flex", flexDirection: "column" }}>
-                      <h3 style={{ margin: "0 0 15px 0", color: "#1e293b" }}>2. Đối Soát Hàng & Nhập Kho</h3>
-                      {foundPO ? (
-                        foundPO.status === 'COMPLETED' ? (
-                           <div style={{ textAlign: "center", padding: "40px", background: "#ecfdf5", color: "#059669", borderRadius: "12px", fontWeight: "bold", fontSize: "18px", border: "1px solid #a7f3d0", marginTop: "20px" }}>✅ PHIẾU NÀY ĐÃ ĐƯỢC NHẬP KHO XONG!</div>
-                        ) : (
-                          <>
-                            <div style={{ flex: 1, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
-                              <table className="cart-table" style={{ margin: 0 }}>
-                                <thead><tr><th style={{textAlign:"left"}}>Sản phẩm</th><th style={{textAlign:"center"}}>SL Đã Đặt</th><th style={{textAlign:"center"}}>Hàng Hỏng/Lỗi</th><th style={{textAlign:"center"}}>SL Sẽ Nhập</th></tr></thead>
-                                <tbody>
-                                  {receiveItems.map((item, idx) => (
-                                    <tr key={idx}>
-                                      <td>{cleanName(item.product.name)}</td>
-                                      <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "16px", color: "#3b82f6" }}>{item.qty}</td>
-                                      <td style={{ textAlign: "center" }}><input type="number" className="custom-input" style={{ padding: "6px", width: "90px", textAlign: "center", color: "#ef4444", fontWeight: "bold", borderColor: item.damagedQty > 0 ? "#ef4444" : "#cbd5e1" }} value={item.damagedQty} onChange={e => { const val = parseInt(e.target.value)||0; if(val <= item.qty && val >= 0) setReceiveItems(receiveItems.map((i, ix) => ix === idx ? { ...i, damagedQty: val } : i)) }} min="0" max={item.qty} /></td>
-                                      <td style={{ textAlign: "center", fontWeight: "bold", color: "#10b981", fontSize: "18px" }}>{item.qty - (item.damagedQty || 0)}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                            
-                            <div style={{ background: "#f8fafc", padding: "20px", borderRadius: "10px", marginTop: "20px", border: "1px solid #e2e8f0" }}>
-                               <p style={{ fontStyle: "italic", color: "#64748b", margin: "0 0 15px 0", fontSize: "14px" }}>* Hệ thống sẽ tự động đối soát, cộng kho hàng thực tế và hoàn trả tiền công nợ hàng hỏng cho NCC.</p>
-                               <button className="custom-btn-primary" onClick={handleReceivePO} disabled={loading} style={{ padding: "14px", fontSize: "16px" }}>{loading ? "ĐANG XỬ LÝ..." : "✅ XÁC NHẬN NHẬN HÀNG"}</button>
-                            </div>
-                          </>
-                        )
-                      ) : (
-                        <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8", border: "2px dashed #e2e8f0", borderRadius: "12px", background: "#f8fafc", marginTop: "20px" }}>Vui lòng tìm kiếm số PO để tiếp tục</div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
         {showHandoverModal && (<HandoverModal role={role} shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onClose={() => setShowHandoverModal(false)} onConfirm={confirmHandover} />)}
         <CashFlowModal cashFlowModalInfo={cashFlowModalInfo} setCashFlowModalInfo={setCashFlowModalInfo} shift={shift} todayStrStr={todayStrStr} currentShiftCashFlow={currentShiftCashFlow} currentShiftStats={currentShiftStats} />
         <HoldOrdersModal showHoldModal={showHoldModal} setShowHoldModal={setShowHoldModal} heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={deleteHeldOrder} />
@@ -929,6 +1094,48 @@ export default function App() {
         <PinModal showPinModal={showPinModal} setShowPinModal={setShowPinModal} correctPin={adminPin} onSuccess={() => { if (pendingAction) { pendingAction(); setPendingAction(null); } }} />
         <ScannerLinkModal showModal={showScannerLinkModal} setShowModal={setShowScannerLinkModal} />
         
+        <CustomPOModal />
+      </>
+    );
+  };
+
+  return (
+    <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
+      <style>{styles}</style> 
+      <style>{`
+        /* KHẮC PHỤC TRIỆT ĐỂ LOGO BỊ GIÃN DÀI VÀ KÉO SAO VÀO SÁT CHỮ T */
+        .logo-wrapper { display: inline-flex !important; align-items: center; padding: 10px 45px 10px 20px !important; position: relative; width: fit-content !important; min-width: 0 !important; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); border-radius: 12px; }
+        .logo-star { position: absolute !important; right: 12px !important; top: 50% !important; transform: translateY(-50%) !important; font-size: 28px !important; color: #f59e0b !important; margin: 0 !important; }
+
+        /* KHAI BÁO CSS CHO CÁC MODAL XỊN XÒ */
+        .custom-modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 99999; }
+        .custom-modal-box { background: white; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); width: 95%; overflow: hidden; display: flex; flex-direction: column; animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes modalPop { 0% { opacity: 0; transform: scale(0.95); } 100% { opacity: 1; transform: scale(1); } }
+        .custom-modal-header { padding: 20px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; }
+        .custom-modal-title { font-size: 1.25rem; font-weight: 800; color: #0f172a; margin: 0; text-transform: uppercase; letter-spacing: 0.5px; }
+        .custom-modal-close { background: none; border: none; font-size: 28px; color: #94a3b8; cursor: pointer; transition: color 0.2s; padding: 0; line-height: 1; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; }
+        .custom-modal-close:hover { color: #ef4444; background: #fee2e2; }
+        .custom-modal-body { padding: 24px; overflow-y: auto; }
+        .custom-input-group { margin-bottom: 16px; }
+        .custom-label { display: block; font-size: 0.85rem; font-weight: 700; color: #475569; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .custom-input { width: 100%; padding: 12px 16px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; outline: none; transition: all 0.2s; box-sizing: border-box; background: #f8fafc; color: #1e293b; font-weight: 500; }
+        .custom-input:focus { border-color: #3b82f6; background: #fff; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); }
+        .custom-btn-primary { width: 100%; padding: 14px; background: #10b981; color: white; font-weight: 800; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2); }
+        .custom-btn-primary:hover:not(:disabled) { background: #059669; transform: translateY(-1px); box-shadow: 0 6px 8px -1px rgba(16, 185, 129, 0.3); }
+        .custom-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .animated-bg-mesh { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; background: linear-gradient(135deg, #ffedd5 0%, #fef08a 50%, #fed7aa 100%); background-size: 400% 400%; animation: gradientBgAnim 15s ease infinite; opacity: 0.8; }
+        @keyframes gradientBgAnim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        [data-theme='dark'] .animated-bg-mesh { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%); opacity: 1; }
+      `}</style>
+      <div className="animated-bg-mesh"></div>
+      <Toaster position="top-right" reverseOrder={false} />
+
+      <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} />
+      
+      {renderPrintArea()}
+      {renderModals()}
+
       {!isLoggedIn ? (
         <div className="login-wrapper">
           <style>{`
