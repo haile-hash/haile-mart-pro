@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+// Bổ sung import hàm cleanName từ utils hệ thống để xử lý lỗi TS2304
+import { cleanName } from "../../utils/helpers";
 
 interface HistoryPanelProps {
   logSearchTerm: string;
@@ -7,8 +9,8 @@ interface HistoryPanelProps {
   setLogTypeFilter: (val: string) => void;
   exportToCSV: () => void;
   groupedHistory: Record<string, any[]>;
-  expandedDates: Record<string, boolean>; // Giữ lại để không lỗi props truyền từ App
-  toggleDateGroup: (dateStr: string) => void; // Giữ lại để không lỗi props truyền từ App
+  expandedDates: Record<string, boolean>; 
+  toggleDateGroup: (dateStr: string) => void; 
   handleRefund: (logId: any) => void;
   handleReprint: (timeStr: string) => void;
 }
@@ -23,13 +25,13 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   handleRefund,
   handleReprint,
 }) => {
-  // Tách biệt bằng Local State riêng biệt, ĐẢM BẢO 100% click là đóng/mở mượt mà lập tức
+  // Bộ quản lý trạng thái đóng mở cục bộ không lo bị đơ cứng giao diện
   const [localExpanded, setLocalExpanded] = useState<Record<string, boolean>>({});
 
   const toggleGroup = (dateStr: string) => {
     setLocalExpanded(prev => ({
       ...prev,
-      [dateStr]: !(prev[dateStr] ?? true) // Mặc định ban đầu vào ca là mở sẵn ra
+      [dateStr]: !(prev[dateStr] ?? true)
     }));
   };
 
@@ -101,7 +103,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
             return (
               <div key={dateStr} style={{ flexShrink: 0, display: "flex", flexDirection: "column", border: "1px solid #e2e8f0", borderRadius: "8px", background: "#ffffff", overflow: "hidden" }}>
                 
-                {/* Thanh ba-đờ-sốc tiêu đề Ngày */}
+                {/* Thanh tiêu đề Ngày */}
                 <div
                   onClick={() => toggleGroup(dateStr)}
                   style={{
@@ -129,23 +131,23 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
                     {logs.map((log: any) => {
                       const isRefund = log.type === "TRẢ HÀNG";
                       
-                      // Phân bổ màu sắc định danh nghiệp vụ
-                      let typeColor = "#2563eb"; // BÁN mặc định màu xanh dương
-                      if (isRefund) typeColor = "#dc2626"; // TRẢ HÀNG màu đỏ
-                      if (log.type?.includes("NHẬP")) typeColor = "#7c3aed"; // NHẬP hàng từ kho màu tím
-                      if (log.type === "GHI NỢ" || log.type === "THU NỢ") typeColor = "#d97706"; // NỢ màu cam
+                      // Phân bổ màu sắc định danh nghiệp vụ công khai
+                      let typeColor = "#2563eb"; 
+                      if (isRefund) typeColor = "#dc2626"; 
+                      if (log.type?.includes("NHẬP")) typeColor = "#7c3aed"; 
+                      if (log.type === "GHI NỢ" || log.type === "THU NỢ") typeColor = "#d97706"; 
 
                       return (
                         <div
                           key={log.id}
                           style={{
-                            flexShrink: 0, /* CHỐNG CO RÚT: Giữ vững kích thước thật của dòng */
+                            flexShrink: 0, 
                             padding: "12px",
                             borderBottom: "1px solid #f1f5f9",
                             display: "flex",
                             flexDirection: "column",
                             gap: "6px",
-                            background: isRefund ? "#fff5f5" : "transparent" /* Đơn trả có nền hồng nhẹ dễ quét mắt */
+                            background: isRefund ? "#fff5f5" : "transparent" 
                           }}
                         >
                           {/* Dòng phụ: Đối tượng & Thời gian */}
