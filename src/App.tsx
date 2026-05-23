@@ -1604,7 +1604,7 @@ export default function App() {
       )}
 
       {printMode === 'invoice_a4' && lastOrder && (
-        <div className="print-flex print-a4-container">
+        <div className="print-a4-container">
           <div style={{ width: "100%", fontFamily: "'Inter', sans-serif" }}>
             <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #000", paddingBottom: "10px", marginBottom: "20px" }}><div><h1 style={{ margin: 0, color: "#dc2626", fontSize: "28px" }}>HẢI LÊ MART</h1><p style={{ margin: "5px 0", fontSize: "14px" }}>Địa chỉ: Tòa Nhà ATS, 252 Hoàng Quốc Việt, Cầu Giấy, HN</p></div><div style={{ textAlign: "right" }}><h2 style={{ margin: 0, fontSize: "24px" }}>HÓA ĐƠN BÁN HÀNG</h2><p style={{ margin: "5px 0", fontSize: "14px" }}>Số: <b>{lastOrder.orderId}</b></p><p style={{ margin: "5px 0", fontSize: "14px" }}>Ngày: {lastOrder.time}</p></div></div>
             <div style={{ marginBottom: "20px", fontSize: "15px", display: "grid", gridTemplateColumns: "1fr 1fr" }}>
@@ -1628,7 +1628,7 @@ export default function App() {
       )}
       
       {printMode === 'barcode' && printBarcodeProduct && (
-        <div className="print-flex">
+        <div className="print-only">
           <div className="print-barcode-sheet">
             {Array.from({ length: barcodeCount }).map((_, i) => (
               <div key={i} className="barcode-sticker">
@@ -1643,7 +1643,7 @@ export default function App() {
       )}
       
       {printMode === 'customer_card' && printCustomer && (
-        <div className="print-flex">
+        <div className="print-only">
           <div className="print-customer-card">
             <div style={{ width: "85.6mm", height: "53.98mm", border: "3px solid #dc2626", borderRadius: "12px", padding: "15px", textAlign: "center", boxSizing: "border-box", display: "flex", flexDirection: "column", justifyContent: "center", background: "#fff7ed", fontFamily: "'Inter', sans-serif" }}>
               <h2 style={{ margin: "0 0 5px 0", color: "#b91c1c", fontSize: "20px", textTransform: "uppercase", fontWeight: "900" }}>HẢI LÊ MART</h2>
@@ -1656,93 +1656,231 @@ export default function App() {
         </div>
       )}
 
-      {/* 1. RENDER IN PHIẾU ĐẶT HÀNG (PO ORDER) */}
+      {/* ========================================================================= */}
+      {/* 1. MẪU IN PHIẾU ĐẶT HÀNG (PO ORDER) CHUYÊN NGHIỆP                         */}
+      {/* ========================================================================= */}
       {printMode === 'po_order' && printPOData && (
-        <div className="print-flex print-a4-container">
-          <div style={{ width: "100%", fontFamily: "'Inter', sans-serif" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #000", paddingBottom: "10px", marginBottom: "20px" }}>
-              <div><h1 style={{ margin: 0, color: "#3b82f6", fontSize: "28px" }}>HẢI LÊ MART</h1><p style={{ margin: "5px 0", fontSize: "14px" }}>Hệ thống Quản lý Nội bộ</p></div>
-              <div style={{ textAlign: "right" }}><h2 style={{ margin: 0, fontSize: "24px" }}>PHIẾU ĐẶT HÀNG (PO)</h2><p style={{ margin: "5px 0", fontSize: "14px" }}>Số PO: <b>{printPOData.po_code}</b></p><p style={{ margin: "5px 0", fontSize: "14px" }}>Ngày tạo: {new Date(printPOData.created_at).toLocaleString('vi-VN')}</p></div>
+        <div className="print-a4-container">
+          <div style={{ padding: "20px", fontFamily: "'Times New Roman', Times, serif", color: "#000", maxWidth: "800px", margin: "0 auto" }}>
+            
+            {/* Header Form */}
+            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #1e293b", paddingBottom: "15px", marginBottom: "25px" }}>
+              <div style={{ flex: 1 }}>
+                <h1 style={{ margin: 0, fontSize: "26px", fontWeight: "900", color: "#1e293b" }}>HẢI LÊ MART</h1>
+                <p style={{ margin: "4px 0", fontSize: "13px" }}><strong>Địa chỉ:</strong> Tòa Nhà ATS, 252 Hoàng Quốc Việt, Cầu Giấy, HN</p>
+                <p style={{ margin: "4px 0", fontSize: "13px" }}><strong>Điện thoại:</strong> 0902.613.899 - <strong>Email:</strong> admin@hailemart.com</p>
+              </div>
+              <div style={{ flex: 1, textAlign: "right" }}>
+                <h2 style={{ margin: 0, fontSize: "22px", color: "#1e293b", fontWeight: "bold" }}>PHIẾU ĐẶT HÀNG</h2>
+                <p style={{ margin: "2px 0 10px 0", fontSize: "14px", fontStyle: "italic", color: "#64748b" }}>(Purchase Order)</p>
+                <p style={{ margin: "4px 0", fontSize: "14px" }}><strong>Số PO:</strong> {printPOData.po_code}</p>
+                <p style={{ margin: "4px 0", fontSize: "14px" }}><strong>Ngày đặt:</strong> {new Date(printPOData.created_at).toLocaleDateString('vi-VN')}</p>
+              </div>
             </div>
-            <div style={{ marginBottom: "20px", fontSize: "15px" }}>
-              <p style={{ margin: "5px 0" }}><b>Kính gửi Nhà Cung Cấp:</b> {printPOData.supplier?.name}</p>
-              <p style={{ margin: "5px 0" }}><b>Điện thoại:</b> {printPOData.supplier?.phone}</p>
-              <p style={{ margin: "5px 0" }}><b>Ghi chú:</b> {printPOData.note || "Không có"}</p>
+            
+            {/* Supplier Info */}
+            <div style={{ marginBottom: "25px", fontSize: "15px", lineHeight: "1.6", background: "#f8fafc", padding: "15px", border: "1px solid #cbd5e1" }}>
+              <p style={{ margin: "0 0 5px 0" }}><strong>Kính gửi Nhà Cung Cấp:</strong> {printPOData.supplier?.name}</p>
+              <p style={{ margin: "0 0 5px 0" }}><strong>Điện thoại liên hệ:</strong> {printPOData.supplier?.phone}</p>
+              <p style={{ margin: "0" }}><strong>Ghi chú đơn hàng:</strong> {printPOData.note || "Không có ghi chú"}</p>
             </div>
-            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px" }}>
-              <thead><tr style={{ background: "#f1f5f9" }}><th style={{ border: "1px solid #000", padding: "10px" }}>STT</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "left" }}>Tên sản phẩm</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>SL Đặt</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>Đơn giá nhập</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>Thành tiền</th></tr></thead>
-              <tbody>{printPOData.items.map((item: any, index: number) => (
-                <tr key={index}><td style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>{index + 1}</td><td style={{ border: "1px solid #000", padding: "10px" }}>{cleanName(item.product.name)}</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>{item.qty}</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{(item.importPrice||0).toLocaleString()}đ</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{(item.qty * (item.importPrice||0)).toLocaleString()}đ</td></tr>
-              ))}</tbody>
+            
+            {/* Items Table */}
+            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "25px", fontSize: "14px" }}>
+              <thead>
+                <tr style={{ background: "#f1f5f9" }}>
+                  <th style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "center", width: "5%" }}>STT</th>
+                  <th style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "left", width: "45%" }}>Tên Sản Phẩm</th>
+                  <th style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "center", width: "15%" }}>SL Đặt</th>
+                  <th style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "right", width: "15%" }}>Đơn Giá (đ)</th>
+                  <th style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "right", width: "20%" }}>Thành Tiền (đ)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {printPOData.items.map((item: any, index: number) => (
+                  <tr key={index}>
+                    <td style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "center" }}>{index + 1}</td>
+                    <td style={{ border: "1px solid #1e293b", padding: "10px" }}>{cleanName(item.product.name)}</td>
+                    <td style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "center" }}>{item.qty}</td>
+                    <td style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "right" }}>{(item.importPrice||0).toLocaleString()}</td>
+                    <td style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "right" }}>{(item.qty * (item.importPrice||0)).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
-            <div style={{ textAlign: "right", fontSize: "16px", marginBottom: "40px" }}>
-              <p>Tổng giá trị PO: <b>{printPOData.total_amount.toLocaleString()}đ</b></p>
-              <p>Đã trả trước: <b>{(printPOData.paid_amount || 0).toLocaleString()}đ</b></p>
-              <h3>CÔNG NỢ DỰ KIẾN: {Math.max(0, printPOData.total_amount - (printPOData.paid_amount || 0)).toLocaleString()}đ</h3>
+            
+            {/* Totals */}
+            <div style={{ width: "50%", marginLeft: "auto", fontSize: "15px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                <span>Tổng giá trị đơn hàng:</span>
+                <strong>{printPOData.total_amount.toLocaleString()} đ</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", color: "#10b981" }}>
+                <span>Đã thanh toán trước:</span>
+                <strong>{(printPOData.paid_amount || 0).toLocaleString()} đ</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", borderTop: "2px solid #1e293b", paddingTop: "8px", marginTop: "8px", fontSize: "18px", color: "#ef4444" }}>
+                <strong>CÔNG NỢ DỰ KIẾN:</strong>
+                <strong>{Math.max(0, printPOData.total_amount - (printPOData.paid_amount || 0)).toLocaleString()} đ</strong>
+              </div>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", textAlign: "center", marginTop: "30px", fontSize: "15px" }}>
-              <div style={{ width: "50%" }}><b>Đại diện Nhà Cung Cấp</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span></div>
-              <div style={{ width: "50%" }}><b>Đại diện Cửa Hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span></div>
+            
+            {/* Signatures */}
+            <div style={{ display: "flex", justifyContent: "space-between", textAlign: "center", marginTop: "50px", fontSize: "15px" }}>
+              <div style={{ width: "50%" }}>
+                <strong>Đại Diện Nhà Cung Cấp</strong><br/>
+                <span style={{ fontSize: "13px", fontStyle: "italic", color: "#475569" }}>(Ký và ghi rõ họ tên)</span>
+                <div style={{ marginTop: "80px" }}>....................................................</div>
+              </div>
+              <div style={{ width: "50%" }}>
+                <strong>Đại Diện Cửa Hàng</strong><br/>
+                <span style={{ fontSize: "13px", fontStyle: "italic", color: "#475569" }}>(Ký và ghi rõ họ tên)</span>
+                <div style={{ marginTop: "80px" }}>....................................................</div>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* 2. RENDER IN PHIẾU NHẬP KHO (RECEIPT) */}
+      {/* ========================================================================= */}
+      {/* 2. MẪU IN PHIẾU NHẬP KHO (RECEIPT) CHUYÊN NGHIỆP                          */}
+      {/* ========================================================================= */}
       {printMode === 'po_receipt' && printPOData && (
-        <div className="print-flex print-a4-container">
-          <div style={{ width: "100%", fontFamily: "'Inter', sans-serif" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #000", paddingBottom: "10px", marginBottom: "20px" }}>
-              <div><h1 style={{ margin: 0, color: "#10b981", fontSize: "28px" }}>HẢI LÊ MART</h1></div>
-              <div style={{ textAlign: "right" }}><h2 style={{ margin: 0, fontSize: "24px" }}>PHIẾU NHẬP KHO</h2><p style={{ margin: "5px 0", fontSize: "14px" }}>Tham chiếu PO: <b>{printPOData.po_code}</b></p><p style={{ margin: "5px 0", fontSize: "14px" }}>Ngày nhập: {new Date().toLocaleDateString('vi-VN')}</p></div>
+        <div className="print-a4-container">
+          <div style={{ padding: "20px", fontFamily: "'Times New Roman', Times, serif", color: "#000", maxWidth: "800px", margin: "0 auto" }}>
+            
+            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #1e293b", paddingBottom: "15px", marginBottom: "25px" }}>
+              <div style={{ flex: 1 }}>
+                <h1 style={{ margin: 0, fontSize: "26px", fontWeight: "900", color: "#1e293b" }}>HẢI LÊ MART</h1>
+                <p style={{ margin: "4px 0", fontSize: "13px" }}>Bộ phận Quản lý Kho Hàng</p>
+              </div>
+              <div style={{ flex: 1, textAlign: "right" }}>
+                <h2 style={{ margin: 0, fontSize: "22px", color: "#1e293b", fontWeight: "bold" }}>PHIẾU NHẬP KHO</h2>
+                <p style={{ margin: "2px 0 10px 0", fontSize: "14px", fontStyle: "italic", color: "#64748b" }}>(Goods Receipt Note)</p>
+                <p style={{ margin: "4px 0", fontSize: "14px" }}><strong>Tham chiếu PO:</strong> {printPOData.po_code}</p>
+                <p style={{ margin: "4px 0", fontSize: "14px" }}><strong>Ngày nhập:</strong> {new Date().toLocaleDateString('vi-VN')}</p>
+              </div>
             </div>
-            <div style={{ marginBottom: "20px", fontSize: "15px" }}>
-              <p style={{ margin: "5px 0" }}><b>Nhà Cung Cấp:</b> {printPOData.supplier?.name}</p>
+            
+            <div style={{ marginBottom: "25px", fontSize: "15px", lineHeight: "1.6" }}>
+              <p style={{ margin: "0 0 5px 0" }}><strong>Nhà Cung Cấp giao hàng:</strong> {printPOData.supplier?.name}</p>
+              <p style={{ margin: "0 0 5px 0" }}><strong>Trạng thái:</strong> Đã kiểm tra và đối soát hàng hóa thực tế nhập kho.</p>
             </div>
-            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px" }}>
-              <thead><tr style={{ background: "#f1f5f9" }}><th style={{ border: "1px solid #000", padding: "10px" }}>STT</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "left" }}>Tên sản phẩm</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>SL Thực Nhận</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>Đơn giá</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>Thành tiền</th></tr></thead>
-              <tbody>{printPOData.items.filter((i:any) => i.qty - (i.damagedQty || 0) > 0).map((item: any, index: number) => {
-                const actualQty = item.qty - (item.damagedQty || 0);
-                return (
-                <tr key={index}><td style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>{index + 1}</td><td style={{ border: "1px solid #000", padding: "10px" }}>{cleanName(item.product.name)}</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "center", fontWeight: "bold" }}>{actualQty}</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{(item.importPrice||0).toLocaleString()}đ</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{(actualQty * (item.importPrice||0)).toLocaleString()}đ</td></tr>
-              )})}</tbody>
+            
+            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "25px", fontSize: "14px" }}>
+              <thead>
+                <tr style={{ background: "#f1f5f9" }}>
+                  <th style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "center", width: "5%" }}>STT</th>
+                  <th style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "left", width: "45%" }}>Tên Sản Phẩm</th>
+                  <th style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "center", width: "15%" }}>SL Thực Nhận</th>
+                  <th style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "right", width: "15%" }}>Đơn Giá (đ)</th>
+                  <th style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "right", width: "20%" }}>Thành Tiền (đ)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {printPOData.items.filter((i:any) => i.qty - (i.damagedQty || 0) > 0).map((item: any, index: number) => {
+                  const actualQty = item.qty - (item.damagedQty || 0);
+                  return (
+                  <tr key={index}>
+                    <td style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "center" }}>{index + 1}</td>
+                    <td style={{ border: "1px solid #1e293b", padding: "10px" }}>{cleanName(item.product.name)}</td>
+                    <td style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "center", fontWeight: "bold" }}>{actualQty}</td>
+                    <td style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "right" }}>{(item.importPrice||0).toLocaleString()}</td>
+                    <td style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "right" }}>{(actualQty * (item.importPrice||0)).toLocaleString()}</td>
+                  </tr>
+                )})}
+              </tbody>
             </table>
-            <div style={{ textAlign: "right", fontSize: "16px", marginBottom: "40px" }}>
-              <h3>TỔNG GIÁ TRỊ NHẬP KHO: {printPOData.items.reduce((sum:number, item:any) => sum + ((item.qty - (item.damagedQty || 0)) * (item.importPrice||0)), 0).toLocaleString()}đ</h3>
+            
+            <div style={{ textAlign: "right", fontSize: "18px", marginBottom: "40px" }}>
+              <strong>TỔNG GIÁ TRỊ NHẬP KHO THỰC TẾ: {printPOData.items.reduce((sum:number, item:any) => sum + ((item.qty - (item.damagedQty || 0)) * (item.importPrice||0)), 0).toLocaleString()} đ</strong>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", textAlign: "center", marginTop: "30px", fontSize: "15px" }}>
-              <div style={{ width: "33%" }}><b>Thủ Kho</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span></div>
-              <div style={{ width: "33%" }}><b>Người Giao Hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span></div>
-              <div style={{ width: "33%" }}><b>Quản Lý</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span></div>
+            
+            <div style={{ display: "flex", justifyContent: "space-between", textAlign: "center", marginTop: "50px", fontSize: "15px" }}>
+              <div style={{ width: "33%" }}>
+                <strong>Thủ Kho Nhận Hàng</strong><br/>
+                <span style={{ fontSize: "13px", fontStyle: "italic", color: "#475569" }}>(Ký và ghi rõ họ tên)</span>
+                <div style={{ marginTop: "80px" }}>........................................</div>
+              </div>
+              <div style={{ width: "33%" }}>
+                <strong>Người Giao Hàng</strong><br/>
+                <span style={{ fontSize: "13px", fontStyle: "italic", color: "#475569" }}>(Ký và ghi rõ họ tên)</span>
+                <div style={{ marginTop: "80px" }}>........................................</div>
+              </div>
+              <div style={{ width: "33%" }}>
+                <strong>Quản Lý Cửa Hàng</strong><br/>
+                <span style={{ fontSize: "13px", fontStyle: "italic", color: "#475569" }}>(Ký và ghi rõ họ tên)</span>
+                <div style={{ marginTop: "80px" }}>........................................</div>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* 3. RENDER IN PHIẾU XUẤT TRẢ HÀNG LỖI */}
+      {/* ========================================================================= */}
+      {/* 3. MẪU IN PHIẾU XUẤT TRẢ HÀNG LỖI (RETURN) CHUYÊN NGHIỆP                    */}
+      {/* ========================================================================= */}
       {printMode === 'po_return' && printPOData && (
-        <div className="print-flex print-a4-container">
-          <div style={{ width: "100%", fontFamily: "'Inter', sans-serif" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #000", paddingBottom: "10px", marginBottom: "20px" }}>
-              <div><h1 style={{ margin: 0, color: "#ef4444", fontSize: "28px" }}>HẢI LÊ MART</h1></div>
-              <div style={{ textAlign: "right" }}><h2 style={{ margin: 0, fontSize: "24px" }}>PHIẾU XUẤT TRẢ HÀNG</h2><p style={{ margin: "5px 0", fontSize: "14px" }}>Tham chiếu PO: <b>{printPOData.po_code}</b></p><p style={{ margin: "5px 0", fontSize: "14px" }}>Ngày lập: {new Date().toLocaleDateString('vi-VN')}</p></div>
+        <div className="print-a4-container">
+          <div style={{ padding: "20px", fontFamily: "'Times New Roman', Times, serif", color: "#000", maxWidth: "800px", margin: "0 auto" }}>
+            
+            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #1e293b", paddingBottom: "15px", marginBottom: "25px" }}>
+              <div style={{ flex: 1 }}>
+                <h1 style={{ margin: 0, fontSize: "26px", fontWeight: "900", color: "#1e293b" }}>HẢI LÊ MART</h1>
+                <p style={{ margin: "4px 0", fontSize: "13px" }}>Bộ phận Quản lý Kho Hàng</p>
+              </div>
+              <div style={{ flex: 1, textAlign: "right" }}>
+                <h2 style={{ margin: 0, fontSize: "22px", color: "#ef4444", fontWeight: "bold" }}>PHIẾU XUẤT TRẢ HÀNG LỖI</h2>
+                <p style={{ margin: "2px 0 10px 0", fontSize: "14px", fontStyle: "italic", color: "#64748b" }}>(Return to Vendor)</p>
+                <p style={{ margin: "4px 0", fontSize: "14px" }}><strong>Tham chiếu PO:</strong> {printPOData.po_code}</p>
+                <p style={{ margin: "4px 0", fontSize: "14px" }}><strong>Ngày xuất trả:</strong> {new Date().toLocaleDateString('vi-VN')}</p>
+              </div>
             </div>
-            <div style={{ marginBottom: "20px", fontSize: "15px" }}>
-              <p style={{ margin: "5px 0" }}><b>Hoàn trả cho Nhà Cung Cấp:</b> {printPOData.supplier?.name}</p>
-              <p style={{ margin: "5px 0" }}><b>Lý do:</b> Hàng lỗi/hỏng, không đạt tiêu chuẩn khi kiểm tra nhập kho.</p>
+            
+            <div style={{ marginBottom: "25px", fontSize: "15px", lineHeight: "1.6", background: "#fef2f2", padding: "15px", border: "1px solid #fca5a5", borderRadius: "4px" }}>
+              <p style={{ margin: "0 0 5px 0", color: "#b91c1c" }}><strong>Hoàn trả cho Nhà Cung Cấp:</strong> {printPOData.supplier?.name}</p>
+              <p style={{ margin: "0", color: "#b91c1c" }}><strong>Lý do:</strong> Phát hiện hàng lỗi/hỏng, không đạt tiêu chuẩn chất lượng khi kiểm tra đối soát lúc nhập kho.</p>
             </div>
-            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px" }}>
-              <thead><tr style={{ background: "#fef2f2" }}><th style={{ border: "1px solid #000", padding: "10px" }}>STT</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "left" }}>Tên sản phẩm</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>SL Trả</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>Đơn giá</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>Thành tiền (Giảm trừ công nợ)</th></tr></thead>
-              <tbody>{printPOData.items.filter((i:any) => (i.damagedQty || 0) > 0).map((item: any, index: number) => (
-                <tr key={index}><td style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>{index + 1}</td><td style={{ border: "1px solid #000", padding: "10px" }}>{cleanName(item.product.name)}</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "center", color: "#ef4444", fontWeight: "bold" }}>{item.damagedQty}</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{(item.importPrice||0).toLocaleString()}đ</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{(item.damagedQty * (item.importPrice||0)).toLocaleString()}đ</td></tr>
-              ))}</tbody>
+            
+            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "25px", fontSize: "14px" }}>
+              <thead>
+                <tr style={{ background: "#f1f5f9" }}>
+                  <th style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "center", width: "5%" }}>STT</th>
+                  <th style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "left", width: "45%" }}>Tên Sản Phẩm Bị Lỗi</th>
+                  <th style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "center", width: "15%" }}>SL Trả</th>
+                  <th style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "right", width: "15%" }}>Đơn Giá (đ)</th>
+                  <th style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "right", width: "20%" }}>Thành Tiền (đ)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {printPOData.items.filter((i:any) => (i.damagedQty || 0) > 0).map((item: any, index: number) => (
+                  <tr key={index}>
+                    <td style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "center" }}>{index + 1}</td>
+                    <td style={{ border: "1px solid #1e293b", padding: "10px" }}>{cleanName(item.product.name)}</td>
+                    <td style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "center", color: "#ef4444", fontWeight: "bold" }}>{item.damagedQty}</td>
+                    <td style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "right" }}>{(item.importPrice||0).toLocaleString()}</td>
+                    <td style={{ border: "1px solid #1e293b", padding: "10px", textAlign: "right" }}>{(item.damagedQty * (item.importPrice||0)).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
-            <div style={{ textAlign: "right", fontSize: "16px", marginBottom: "40px" }}>
-              <h3>TỔNG GIÁ TRỊ HOÀN TRẢ: {printPOData.items.reduce((sum:number, item:any) => sum + ((item.damagedQty || 0) * (item.importPrice||0)), 0).toLocaleString()}đ</h3>
+            
+            <div style={{ textAlign: "right", fontSize: "16px", marginBottom: "10px" }}>
+              <p style={{ margin: "0 0 10px 0" }}>* Số tiền này sẽ được giảm trừ trực tiếp vào công nợ của hóa đơn hiện tại.</p>
+              <h3 style={{ color: "#ef4444", fontSize: "20px" }}>TỔNG GIÁ TRỊ HOÀN TRẢ: {printPOData.items.reduce((sum:number, item:any) => sum + ((item.damagedQty || 0) * (item.importPrice||0)), 0).toLocaleString()} đ</h3>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", textAlign: "center", marginTop: "30px", fontSize: "15px" }}>
-              <div style={{ width: "50%" }}><b>Người Nhận Lại Hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span></div>
-              <div style={{ width: "50%" }}><b>Đại diện Cửa Hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span></div>
+            
+            <div style={{ display: "flex", justifyContent: "space-between", textAlign: "center", marginTop: "50px", fontSize: "15px" }}>
+              <div style={{ width: "50%" }}>
+                <strong>Người Giao Hàng (Nhận Lại Hàng Lỗi)</strong><br/>
+                <span style={{ fontSize: "13px", fontStyle: "italic", color: "#475569" }}>(Ký và ghi rõ họ tên)</span>
+                <div style={{ marginTop: "80px" }}>....................................................</div>
+              </div>
+              <div style={{ width: "50%" }}>
+                <strong>Đại Diện Cửa Hàng (Xuất Trả)</strong><br/>
+                <span style={{ fontSize: "13px", fontStyle: "italic", color: "#475569" }}>(Ký và ghi rõ họ tên)</span>
+                <div style={{ marginTop: "80px" }}>....................................................</div>
+              </div>
             </div>
           </div>
         </div>
@@ -1868,7 +2006,7 @@ export default function App() {
               <div className="custom-modal-header"><h2 className="custom-modal-title">💎 QUẢN LÝ KHÁCH HÀNG VIP</h2><button className="custom-modal-close" onClick={() => setShowCustomerModal(false)}>&times;</button></div>
               <div className="custom-modal-body" style={{ background: '#f8fafc', padding: 0 }}>
                 <table className="modern-table">
-                  <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}><tr><th>Tên KH</th><th>SĐT</th><th>Ví / Nợ</th><th style={{textAlign:"center"}}>Hành động</th></tr></thead>
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}><tr><th>Tên KH</th><th>SĐT</th><th>Ví / Nợ</th><th style={{textAlign:"center", width: "35%"}}>Hành động</th></tr></thead>
                   <tbody>
                     {Object.entries(customers || {}).length === 0 && <tr><td colSpan={4} style={{ textAlign: "center", padding: "40px", color: "#94a3b8" }}>Chưa có Khách hàng VIP</td></tr>}
                     {Object.entries(customers || {}).map(([phone, c]) => (
@@ -1942,7 +2080,7 @@ export default function App() {
           </div>
         )}
 
-        {/* MODAL PHIẾU NHẬP PO BIÊN TẬP HOÀN CHỈNH */}
+        {/* MODAL PHIẾU NHẬP PO */}
         {showPOModal && (
           <div className="custom-modal-overlay">
             <div className="custom-modal-box" style={{ maxWidth: '1100px', height: '90vh' }}>
@@ -2093,7 +2231,6 @@ export default function App() {
                         </table>
                       </div>
                       
-                      {/* BỔ SUNG NÚT IN PHIẾU ĐẶT HÀNG NGAY TẠI KHỐI CHI TIẾT PO */}
                       {foundPO && (
                         <div style={{ marginTop: "15px", padding: "16px", background: "#f8fafc", borderRadius: "10px", border: "1px dashed #cbd5e1" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -2123,12 +2260,11 @@ export default function App() {
                       <h3 style={{ margin: "0 0 15px 0", fontSize: "15px", color: "#1e293b", borderBottom: "1px dashed #cbd5e1", paddingBottom: "10px" }}>2. Đối Soát Hàng & Nhập Kho</h3>
                       {foundPO ? (
                         foundPO.status === 'COMPLETED' ? (
-                           /* BỔ SUNG GIAO DIỆN IN KHI PHIẾU ĐÃ HOÀN THÀNH - IN NHẬP KHO / TRẢ HÀNG */
                            <div style={{ textAlign: "center", padding: "40px", background: "#ecfdf5", borderRadius: "12px", border: "1px solid #a7f3d0", marginTop: "20px" }}>
                              <div style={{ color: "#059669", fontWeight: "bold", fontSize: "18px", marginBottom: "20px" }}>✅ PHIẾU NÀY ĐÃ ĐƯỢC ĐỐI SOÁT & NHẬP KHO XONG!</div>
                              <div style={{ display: "flex", justifyContent: "center", gap: "15px" }}>
                                <button onClick={() => handlePrintPO(foundPO, 'po_receipt')} style={{ padding: "12px 20px", background: "#10b981", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", boxShadow: "0 2px 4px rgba(16,185,129,0.3)" }}>
-                                 🖨️ In Phiếu Nhập Kho (Thực nhận)
+                                 🖨️ In Phiếu Nhập Kho
                                </button>
                                {foundPO.items.some((i:any) => i.damagedQty > 0) && (
                                  <button onClick={() => handlePrintPO(foundPO, 'po_return')} style={{ padding: "12px 20px", background: "#ef4444", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", boxShadow: "0 2px 4px rgba(239,68,68,0.3)" }}>
@@ -2252,6 +2388,25 @@ export default function App() {
         .animated-bg-mesh { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; background: linear-gradient(135deg, #ffedd5 0%, #fef08a 50%, #fed7aa 100%); background-size: 400% 400%; animation: gradientBgAnim 15s ease infinite; opacity: 0.8; }
         @keyframes gradientBgAnim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
         [data-theme='dark'] .animated-bg-mesh { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%); opacity: 1; }
+        
+        /* ==================================================================== */
+        /* CSS DÀNH CHO MÁY IN (XÓA TOÀN BỘ UI, CHỈ GIỮ LẠI BẢN IN)            */
+        /* ==================================================================== */
+        @media print {
+          body, html { margin: 0; padding: 0; background: #fff; width: 100%; }
+          .no-print, .custom-modal-overlay, .animated-bg-mesh, .Toaster { display: none !important; }
+          .print-a4-container { 
+            display: block !important; 
+            position: absolute !important; 
+            top: 0 !important; 
+            left: 0 !important; 
+            width: 100% !important; 
+            background: white !important; 
+            z-index: 999999 !important; 
+            color: #000 !important;
+          }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        }
       `}</style>
       <div className="animated-bg-mesh"></div>
       <Toaster position="top-right" reverseOrder={false} />
