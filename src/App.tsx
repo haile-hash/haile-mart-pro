@@ -29,7 +29,6 @@ import { HoldOrdersModal } from "./components/modals/HoldOrdersModal";
 import { CheckoutModal } from "./components/modals/CheckoutModal";
 import { StatsModal } from "./components/modals/StatsModal";
 import { InventoryModal } from "./components/modals/InventoryModal";
-import { CustomerModal } from "./components/modals/CustomerModal";
 import { DebtModal } from "./components/modals/DebtModal";
 import { AuditModal } from "./components/modals/AuditModal";
 import { ScannerModal } from "./components/modals/ScannerModal";
@@ -50,9 +49,6 @@ export default function App() {
   const EMAILJS_TEMPLATE_VIP_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_VIP_ID || "template_t91erhg";
   const EMAILJS_PUBLIC_KEY = process.env.REACT_APP_EMAILJS_PUBLIC_KEY || "5ric0kxuwNPlUleAv";
   
-  // =====================================================================
-  // 1. STATES CƠ BẢN
-  // =====================================================================
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem("mart_logged_in") === "true");
   const [role, setRole] = useState(() => localStorage.getItem("mart_role") || "staff");
   const [shift, setShift] = useState(() => localStorage.getItem("mart_shift") || "Ca Sáng");
@@ -119,16 +115,8 @@ export default function App() {
   const [barcodeCount, setBarcodeCount] = useState<number>(30);
   const [selectedAuditLog, setSelectedAuditLog] = useState<AuditLog | null>(null);
 
-  // States dành riêng cho Phiếu PO
-  const [poTab, setPoTab] = useState<'NEW' | 'RECEIVE'>('NEW');
-  const [selectedSupplierId, setSelectedSupplierId] = useState("");
-  const [poItems, setPoItems] = useState<any[]>([]);
-  const [poSearch, setPoSearch] = useState("");
-  const [poNote, setPoNote] = useState("");
-  const [paidAmount, setPaidAmount] = useState<number>(0);
-  const [searchPoCode, setSearchPoCode] = useState("");
-  const [foundPO, setFoundPO] = useState<any>(null);
-  const [receiveItems, setReceiveItems] = useState<any[]>([]);
+  // Mảng bộ nhớ tạm cho Phiếu Nhập PO (Tránh lỗi tìm không thấy do mạng lag)
+  const [localPOs, setLocalPOs] = useState<any[]>(() => { const s = localStorage.getItem("mart_pos"); return s ? JSON.parse(s) : [] });
 
   const { darkMode, setDarkMode, showSettings, setShowSettings, showInputForm, setShowInputForm, showDebtModal, setShowDebtModal, showStatsModal, setShowStatsModal, showCustomerModal, setShowCustomerModal, showHandoverModal, setShowHandoverModal, showAuditModal, setShowAuditModal, showHoldModal, setShowHoldModal, showExpenseModal, setShowExpenseModal, showSupplierModal, setShowSupplierModal, showMarketingModal, setShowMarketingModal, showInventoryModal, setShowInventoryModal, showMainMenu, setShowMainMenu, cashFlowModalInfo, setCashFlowModalInfo, scannerMode, setScannerMode, printMode, setPrintMode } = useUIState();
   const { newCode, setNewCode, newName, setNewName, newImportPrice, setNewImportPrice, newPrice, setNewPrice, newPromoPrice, setNewPromoPrice, newGiftCondition, setNewGiftCondition, newGiftInfo, setNewGiftInfo, newStock, setNewStock, newExpiry, setNewExpiry, newCategory, setNewCategory, resetProductForm } = useProductInput();
@@ -150,9 +138,6 @@ export default function App() {
     }
   };
 
-  // =====================================================================
-  // 2. EFFECTS
-  // =====================================================================
   useEffect(() => { if (darkMode) { document.documentElement.setAttribute('data-theme', 'dark'); localStorage.setItem("mart_theme", "dark"); } else { document.documentElement.removeAttribute('data-theme'); localStorage.setItem("mart_theme", "light"); } }, [darkMode]);
 
   useEffect(() => {
@@ -198,9 +183,6 @@ export default function App() {
 
   useEffect(() => { const handleAfterPrint = () => setPrintMode(null); window.addEventListener("afterprint", handleAfterPrint); return () => window.removeEventListener("afterprint", handleAfterPrint) }, []);
 
-  // =====================================================================
-  // 3. TÍNH TOÁN (MEMOS)
-  // =====================================================================
   const todayStrStr = new Date().toLocaleDateString('vi-VN');
   
   const currentShiftStats = useMemo(() => { 
@@ -285,10 +267,6 @@ export default function App() {
     return filtered
   }, [products, searchTerm, selectedCategory, sortConfig, filters]);
 
-  // =====================================================================
-  // 4. ACTION FUNCTIONS ĐÃ ĐƯỢC CHUẨN HÓA TOP-LEVEL
-  // =====================================================================
-
   const executeWithAdminCheck = (action: () => void) => { if (role === 'admin') { action(); } else { setPendingAction(() => action); setShowPinModal(true); } };
 
   const fetchSettingsFromCloud = async () => {
@@ -346,7 +324,6 @@ export default function App() {
   const restoreOrder = async (order: any) => { if (cart.length > 0) return toast.error("Vui lòng thanh toán giỏ hiện tại trước!"); setCart(order.cart); setHeldOrders(prev => prev.filter(o => o.id !== order.id)); if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', order.id); setShowHoldModal(false); toast.success("Đã mở lại đơn tạm!"); };
   const deleteHeldOrder = async (id: any) => { setHeldOrders(prev => prev.filter(o => o.id !== id)); logAudit("XÓA ĐƠN", `Xóa đơn lưu tạm`); if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', id); toast.success("Đã xóa đơn tạm!"); };
 
-  // 🔥 ĐÂY LÀ HÀM HANDLE VOUCHER (ĐÃ FIX LỖI "NOT DEFINED")
   const handleVoucherSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -365,7 +342,11 @@ export default function App() {
   const handleCustomerInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value; setCustomerInput(val);
     const matchedPhone = Object.keys(customers).find(phone => phone === val.trim() || customers[phone].cardCode === val.trim());
-    if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setUseWallet(false); } else { setCustPhone(val); setCustName(""); setUseWallet(false); }
+    if (matchedPhone) {
+      setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setUseWallet(false);
+    } else {
+      setCustPhone(val); setCustName(""); setUseWallet(false);
+    }
   };
 
   const handleNextToQR = () => { 
@@ -591,7 +572,6 @@ export default function App() {
   };
 
   const handleBarcodeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => { document.getElementById('search-barcode')?.focus(); if (e.key === 'Enter') { e.preventDefault(); const p = findProductByCode(barcodeInput); if (p) handleSelectSuggest(p); else { const matchedPhone = Object.keys(customers).find(phone => phone === barcodeInput.trim() || customers[phone].cardCode === barcodeInput.trim()); if (matchedPhone) { playSound('success'); setCustomerInput(customers[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setBarcodeInput("") } else { playSound('error'); toast.error("Mã không hợp lệ!") } } } };
-  
   const handleSelectSuggest = (p_input: any) => {
     const baseCode = String(p_input.product_code).split('-')[0]; const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); 
     if (totalStock <= 0) { playSound('error'); return toast.error("Sản phẩm đã hết hàng!"); }
@@ -605,23 +585,16 @@ export default function App() {
     });
     setScanMessage({ text: `✅ Thêm: ${repName} ${itemToCart.isHappyHour ? '⭐' : ''}`, type: 'success' }); setBarcodeInput(""); setShowSuggestions(false); setTimeout(() => setScanMessage(null), 2000);
   };
-  
   const addToCart = (p_input: any) => { handleSelectSuggest(p_input); playSound('success'); };
-  
   const adjustCartQty = (productId: any, delta: number) => { let exceedStock = false; setCart(prev => { const updated = prev.map(item => { if (item.product.id === productId) { const baseCode = String(item.product.product_code).split('-')[0]; const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); const newQty = item.qty + delta; if (newQty > totalStock) { exceedStock = true; return item; } const price = getActualPrice(item.product); return { ...item, qty: newQty, total: Math.round(newQty * price * (1 + VAT_RATE)) }; } return item; }); return updated.filter(item => item.qty > 0); }); if (exceedStock) playSound('error'); else if (delta > 0) playSound('success'); };
-  
   const handleDirectQtyChange = (productId: any, val: string) => { setCart(prev => { if (val === '') return prev.map(i => i.product.id === productId ? { ...i, qty: '' as any, total: 0 } : i); let num = parseInt(val); if (isNaN(num) || num < 0) return prev; let exceedStock = false; const updated = prev.map(i => { if (i.product.id === productId) { const baseCode = String(i.product.product_code).split('-')[0]; const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); if (num > totalStock) { exceedStock = true; num = totalStock; } const price = getActualPrice(i.product); return { ...i, qty: num, total: Math.round(num * price * (1 + VAT_RATE)) }; } return i; }); if (exceedStock) playSound('error'); return updated; }); };
-  
   const handleDirectQtyBlur = (productId: any, val: string) => { if (val === '' || parseInt(val) <= 0 || isNaN(parseInt(val))) { setCart(prev => prev.map(i => { if (i.product.id === productId) { const price = getActualPrice(i.product); return { ...i, qty: 1, total: Math.round(1 * price * (1 + VAT_RATE)) } } return i })) } };
-  
   const removeFromCart = (productId: any) => { setCart(cart.filter(item => item.product.id !== productId)) };
-  
   const clearCart = () => { if (window.confirm("Hủy toàn bộ?")) { resetCheckout(); } };
 
   // ===============================================
-  // 🔥 RENDER GIAO DIỆN CHÍNH
+  // 🔥 RENDER GIAO DIỆN
   // ===============================================
-
   const renderPrintArea = () => (
     <>
       {lastOrder && printMode === 'receipt' && (
@@ -630,64 +603,30 @@ export default function App() {
             <div style={{ textAlign: "center", marginBottom: "8px" }}><h2 style={{ margin: 0, fontSize: "20px", fontWeight: 900 }}>HẢI LÊ MART</h2><div style={{ fontSize: "11px" }}>Tòa Nhà ATS, 252 Hoàng Quốc Việt, HN</div></div>
             <div style={{ borderBottom: "1px dashed #000", marginBottom: "8px" }}></div>
             <table style={{ width: "100%", fontSize: "11px", marginBottom: "4px", borderCollapse: "collapse" }}><tbody><tr><td style={{ textAlign: "left" }}><b>HĐ:</b> {lastOrder.orderId}</td><td style={{ textAlign: "right" }}><b>Ca:</b> {shift}</td></tr><tr><td style={{ textAlign: "left" }}><b>Ngày:</b> {lastOrder.time}</td><td style={{ textAlign: "right" }}><b>TN:</b> {role}</td></tr></tbody></table>
-            
             <div style={{ borderBottom: "1px dashed #000", marginBottom: "6px" }}></div>
             <div style={{ fontSize: "11px", marginBottom: "8px", lineHeight: "1.5" }}>
               {lastOrder.custPhone ? (
-                <>
-                  <div><b>Khách hàng:</b> {lastOrder.custName || 'Khách VIP'}</div>
-                  <div><b>SĐT:</b> {lastOrder.custPhone}</div>
-                  {customers[lastOrder.custPhone]?.email && <div><b>Email:</b> {customers[lastOrder.custPhone].email}</div>}
-                  {customers[lastOrder.custPhone]?.address && <div><b>Địa chỉ:</b> {customers[lastOrder.custPhone].address}</div>}
-                </>
+                <><div><b>Khách hàng:</b> {lastOrder.custName || 'Khách VIP'}</div><div><b>SĐT:</b> {lastOrder.custPhone}</div>{customers[lastOrder.custPhone]?.email && <div><b>Email:</b> {customers[lastOrder.custPhone].email}</div>}{customers[lastOrder.custPhone]?.address && <div><b>Địa chỉ:</b> {customers[lastOrder.custPhone].address}</div>}</>
               ) : (<div><b>Khách hàng:</b> Khách lẻ</div>)}
             </div>
-
             <div style={{ borderBottom: "1px dashed #000", marginBottom: "8px" }}></div>
             <table style={{ width: "100%", fontSize: "12px", borderCollapse: "collapse" }}>
               <tbody>
                 {lastOrder.cart.map((i: any, x: number) => {
                   const p = i.priceIncludingVat !== undefined ? Math.round(i.priceIncludingVat / (1 + VAT_RATE)) : Math.round(getActualPrice(i.product)); const t = i.priceIncludingVat !== undefined ? Math.round(i.priceIncludingVat * i.qty) : Math.round((Number(i.qty) || 0) * p * (1 + VAT_RATE)); const g = parseGift(i.product.gift_info); const gQty = g.cond > 0 ? Math.floor(i.qty / g.cond) : 0;
-                  return (
-                    <React.Fragment key={x}>
-                      <tr><td colSpan={2}><b>{cleanName(i.product.name)} {i.product.isHappyHour && <span style={{ fontSize: "9px" }}>[Giờ Vàng]</span>}</b></td></tr>
-                      <tr><td style={{ paddingBottom: "4px" }}>{i.qty} x {p.toLocaleString()}</td><td style={{ textAlign: "right", paddingBottom: "4px" }}>{t.toLocaleString()}</td></tr>
-                      {g.text && gQty > 0 && <tr><td colSpan={2} style={{ fontSize: "10px", fontStyle: "italic", paddingBottom: "4px" }}>+ 🎁 Tặng: {gQty} x {g.text}</td></tr>}
-                    </React.Fragment>
-                  )
+                  return (<React.Fragment key={x}><tr><td colSpan={2}><b>{cleanName(i.product.name)} {i.product.isHappyHour && <span style={{ fontSize: "9px" }}>[Giờ Vàng]</span>}</b></td></tr><tr><td style={{ paddingBottom: "4px" }}>{i.qty} x {p.toLocaleString()}</td><td style={{ textAlign: "right", paddingBottom: "4px" }}>{t.toLocaleString()}</td></tr>{g.text && gQty > 0 && <tr><td colSpan={2} style={{ fontSize: "10px", fontStyle: "italic", paddingBottom: "4px" }}>+ 🎁 Tặng: {gQty} x {g.text}</td></tr>}</React.Fragment>)
                 })}
               </tbody>
             </table>
-            
             <div style={{ borderBottom: "1px dashed #000", marginBottom: "8px", marginTop: "4px" }}></div>
             <table style={{ width: "100%", fontSize: "12px", borderCollapse: "collapse" }}><tbody><tr><td style={{ padding: "2px 0" }}>Tiền hàng:</td><td style={{ textAlign: "right", padding: "2px 0" }}>{Math.round(lastOrder.subTotal).toLocaleString()}đ</td></tr><tr><td style={{ padding: "2px 0" }}>VAT (10%):</td><td style={{ textAlign: "right", padding: "2px 0" }}>{Math.round(lastOrder.vatTotal).toLocaleString()}đ</td></tr>{lastOrder.discount > 0 && <tr><td style={{ padding: "2px 0" }}>Giảm giá/Ví:</td><td style={{ textAlign: "right", padding: "2px 0" }}>-{Math.round(lastOrder.discount).toLocaleString()}đ</td></tr>}</tbody></table>
-            
             <div style={{ borderBottom: "2px dashed #000", margin: "6px 0" }}></div>
             <table style={{ width: "100%", fontSize: "16px", fontWeight: 900, borderCollapse: "collapse" }}><tbody><tr><td>{lastOrder.debtAmount > 0 ? "NỢ:" : "TỔNG ĐƠN:"}</td><td style={{ textAlign: "right" }}>{Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</td></tr></tbody></table>
-            
             <div style={{ borderTop: "1px dotted #000", paddingTop: "6px", marginTop: "6px", fontSize: "12px" }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}><span>Phương thức TT:</span><b>{lastOrder.paymentMethod}</b></div>
-              
-              {lastOrder.paymentMethod === 'TIỀN MẶT' && (
-                <>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Khách đưa:</span><span>{Math.round(lastOrder.customerGiven || lastOrder.finalTotal).toLocaleString()}đ</span></div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}><span>Thối lại:</span><span>{Math.round(Math.max(0, (lastOrder.customerGiven || lastOrder.finalTotal) - lastOrder.finalTotal)).toLocaleString()}đ</span></div>
-                </>
-              )}
-
-              {lastOrder.paymentMethod === 'KẾT HỢP' && (
-                <>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Tiền mặt:</span><span>{Math.round(lastOrder.customerGiven || 0).toLocaleString()}đ</span></div>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Chuyển khoản:</span><span>{Math.round(lastOrder.finalTotal - (lastOrder.customerGiven || 0)).toLocaleString()}đ</span></div>
-                </>
-              )}
-              
-              {lastOrder.paymentMethod === 'CHUYỂN KHOẢN' && (<div style={{ display: "flex", justifyContent: "space-between" }}><span>Trạng thái:</span><span>Đã chuyển khoản</span></div>)}
-              {lastOrder.paymentMethod === 'ZALO PAY' && (<div style={{ display: "flex", justifyContent: "space-between" }}><span>Trạng thái:</span><span>Đã thanh toán ZaloPay</span></div>)}
-              {lastOrder.paymentMethod === 'QUẸT THẺ' && (<div style={{ display: "flex", justifyContent: "space-between" }}><span>Trạng thái:</span><span>Đã quẹt thẻ POS</span></div>)}
-              {lastOrder.paymentMethod === 'GHI NỢ' && (<div style={{ display: "flex", justifyContent: "space-between" }}><span>Trạng thái:</span><span>Đã ghi vào sổ nợ</span></div>)}
+              {lastOrder.paymentMethod === 'TIỀN MẶT' && (<><div style={{ display: "flex", justifyContent: "space-between" }}><span>Khách đưa:</span><span>{Math.round(lastOrder.customerGiven || lastOrder.finalTotal).toLocaleString()}đ</span></div><div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}><span>Thối lại:</span><span>{Math.round(Math.max(0, (lastOrder.customerGiven || lastOrder.finalTotal) - lastOrder.finalTotal)).toLocaleString()}đ</span></div></>)}
+              {lastOrder.paymentMethod === 'KẾT HỢP' && (<><div style={{ display: "flex", justifyContent: "space-between" }}><span>Tiền mặt:</span><span>{Math.round(lastOrder.customerGiven || 0).toLocaleString()}đ</span></div><div style={{ display: "flex", justifyContent: "space-between" }}><span>Chuyển khoản:</span><span>{Math.round(lastOrder.finalTotal - (lastOrder.customerGiven || 0)).toLocaleString()}đ</span></div></>)}
             </div>
-            
             <div style={{ textAlign: "center", marginTop: "15px", fontSize: "11px" }}><b>CẢM ƠN QUÝ KHÁCH!</b></div>
           </div>
         </div>
@@ -697,46 +636,19 @@ export default function App() {
         <div className="print-flex print-a4-container">
           <div style={{ width: "100%", fontFamily: "'Inter', sans-serif" }}>
             <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #000", paddingBottom: "10px", marginBottom: "20px" }}><div><h1 style={{ margin: 0, color: "#dc2626", fontSize: "28px" }}>HẢI LÊ MART</h1><p style={{ margin: "5px 0", fontSize: "14px" }}>Địa chỉ: Tòa Nhà ATS, 252 Hoàng Quốc Việt, Cầu Giấy, HN</p></div><div style={{ textAlign: "right" }}><h2 style={{ margin: 0, fontSize: "24px" }}>HÓA ĐƠN BÁN HÀNG</h2><p style={{ margin: "5px 0", fontSize: "14px" }}>Số: <b>{lastOrder.orderId}</b></p><p style={{ margin: "5px 0", fontSize: "14px" }}>Ngày: {lastOrder.time}</p></div></div>
-            
             <div style={{ marginBottom: "20px", fontSize: "15px", display: "grid", gridTemplateColumns: "1fr 1fr" }}>
-              <div>
-                <p style={{ margin: "5px 0" }}><b>Khách hàng:</b> {lastOrder.custName || "Khách lẻ"}</p>
-                {lastOrder.custPhone && <p style={{ margin: "5px 0" }}><b>SĐT:</b> {lastOrder.custPhone}</p>}
-                {lastOrder.custPhone && customers[lastOrder.custPhone]?.email && <p style={{ margin: "5px 0" }}><b>Email:</b> {customers[lastOrder.custPhone].email}</p>}
-                {lastOrder.custPhone && customers[lastOrder.custPhone]?.address && <p style={{ margin: "5px 0" }}><b>Địa chỉ:</b> {customers[lastOrder.custPhone].address}</p>}
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <p style={{ margin: "5px 0" }}><b>Phương thức thanh toán:</b> {lastOrder.paymentMethod}</p>
-              </div>
+              <div><p style={{ margin: "5px 0" }}><b>Khách hàng:</b> {lastOrder.custName || "Khách lẻ"}</p>{lastOrder.custPhone && <p style={{ margin: "5px 0" }}><b>SĐT:</b> {lastOrder.custPhone}</p>}{lastOrder.custPhone && customers[lastOrder.custPhone]?.email && <p style={{ margin: "5px 0" }}><b>Email:</b> {customers[lastOrder.custPhone].email}</p>}{lastOrder.custPhone && customers[lastOrder.custPhone]?.address && <p style={{ margin: "5px 0" }}><b>Địa chỉ:</b> {customers[lastOrder.custPhone].address}</p>}</div>
+              <div style={{ textAlign: "right" }}><p style={{ margin: "5px 0" }}><b>Phương thức thanh toán:</b> {lastOrder.paymentMethod}</p></div>
             </div>
-
             <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px" }}>
               <thead><tr style={{ background: "#f1f5f9" }}><th style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>STT</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "left" }}>Tên hàng hóa</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>SL</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>Đơn giá</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>Thành tiền</th></tr></thead>
               <tbody>{lastOrder.cart.map((item: any, index: number) => { const p = Math.round(getActualPrice(item.product)); const t = Math.round(item.qty * p * (1 + VAT_RATE)); return (<tr key={index}><td style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>{index + 1}</td><td style={{ border: "1px solid #000", padding: "10px" }}>{cleanName(item.product.name)}</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>{item.qty}</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{p.toLocaleString()}đ</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{t.toLocaleString()}đ</td></tr>); })}</tbody>
             </table>
-            
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: "30px", fontSize: "15px" }}>
               <div style={{ textAlign: "center", width: "40%" }}><b>Khách hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span></div>
-              <div style={{ textAlign: "right", width: "50%" }}>
-                <p style={{ margin: "5px 0" }}>Cộng tiền hàng: {Math.round(lastOrder.subTotal).toLocaleString()}đ</p>
-                <p style={{ margin: "5px 0" }}>Thuế GTGT (10%): {Math.round(lastOrder.vatTotal).toLocaleString()}đ</p>
-                {lastOrder.discount > 0 && <p style={{ margin: "5px 0" }}>Giảm giá/Ví: -{Math.round(lastOrder.discount).toLocaleString()}đ</p>}
-                
-                <h3 style={{ borderTop: "2px solid #000", paddingTop: "10px", margin: "10px 0" }}>TỔNG CỘNG: {Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</h3>
-                
-                {lastOrder.paymentMethod === 'TIỀN MẶT' && (
-                  <div style={{ fontSize: "14px", marginTop: "10px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>Khách đưa:</span> <span>{Math.round(lastOrder.customerGiven || lastOrder.finalTotal).toLocaleString()}đ</span></div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}><span>Thối lại:</span> <span>{Math.round(Math.max(0, (lastOrder.customerGiven || lastOrder.finalTotal) - lastOrder.finalTotal)).toLocaleString()}đ</span></div>
-                  </div>
-                )}
-                {lastOrder.paymentMethod === 'KẾT HỢP' && (
-                  <div style={{ fontSize: "14px", marginTop: "10px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Tiền mặt:</span> <span>{Math.round(lastOrder.customerGiven || 0).toLocaleString()}đ</span></div>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Chuyển khoản:</span> <span>{Math.round(lastOrder.finalTotal - (lastOrder.customerGiven || 0)).toLocaleString()}đ</span></div>
-                  </div>
-                )}
-
+              <div style={{ textAlign: "right", width: "50%" }}><p style={{ margin: "5px 0" }}>Cộng tiền hàng: {Math.round(lastOrder.subTotal).toLocaleString()}đ</p><p style={{ margin: "5px 0" }}>Thuế GTGT (10%): {Math.round(lastOrder.vatTotal).toLocaleString()}đ</p>{lastOrder.discount > 0 && <p style={{ margin: "5px 0" }}>Giảm giá/Ví: -{Math.round(lastOrder.discount).toLocaleString()}đ</p>}<h3 style={{ borderTop: "2px solid #000", paddingTop: "10px", margin: "10px 0" }}>TỔNG CỘNG: {Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</h3>
+                {lastOrder.paymentMethod === 'TIỀN MẶT' && (<div style={{ fontSize: "14px", marginTop: "10px" }}><div style={{ display: "flex", justifyContent: "space-between" }}><span>Khách đưa:</span> <span>{Math.round(lastOrder.customerGiven || lastOrder.finalTotal).toLocaleString()}đ</span></div><div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}><span>Thối lại:</span> <span>{Math.round(Math.max(0, (lastOrder.customerGiven || lastOrder.finalTotal) - lastOrder.finalTotal)).toLocaleString()}đ</span></div></div>)}
+                {lastOrder.paymentMethod === 'KẾT HỢP' && (<div style={{ fontSize: "14px", marginTop: "10px" }}><div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Tiền mặt:</span> <span>{Math.round(lastOrder.customerGiven || 0).toLocaleString()}đ</span></div><div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Chuyển khoản:</span> <span>{Math.round(lastOrder.finalTotal - (lastOrder.customerGiven || 0)).toLocaleString()}đ</span></div></div>)}
                 <div style={{ textAlign: "center", marginTop: "40px" }}><b>Người bán hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, đóng dấu)</span></div>
               </div>
             </div>
@@ -777,7 +689,6 @@ export default function App() {
 
   const renderModals = () => {
     
-    // UI Của Phiếu Nhập Hàng Mới (Có 2 Tab)
     const CustomPOModal = () => {
       if (!showPOModal) return null;
       const [poTab, setPoTab] = useState<'NEW' | 'RECEIVE'>('NEW');
@@ -805,14 +716,28 @@ export default function App() {
         setLoading(true);
         try {
           const debtAmount = totalPOAmount - paidAmount; const poCode = "PO" + Date.now().toString().slice(-6);
-          await supabase.from('purchase_orders_v2').insert([{ id: Date.now().toString(), po_code: poCode, supplier: supplier, items: poItems, total_amount: totalPOAmount, paid_amount: paidAmount, debt_amount: debtAmount, status: 'PENDING', note: poNote }]);
-          toast.success(`Đã lưu Phiếu Nhập ${poCode} thành công!`); setShowPOModal(false);
+          const newPO = { id: Date.now().toString(), po_code: poCode, supplier: supplier, items: poItems, total_amount: totalPOAmount, paid_amount: paidAmount, debt_amount: debtAmount, status: 'PENDING', note: poNote, created_at: new Date().toISOString() };
+          
+          const updatedPOs = [newPO, ...localPOs];
+          setLocalPOs(updatedPOs);
+          localStorage.setItem("mart_pos", JSON.stringify(updatedPOs));
+
+          if(navigator.onLine) { await supabase.from('purchase_orders_v2').insert([newPO]); }
+          toast.success(`Đã lưu Phiếu Nhập ${poCode}!`); setShowPOModal(false);
         } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); }
       };
 
       const searchOldPO = async () => {
-        if (!searchPoCode.trim()) return; setLoading(true);
-        const { data, error } = await supabase.from('purchase_orders_v2').select('*').eq('po_code', searchPoCode.trim()).single();
+        const code = searchPoCode.trim().toUpperCase();
+        if (!code) return; 
+        setLoading(true);
+
+        const localMatch = localPOs.find(p => p.po_code.toUpperCase() === code);
+        if (localMatch) {
+          setFoundPO(localMatch); setReceiveItems(localMatch.items.map((i: any) => ({ ...i, damagedQty: 0 }))); setLoading(false); return;
+        }
+
+        const { data, error } = await supabase.from('purchase_orders_v2').select('*').ilike('po_code', code).single();
         if (error || !data) { toast.error("Không tìm thấy số PO này!"); } else { setFoundPO(data); setReceiveItems(data.items.map((i: any) => ({ ...i, damagedQty: 0 }))); }
         setLoading(false);
       };
@@ -840,9 +765,14 @@ export default function App() {
               if (s) { const newD = (s.debt || 0) + finalDebt; await supabase.from('suppliers').update({ debt: newD }).eq('id', supplierId); setSuppliers(prev => prev.map(x => x.id === supplierId ? { ...x, debt: newD } : x)); }
           }
 
-          await supabase.from('purchase_orders_v2').update({ status: 'COMPLETED', items: receiveItems, total_amount: actualTotal }).eq('id', foundPO.id);
+          if(navigator.onLine) await supabase.from('purchase_orders_v2').update({ status: 'COMPLETED', items: receiveItems, total_amount: actualTotal }).eq('id', foundPO.id);
+          
+          const updatedPOs = localPOs.map(p => p.id === foundPO.id ? { ...p, status: 'COMPLETED' } : p);
+          setLocalPOs(updatedPOs);
+          localStorage.setItem("mart_pos", JSON.stringify(updatedPOs));
+
           logs.forEach(lg => addTransactionAndSync(lg));
-          logAudit("NHẬN HÀNG PO", `Nhận mã ${foundPO.po_code} - Nợ phát sinh: ${finalDebt.toLocaleString()}đ`);
+          logAudit("NHẬN HÀNG PO", `Nhận mã ${foundPO.po_code}`);
           toast.success("Nhập Kho thành công!"); fetchProducts(); setShowPOModal(false);
         } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); }
       };
@@ -1002,7 +932,6 @@ export default function App() {
       <>
         <ExpenseModal showExpenseModal={showExpenseModal} setShowExpenseModal={setShowExpenseModal} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} expenses={expenses} addExpense={addExpense} deleteExpense={deleteExpense} />
         
-        {/* MODAL SUPPLIER XỊN XÒ */}
         {showSupplierModal && (
           <div className="custom-modal-overlay">
             <div className="custom-modal-box" style={{ maxWidth: '900px', height: '80vh' }}>
@@ -1043,7 +972,6 @@ export default function App() {
           </div>
         )}
 
-        {/* MODAL SETTINGS XỊN XÒ */}
         {showSettings && (
           <div className="custom-modal-overlay">
             <div className="custom-modal-box" style={{ maxWidth: '600px' }}>
@@ -1054,7 +982,29 @@ export default function App() {
               <div className="custom-modal-body" style={{ background: '#f8fafc' }}>
                 <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
                   <h3 style={{ marginTop: 0, color: '#3b82f6', marginBottom: '16px', fontSize: '15px', borderBottom: '1px dashed #cbd5e1', paddingBottom: '8px' }}>THÔNG TIN THANH TOÁN (QR CODE)</h3>
-                  <div className="custom-input-group"><label className="custom-label">Mã Ngân Hàng (BIN):</label><input className="custom-input" placeholder="VD: 970422 (MBBank)" value={newBankBin} onChange={e => setNewBankBin(e.target.value)} /></div>
+                  
+                  {/* DANH SÁCH NGÂN HÀNG ĐÃ ĐƯỢC THÊM */}
+                  <div className="custom-input-group">
+                    <label className="custom-label">Ngân Hàng (BIN):</label>
+                    <select className="custom-input" value={newBankBin} onChange={e => setNewBankBin(e.target.value)}>
+                      <option value="">-- Chọn Ngân Hàng --</option>
+                      <option value="970422">MBBank (Ngân hàng Quân Đội)</option>
+                      <option value="970436">Vietcombank</option>
+                      <option value="970415">VietinBank</option>
+                      <option value="970418">BIDV</option>
+                      <option value="970407">Techcombank</option>
+                      <option value="970416">ACB</option>
+                      <option value="970432">VPBank</option>
+                      <option value="970423">TPBank</option>
+                      <option value="970405">Agribank</option>
+                      <option value="970403">Sacombank</option>
+                      <option value="970448">OCB</option>
+                      <option value="970429">SCB</option>
+                      <option value="970426">MSB</option>
+                      <option value="970414">OceanBank</option>
+                    </select>
+                  </div>
+                  
                   <div className="custom-input-group"><label className="custom-label">Số Tài Khoản:</label><input className="custom-input" placeholder="Nhập số tài khoản..." value={newBankAcc} onChange={e => setNewBankAcc(e.target.value)} /></div>
                   <div className="custom-input-group"><label className="custom-label">Tên Chủ Tài Khoản:</label><input className="custom-input" placeholder="VD: NGUYEN VAN A" value={newBankNameStr} onChange={e => setNewBankNameStr(e.target.value)} /></div>
                   <div className="custom-input-group" style={{ marginBottom: 0 }}><label className="custom-label">SĐT ZaloPay (Đăng ký ví):</label><input className="custom-input" placeholder="VD: 0901234567" value={newZaloPayId} onChange={e => setNewZaloPayId(e.target.value)} /></div>
@@ -1074,22 +1024,87 @@ export default function App() {
           </div>
         )}
 
+        {/* MODAL KHÁCH HÀNG (VIP) - CHĂM SÓC KHÁCH HÀNG */}
+        {showCustomerModal && (
+          <div className="custom-modal-overlay">
+            <div className="custom-modal-box" style={{ maxWidth: '900px', height: '80vh' }}>
+              <div className="custom-modal-header">
+                <h2 className="custom-modal-title">💎 QUẢN LÝ KHÁCH HÀNG VIP</h2>
+                <button className="custom-modal-close" onClick={() => setShowCustomerModal(false)}>&times;</button>
+              </div>
+              <div className="custom-modal-body" style={{ background: '#f8fafc', padding: 0 }}>
+                <table className="cart-table" style={{ margin: 0 }}>
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+                    <tr><th>Tên KH</th><th>SĐT</th><th>Ví / Nợ</th><th style={{textAlign:"center"}}>Hành động</th></tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(customers).length === 0 && <tr><td colSpan={4} style={{ textAlign: "center", padding: "30px", color: "#999" }}>Chưa có Khách hàng VIP</td></tr>}
+                    {Object.entries(customers).map(([phone, c]) => (
+                      <tr key={phone}>
+                        <td style={{fontWeight:'bold'}}>{c.name} <br/><span style={{fontSize:'12px', color:'#64748b'}}>{getCustomerTier(c.totalSpent).name}</span></td>
+                        <td>{phone}</td>
+                        <td>
+                          <span style={{color: '#10b981', fontWeight: "bold"}}>Ví: {(c.wallet||0).toLocaleString()}đ</span><br/>
+                          <span style={{color: '#ef4444', fontWeight: "bold"}}>Nợ: {(c.debt||0).toLocaleString()}đ</span>
+                        </td>
+                        <td style={{display:'flex', gap:'8px', justifyContent:'center'}}>
+                           <button onClick={()=>handleEditPhone(phone)} style={{padding:'6px 12px', background:'#3b82f6', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight: "bold"}}>Sửa SĐT</button>
+                           <button onClick={()=>printCustomerCard(phone)} style={{padding:'6px 12px', background:'#10b981', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight: "bold"}}>In Thẻ</button>
+                           <button onClick={()=>sendCardEmail(phone)} style={{padding:'6px 12px', background:'#f59e0b', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight: "bold"}}>Email Thẻ VIP</button>
+                           <button onClick={()=>shareToZalo(phone)} style={{padding:'6px 12px', background:'#06b6d4', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight: "bold"}}>Mở Zalo</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL GỬI EMAIL MARKETING CHIẾN DỊCH KHUYẾN MÃI */}
+        {showMarketingModal && (
+          <div className="custom-modal-overlay">
+            <div className="custom-modal-box" style={{ maxWidth: '600px' }}>
+              <div className="custom-modal-header">
+                <h2 className="custom-modal-title">💌 GỬI EMAIL MARKETING</h2>
+                <button className="custom-modal-close" onClick={() => setShowMarketingModal(false)}>&times;</button>
+              </div>
+              <div className="custom-modal-body" style={{ background: '#f8fafc' }}>
+                <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <div className="custom-input-group">
+                    <label className="custom-label">Gửi đến nhóm khách hạng:</label>
+                    <select className="custom-input" value={marketingTier} onChange={e => setMarketingTier(e.target.value)}>
+                      <option value="Tất cả">Tất cả Khách hàng VIP</option>
+                      <option value="ĐỒNG">Hạng ĐỒNG</option>
+                      <option value="BẠC">Hạng BẠC</option>
+                      <option value="VÀNG">Hạng VÀNG</option>
+                      <option value="KIM CƯƠNG">Hạng KIM CƯƠNG</option>
+                    </select>
+                  </div>
+                  <div className="custom-input-group">
+                    <label className="custom-label">Nội dung Ưu đãi / Khuyến mãi:</label>
+                    <textarea className="custom-input" rows={6} placeholder="Ví dụ: Giảm giá 20% cho thành viên hạng Vàng nhân dịp Lễ..." value={marketingMsg} onChange={e => setMarketingMsg(e.target.value)} style={{ resize: "vertical" }}></textarea>
+                  </div>
+                  <button className="custom-btn-primary" onClick={sendMarketingEmails} disabled={loading} style={{ background: '#f59e0b', fontSize: '16px', padding: '14px' }}>
+                    {loading ? "ĐANG GỬI CHIẾN DỊCH..." : "🚀 BẮT ĐẦU GỬI EMAIL"}
+                  </button>
+                  <p style={{ fontSize: "12px", color: "#64748b", textAlign: "center", marginTop: "15px" }}>* Tính năng sử dụng hệ thống EmailJS để gửi tự động đến hộp thư của Khách hàng.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {showHandoverModal && (<HandoverModal role={role} shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onClose={() => setShowHandoverModal(false)} onConfirm={confirmHandover} />)}
         <CashFlowModal cashFlowModalInfo={cashFlowModalInfo} setCashFlowModalInfo={setCashFlowModalInfo} shift={shift} todayStrStr={todayStrStr} currentShiftCashFlow={currentShiftCashFlow} currentShiftStats={currentShiftStats} />
         <HoldOrdersModal showHoldModal={showHoldModal} setShowHoldModal={setShowHoldModal} heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={deleteHeldOrder} />
-        
         <CheckoutModal isCheckoutOpen={isCheckoutOpen} setIsCheckoutOpen={setIsCheckoutOpen} checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} voucherInput={voucherInput} setVoucherInput={setVoucherInput} customerInput={customerInput} setCustomerInput={setCustomerInput} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} useWallet={useWallet} setUseWallet={setUseWallet} appliedVoucherAmount={appliedVoucherAmount} setAppliedVoucherAmount={setAppliedVoucherAmount} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} finalToPay={finalToPay} customers={customers} isOnline={isOnline} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} loading={loading} handleVoucherSubmit={handleVoucherSubmit} handleCustomerInputChange={handleCustomerInputChange} setScannerMode={setScannerMode} handleNextToQR={handleNextToQR} confirmCheckout={confirmCheckout} setPrintMode={setPrintMode} sendReceiptEmail={sendReceiptEmail} closeCheckout={closeCheckout} />
-        
         <StatsModal showStatsModal={showStatsModal} setShowStatsModal={setShowStatsModal} reportStartDate={reportStartDate} setReportStartDate={setReportStartDate} reportEndDate={reportEndDate} setReportEndDate={setReportEndDate} exportToCSV={exportToCSV} onExportCSV={exportToCSV} handleExportCSV={exportToCSV} sendInventoryAlertEmail={sendInventoryAlertEmail} onSendAlert={sendInventoryAlertEmail} handleSendEmailReport={handleSendEmailReport} onSendReport={handleSendEmailReport} filteredStats={filteredStats} chartData={chartData} topSelling={topSelling} products={products} />
-        
         <InventoryModal showInventoryModal={showInventoryModal} setShowInventoryModal={setShowInventoryModal} inventorySearchTerm={inventorySearchTerm} setInventorySearchTerm={setInventorySearchTerm} handleInventorySearchEnter={handleInventorySearchEnter} invFilter={invFilter} setInvFilter={setInvFilter} exportInventoryCSV={exportInventoryCSV} onExport={exportInventoryCSV} handleImportInventoryCSV={handleImportInventoryCSV} onImport={handleImportInventoryCSV} products={products} actualStockInput={actualStockInput} setActualStockInput={setActualStockInput} handleInvInputKeyDown={handleInvInputKeyDown} syncInventoryCheck={syncInventoryCheck} onSync={syncInventoryCheck} loading={loading} />
-        
-        <CustomerModal showCustomerModal={showCustomerModal} setShowCustomerModal={setShowCustomerModal} customers={customers} setCustomers={setCustomers} logAudit={logAudit} handleEditPhone={handleEditPhone} printCustomerCard={printCustomerCard} sendCardEmail={sendCardEmail} shareToZalo={shareToZalo} />
         <DebtModal showDebtModal={showDebtModal} setShowDebtModal={setShowDebtModal} customers={customers} handlePayDebt={handlePayDebt} />
-        
         <AuditModal showAuditModal={showAuditModal} setShowAuditModal={setShowAuditModal} auditLogs={auditLogs} exportAuditToCSV={exportAuditToCSV} setSelectedAuditLog={setSelectedAuditLog} setSelectedLog={setSelectedAuditLog} onViewDetail={setSelectedAuditLog} onRowClick={setSelectedAuditLog} />
         <AuditDetailModal selectedAuditLog={selectedAuditLog} setSelectedAuditLog={setSelectedAuditLog} showModal={!!selectedAuditLog} setShowModal={(val: boolean) => !val && setSelectedAuditLog(null)} selectedLog={selectedAuditLog} setSelectedLog={setSelectedAuditLog} />
-
         <ScannerModal scannerMode={scannerMode} setScannerMode={setScannerMode} scanMessage={scanMessage} />
         <PinModal showPinModal={showPinModal} setShowPinModal={setShowPinModal} correctPin={adminPin} onSuccess={() => { if (pendingAction) { pendingAction(); setPendingAction(null); } }} />
         <ScannerLinkModal showModal={showScannerLinkModal} setShowModal={setShowScannerLinkModal} />
