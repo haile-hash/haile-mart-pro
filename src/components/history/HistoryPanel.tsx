@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 
 interface HistoryPanelProps {
   logSearchTerm: string;
@@ -7,8 +7,8 @@ interface HistoryPanelProps {
   setLogTypeFilter: (val: string) => void;
   exportToCSV: () => void;
   groupedHistory: Record<string, any[]>;
-  expandedDates: Record<string, boolean>;
-  toggleDateGroup: (dateStr: string) => void;
+  expandedDates: Record<string, boolean>; // Giữ lại để không lỗi props truyền từ App
+  toggleDateGroup: (dateStr: string) => void; // Giữ lại để không lỗi props truyền từ App
   handleRefund: (logId: any) => void;
   handleReprint: (timeStr: string) => void;
 }
@@ -20,31 +20,39 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   setLogTypeFilter,
   exportToCSV,
   groupedHistory,
-  expandedDates,
-  toggleDateGroup,
   handleRefund,
   handleReprint,
 }) => {
+  // Tách biệt bằng Local State riêng biệt, ĐẢM BẢO 100% click là đóng/mở mượt mà lập tức
+  const [localExpanded, setLocalExpanded] = useState<Record<string, boolean>>({});
+
+  const toggleGroup = (dateStr: string) => {
+    setLocalExpanded(prev => ({
+      ...prev,
+      [dateStr]: !(prev[dateStr] ?? true) // Mặc định ban đầu vào ca là mở sẵn ra
+    }));
+  };
+
   return (
-    <div className="glass" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "14px", background: "rgba(255, 255, 255, 0.85)" }}>
+    <div className="glass" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "12px", background: "#ffffff", borderRadius: "12px", boxShadow: "0 4px 20px rgba(0,0,0,0.05)" }}>
       
-      {/* --- THANH BỘ LỌC CHUẨN ĐẸP, THOÁNG ĐÃNG --- */}
-      <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+      {/* Thanh bộ lọc tìm kiếm thoáng đãng */}
+      <div style={{ display: "flex", gap: "8px", alignItems: "center", flexShrink: 0 }}>
         <div style={{ flex: 1, position: "relative" }}>
           <input
             type="text"
             className="custom-input"
-            style={{ padding: "10px 12px 10px 36px", margin: 0, fontSize: "14px", width: "100%" }}
+            style={{ padding: "10px 12px 10px 34px", margin: 0, fontSize: "14px", width: "100%", boxSizing: "border-box" }}
             placeholder="Tìm giao dịch..."
             value={logSearchTerm}
             onChange={(e) => setLogSearchTerm(e.target.value)}
           />
-          <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#94a3b8", fontSize: "14px" }}>🔍</span>
+          <span style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }}>🔍</span>
         </div>
 
         <select
           className="custom-input"
-          style={{ width: "120px", padding: "10px", margin: 0, fontSize: "14px", cursor: "pointer", height: "42px" }}
+          style={{ width: "110px", padding: "10px", margin: 0, fontSize: "14px", height: "40px", cursor: "pointer" }}
           value={logTypeFilter}
           onChange={(e) => setLogTypeFilter(e.target.value)}
         >
@@ -60,8 +68,8 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
         <button
           onClick={exportToCSV}
           style={{
-            padding: "0 16px",
-            height: "42px",
+            padding: "0 12px",
+            height: "40px",
             background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
             color: "white",
             border: "none",
@@ -71,7 +79,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
-            gap: "6px",
+            gap: "4px",
             boxShadow: "0 2px 6px rgba(16,185,129,0.2)",
             whiteSpace: "nowrap"
           }}
@@ -80,126 +88,102 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
         </button>
       </div>
 
-      {/* --- DANH SÁCH LỊCH SỬ SỬA LỖI CO RÚT KHUNG --- */}
-      <div style={{ maxHeight: "420px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "12px", paddingRight: "4px" }}>
+      {/* Vùng cuộn mượt danh sách đơn hàng chống co sập */}
+      <div style={{ maxHeight: "400px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px", paddingRight: "2px" }}>
         {Object.keys(groupedHistory).length === 0 ? (
-          <div style={{ textAlign: "center", padding: "40px 10px", color: "#94a3b8", fontSize: "14px", fontStyle: "italic" }}>
+          <div style={{ textAlign: "center", padding: "30px", color: "#94a3b8", fontSize: "14px", fontStyle: "italic" }}>
             Không tìm thấy lịch sử giao dịch phù hợp
           </div>
         ) : (
           Object.entries(groupedHistory).map(([dateStr, logs]) => {
-            const isExpanded = expandedDates[dateStr] !== false;
+            const isExpanded = localExpanded[dateStr] ?? true; 
             
             return (
-              <div key={dateStr} style={{ border: "1px solid #e2e8f0", borderRadius: "10px", overflow: "hidden", background: "#ffffff", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+              <div key={dateStr} style={{ flexShrink: 0, display: "flex", flexDirection: "column", border: "1px solid #e2e8f0", borderRadius: "8px", background: "#ffffff", overflow: "hidden" }}>
                 
-                {/* Tiêu đề Ngày (Thoáng, to, rõ ràng) */}
+                {/* Thanh ba-đờ-sốc tiêu đề Ngày */}
                 <div
-                  onClick={() => toggleDateGroup(dateStr)}
+                  onClick={() => toggleGroup(dateStr)}
                   style={{
-                    padding: "12px 16px",
+                    padding: "12px",
                     background: "#f8fafc",
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
                     cursor: "pointer",
                     borderBottom: isExpanded ? "1px solid #e2e8f0" : "none",
-                    userSelect: "none",
-                    transition: "background 0.2s"
+                    userSelect: "none"
                   }}
-                  onMouseOver={(e) => e.currentTarget.style.background = "#f1f5f9"}
-                  onMouseOut={(e) => e.currentTarget.style.background = "#f8fafc"}
                 >
-                  <span style={{ fontSize: "14px", fontWeight: "700", color: "#334155", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <strong style={{ fontSize: "13px", color: "#1e293b", display: "flex", alignItems: "center", gap: "6px" }}>
                     📅 Ngày {dateStr}
-                  </span>
-                  <span style={{ fontSize: "12px", color: "#64748b", background: "#edf2f7", padding: "3px 8px", borderRadius: "12px", fontWeight: "600" }}>
-                    {logs.length} giao dịch {isExpanded ? "▲" : "▼"}
+                  </strong>
+                  <span style={{ fontSize: "12px", color: "#4b5563", background: "#e5e7eb", padding: "2px 8px", borderRadius: "10px", fontWeight: "600" }}>
+                    {logs.length} đơn {isExpanded ? "▲" : "▼"}
                   </span>
                 </div>
 
-                {/* Danh sách các đơn hàng con bên trong */}
+                {/* Danh sách các dòng con lộ diện khi bung xòe */}
                 {isExpanded && (
-                  <div style={{ display: "flex", flexDirection: "column", background: "#ffffff" }}>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
                     {logs.map((log: any) => {
                       const isRefund = log.type === "TRẢ HÀNG";
                       
+                      // Phân bổ màu sắc định danh nghiệp vụ
+                      let typeColor = "#2563eb"; // BÁN mặc định màu xanh dương
+                      if (isRefund) typeColor = "#dc2626"; // TRẢ HÀNG màu đỏ
+                      if (log.type?.includes("NHẬP")) typeColor = "#7c3aed"; // NHẬP hàng từ kho màu tím
+                      if (log.type === "GHI NỢ" || log.type === "THU NỢ") typeColor = "#d97706"; // NỢ màu cam
+
                       return (
                         <div
                           key={log.id}
                           style={{
-                            padding: "14px 16px",
+                            flexShrink: 0, /* CHỐNG CO RÚT: Giữ vững kích thước thật của dòng */
+                            padding: "12px",
                             borderBottom: "1px solid #f1f5f9",
                             display: "flex",
                             flexDirection: "column",
-                            gap: "8px",
-                            minHeight: "85px", /* Ép cố định chiều cao tối thiểu chống sập khung */
-                            boxSizing: "border-box"
+                            gap: "6px",
+                            background: isRefund ? "#fff5f5" : "transparent" /* Đơn trả có nền hồng nhẹ dễ quét mắt */
                           }}
                         >
-                          {/* Dòng 1: Khách hàng & Thời gian */}
+                          {/* Dòng phụ: Đối tượng & Thời gian */}
                           <div style={{ display: "flex", justifyContent: "space-between", color: "#64748b", fontSize: "12px" }}>
-                            <span style={{ fontWeight: "500" }}>👤 {log.customer || "Khách lẻ"}</span>
+                            <span>👤 {log.customer || "Khách lẻ"}</span>
                             <span style={{ fontFamily: "monospace" }}>🕒 {log.t || log.time?.split(" ")[1] || log.time}</span>
                           </div>
 
-                          {/* Dòng 2: Nội dung sản phẩm & Số tiền phân biệt màu sắc công khai */}
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
-                            <span style={{ fontSize: "14px", fontWeight: "600", color: isRefund ? "#ef4444" : "#1e293b", flex: 1, lineHeight: "1.4" }}>
-                              {isRefund ? (
-                                <span>[TRẢ HÀNG] {log.name}</span>
-                              ) : (
-                                <span>[{log.type}] {log.name} <span style={{ color: "#2563eb", fontWeight: "bold" }}>x{log.qty}</span></span>
-                              )}
+                          {/* Dòng chính: Tên hàng, Số lượng & Tiền tệ */}
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
+                            <span style={{ fontSize: "13px", fontWeight: "600", color: "#1e293b", lineHeight: "1.4" }}>
+                              <span style={{ color: typeColor, marginRight: "6px", fontWeight: "bold" }}>[{log.type}]</span>
+                              {cleanName(log.name)}
                             </span>
-                            <span style={{ fontSize: "14px", fontWeight: "700", color: isRefund ? "#ef4444" : "#10b981", whiteSpace: "nowrap" }}>
-                              {isRefund ? "-" : "+"}{Math.abs(log.total).toLocaleString()}đ
-                              <span style={{ fontSize: "11px", color: "#64748b", fontWeight: "500" }}>
+                            <span style={{ fontSize: "13px", fontWeight: "700", color: isRefund ? "#dc2626" : "#10b981", whiteSpace: "nowrap" }}>
+                              {isRefund ? "" : "+"}{log.total.toLocaleString()}đ
+                              <span style={{ fontSize: "11px", color: "#475569", fontWeight: "normal" }}>
                                 {" "}({log.paymentMethod || "TM"})
                               </span>
                             </span>
                           </div>
 
-                          {/* Dòng 3: Cụm nút tác vụ Hoàn đơn / In sao lưu */}
-                          <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "4px" }}>
+                          {/* Dòng cuối: Nút bấm tác vụ nhanh */}
+                          <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px", marginTop: "2px" }}>
                             {log.type === "BÁN" && (
                               <button
-                                onClick={() => handleRefund(log.id)}
-                                style={{
-                                  padding: "5px 10px",
-                                  background: "#fee2e2",
-                                  color: "#ef4444",
-                                  border: "1px solid #fca5a5",
-                                  borderRadius: "6px",
-                                  fontSize: "12px",
-                                  fontWeight: "bold",
-                                  cursor: "pointer",
-                                  transition: "all 0.2s"
-                                }}
-                                onMouseOver={(e) => e.currentTarget.style.background = "#fecaca"}
-                                onMouseOut={(e) => e.currentTarget.style.background = "#fee2e2"}
+                                onClick={(e) => { e.stopPropagation(); handleRefund(log.id); }}
+                                style={{ padding: "4px 8px", background: "#fee2e2", color: "#dc2626", border: "1px solid #fca5a5", borderRadius: "4px", fontSize: "11px", fontWeight: "bold", cursor: "pointer" }}
                               >
-                                ↩️ Hoàn đơn ({log.qty})
+                                ↩️ Hoàn tiền ({log.qty})
                               </button>
                             )}
                             {(log.type === "BÁN" || log.type === "GHI NỢ") && (
                               <button
-                                onClick={() => handleReprint(log.time)}
-                                style={{
-                                  padding: "5px 10px",
-                                  background: "#f1f5f9",
-                                  color: "#475569",
-                                  border: "1px solid #cbd5e1",
-                                  borderRadius: "6px",
-                                  fontSize: "12px",
-                                  fontWeight: "bold",
-                                  cursor: "pointer",
-                                  transition: "all 0.2s"
-                                }}
-                                onMouseOver={(e) => e.currentTarget.style.background = "#e2e8f0"}
-                                onMouseOut={(e) => e.currentTarget.style.background = "#f1f5f9"}
+                                onClick={(e) => { e.stopPropagation(); handleReprint(log.time); }}
+                                style={{ padding: "4px 8px", background: "#f1f5f9", color: "#475569", border: "1px solid #cbd5e1", borderRadius: "4px", fontSize: "11px", fontWeight: "bold", cursor: "pointer" }}
                               >
-                                🖨️ In lại
+                                🖨️ In lại bill
                               </button>
                             )}
                           </div>
