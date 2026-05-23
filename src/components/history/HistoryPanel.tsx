@@ -26,25 +26,25 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   handleReprint,
 }) => {
   return (
-    <div className="glass" style={{ padding: "12px", display: "flex", flexDirection: "column", gap: "10px" }}>
+    <div className="glass" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "14px", background: "rgba(255, 255, 255, 0.85)" }}>
       
-      {/* Thanh bộ lọc và tìm kiếm giao dịch */}
-      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+      {/* --- THANH BỘ LỌC CHUẨN ĐẸP, THOÁNG ĐÃNG --- */}
+      <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
         <div style={{ flex: 1, position: "relative" }}>
           <input
             type="text"
             className="custom-input"
-            style={{ padding: "10px 12px 10px 32px", margin: 0, fontSize: "14px" }}
+            style={{ padding: "10px 12px 10px 36px", margin: 0, fontSize: "14px", width: "100%" }}
             placeholder="Tìm giao dịch..."
             value={logSearchTerm}
             onChange={(e) => setLogSearchTerm(e.target.value)}
           />
-          <span style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }}>🔍</span>
+          <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#94a3b8", fontSize: "14px" }}>🔍</span>
         </div>
 
         <select
           className="custom-input"
-          style={{ width: "110px", padding: "10px", margin: 0, fontSize: "14px", cursor: "pointer" }}
+          style={{ width: "120px", padding: "10px", margin: 0, fontSize: "14px", cursor: "pointer", height: "42px" }}
           value={logTypeFilter}
           onChange={(e) => setLogTypeFilter(e.target.value)}
         >
@@ -60,7 +60,8 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
         <button
           onClick={exportToCSV}
           style={{
-            padding: "10px 15px",
+            padding: "0 16px",
+            height: "42px",
             background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
             color: "white",
             border: "none",
@@ -70,49 +71,56 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
-            gap: "4px",
-            boxShadow: "0 2px 6px rgba(16,185,129,0.2)"
+            gap: "6px",
+            boxShadow: "0 2px 6px rgba(16,185,129,0.2)",
+            whiteSpace: "nowrap"
           }}
         >
           📊 EXCEL
         </button>
       </div>
 
-      {/* Danh sách lịch sử giao dịch cuộn mượt */}
-      <div style={{ maxHeight: "380px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px", paddingRight: "4px" }}>
+      {/* --- DANH SÁCH LỊCH SỬ SỬA LỖI CO RÚT KHUNG --- */}
+      <div style={{ maxHeight: "420px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "12px", paddingRight: "4px" }}>
         {Object.keys(groupedHistory).length === 0 ? (
-          <div style={{ textAlign: "center", padding: "30px", color: "#94a3b8", fontSize: "14px" }}>
+          <div style={{ textAlign: "center", padding: "40px 10px", color: "#94a3b8", fontSize: "14px", fontStyle: "italic" }}>
             Không tìm thấy lịch sử giao dịch phù hợp
           </div>
         ) : (
           Object.entries(groupedHistory).map(([dateStr, logs]) => {
-            const isExpanded = expandedDates[dateStr] !== false; // Mặc định mở ra công khai
+            const isExpanded = expandedDates[dateStr] !== false;
             
             return (
-              <div key={dateStr} style={{ border: "1px solid #e2e8f0", borderRadius: "8px", overflow: "hidden", background: "#ffffff" }}>
-                {/* Header ngày tháng tiêu đề hàng */}
+              <div key={dateStr} style={{ border: "1px solid #e2e8f0", borderRadius: "10px", overflow: "hidden", background: "#ffffff", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                
+                {/* Tiêu đề Ngày (Thoáng, to, rõ ràng) */}
                 <div
                   onClick={() => toggleDateGroup(dateStr)}
                   style={{
-                    padding: "10px 12px",
+                    padding: "12px 16px",
                     background: "#f8fafc",
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
                     cursor: "pointer",
                     borderBottom: isExpanded ? "1px solid #e2e8f0" : "none",
-                    userSelect: "none"
+                    userSelect: "none",
+                    transition: "background 0.2s"
                   }}
+                  onMouseOver={(e) => e.currentTarget.style.background = "#f1f5f9"}
+                  onMouseOut={(e) => e.currentTarget.style.background = "#f8fafc"}
                 >
-                  <strong style={{ fontSize: "13px", color: "#334155" }}>📅 Ngày {dateStr}</strong>
-                  <span style={{ fontSize: "12px", color: "#64748b" }}>
+                  <span style={{ fontSize: "14px", fontWeight: "700", color: "#334155", display: "flex", alignItems: "center", gap: "6px" }}>
+                    📅 Ngày {dateStr}
+                  </span>
+                  <span style={{ fontSize: "12px", color: "#64748b", background: "#edf2f7", padding: "3px 8px", borderRadius: "12px", fontWeight: "600" }}>
                     {logs.length} giao dịch {isExpanded ? "▲" : "▼"}
                   </span>
                 </div>
 
-                {/* Nội dung chi tiết các dòng giao dịch nội bộ */}
+                {/* Danh sách các đơn hàng con bên trong */}
                 {isExpanded && (
-                  <div style={{ display: "flex", flexDirection: "column" }}>
+                  <div style={{ display: "flex", flexDirection: "column", background: "#ffffff" }}>
                     {logs.map((log: any) => {
                       const isRefund = log.type === "TRẢ HÀNG";
                       
@@ -120,52 +128,56 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
                         <div
                           key={log.id}
                           style={{
-                            padding: "10px 12px",
+                            padding: "14px 16px",
                             borderBottom: "1px solid #f1f5f9",
                             display: "flex",
                             flexDirection: "column",
-                            gap: "4px",
-                            fontSize: "13px"
+                            gap: "8px",
+                            minHeight: "85px", /* Ép cố định chiều cao tối thiểu chống sập khung */
+                            boxSizing: "border-box"
                           }}
                         >
-                          {/* Dòng 1: Tên khách hàng & Thời gian lưu hành */}
+                          {/* Dòng 1: Khách hàng & Thời gian */}
                           <div style={{ display: "flex", justifyContent: "space-between", color: "#64748b", fontSize: "12px" }}>
-                            <span>👤 {log.customer || "Khách lẻ"}</span>
-                            <span>🕒 {log.t || log.time?.split(" ")[1] || log.time}</span>
+                            <span style={{ fontWeight: "500" }}>👤 {log.customer || "Khách lẻ"}</span>
+                            <span style={{ fontFamily: "monospace" }}>🕒 {log.t || log.time?.split(" ")[1] || log.time}</span>
                           </div>
 
-                          {/* Dòng 2: Nội dung giao dịch & Số tiền đối soát màu sắc biệt lập */}
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px" }}>
-                            <span style={{ fontWeight: "600", color: isRefund ? "#ef4444" : "#1e293b", flex: 1 }}>
+                          {/* Dòng 2: Nội dung sản phẩm & Số tiền phân biệt màu sắc công khai */}
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
+                            <span style={{ fontSize: "14px", fontWeight: "600", color: isRefund ? "#ef4444" : "#1e293b", flex: 1, lineHeight: "1.4" }}>
                               {isRefund ? (
-                                <span style={{ color: "#ef4444" }}>[TRẢ HÀNG] {log.name}</span>
+                                <span>[TRẢ HÀNG] {log.name}</span>
                               ) : (
-                                <span>[{log.type}] {log.name} x{log.qty}</span>
+                                <span>[{log.type}] {log.name} <span style={{ color: "#2563eb", fontWeight: "bold" }}>x{log.qty}</span></span>
                               )}
                             </span>
-                            <span style={{ fontWeight: "bold", color: isRefund ? "#ef4444" : "#10b981", whiteSpace: "nowrap" }}>
-                              {log.total.toLocaleString()}đ
-                              <span style={{ fontSize: "11px", color: "#64748b", fontWeight: "normal" }}>
+                            <span style={{ fontSize: "14px", fontWeight: "700", color: isRefund ? "#ef4444" : "#10b981", whiteSpace: "nowrap" }}>
+                              {isRefund ? "-" : "+"}{Math.abs(log.total).toLocaleString()}đ
+                              <span style={{ fontSize: "11px", color: "#64748b", fontWeight: "500" }}>
                                 {" "}({log.paymentMethod || "TM"})
                               </span>
                             </span>
                           </div>
 
-                          {/* Dòng 3: Cụm nút tác vụ Hoàn đơn / In lại biên lai */}
+                          {/* Dòng 3: Cụm nút tác vụ Hoàn đơn / In sao lưu */}
                           <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "4px" }}>
                             {log.type === "BÁN" && (
                               <button
                                 onClick={() => handleRefund(log.id)}
                                 style={{
-                                  padding: "4px 8px",
+                                  padding: "5px 10px",
                                   background: "#fee2e2",
                                   color: "#ef4444",
                                   border: "1px solid #fca5a5",
-                                  borderRadius: "4px",
-                                  fontSize: "11px",
+                                  borderRadius: "6px",
+                                  fontSize: "12px",
                                   fontWeight: "bold",
-                                  cursor: "pointer"
+                                  cursor: "pointer",
+                                  transition: "all 0.2s"
                                 }}
+                                onMouseOver={(e) => e.currentTarget.style.background = "#fecaca"}
+                                onMouseOut={(e) => e.currentTarget.style.background = "#fee2e2"}
                               >
                                 ↩️ Hoàn đơn ({log.qty})
                               </button>
@@ -174,15 +186,18 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
                               <button
                                 onClick={() => handleReprint(log.time)}
                                 style={{
-                                  padding: "4px 8px",
+                                  padding: "5px 10px",
                                   background: "#f1f5f9",
                                   color: "#475569",
                                   border: "1px solid #cbd5e1",
-                                  borderRadius: "4px",
-                                  fontSize: "11px",
+                                  borderRadius: "6px",
+                                  fontSize: "12px",
                                   fontWeight: "bold",
-                                  cursor: "pointer"
+                                  cursor: "pointer",
+                                  transition: "all 0.2s"
                                 }}
+                                onMouseOver={(e) => e.currentTarget.style.background = "#e2e8f0"}
+                                onMouseOut={(e) => e.currentTarget.style.background = "#f1f5f9"}
                               >
                                 🖨️ In lại
                               </button>
