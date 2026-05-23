@@ -1677,14 +1677,13 @@ export default function App() {
                 <p style={{ margin: "4px 0", fontSize: "14px" }}><strong>Ngày đặt:</strong> {new Date(printPOData.created_at).toLocaleDateString('vi-VN')}</p>
               </div>
             </div>
-          
+            
             {/* Supplier Info */}
             <div style={{ marginBottom: "25px", fontSize: "15px", lineHeight: "1.6", background: "#f8fafc", padding: "15px", border: "1px solid #cbd5e1" }}>
               <p style={{ margin: "0 0 5px 0" }}><strong>Kính gửi Nhà Cung Cấp:</strong> {printPOData.supplier?.name}</p>
               <p style={{ margin: "0 0 5px 0" }}><strong>Điện thoại liên hệ:</strong> {printPOData.supplier?.phone}</p>
               <p style={{ margin: "0 0 5px 0" }}><strong>Địa chỉ:</strong> {printPOData.supplier?.address || ".................................................................."}</p>
               <p style={{ margin: "0" }}><strong>Ghi chú đơn hàng:</strong> {printPOData.note || "Không có ghi chú"}</p>
-            </div>
             </div>
             
             {/* Items Table */}
@@ -2084,7 +2083,7 @@ export default function App() {
           </div>
         )}
 
-        {/* MODAL PHIẾU NHẬP PO */}
+        {/* MODAL PHIẾU NHẬP PO BIÊN TẬP HOÀN CHỈNH */}
         {showPOModal && (
           <div className="custom-modal-overlay">
             <div className="custom-modal-box" style={{ maxWidth: '1100px', height: '90vh' }}>
@@ -2178,18 +2177,17 @@ export default function App() {
                             localStorage.setItem("mart_pos", JSON.stringify(updatedPOs));
 
                             if(navigator.onLine) { await supabase.from('purchase_orders_v2').insert([newPO]); }
-                            // Làm sạch form tạo PO
+                            
                             setPoItems([]);
                             setPoNote("");
                             setSelectedSupplierId("");
                             setPaidAmount(0);
-
-                            // Chuyển sang Tab hiển thị PO vừa tạo để in
                             toast.success(`Đã lưu Phiếu Đặt Hàng ${poCode}!`);
                             setPoTab('RECEIVE');
                             setSearchPoCode(poCode);
                             setFoundPO(newPO);
                             setReceiveItems(newPO.items.map((i: any) => ({ ...i, damagedQty: 0 })));
+
                           } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); }
                         }} disabled={loading} style={{ background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)", boxShadow: "0 4px 15px rgba(59, 130, 246, 0.3)", padding: "16px", fontSize: "16px" }}>
                           {loading ? "ĐANG LƯU..." : "💾 LƯU PHIẾU ĐẶT HÀNG"}
@@ -2246,6 +2244,7 @@ export default function App() {
                         </table>
                       </div>
                       
+                      {/* BỔ SUNG NÚT IN PHIẾU ĐẶT HÀNG NGAY TẠI KHỐI CHI TIẾT PO */}
                       {foundPO && (
                         <div style={{ marginTop: "15px", padding: "16px", background: "#f8fafc", borderRadius: "10px", border: "1px dashed #cbd5e1" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -2275,6 +2274,7 @@ export default function App() {
                       <h3 style={{ margin: "0 0 15px 0", fontSize: "15px", color: "#1e293b", borderBottom: "1px dashed #cbd5e1", paddingBottom: "10px" }}>2. Đối Soát Hàng & Nhập Kho</h3>
                       {foundPO ? (
                         foundPO.status === 'COMPLETED' ? (
+                           /* BỔ SUNG GIAO DIỆN IN KHI PHIẾU ĐÃ HOÀN THÀNH - IN NHẬP KHO / TRẢ HÀNG */
                            <div style={{ textAlign: "center", padding: "40px", background: "#ecfdf5", borderRadius: "12px", border: "1px solid #a7f3d0", marginTop: "20px" }}>
                              <div style={{ color: "#059669", fontWeight: "bold", fontSize: "18px", marginBottom: "20px" }}>✅ PHIẾU NÀY ĐÃ ĐƯỢC ĐỐI SOÁT & NHẬP KHO XONG!</div>
                              <div style={{ display: "flex", justifyContent: "center", gap: "15px" }}>
@@ -2334,12 +2334,10 @@ export default function App() {
                                     
                                     const updatedPOs = localPOs.map(p => p.id === foundPO.id ? { ...p, status: 'COMPLETED', items: receiveItems, total_amount: actualTotal } : p); setLocalPOs(updatedPOs); localStorage.setItem("mart_pos", JSON.stringify(updatedPOs));
 
-                                   logs.forEach(lg => addTransactionAndSync(lg)); 
+                                    logs.forEach(lg => addTransactionAndSync(lg)); 
                                     logAudit("NHẬN HÀNG PO", `Nhận mã ${foundPO.po_code}`); 
                                     toast.success("Nhập Kho thành công!"); 
                                     fetchProducts(); 
-                                    
-                                    // Cập nhật phiếu hiện tại thành COMPLETED để UI tự chuyển sang chế độ IN
                                     setFoundPO(prev => ({ ...prev, status: 'COMPLETED', items: receiveItems, total_amount: actualTotal }));
                                   } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); }
                                }} disabled={loading} style={{ background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", boxShadow: "0 4px 15px rgba(16, 185, 129, 0.3)", padding: "16px", fontSize: "16px" }}>{loading ? "ĐANG XỬ LÝ..." : "✅ XÁC NHẬN NHẬN HÀNG"}</button>
