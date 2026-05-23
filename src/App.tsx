@@ -49,8 +49,6 @@ export default function App() {
   }
 
   const VAT_RATE = 0.1;
-  
-  // 🔥 MÃ EMAILJS ĐÃ ĐƯỢC ĐÓNG ĐINH CỨNG CHUẨN XÁC
   const EMAILJS_SERVICE_ID = "service_7ie990l";
   const EMAILJS_TEMPLATE_ID = "template_m1j9i7k";
   const EMAILJS_TEMPLATE_VIP_ID = "template_t91erhg";
@@ -377,14 +375,9 @@ export default function App() {
     setLastOrder(rOrder); setPrintMode('receipt'); setTimeout(() => window.print(), 500);
   };
 
-  // 🔥 ĐÃ CẬP NHẬT EMAIL HTML CHO HÓA ĐƠN VÀ THẺ VIP
   const sendReceiptEmail = async () => {
-    if (!lastOrder) return; 
-    let savedEmail = (lastOrder.custPhone && customers[lastOrder.custPhone] && customers[lastOrder.custPhone].email) ? customers[lastOrder.custPhone].email : ""; 
-    let email = window.prompt("Nhập Email khách hàng:", savedEmail); 
-    if (!email) return; email = email.trim(); const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; 
-    if (!emailRegex.test(email)) return toast.error("Địa chỉ Email không hợp lệ!");
-    
+    if (!lastOrder) return; let savedEmail = (lastOrder.custPhone && customers[lastOrder.custPhone] && customers[lastOrder.custPhone].email) ? customers[lastOrder.custPhone].email : ""; 
+    let email = window.prompt("Nhập Email khách hàng:", savedEmail); if (!email) return; email = email.trim(); const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; if (!emailRegex.test(email)) return toast.error("Địa chỉ Email không hợp lệ!");
     if (lastOrder.custPhone) { setCustomers((prev: any) => ({ ...prev, [lastOrder.custPhone]: { ...prev[lastOrder.custPhone], email: email } })); }
     setLoading(true); 
     
@@ -449,15 +442,8 @@ export default function App() {
   };
   
   const sendCardEmail = async (phone: string) => {
-    const cust = customers[phone]; 
-    let email = cust.email || window.prompt(`Nhập Email của ${cust.name}:`, ""); 
-    if (!email) return; email = email.trim(); const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; 
-    if (!emailRegex.test(email)) return toast.error("Địa chỉ Email không hợp lệ!");
-    
-    if (!cust.email) { setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], email } })); } 
-    setLoading(true); 
-    const code = cust.cardCode || phone; 
-    const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=10&includetext=false`; 
+    const cust = customers[phone]; let email = cust.email || window.prompt(`Nhập Email của ${cust.name}:`, ""); if (!email) return; email = email.trim(); const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; if (!emailRegex.test(email)) return toast.error("Địa chỉ Email không hợp lệ!");
+    if (!cust.email) { setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], email } })); } setLoading(true); const code = cust.cardCode || phone; const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=10&includetext=false`; 
     
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
@@ -830,191 +816,6 @@ export default function App() {
   const removeFromCart = (productId: any) => { setCart(cart.filter(item => item.product.id !== productId)) };
   const clearCart = () => { if (window.confirm("Hủy toàn bộ?")) { resetCheckout(); } };
 
-  // ===============================================
-  // 🔥 RENDER GIAO DIỆN CHÍNH
-  // ===============================================
-
-  const renderPrintArea = () => (
-    <>
-      {lastOrder && printMode === 'receipt' && (
-        <div className="print-only">
-          <div className="print-receipt-container">
-            <div style={{ textAlign: "center", marginBottom: "8px" }}><h2 style={{ margin: 0, fontSize: "20px", fontWeight: 900 }}>HẢI LÊ MART</h2><div style={{ fontSize: "11px" }}>Tòa Nhà ATS, 252 Hoàng Quốc Việt, HN</div></div>
-            <div style={{ borderBottom: "1px dashed #000", marginBottom: "8px" }}></div>
-            <table style={{ width: "100%", fontSize: "11px", marginBottom: "4px", borderCollapse: "collapse" }}><tbody><tr><td style={{ textAlign: "left" }}><b>HĐ:</b> {lastOrder.orderId}</td><td style={{ textAlign: "right" }}><b>Ca:</b> {shift}</td></tr><tr><td style={{ textAlign: "left" }}><b>Ngày:</b> {lastOrder.time}</td><td style={{ textAlign: "right" }}><b>TN:</b> {role}</td></tr></tbody></table>
-            
-            <div style={{ borderBottom: "1px dashed #000", marginBottom: "6px" }}></div>
-            <div style={{ fontSize: "11px", marginBottom: "8px", lineHeight: "1.5" }}>
-              {lastOrder.custPhone ? (
-                <>
-                  <div><b>Khách hàng:</b> {lastOrder.custName || 'Khách VIP'}</div>
-                  <div><b>SĐT:</b> {lastOrder.custPhone}</div>
-                  {customers[lastOrder.custPhone]?.email && <div><b>Email:</b> {customers[lastOrder.custPhone].email}</div>}
-                  {customers[lastOrder.custPhone]?.address && <div><b>Địa chỉ:</b> {customers[lastOrder.custPhone].address}</div>}
-                </>
-              ) : (<div><b>Khách hàng:</b> Khách lẻ</div>)}
-            </div>
-
-            <div style={{ borderBottom: "1px dashed #000", marginBottom: "8px" }}></div>
-            <table style={{ width: "100%", fontSize: "12px", borderCollapse: "collapse" }}>
-              <tbody>
-                {lastOrder.cart.map((i: any, x: number) => {
-                  const p = i.priceIncludingVat !== undefined ? Math.round(i.priceIncludingVat / (1 + VAT_RATE)) : Math.round(getActualPrice(i.product)); const t = i.priceIncludingVat !== undefined ? Math.round(i.priceIncludingVat * i.qty) : Math.round((Number(i.qty) || 0) * p * (1 + VAT_RATE)); const g = parseGift(i.product.gift_info); const gQty = g.cond > 0 ? Math.floor(i.qty / g.cond) : 0;
-                  return (
-                    <React.Fragment key={x}>
-                      <tr><td colSpan={2}><b>{cleanName(i.product.name)} {i.product.isHappyHour && <span style={{ fontSize: "9px" }}>[Giờ Vàng]</span>}</b></td></tr>
-                      <tr><td style={{ paddingBottom: "4px" }}>{i.qty} x {p.toLocaleString()}</td><td style={{ textAlign: "right", paddingBottom: "4px" }}>{t.toLocaleString()}</td></tr>
-                      {g.text && gQty > 0 && <tr><td colSpan={2} style={{ fontSize: "10px", fontStyle: "italic", paddingBottom: "4px" }}>+ 🎁 Tặng: {gQty} x {g.text}</td></tr>}
-                    </React.Fragment>
-                  )
-                })}
-              </tbody>
-            </table>
-            
-            <div style={{ borderBottom: "1px dashed #000", marginBottom: "8px", marginTop: "4px" }}></div>
-            <table style={{ width: "100%", fontSize: "12px", borderCollapse: "collapse" }}><tbody><tr><td style={{ padding: "2px 0" }}>Tiền hàng:</td><td style={{ textAlign: "right", padding: "2px 0" }}>{Math.round(lastOrder.subTotal).toLocaleString()}đ</td></tr><tr><td style={{ padding: "2px 0" }}>VAT (10%):</td><td style={{ textAlign: "right", padding: "2px 0" }}>{Math.round(lastOrder.vatTotal).toLocaleString()}đ</td></tr>{lastOrder.discount > 0 && <tr><td style={{ padding: "2px 0" }}>Giảm giá/Ví:</td><td style={{ textAlign: "right", padding: "2px 0" }}>-{Math.round(lastOrder.discount).toLocaleString()}đ</td></tr>}</tbody></table>
-            
-            <div style={{ borderBottom: "2px dashed #000", margin: "6px 0" }}></div>
-            <table style={{ width: "100%", fontSize: "16px", fontWeight: 900, borderCollapse: "collapse" }}><tbody><tr><td>{lastOrder.debtAmount > 0 ? "NỢ:" : "TỔNG ĐƠN:"}</td><td style={{ textAlign: "right" }}>{Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</td></tr></tbody></table>
-            
-            <div style={{ borderTop: "1px dotted #000", paddingTop: "6px", marginTop: "6px", fontSize: "12px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Phương thức TT:</span><b>{lastOrder.paymentMethod}</b></div>
-              
-              {lastOrder.paymentMethod === 'TIỀN MẶT' && (
-                <>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Khách đưa:</span><span>{Math.round(lastOrder.customerGiven || lastOrder.finalTotal).toLocaleString()}đ</span></div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}><span>Thối lại:</span><span>{Math.round(Math.max(0, (lastOrder.customerGiven || lastOrder.finalTotal) - lastOrder.finalTotal)).toLocaleString()}đ</span></div>
-                </>
-              )}
-
-              {lastOrder.paymentMethod === 'KẾT HỢP' && (
-                <>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Tiền mặt:</span><span>{Math.round(lastOrder.customerGiven || 0).toLocaleString()}đ</span></div>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Chuyển khoản:</span><span>{Math.round(lastOrder.finalTotal - (lastOrder.customerGiven || 0)).toLocaleString()}đ</span></div>
-                </>
-              )}
-              
-              {lastOrder.paymentMethod === 'CHUYỂN KHOẢN' && (<div style={{ display: "flex", justifyContent: "space-between" }}><span>Trạng thái:</span><span>Đã chuyển khoản</span></div>)}
-              {lastOrder.paymentMethod === 'ZALO PAY' && (<div style={{ display: "flex", justifyContent: "space-between" }}><span>Trạng thái:</span><span>Đã thanh toán ZaloPay</span></div>)}
-              {lastOrder.paymentMethod === 'QUẸT THẺ' && (<div style={{ display: "flex", justifyContent: "space-between" }}><span>Trạng thái:</span><span>Đã quẹt thẻ POS</span></div>)}
-              {lastOrder.paymentMethod === 'GHI NỢ' && (<div style={{ display: "flex", justifyContent: "space-between" }}><span>Trạng thái:</span><span>Đã ghi vào sổ nợ</span></div>)}
-            </div>
-            
-            <div style={{ textAlign: "center", marginTop: "15px", fontSize: "11px" }}><b>CẢM ƠN QUÝ KHÁCH!</b></div>
-          </div>
-        </div>
-      )}
-
-      {printMode === 'invoice_a4' && lastOrder && (
-        <div className="print-flex print-a4-container">
-          <div style={{ width: "100%", fontFamily: "'Inter', sans-serif" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #000", paddingBottom: "10px", marginBottom: "20px" }}><div><h1 style={{ margin: 0, color: "#dc2626", fontSize: "28px" }}>HẢI LÊ MART</h1><p style={{ margin: "5px 0", fontSize: "14px" }}>Địa chỉ: Tòa Nhà ATS, 252 Hoàng Quốc Việt, Cầu Giấy, HN</p></div><div style={{ textAlign: "right" }}><h2 style={{ margin: 0, fontSize: "24px" }}>HÓA ĐƠN BÁN HÀNG</h2><p style={{ margin: "5px 0", fontSize: "14px" }}>Số: <b>{lastOrder.orderId}</b></p><p style={{ margin: "5px 0", fontSize: "14px" }}>Ngày: {lastOrder.time}</p></div></div>
-            
-            <div style={{ marginBottom: "20px", fontSize: "15px", display: "grid", gridTemplateColumns: "1fr 1fr" }}>
-              <div>
-                <p style={{ margin: "5px 0" }}><b>Khách hàng:</b> {lastOrder.custName || "Khách lẻ"}</p>
-                {lastOrder.custPhone && <p style={{ margin: "5px 0" }}><b>SĐT:</b> {lastOrder.custPhone}</p>}
-                {lastOrder.custPhone && customers[lastOrder.custPhone]?.email && <p style={{ margin: "5px 0" }}><b>Email:</b> {customers[lastOrder.custPhone].email}</p>}
-                {lastOrder.custPhone && customers[lastOrder.custPhone]?.address && <p style={{ margin: "5px 0" }}><b>Địa chỉ:</b> {customers[lastOrder.custPhone].address}</p>}
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <p style={{ margin: "5px 0" }}><b>Phương thức thanh toán:</b> {lastOrder.paymentMethod}</p>
-              </div>
-            </div>
-
-            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px" }}>
-              <thead><tr style={{ background: "#f1f5f9" }}><th style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>STT</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "left" }}>Tên hàng hóa</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>SL</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>Đơn giá</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>Thành tiền</th></tr></thead>
-              <tbody>{lastOrder.cart.map((item: any, index: number) => { const p = Math.round(getActualPrice(item.product)); const t = Math.round(item.qty * p * (1 + VAT_RATE)); return (<tr key={index}><td style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>{index + 1}</td><td style={{ border: "1px solid #000", padding: "10px" }}>{cleanName(item.product.name)}</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>{item.qty}</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{p.toLocaleString()}đ</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{t.toLocaleString()}đ</td></tr>); })}</tbody>
-            </table>
-            
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: "30px", fontSize: "15px" }}>
-              <div style={{ textAlign: "center", width: "40%" }}><b>Khách hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span></div>
-              <div style={{ textAlign: "right", width: "50%" }}>
-                <p style={{ margin: "5px 0" }}>Cộng tiền hàng: {Math.round(lastOrder.subTotal).toLocaleString()}đ</p>
-                <p style={{ margin: "5px 0" }}>Thuế GTGT (10%): {Math.round(lastOrder.vatTotal).toLocaleString()}đ</p>
-                {lastOrder.discount > 0 && <p style={{ margin: "5px 0" }}>Giảm giá/Ví: -{Math.round(lastOrder.discount).toLocaleString()}đ</p>}
-                
-                <h3 style={{ borderTop: "2px solid #000", paddingTop: "10px", margin: "10px 0" }}>TỔNG CỘNG: {Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</h3>
-                
-                {lastOrder.paymentMethod === 'TIỀN MẶT' && (
-                  <div style={{ fontSize: "14px", marginTop: "10px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>Khách đưa:</span> <span>{Math.round(lastOrder.customerGiven || lastOrder.finalTotal).toLocaleString()}đ</span></div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}><span>Thối lại:</span> <span>{Math.round(Math.max(0, (lastOrder.customerGiven || lastOrder.finalTotal) - lastOrder.finalTotal)).toLocaleString()}đ</span></div>
-                  </div>
-                )}
-                {lastOrder.paymentMethod === 'KẾT HỢP' && (
-                  <div style={{ fontSize: "14px", marginTop: "10px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Tiền mặt:</span> <span>{Math.round(lastOrder.customerGiven || 0).toLocaleString()}đ</span></div>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Chuyển khoản:</span> <span>{Math.round(lastOrder.finalTotal - (lastOrder.customerGiven || 0)).toLocaleString()}đ</span></div>
-                  </div>
-                )}
-
-                <div style={{ textAlign: "center", marginTop: "40px" }}><b>Người bán hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, đóng dấu)</span></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {printMode === 'barcode' && printBarcodeProduct && (
-        <div className="print-flex">
-          <div className="print-barcode-sheet">
-            {Array.from({ length: barcodeCount }).map((_, i) => (
-              <div key={i} className="barcode-sticker">
-                <div style={{ fontSize: "9px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: "100%", textAlign: "center" }}>{cleanName(printBarcodeProduct.name)}</div>
-                <img src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(printBarcodeProduct.product_code)}&scale=2&height=10&includetext=false`} onError={(e) => { e.currentTarget.src = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(printBarcodeProduct.product_code)}&code=Code128&translate-esc=on`; }} style={{ maxWidth: "100%", height: "24px", margin: "2px 0" }} alt={printBarcodeProduct.product_code} />
-                <div style={{ fontSize: "8px", fontFamily: "monospace", letterSpacing: "1px", color: "#333", lineHeight: "1" }}>{printBarcodeProduct.product_code}</div>
-                <div style={{ fontSize: "12px", fontWeight: "900", color: "#000", lineHeight: "1.2" }}>{getActualPrice(printBarcodeProduct).toLocaleString()}đ</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      
-      {printMode === 'customer_card' && printCustomer && (
-        <div className="print-flex">
-          <div className="print-customer-card">
-            <div style={{ width: "85.6mm", height: "53.98mm", border: "3px solid #dc2626", borderRadius: "12px", padding: "15px", textAlign: "center", boxSizing: "border-box", display: "flex", flexDirection: "column", justifyContent: "center", background: "#fff7ed", fontFamily: "'Inter', sans-serif" }}>
-              <h2 style={{ margin: "0 0 5px 0", color: "#b91c1c", fontSize: "20px", textTransform: "uppercase", fontWeight: "900" }}>HẢI LÊ MART</h2>
-              <div style={{ fontSize: "10px", fontWeight: "bold", color: "#ea580c", letterSpacing: "2px", marginBottom: "10px" }}>THẺ KHÁCH HÀNG THÂN THIẾT</div>
-              <div style={{ fontSize: "18px", fontWeight: "bold", color: "#0f172a", textTransform: "uppercase" }}>{printCustomer.name}</div>
-              <img src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(printCustomer.cardCode || printCustomer.phone)}&scale=2&height=10&includetext=false`} onError={(e) => { e.currentTarget.src = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(printCustomer.cardCode || printCustomer.phone)}&code=Code128&translate-esc=on`; }} style={{ maxWidth: "100%", height: "45px", marginTop: "10px", margin: "10px auto 0 auto", display: "block" }} alt="barcode" />
-              <div style={{ fontSize: "12px", fontFamily: "monospace", letterSpacing: "2px", marginTop: "4px", fontWeight: "bold" }}>{printCustomer.cardCode || printCustomer.phone}</div>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-
-  const renderModals = () => (
-    <>
-      <ExpenseModal showExpenseModal={showExpenseModal} setShowExpenseModal={setShowExpenseModal} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} expenses={expenses} addExpense={addExpense} deleteExpense={deleteExpense} />
-      <SupplierModal showSupplierModal={showSupplierModal} setShowSupplierModal={setShowSupplierModal} supName={supName} setSupName={setSupName} supPhone={supPhone} setSupPhone={setSupPhone} supItem={supItem} setSupItem={setSupItem} addSupplier={addSupplier} suppliers={suppliers} deleteSupplier={deleteSupplier} />
-      <SettingsModal showSettings={showSettings} setShowSettings={setShowSettings} newBankBin={newBankBin} setNewBankBin={setNewBankBin} newBankAcc={newBankAcc} setNewBankAcc={setNewBankAcc} newBankNameStr={newBankNameStr} setNewBankNameStr={setNewBankNameStr} newHappyStart={newHappyStart} setNewHappyStart={setNewHappyStart} newHappyEnd={newHappyEnd} setNewHappyEnd={setNewHappyEnd} saveSettings={saveSettings} />
-      {showHandoverModal && (<HandoverModal role={role} shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onClose={() => setShowHandoverModal(false)} onConfirm={confirmHandover} />)}
-      <CashFlowModal cashFlowModalInfo={cashFlowModalInfo} setCashFlowModalInfo={setCashFlowModalInfo} shift={shift} todayStrStr={todayStrStr} currentShiftCashFlow={currentShiftCashFlow} currentShiftStats={currentShiftStats} />
-      <HoldOrdersModal showHoldModal={showHoldModal} setShowHoldModal={setShowHoldModal} heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={deleteHeldOrder} />
-      
-      <CheckoutModal isCheckoutOpen={isCheckoutOpen} setIsCheckoutOpen={setIsCheckoutOpen} checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} voucherInput={voucherInput} setVoucherInput={setVoucherInput} customerInput={customerInput} setCustomerInput={setCustomerInput} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} useWallet={useWallet} setUseWallet={setUseWallet} appliedVoucherAmount={appliedVoucherAmount} setAppliedVoucherAmount={setAppliedVoucherAmount} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} finalToPay={finalToPay} customers={customers} isOnline={isOnline} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} loading={loading} handleVoucherSubmit={handleVoucherSubmit} handleCustomerInputChange={handleCustomerInputChange} setScannerMode={setScannerMode} handleNextToQR={handleNextToQR} confirmCheckout={confirmCheckout} setPrintMode={setPrintMode} sendReceiptEmail={sendReceiptEmail} closeCheckout={closeCheckout} />
-      
-      <StatsModal showStatsModal={showStatsModal} setShowStatsModal={setShowStatsModal} reportStartDate={reportStartDate} setReportStartDate={setReportStartDate} reportEndDate={reportEndDate} setReportEndDate={setReportEndDate} exportToCSV={exportToCSV} onExportCSV={exportToCSV} handleExportCSV={exportToCSV} sendInventoryAlertEmail={sendInventoryAlertEmail} onSendAlert={sendInventoryAlertEmail} handleSendEmailReport={handleSendEmailReport} onSendReport={handleSendEmailReport} filteredStats={filteredStats} chartData={chartData} topSelling={topSelling} products={products} />
-      
-      <InventoryModal showInventoryModal={showInventoryModal} setShowInventoryModal={setShowInventoryModal} inventorySearchTerm={inventorySearchTerm} setInventorySearchTerm={setInventorySearchTerm} handleInventorySearchEnter={handleInventorySearchEnter} invFilter={invFilter} setInvFilter={setInvFilter} exportInventoryCSV={exportInventoryCSV} onExport={exportInventoryCSV} handleImportInventoryCSV={handleImportInventoryCSV} onImport={handleImportInventoryCSV} products={products} actualStockInput={actualStockInput} setActualStockInput={setActualStockInput} handleInvInputKeyDown={handleInvInputKeyDown} syncInventoryCheck={syncInventoryCheck} onSync={syncInventoryCheck} loading={loading} />
-      
-      <CustomerModal showCustomerModal={showCustomerModal} setShowCustomerModal={setShowCustomerModal} customers={customers} setCustomers={setCustomers} logAudit={logAudit} handleEditPhone={handleEditPhone} printCustomerCard={printCustomerCard} sendCardEmail={sendCardEmail} shareToZalo={shareToZalo} />
-      <DebtModal showDebtModal={showDebtModal} setShowDebtModal={setShowDebtModal} customers={customers} handlePayDebt={handlePayDebt} />
-      
-      <AuditModal showAuditModal={showAuditModal} setShowAuditModal={setShowAuditModal} auditLogs={auditLogs} exportAuditToCSV={exportAuditToCSV} setSelectedAuditLog={setSelectedAuditLog} setSelectedLog={setSelectedAuditLog} onViewDetail={setSelectedAuditLog} onRowClick={setSelectedAuditLog} />
-      <AuditDetailModal selectedAuditLog={selectedAuditLog} setSelectedAuditLog={setSelectedAuditLog} showModal={!!selectedAuditLog} setShowModal={(val: boolean) => !val && setSelectedAuditLog(null)} selectedLog={selectedAuditLog} setSelectedLog={setSelectedAuditLog} />
-
-      <ScannerModal scannerMode={scannerMode} setScannerMode={setScannerMode} scanMessage={scanMessage} />
-      <PinModal showPinModal={showPinModal} setShowPinModal={setShowPinModal} correctPin={adminPin} onSuccess={() => { if (pendingAction) { pendingAction(); setPendingAction(null); } }} />
-      <ScannerLinkModal showModal={showScannerLinkModal} setShowModal={setShowScannerLinkModal} />
-      <PurchaseOrderModal showModal={showPOModal} setShowModal={setShowPOModal} suppliers={suppliers} products={products} handleSavePO={handleSavePO} loading={loading} />
-    </>
-  );
-
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
       <style>{styles}</style> 
@@ -1033,11 +834,48 @@ export default function App() {
 
       {!isLoggedIn ? (
         <div className="login-wrapper">
+          <style>{`
+            .login-wrapper { min-height: 100vh; width: 100vw; display: flex; justify-content: center; align-items: center; position: fixed; top:0; left:0; z-index: 9999; font-family: 'Inter', sans-serif;}
+            .floating-bubble { position: absolute; background: rgba(255,255,255,0.4); border-radius: 50%; animation: floatUp linear infinite; bottom: -120px; filter: blur(2px); }
+            @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-120vh) scale(1.2); opacity: 0; } }
+            .glass-login { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.8); padding: 40px 35px; border-radius: 20px; box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.1); width: 100%; max-width: 380px; z-index: 10; animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; display: flex; flex-direction: column; gap: 15px; box-sizing: border-box;}
+            @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+            .login-header { text-align: center; margin-bottom: 10px; }
+            .login-title { font-size: 28px; font-weight: 900; letter-spacing: -0.5px; margin: 0 0 6px 0; color: #0f172a; text-transform: uppercase; }
+            .login-title span { color: #e11d48; }
+            .login-subtitle { font-size: 13px; color: #64748b; font-weight: 500; margin: 0; }
+            .login-input-group { position: relative; width: 100%; }
+            .login-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94a3b8; width: 18px; height: 18px; pointer-events: none;}
+            .login-input { width: 100%; padding: 14px 16px 14px 42px; border-radius: 12px; border: 1.5px solid #e2e8f0; background: #f8fafc; box-sizing: border-box; outline: none; transition: all 0.2s ease; font-size: 14px; color: #1e293b; font-weight: 500; }
+            .login-input:focus { border-color: #e11d48; background: #fff; box-shadow: 0 0 0 4px rgba(225, 29, 72, 0.1); }
+            .login-btn-submit { width: 100%; padding: 14px; background: linear-gradient(135deg, #e11d48 0%, #be123c 100%); color: #fff; border: none; border-radius: 12px; font-weight: 800; font-size: 15px; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25); margin-top: 10px; text-transform: uppercase; letter-spacing: 0.5px;}
+            .login-btn-submit:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(225, 29, 72, 0.35); }
+            .login-btn-submit:disabled { opacity: 0.7; cursor: not-allowed; }
+          `}</style>
+          
+          <div className="floating-bubble" style={{ width: '100px', height: '100px', left: '10%', animationDuration: '8s' }}></div>
+          <div className="floating-bubble" style={{ width: '50px', height: '50px', left: '25%', animationDuration: '5s', animationDelay: '2s' }}></div>
+          <div className="floating-bubble" style={{ width: '80px', height: '80px', left: '70%', animationDuration: '10s', animationDelay: '1s' }}></div>
+          
           <form className="glass-login" onSubmit={handleLogin}>
-            <h2 className="login-title">HẢI LÊ <span>MART</span></h2>
-            <input className="login-input" placeholder="Tên đăng nhập..." value={authUsername} onChange={e => setAuthUsername(e.target.value)} required />
-            <input className="login-input" type="password" placeholder="Mật khẩu..." value={authPassword} onChange={e => setAuthPassword(e.target.value)} required />
-            <button className="login-btn-submit" type="submit">ĐĂNG NHẬP HỆ THỐNG</button>
+            <div className="login-header">
+              <h2 className="login-title">HẢI LÊ <span>MART</span></h2>
+              <p className="login-subtitle">Hệ thống Quản lý ERP & POS</p>
+            </div>
+            
+            <div className="login-input-group">
+              <svg className="login-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+              <input className="login-input" placeholder="Tên đăng nhập (Email)..." value={authUsername} onChange={e => setAuthUsername(e.target.value)} required />
+            </div>
+            
+            <div className="login-input-group">
+              <svg className="login-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+              <input className="login-input" type="password" placeholder="Mật khẩu truy cập..." value={authPassword} onChange={e => setAuthPassword(e.target.value)} required />
+            </div>
+            
+            <button className="login-btn-submit" type="submit" disabled={loading}>
+              {loading ? "ĐANG TẢI..." : "ĐĂNG NHẬP HỆ THỐNG"}
+            </button>
           </form>
         </div>
       ) : (
