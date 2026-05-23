@@ -49,6 +49,8 @@ export default function App() {
   }
 
   const VAT_RATE = 0.1;
+  
+  // 🔥 MÃ EMAILJS ĐÃ ĐƯỢC ĐÓNG ĐINH CỨNG CHUẨN XÁC
   const EMAILJS_SERVICE_ID = "service_7ie990l";
   const EMAILJS_TEMPLATE_ID = "template_m1j9i7k";
   const EMAILJS_TEMPLATE_VIP_ID = "template_t91erhg";
@@ -227,7 +229,9 @@ export default function App() {
 
   const totalValue = Math.round(products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
   const lowStockCount = products.filter(p => p.stock > 0 && p.stock < 10).length;
+  
   const categories = ["Tất cả", ...Array.from(new Set(products.map(p => formatCategoryStr(p.category))))];
+  
   const cartTotalAmountDisplay = cart.reduce((sum, item) => sum + item.total, 0);
   const currentTier = getCustomerTier(customers[custPhone]?.totalSpent || 0);
   const tierDiscountAmount = custPhone ? Math.round(cartTotalAmountDisplay * currentTier.discountRate) : 0;
@@ -267,7 +271,7 @@ export default function App() {
   };
 
   const updateSettingsToCloud = async (bin: string, acc: string, nameStr: string, hStart: string, hEnd: string) => {
-    if (!navigator.onLine) return toast.error("Mất mạng! Không thể lưu."); setLoading(true);
+    if (!navigator.onLine) return toast.error("Mất mạng!"); setLoading(true);
     try {
       const { error } = await supabase.from("settings").update({ bank_bin: bin, bank_acc: acc, bank_name_str: nameStr, happy_hour_start: hStart, happy_hour_end: hEnd, updated_at: new Date().toISOString() }).eq("id", 1);
       if (!error) { setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr); setHappyStart(hStart); setHappyEnd(hEnd); toast.success("Lưu thành công!"); setShowSettings(false); }
@@ -373,17 +377,12 @@ export default function App() {
     setLastOrder(rOrder); setPrintMode('receipt'); setTimeout(() => window.print(), 500);
   };
 
-  // ===============================================
-  // 🔥 XUẤT EMAIL HTML SIÊU VIP (GỬI THẬT)
-  // ===============================================
-
+  // 🔥 ĐÃ CẬP NHẬT EMAIL HTML CHO HÓA ĐƠN VÀ THẺ VIP
   const sendReceiptEmail = async () => {
     if (!lastOrder) return; 
     let savedEmail = (lastOrder.custPhone && customers[lastOrder.custPhone] && customers[lastOrder.custPhone].email) ? customers[lastOrder.custPhone].email : ""; 
     let email = window.prompt("Nhập Email khách hàng:", savedEmail); 
-    if (!email) return; 
-    email = email.trim(); 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; 
+    if (!email) return; email = email.trim(); const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; 
     if (!emailRegex.test(email)) return toast.error("Địa chỉ Email không hợp lệ!");
     
     if (lastOrder.custPhone) { setCustomers((prev: any) => ({ ...prev, [lastOrder.custPhone]: { ...prev[lastOrder.custPhone], email: email } })); }
@@ -436,17 +435,14 @@ export default function App() {
         </div>
       </div>
     `;
-    
-    const emailData = { 
-      to_email: email, 
-      subject: `🧾 Hóa đơn mua hàng #${lastOrder.orderId} - Hải Lê Mart`,
-      html_message: htmlContent,
-      // Fallback variables
-      order_id: lastOrder.orderId, time: lastOrder.time, items_list: "", total_amount: "", payment_method: "", change_amount: ""
-    }; 
-    
+
     try { 
-      await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, emailData); 
+      await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { 
+        to_email: email, 
+        subject: `🧾 Hóa đơn mua hàng #${lastOrder.orderId} - Hải Lê Mart`,
+        html_message: htmlContent,
+        order_id: lastOrder.orderId, time: lastOrder.time, items_list: "", total_amount: "", payment_method: "", change_amount: ""
+      }); 
       toast.success("Đã gửi Hóa đơn cho khách!"); logAudit("GỬI HĐ MAIL", `Gửi tới ${email}`); 
     } catch (error: any) { console.error(error); toast.error(`Lỗi gửi Email (EmailJS)`); } 
     setLoading(false)
@@ -455,14 +451,11 @@ export default function App() {
   const sendCardEmail = async (phone: string) => {
     const cust = customers[phone]; 
     let email = cust.email || window.prompt(`Nhập Email của ${cust.name}:`, ""); 
-    if (!email) return; 
-    email = email.trim(); 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; 
+    if (!email) return; email = email.trim(); const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; 
     if (!emailRegex.test(email)) return toast.error("Địa chỉ Email không hợp lệ!");
     
     if (!cust.email) { setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], email } })); } 
     setLoading(true); 
-    
     const code = cust.cardCode || phone; 
     const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=10&includetext=false`; 
     
@@ -488,16 +481,13 @@ export default function App() {
       </div>
     `;
 
-    const emailData = { 
-      to_email: email, 
-      subject: `💳 Thẻ VIP Đặc Quyền - ${cust.name}`,
-      html_message: htmlContent,
-      // Fallback
-      order_id: "", time: "", items_list: "", total_amount: "", payment_method: "", change_amount: "", barcode_url: ""
-    }; 
-    
     try { 
-      await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, emailData); 
+      await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { 
+        to_email: email, 
+        subject: `💳 Thẻ VIP Đặc Quyền - ${cust.name}`,
+        html_message: htmlContent,
+        order_id: "", time: "", items_list: "", total_amount: "", payment_method: "", change_amount: "", barcode_url: ""
+      }); 
       toast.success("Đã gửi Thẻ VIP!"); logAudit("GỬI THẺ VIP", `Gửi tới ${email}`); 
     } catch (error: any) { console.error(error); toast.error(`Lỗi gửi Email (EmailJS)`); } 
     setLoading(false)
@@ -688,15 +678,20 @@ export default function App() {
       </div>
     `;
 
-    const emailData = { 
-      to_email: adminEmail, 
-      subject: `📊 Báo cáo doanh thu kỳ ${reportStartDate} - ${reportEndDate}`,
-      html_message: htmlContent,
-      // Fallback
-      order_id: "", time: "", items_list: "", total_amount: "", payment_method: "", change_amount: "" 
-    }; 
-    
-    try { await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, emailData); logAudit("GỬI BÁO CÁO", `Đã gửi báo cáo tới ${adminEmail}`); toast.success("Đã gửi Báo cáo thành công!"); } catch (error: any) { console.error(error); toast.error(`Lỗi gửi Email (EmailJS)`); } setLoading(false);
+    try { 
+      await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { 
+        to_email: adminEmail, 
+        subject: `📊 Báo cáo doanh thu kỳ ${reportStartDate} - ${reportEndDate}`,
+        html_message: htmlContent,
+        order_id: "", time: "", items_list: "", total_amount: "", payment_method: "", change_amount: "" 
+      }); 
+      logAudit("GỬI BÁO CÁO", `Đã gửi báo cáo tới ${adminEmail}`); 
+      toast.success("Đã gửi Báo cáo thành công!"); 
+    } catch (error: any) { 
+      console.error(error); 
+      toast.error(`Lỗi gửi Email (EmailJS)`); 
+    } 
+    setLoading(false);
   };
 
   const sendInventoryAlertEmail = async () => {
@@ -726,15 +721,20 @@ export default function App() {
       </div>
     `;
 
-    const emailData = { 
-      to_email: adminEmail, 
-      subject: `🚨 Cảnh báo Tồn Kho & Hạn Sử Dụng - Hải Lê Mart`,
-      html_message: htmlContent,
-      // Fallback
-      order_id: "", time: "", items_list: "", total_amount: "", payment_method: "", change_amount: "" 
-    }; 
-    
-    try { await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, emailData); toast.success("Đã gửi cảnh báo kho thành công!"); logAudit("CẢNH BÁO KHO", "Gửi email báo cáo tồn kho"); } catch (error: any) { console.error(error); toast.error(`Lỗi gửi Email (EmailJS)`); } setLoading(false);
+    try { 
+      await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { 
+        to_email: adminEmail, 
+        subject: `🚨 Cảnh báo Tồn Kho & Hạn Sử Dụng - Hải Lê Mart`,
+        html_message: htmlContent,
+        order_id: "", time: "", items_list: "", total_amount: "", payment_method: "", change_amount: "" 
+      }); 
+      toast.success("Đã gửi cảnh báo kho thành công!"); 
+      logAudit("CẢNH BÁO KHO", "Gửi email báo cáo tồn kho"); 
+    } catch (error: any) { 
+      console.error(error); 
+      toast.error(`Lỗi gửi Email (EmailJS)`); 
+    } 
+    setLoading(false);
   };
 
   const handleInventorySearchEnter = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); const term = String(inventorySearchTerm || "").trim().toLowerCase(); if (!term) return; const exactMatch = products.find(p => String(p.product_code || "").toLowerCase() === term); if (exactMatch) { const inputEl = document.getElementById(`inv-input-${exactMatch.id}`); if (inputEl) { inputEl.focus(); } } } };
@@ -798,7 +798,6 @@ export default function App() {
           to_email: c.email, 
           subject: "💌 Ưu Đãi Đặc Quyền Từ Hải Lê Mart",
           html_message: htmlContent,
-          // Fallback
           order_id: "", time: "", items_list: "", total_amount: "", payment_method: "", change_amount: "", barcode_url: "" 
         }); 
         successCount++;
@@ -830,6 +829,163 @@ export default function App() {
   const handleDirectQtyBlur = (productId: any, val: string) => { if (val === '' || parseInt(val) <= 0 || isNaN(parseInt(val))) { setCart(prev => prev.map(i => { if (i.product.id === productId) { const price = getActualPrice(i.product); return { ...i, qty: 1, total: Math.round(1 * price * (1 + VAT_RATE)) } } return i })) } };
   const removeFromCart = (productId: any) => { setCart(cart.filter(item => item.product.id !== productId)) };
   const clearCart = () => { if (window.confirm("Hủy toàn bộ?")) { resetCheckout(); } };
+
+  // ===============================================
+  // 🔥 RENDER GIAO DIỆN CHÍNH
+  // ===============================================
+
+  const renderPrintArea = () => (
+    <>
+      {lastOrder && printMode === 'receipt' && (
+        <div className="print-only">
+          <div className="print-receipt-container">
+            <div style={{ textAlign: "center", marginBottom: "8px" }}><h2 style={{ margin: 0, fontSize: "20px", fontWeight: 900 }}>HẢI LÊ MART</h2><div style={{ fontSize: "11px" }}>Tòa Nhà ATS, 252 Hoàng Quốc Việt, HN</div></div>
+            <div style={{ borderBottom: "1px dashed #000", marginBottom: "8px" }}></div>
+            <table style={{ width: "100%", fontSize: "11px", marginBottom: "4px", borderCollapse: "collapse" }}><tbody><tr><td style={{ textAlign: "left" }}><b>HĐ:</b> {lastOrder.orderId}</td><td style={{ textAlign: "right" }}><b>Ca:</b> {shift}</td></tr><tr><td style={{ textAlign: "left" }}><b>Ngày:</b> {lastOrder.time}</td><td style={{ textAlign: "right" }}><b>TN:</b> {role}</td></tr></tbody></table>
+            
+            <div style={{ borderBottom: "1px dashed #000", marginBottom: "6px" }}></div>
+            <div style={{ fontSize: "11px", marginBottom: "8px", lineHeight: "1.5" }}>
+              {lastOrder.custPhone ? (
+                <>
+                  <div><b>Khách hàng:</b> {lastOrder.custName || 'Khách VIP'}</div>
+                  <div><b>SĐT:</b> {lastOrder.custPhone}</div>
+                  {customers[lastOrder.custPhone]?.email && <div><b>Email:</b> {customers[lastOrder.custPhone].email}</div>}
+                  {customers[lastOrder.custPhone]?.address && <div><b>Địa chỉ:</b> {customers[lastOrder.custPhone].address}</div>}
+                </>
+              ) : (<div><b>Khách hàng:</b> Khách lẻ</div>)}
+            </div>
+
+            <div style={{ borderBottom: "1px dashed #000", marginBottom: "8px" }}></div>
+            <table style={{ width: "100%", fontSize: "12px", borderCollapse: "collapse" }}>
+              <tbody>
+                {lastOrder.cart.map((i: any, x: number) => {
+                  const p = i.priceIncludingVat !== undefined ? Math.round(i.priceIncludingVat / (1 + VAT_RATE)) : Math.round(getActualPrice(i.product)); const t = i.priceIncludingVat !== undefined ? Math.round(i.priceIncludingVat * i.qty) : Math.round((Number(i.qty) || 0) * p * (1 + VAT_RATE)); const g = parseGift(i.product.gift_info); const gQty = g.cond > 0 ? Math.floor(i.qty / g.cond) : 0;
+                  return (
+                    <React.Fragment key={x}>
+                      <tr><td colSpan={2}><b>{cleanName(i.product.name)} {i.product.isHappyHour && <span style={{ fontSize: "9px" }}>[Giờ Vàng]</span>}</b></td></tr>
+                      <tr><td style={{ paddingBottom: "4px" }}>{i.qty} x {p.toLocaleString()}</td><td style={{ textAlign: "right", paddingBottom: "4px" }}>{t.toLocaleString()}</td></tr>
+                      {g.text && gQty > 0 && <tr><td colSpan={2} style={{ fontSize: "10px", fontStyle: "italic", paddingBottom: "4px" }}>+ 🎁 Tặng: {gQty} x {g.text}</td></tr>}
+                    </React.Fragment>
+                  )
+                })}
+              </tbody>
+            </table>
+            
+            <div style={{ borderBottom: "1px dashed #000", marginBottom: "8px", marginTop: "4px" }}></div>
+            <table style={{ width: "100%", fontSize: "12px", borderCollapse: "collapse" }}><tbody><tr><td style={{ padding: "2px 0" }}>Tiền hàng:</td><td style={{ textAlign: "right", padding: "2px 0" }}>{Math.round(lastOrder.subTotal).toLocaleString()}đ</td></tr><tr><td style={{ padding: "2px 0" }}>VAT (10%):</td><td style={{ textAlign: "right", padding: "2px 0" }}>{Math.round(lastOrder.vatTotal).toLocaleString()}đ</td></tr>{lastOrder.discount > 0 && <tr><td style={{ padding: "2px 0" }}>Giảm giá/Ví:</td><td style={{ textAlign: "right", padding: "2px 0" }}>-{Math.round(lastOrder.discount).toLocaleString()}đ</td></tr>}</tbody></table>
+            
+            <div style={{ borderBottom: "2px dashed #000", margin: "6px 0" }}></div>
+            <table style={{ width: "100%", fontSize: "16px", fontWeight: 900, borderCollapse: "collapse" }}><tbody><tr><td>{lastOrder.debtAmount > 0 ? "NỢ:" : "TỔNG ĐƠN:"}</td><td style={{ textAlign: "right" }}>{Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</td></tr></tbody></table>
+            
+            <div style={{ borderTop: "1px dotted #000", paddingTop: "6px", marginTop: "6px", fontSize: "12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Phương thức TT:</span><b>{lastOrder.paymentMethod}</b></div>
+              
+              {lastOrder.paymentMethod === 'TIỀN MẶT' && (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Khách đưa:</span><span>{Math.round(lastOrder.customerGiven || lastOrder.finalTotal).toLocaleString()}đ</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}><span>Thối lại:</span><span>{Math.round(Math.max(0, (lastOrder.customerGiven || lastOrder.finalTotal) - lastOrder.finalTotal)).toLocaleString()}đ</span></div>
+                </>
+              )}
+
+              {lastOrder.paymentMethod === 'KẾT HỢP' && (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Tiền mặt:</span><span>{Math.round(lastOrder.customerGiven || 0).toLocaleString()}đ</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Chuyển khoản:</span><span>{Math.round(lastOrder.finalTotal - (lastOrder.customerGiven || 0)).toLocaleString()}đ</span></div>
+                </>
+              )}
+              
+              {lastOrder.paymentMethod === 'CHUYỂN KHOẢN' && (<div style={{ display: "flex", justifyContent: "space-between" }}><span>Trạng thái:</span><span>Đã chuyển khoản</span></div>)}
+              {lastOrder.paymentMethod === 'ZALO PAY' && (<div style={{ display: "flex", justifyContent: "space-between" }}><span>Trạng thái:</span><span>Đã thanh toán ZaloPay</span></div>)}
+              {lastOrder.paymentMethod === 'QUẸT THẺ' && (<div style={{ display: "flex", justifyContent: "space-between" }}><span>Trạng thái:</span><span>Đã quẹt thẻ POS</span></div>)}
+              {lastOrder.paymentMethod === 'GHI NỢ' && (<div style={{ display: "flex", justifyContent: "space-between" }}><span>Trạng thái:</span><span>Đã ghi vào sổ nợ</span></div>)}
+            </div>
+            
+            <div style={{ textAlign: "center", marginTop: "15px", fontSize: "11px" }}><b>CẢM ƠN QUÝ KHÁCH!</b></div>
+          </div>
+        </div>
+      )}
+
+      {printMode === 'invoice_a4' && lastOrder && (
+        <div className="print-flex print-a4-container">
+          <div style={{ width: "100%", fontFamily: "'Inter', sans-serif" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #000", paddingBottom: "10px", marginBottom: "20px" }}><div><h1 style={{ margin: 0, color: "#dc2626", fontSize: "28px" }}>HẢI LÊ MART</h1><p style={{ margin: "5px 0", fontSize: "14px" }}>Địa chỉ: Tòa Nhà ATS, 252 Hoàng Quốc Việt, Cầu Giấy, HN</p></div><div style={{ textAlign: "right" }}><h2 style={{ margin: 0, fontSize: "24px" }}>HÓA ĐƠN BÁN HÀNG</h2><p style={{ margin: "5px 0", fontSize: "14px" }}>Số: <b>{lastOrder.orderId}</b></p><p style={{ margin: "5px 0", fontSize: "14px" }}>Ngày: {lastOrder.time}</p></div></div>
+            
+            <div style={{ marginBottom: "20px", fontSize: "15px", display: "grid", gridTemplateColumns: "1fr 1fr" }}>
+              <div>
+                <p style={{ margin: "5px 0" }}><b>Khách hàng:</b> {lastOrder.custName || "Khách lẻ"}</p>
+                {lastOrder.custPhone && <p style={{ margin: "5px 0" }}><b>SĐT:</b> {lastOrder.custPhone}</p>}
+                {lastOrder.custPhone && customers[lastOrder.custPhone]?.email && <p style={{ margin: "5px 0" }}><b>Email:</b> {customers[lastOrder.custPhone].email}</p>}
+                {lastOrder.custPhone && customers[lastOrder.custPhone]?.address && <p style={{ margin: "5px 0" }}><b>Địa chỉ:</b> {customers[lastOrder.custPhone].address}</p>}
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <p style={{ margin: "5px 0" }}><b>Phương thức thanh toán:</b> {lastOrder.paymentMethod}</p>
+              </div>
+            </div>
+
+            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px" }}>
+              <thead><tr style={{ background: "#f1f5f9" }}><th style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>STT</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "left" }}>Tên hàng hóa</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>SL</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>Đơn giá</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>Thành tiền</th></tr></thead>
+              <tbody>{lastOrder.cart.map((item: any, index: number) => { const p = Math.round(getActualPrice(item.product)); const t = Math.round(item.qty * p * (1 + VAT_RATE)); return (<tr key={index}><td style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>{index + 1}</td><td style={{ border: "1px solid #000", padding: "10px" }}>{cleanName(item.product.name)}</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>{item.qty}</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{p.toLocaleString()}đ</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{t.toLocaleString()}đ</td></tr>); })}</tbody>
+            </table>
+            
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: "30px", fontSize: "15px" }}>
+              <div style={{ textAlign: "center", width: "40%" }}><b>Khách hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span></div>
+              <div style={{ textAlign: "right", width: "50%" }}>
+                <p style={{ margin: "5px 0" }}>Cộng tiền hàng: {Math.round(lastOrder.subTotal).toLocaleString()}đ</p>
+                <p style={{ margin: "5px 0" }}>Thuế GTGT (10%): {Math.round(lastOrder.vatTotal).toLocaleString()}đ</p>
+                {lastOrder.discount > 0 && <p style={{ margin: "5px 0" }}>Giảm giá/Ví: -{Math.round(lastOrder.discount).toLocaleString()}đ</p>}
+                
+                <h3 style={{ borderTop: "2px solid #000", paddingTop: "10px", margin: "10px 0" }}>TỔNG CỘNG: {Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</h3>
+                
+                {lastOrder.paymentMethod === 'TIỀN MẶT' && (
+                  <div style={{ fontSize: "14px", marginTop: "10px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>Khách đưa:</span> <span>{Math.round(lastOrder.customerGiven || lastOrder.finalTotal).toLocaleString()}đ</span></div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}><span>Thối lại:</span> <span>{Math.round(Math.max(0, (lastOrder.customerGiven || lastOrder.finalTotal) - lastOrder.finalTotal)).toLocaleString()}đ</span></div>
+                  </div>
+                )}
+                {lastOrder.paymentMethod === 'KẾT HỢP' && (
+                  <div style={{ fontSize: "14px", marginTop: "10px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Tiền mặt:</span> <span>{Math.round(lastOrder.customerGiven || 0).toLocaleString()}đ</span></div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Chuyển khoản:</span> <span>{Math.round(lastOrder.finalTotal - (lastOrder.customerGiven || 0)).toLocaleString()}đ</span></div>
+                  </div>
+                )}
+
+                <div style={{ textAlign: "center", marginTop: "40px" }}><b>Người bán hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, đóng dấu)</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {printMode === 'barcode' && printBarcodeProduct && (
+        <div className="print-flex">
+          <div className="print-barcode-sheet">
+            {Array.from({ length: barcodeCount }).map((_, i) => (
+              <div key={i} className="barcode-sticker">
+                <div style={{ fontSize: "9px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: "100%", textAlign: "center" }}>{cleanName(printBarcodeProduct.name)}</div>
+                <img src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(printBarcodeProduct.product_code)}&scale=2&height=10&includetext=false`} onError={(e) => { e.currentTarget.src = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(printBarcodeProduct.product_code)}&code=Code128&translate-esc=on`; }} style={{ maxWidth: "100%", height: "24px", margin: "2px 0" }} alt={printBarcodeProduct.product_code} />
+                <div style={{ fontSize: "8px", fontFamily: "monospace", letterSpacing: "1px", color: "#333", lineHeight: "1" }}>{printBarcodeProduct.product_code}</div>
+                <div style={{ fontSize: "12px", fontWeight: "900", color: "#000", lineHeight: "1.2" }}>{getActualPrice(printBarcodeProduct).toLocaleString()}đ</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {printMode === 'customer_card' && printCustomer && (
+        <div className="print-flex">
+          <div className="print-customer-card">
+            <div style={{ width: "85.6mm", height: "53.98mm", border: "3px solid #dc2626", borderRadius: "12px", padding: "15px", textAlign: "center", boxSizing: "border-box", display: "flex", flexDirection: "column", justifyContent: "center", background: "#fff7ed", fontFamily: "'Inter', sans-serif" }}>
+              <h2 style={{ margin: "0 0 5px 0", color: "#b91c1c", fontSize: "20px", textTransform: "uppercase", fontWeight: "900" }}>HẢI LÊ MART</h2>
+              <div style={{ fontSize: "10px", fontWeight: "bold", color: "#ea580c", letterSpacing: "2px", marginBottom: "10px" }}>THẺ KHÁCH HÀNG THÂN THIẾT</div>
+              <div style={{ fontSize: "18px", fontWeight: "bold", color: "#0f172a", textTransform: "uppercase" }}>{printCustomer.name}</div>
+              <img src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(printCustomer.cardCode || printCustomer.phone)}&scale=2&height=10&includetext=false`} onError={(e) => { e.currentTarget.src = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(printCustomer.cardCode || printCustomer.phone)}&code=Code128&translate-esc=on`; }} style={{ maxWidth: "100%", height: "45px", marginTop: "10px", margin: "10px auto 0 auto", display: "block" }} alt="barcode" />
+              <div style={{ fontSize: "12px", fontFamily: "monospace", letterSpacing: "2px", marginTop: "4px", fontWeight: "bold" }}>{printCustomer.cardCode || printCustomer.phone}</div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
 
   const renderModals = () => (
     <>
