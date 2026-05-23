@@ -857,17 +857,39 @@ export default function App() {
     } 
     setLoading(false)
   };
-  
+
+  const printCustomerCard = (phone: string) => { 
+    const cust = customers[phone];
+    if(!cust) return toast.error("Không tìm thấy dữ liệu khách!");
+    
+    setPrintCustomer({ phone, ...cust }); 
+    setPrintMode('customer_card'); 
+    
+    toast.loading("Đang tạo thẻ in...", { duration: 1500 });
+    setTimeout(() => {
+      window.print();
+    }, 1500); 
+  };
+
   const sendCardEmail = async (phone: string) => {
     const cust = customers[phone]; 
+    if(!cust) return toast.error("Không tìm thấy dữ liệu khách!");
+
+    if (!(window as any).emailjs) {
+      return toast.error("Hệ thống EmailJS chưa tải xong, vui lòng thử lại sau!");
+    }
+
     let email = cust.email || window.prompt(`Nhập Email của ${cust.name}:`, ""); 
     if (!email) return; 
     email = email.trim(); 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; 
     if (!emailRegex.test(email)) return toast.error("Địa chỉ Email không hợp lệ!");
     
-    if (!cust.email) { setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], email } })); } 
+    if (!cust.email) { 
+      setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], email } })); 
+    } 
     setLoading(true); 
+    toast.loading("Đang gửi email...", { id: "sending_email" });
     
     const code = cust.cardCode || phone; 
     const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=10&includetext=false`; 
@@ -876,7 +898,7 @@ export default function App() {
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
         <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; padding: 20px; text-align: center;">
           <h1 style="margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 2px; color: #ffff00;">HẢI LÊ MART</h1>
-          <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">THỂ KHÁCH HÀNG THÂN THIẾT</p>
+          <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">THẺ KHÁCH HÀNG THÂN THIẾT</p>
         </div>
         <div style="padding: 30px 20px; background: #fff7ed; text-align: center;">
           <h2 style="margin: 0 0 15px 0; color: #0f172a; font-size: 22px;">Xin chào, ${cust.name}!</h2>
@@ -897,18 +919,13 @@ export default function App() {
       await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { 
         to_email: email, subject: `💳 Thẻ VIP Đặc Quyền - ${cust.name}`, html_message: htmlContent, order_id: "", time: "", items_list: "", total_amount: "", payment_method: "", change_amount: "", barcode_url: ""
       }); 
-      toast.success("Đã gửi Thẻ VIP!"); 
+      toast.success("Đã gửi Thẻ VIP thành công!", { id: "sending_email" }); 
       logAudit("GỬI THẺ VIP", `Gửi tới ${email}`); 
     } catch (error: any) { 
-      console.error(error); toast.error(`Lỗi gửi Email (EmailJS)`); 
+      console.error("Lỗi EmailJS:", error); 
+      toast.error(`Gửi mail thất bại! Kiểm tra lại cấu hình EmailJS.`, { id: "sending_email" }); 
     } 
-    setLoading(false)
-  };
-
-  const printCustomerCard = (phone: string) => { 
-    setPrintCustomer({ phone, ...customers[phone] }); 
-    setPrintMode('customer_card'); 
-    setTimeout(() => window.print(), 1000) 
+    setLoading(false);
   };
   
   const shareToZalo = (phone: string) => { 
@@ -1602,7 +1619,7 @@ export default function App() {
               <div style={{ textAlign: "center", width: "40%" }}><b>Khách hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span></div>
               <div style={{ textAlign: "right", width: "50%" }}><p style={{ margin: "5px 0" }}>Cộng tiền hàng: {Math.round(lastOrder.subTotal).toLocaleString()}đ</p><p style={{ margin: "5px 0" }}>Thuế GTGT (10%): {Math.round(lastOrder.vatTotal).toLocaleString()}đ</p>{lastOrder.discount > 0 && <p style={{ margin: "5px 0" }}>Giảm giá/Ví: -{Math.round(lastOrder.discount).toLocaleString()}đ</p>}<h3 style={{ borderTop: "2px solid #000", paddingTop: "10px", margin: "10px 0" }}>TỔNG CỘNG: {Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</h3>
                 {lastOrder.paymentMethod === 'TIỀN MẶT' && (<div style={{ fontSize: "14px", marginTop: "10px" }}><div style={{ display: "flex", justifyContent: "space-between" }}><span>Khách đưa:</span> <span>{Math.round(lastOrder.customerGiven || lastOrder.finalTotal).toLocaleString()}đ</span></div><div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}><span>Thối lại:</span> <span>{Math.round(Math.max(0, (lastOrder.customerGiven || lastOrder.finalTotal) - lastOrder.finalTotal)).toLocaleString()}đ</span></div></div>)}
-                {lastOrder.paymentMethod === 'KẾT HỢK' && (<div style={{ fontSize: "14px", marginTop: "10px" }}><div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Tiền mặt:</span> <span>{Math.round(lastOrder.customerGiven || 0).toLocaleString()}đ</span></div><div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Chuyển khoản:</span> <span>{Math.round(lastOrder.finalTotal - (lastOrder.customerGiven || 0)).toLocaleString()}đ</span></div></div>)}
+                {lastOrder.paymentMethod === 'KẾT HỢP' && (<div style={{ fontSize: "14px", marginTop: "10px" }}><div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Tiền mặt:</span> <span>{Math.round(lastOrder.customerGiven || 0).toLocaleString()}đ</span></div><div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Chuyển khoản:</span> <span>{Math.round(lastOrder.finalTotal - (lastOrder.customerGiven || 0)).toLocaleString()}đ</span></div></div>)}
                 <div style={{ textAlign: "center", marginTop: "40px" }}><b>Người bán hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, đóng dấu)</span></div>
               </div>
             </div>
@@ -1859,11 +1876,19 @@ export default function App() {
                         <td style={{fontWeight:'bold', color:'#0f172a'}}>{c?.name || 'Khách Vô Danh'} <br/><span style={{fontSize:'12px', color:'#64748b'}}>{getCustomerTier(c?.totalSpent || 0).name}</span></td>
                         <td>{phone}</td>
                         <td><span style={{color: '#10b981', fontWeight: "bold"}}>Ví: {(c?.wallet||0).toLocaleString()}đ</span><br/><span style={{color: '#ef4444', fontWeight: "bold"}}>Nợ: {(c?.debt||0).toLocaleString()}đ</span></td>
-                        <td style={{display:'flex', gap:'6px', justifyContent:'center'}}>
-                           <button onClick={()=>handleEditPhone(phone)} style={{padding:'8px 12px', background:'#3b82f6', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight: "bold", fontSize: "12px", boxShadow: "0 2px 4px rgba(59,130,246,0.3)"}}>Sửa SĐT</button>
-                           <button onClick={()=>printCustomerCard(phone)} style={{padding:'8px 12px', background:'#10b981', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight: "bold", fontSize: "12px", boxShadow: "0 2px 4px rgba(16,185,129,0.3)"}}>In Thẻ</button>
-                           <button onClick={()=>sendCardEmail(phone)} style={{padding:'8px 12px', background:'#f59e0b', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight: "bold", fontSize: "12px", boxShadow: "0 2px 4px rgba(245,158,11,0.3)"}}>Email VIP</button>
-                           <button onClick={()=>shareToZalo(phone)} style={{padding:'8px 12px', background:'#06b6d4', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight: "bold", fontSize: "12px", boxShadow: "0 2px 4px rgba(6,182,212,0.3)"}}>Mở Zalo</button>
+                        <td style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                           <button onClick={()=>handleEditPhone(phone)} style={{ flex: "1 1 45%", padding: "8px", background: "#f1f5f9", color: "#334155", border: "1px solid #cbd5e1", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "12px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                             ✏️ Sửa
+                           </button>
+                           <button onClick={()=>printCustomerCard(phone)} style={{ flex: "1 1 45%", padding: "8px", background: "#10b981", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "12px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", boxShadow: "0 2px 4px rgba(16,185,129,0.2)" }}>
+                             🖨️ In Thẻ
+                           </button>
+                           <button onClick={()=>sendCardEmail(phone)} style={{ flex: "1 1 45%", padding: "8px", background: "#f59e0b", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "12px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", boxShadow: "0 2px 4px rgba(245,158,11,0.2)" }}>
+                             ✉️ Email
+                           </button>
+                           <button onClick={()=>shareToZalo(phone)} style={{ flex: "1 1 45%", padding: "8px", background: "#06b6d4", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "12px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", boxShadow: "0 2px 4px rgba(6,182,212,0.2)" }}>
+                             💬 Zalo
+                           </button>
                         </td>
                       </tr>
                     ))}
@@ -2058,8 +2083,9 @@ export default function App() {
                                     {po.status === 'PENDING' ? 'Chờ nhận' : 'Hoàn tất'}
                                   </span>
                                 </td>
-                                <td style={{ textAlign: "center" }}>
-                                  <button onClick={() => { setFoundPO(po); setSearchPoCode(po.po_code); setReceiveItems(po.items.map((i: any) => ({ ...i, damagedQty: 0 }))); }} style={{ padding: "6px 12px", background: "#0f172a", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "11px", fontWeight: "bold", transition: "0.2s" }} onMouseOver={e=>e.currentTarget.style.background="#ef4444"} onMouseOut={e=>e.currentTarget.style.background="#0f172a"}>CHỌN</button>
+                                <td style={{ textAlign: "center", display: "flex", justifyContent: "center", gap: "6px" }}>
+                                  <button onClick={() => { setFoundPO(po); setSearchPoCode(po.po_code); setReceiveItems(po.items.map((i: any) => ({ ...i, damagedQty: 0 }))); }} style={{ padding: "6px 12px", background: "#0f172a", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "11px", fontWeight: "bold" }}>CHỌN</button>
+                                  <button onClick={() => handlePrintPO(po, 'po_order')} style={{ padding: "6px 12px", background: "#3b82f6", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "11px", fontWeight: "bold" }}>🖨️ IN PO</button>
                                 </td>
                               </tr>
                             ))}
@@ -2099,7 +2125,7 @@ export default function App() {
                         foundPO.status === 'COMPLETED' ? (
                            /* BỔ SUNG GIAO DIỆN IN KHI PHIẾU ĐÃ HOÀN THÀNH - IN NHẬP KHO / TRẢ HÀNG */
                            <div style={{ textAlign: "center", padding: "40px", background: "#ecfdf5", borderRadius: "12px", border: "1px solid #a7f3d0", marginTop: "20px" }}>
-                             <div style={{ color: "#059669", fontWeight: "bold", fontSize: "18px", marginBottom: "20px" }}>Base ✅ PHIẾU NÀY ĐÃ ĐƯỢC ĐỐI SOÁT & NHẬP KHO XONG!</div>
+                             <div style={{ color: "#059669", fontWeight: "bold", fontSize: "18px", marginBottom: "20px" }}>✅ PHIẾU NÀY ĐÃ ĐƯỢC ĐỐI SOÁT & NHẬP KHO XONG!</div>
                              <div style={{ display: "flex", justifyContent: "center", gap: "15px" }}>
                                <button onClick={() => handlePrintPO(foundPO, 'po_receipt')} style={{ padding: "12px 20px", background: "#10b981", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", boxShadow: "0 2px 4px rgba(16,185,129,0.3)" }}>
                                  🖨️ In Phiếu Nhập Kho (Thực nhận)
