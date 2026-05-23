@@ -153,6 +153,15 @@ export default function App() {
   const [suppliers, setSuppliers] = useState<any[]>(() => { const s = localStorage.getItem("mart_suppliers"); return s ? JSON.parse(s) : [] });
   const [history, setHistory] = useState<TransactionLog[]>(() => { const s = localStorage.getItem("mart_history"); return s ? JSON.parse(s) : [] });
 
+  // States dành riêng cho in phiếu PO chuyên sâu
+  const [printPOData, setPrintPOData] = useState<any>(null);
+
+  const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') => {
+    setPrintPOData(po);
+    setPrintMode(type);
+    setTimeout(() => window.print(), 800);
+  };
+
   const { isOnline, syncStatus, syncAllOfflineData, loadCloudData } = useOfflineSync({ isLoggedIn, history, setHistory, customers, setCustomers, heldOrders, setHeldOrders, auditLogs, setAuditLogs, expenses, setExpenses, suppliers, setSuppliers });
 
   const addTransactionAndSync = async (logData: any) => {
@@ -479,7 +488,7 @@ export default function App() {
 
 
   // =====================================================================
-  // 4. ACTION FUNCTIONS (HÀM XỬ LÝ SỰ KIỆN ĐÃ FIX LỖI "NOT DEFINED")
+  // 4. ACTION FUNCTIONS (HÀM XỬ LÝ SỰ KIỆN)
   // =====================================================================
   const executeWithAdminCheck = (action: () => void) => { 
     if (role === 'admin') { action(); } else { setPendingAction(() => action); setShowPinModal(true); } 
@@ -836,7 +845,7 @@ export default function App() {
           <p style="margin: 0; font-size: 12px; color: #94a3b8;">Cảm ơn quý khách! Hẹn gặp lại.</p>
         </div>
       </div>`;
-    
+      
     try { 
       await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { 
         to_email: email, subject: `🧾 Hóa đơn mua hàng #${lastOrder.orderId} - Hải Lê Mart`, html_message: htmlContent, order_id: lastOrder.orderId, time: lastOrder.time, items_list: "", total_amount: "", payment_method: "", change_amount: ""
@@ -867,7 +876,7 @@ export default function App() {
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
         <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; padding: 20px; text-align: center;">
           <h1 style="margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 2px; color: #ffff00;">HẢI LÊ MART</h1>
-          <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">THẺ KHÁCH HÀNG THÂN THIẾT</p>
+          <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">THỂ KHÁCH HÀNG THÂN THIẾT</p>
         </div>
         <div style="padding: 30px 20px; background: #fff7ed; text-align: center;">
           <h2 style="margin: 0 0 15px 0; color: #0f172a; font-size: 22px;">Xin chào, ${cust.name}!</h2>
@@ -1043,7 +1052,7 @@ export default function App() {
               } 
             } 
           } else { 
-            await supabase.from("products").insert([{ product_code: baseCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); 
+            await supabase.from("products").insert([{ product_code: baseCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: promo, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); 
           }
           
           if (pStock > 0) { 
@@ -1538,7 +1547,7 @@ export default function App() {
   const clearCart = () => { if (window.confirm("Hủy toàn bộ?")) { resetCheckout(); } };
 
   // ===============================================
-  // 🔥 RENDER GIAO DIỆN
+  // 🔥 RENDER GIAO DIỆN IN
   // ===============================================
   const renderPrintArea = () => (
     <>
@@ -1593,7 +1602,7 @@ export default function App() {
               <div style={{ textAlign: "center", width: "40%" }}><b>Khách hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span></div>
               <div style={{ textAlign: "right", width: "50%" }}><p style={{ margin: "5px 0" }}>Cộng tiền hàng: {Math.round(lastOrder.subTotal).toLocaleString()}đ</p><p style={{ margin: "5px 0" }}>Thuế GTGT (10%): {Math.round(lastOrder.vatTotal).toLocaleString()}đ</p>{lastOrder.discount > 0 && <p style={{ margin: "5px 0" }}>Giảm giá/Ví: -{Math.round(lastOrder.discount).toLocaleString()}đ</p>}<h3 style={{ borderTop: "2px solid #000", paddingTop: "10px", margin: "10px 0" }}>TỔNG CỘNG: {Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</h3>
                 {lastOrder.paymentMethod === 'TIỀN MẶT' && (<div style={{ fontSize: "14px", marginTop: "10px" }}><div style={{ display: "flex", justifyContent: "space-between" }}><span>Khách đưa:</span> <span>{Math.round(lastOrder.customerGiven || lastOrder.finalTotal).toLocaleString()}đ</span></div><div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}><span>Thối lại:</span> <span>{Math.round(Math.max(0, (lastOrder.customerGiven || lastOrder.finalTotal) - lastOrder.finalTotal)).toLocaleString()}đ</span></div></div>)}
-                {lastOrder.paymentMethod === 'KẾT HỢP' && (<div style={{ fontSize: "14px", marginTop: "10px" }}><div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Tiền mặt:</span> <span>{Math.round(lastOrder.customerGiven || 0).toLocaleString()}đ</span></div><div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Chuyển khoản:</span> <span>{Math.round(lastOrder.finalTotal - (lastOrder.customerGiven || 0)).toLocaleString()}đ</span></div></div>)}
+                {lastOrder.paymentMethod === 'KẾT HỢK' && (<div style={{ fontSize: "14px", marginTop: "10px" }}><div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Tiền mặt:</span> <span>{Math.round(lastOrder.customerGiven || 0).toLocaleString()}đ</span></div><div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Chuyển khoản:</span> <span>{Math.round(lastOrder.finalTotal - (lastOrder.customerGiven || 0)).toLocaleString()}đ</span></div></div>)}
                 <div style={{ textAlign: "center", marginTop: "40px" }}><b>Người bán hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, đóng dấu)</span></div>
               </div>
             </div>
@@ -1629,6 +1638,98 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* 1. RENDER IN PHIẾU ĐẶT HÀNG (PO ORDER) */}
+      {printMode === 'po_order' && printPOData && (
+        <div className="print-flex print-a4-container">
+          <div style={{ width: "100%", fontFamily: "'Inter', sans-serif" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #000", paddingBottom: "10px", marginBottom: "20px" }}>
+              <div><h1 style={{ margin: 0, color: "#3b82f6", fontSize: "28px" }}>HẢI LÊ MART</h1><p style={{ margin: "5px 0", fontSize: "14px" }}>Hệ thống Quản lý Nội bộ</p></div>
+              <div style={{ textAlign: "right" }}><h2 style={{ margin: 0, fontSize: "24px" }}>PHIẾU ĐẶT HÀNG (PO)</h2><p style={{ margin: "5px 0", fontSize: "14px" }}>Số PO: <b>{printPOData.po_code}</b></p><p style={{ margin: "5px 0", fontSize: "14px" }}>Ngày tạo: {new Date(printPOData.created_at).toLocaleString('vi-VN')}</p></div>
+            </div>
+            <div style={{ marginBottom: "20px", fontSize: "15px" }}>
+              <p style={{ margin: "5px 0" }}><b>Kính gửi Nhà Cung Cấp:</b> {printPOData.supplier?.name}</p>
+              <p style={{ margin: "5px 0" }}><b>Điện thoại:</b> {printPOData.supplier?.phone}</p>
+              <p style={{ margin: "5px 0" }}><b>Ghi chú:</b> {printPOData.note || "Không có"}</p>
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px" }}>
+              <thead><tr style={{ background: "#f1f5f9" }}><th style={{ border: "1px solid #000", padding: "10px" }}>STT</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "left" }}>Tên sản phẩm</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>SL Đặt</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>Đơn giá nhập</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>Thành tiền</th></tr></thead>
+              <tbody>{printPOData.items.map((item: any, index: number) => (
+                <tr key={index}><td style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>{index + 1}</td><td style={{ border: "1px solid #000", padding: "10px" }}>{cleanName(item.product.name)}</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>{item.qty}</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{(item.importPrice||0).toLocaleString()}đ</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{(item.qty * (item.importPrice||0)).toLocaleString()}đ</td></tr>
+              ))}</tbody>
+            </table>
+            <div style={{ textAlign: "right", fontSize: "16px", marginBottom: "40px" }}>
+              <p>Tổng giá trị PO: <b>{printPOData.total_amount.toLocaleString()}đ</b></p>
+              <p>Đã trả trước: <b>{(printPOData.paid_amount || 0).toLocaleString()}đ</b></p>
+              <h3>CÔNG NỢ DỰ KIẾN: {Math.max(0, printPOData.total_amount - (printPOData.paid_amount || 0)).toLocaleString()}đ</h3>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", textAlign: "center", marginTop: "30px", fontSize: "15px" }}>
+              <div style={{ width: "50%" }}><b>Đại diện Nhà Cung Cấp</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span></div>
+              <div style={{ width: "50%" }}><b>Đại diện Cửa Hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. RENDER IN PHIẾU NHẬP KHO (RECEIPT) */}
+      {printMode === 'po_receipt' && printPOData && (
+        <div className="print-flex print-a4-container">
+          <div style={{ width: "100%", fontFamily: "'Inter', sans-serif" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #000", paddingBottom: "10px", marginBottom: "20px" }}>
+              <div><h1 style={{ margin: 0, color: "#10b981", fontSize: "28px" }}>HẢI LÊ MART</h1></div>
+              <div style={{ textAlign: "right" }}><h2 style={{ margin: 0, fontSize: "24px" }}>PHIẾU NHẬP KHO</h2><p style={{ margin: "5px 0", fontSize: "14px" }}>Tham chiếu PO: <b>{printPOData.po_code}</b></p><p style={{ margin: "5px 0", fontSize: "14px" }}>Ngày nhập: {new Date().toLocaleDateString('vi-VN')}</p></div>
+            </div>
+            <div style={{ marginBottom: "20px", fontSize: "15px" }}>
+              <p style={{ margin: "5px 0" }}><b>Nhà Cung Cấp:</b> {printPOData.supplier?.name}</p>
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px" }}>
+              <thead><tr style={{ background: "#f1f5f9" }}><th style={{ border: "1px solid #000", padding: "10px" }}>STT</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "left" }}>Tên sản phẩm</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>SL Thực Nhận</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>Đơn giá</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>Thành tiền</th></tr></thead>
+              <tbody>{printPOData.items.filter((i:any) => i.qty - (i.damagedQty || 0) > 0).map((item: any, index: number) => {
+                const actualQty = item.qty - (item.damagedQty || 0);
+                return (
+                <tr key={index}><td style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>{index + 1}</td><td style={{ border: "1px solid #000", padding: "10px" }}>{cleanName(item.product.name)}</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "center", fontWeight: "bold" }}>{actualQty}</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{(item.importPrice||0).toLocaleString()}đ</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{(actualQty * (item.importPrice||0)).toLocaleString()}đ</td></tr>
+              )})}</tbody>
+            </table>
+            <div style={{ textAlign: "right", fontSize: "16px", marginBottom: "40px" }}>
+              <h3>TỔNG GIÁ TRỊ NHẬP KHO: {printPOData.items.reduce((sum:number, item:any) => sum + ((item.qty - (item.damagedQty || 0)) * (item.importPrice||0)), 0).toLocaleString()}đ</h3>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", textAlign: "center", marginTop: "30px", fontSize: "15px" }}>
+              <div style={{ width: "33%" }}><b>Thủ Kho</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span></div>
+              <div style={{ width: "33%" }}><b>Người Giao Hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span></div>
+              <div style={{ width: "33%" }}><b>Quản Lý</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. RENDER IN PHIẾU XUẤT TRẢ HÀNG LỖI */}
+      {printMode === 'po_return' && printPOData && (
+        <div className="print-flex print-a4-container">
+          <div style={{ width: "100%", fontFamily: "'Inter', sans-serif" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #000", paddingBottom: "10px", marginBottom: "20px" }}>
+              <div><h1 style={{ margin: 0, color: "#ef4444", fontSize: "28px" }}>HẢI LÊ MART</h1></div>
+              <div style={{ textAlign: "right" }}><h2 style={{ margin: 0, fontSize: "24px" }}>PHIẾU XUẤT TRẢ HÀNG</h2><p style={{ margin: "5px 0", fontSize: "14px" }}>Tham chiếu PO: <b>{printPOData.po_code}</b></p><p style={{ margin: "5px 0", fontSize: "14px" }}>Ngày lập: {new Date().toLocaleDateString('vi-VN')}</p></div>
+            </div>
+            <div style={{ marginBottom: "20px", fontSize: "15px" }}>
+              <p style={{ margin: "5px 0" }}><b>Hoàn trả cho Nhà Cung Cấp:</b> {printPOData.supplier?.name}</p>
+              <p style={{ margin: "5px 0" }}><b>Lý do:</b> Hàng lỗi/hỏng, không đạt tiêu chuẩn khi kiểm tra nhập kho.</p>
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px" }}>
+              <thead><tr style={{ background: "#fef2f2" }}><th style={{ border: "1px solid #000", padding: "10px" }}>STT</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "left" }}>Tên sản phẩm</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>SL Trả</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>Đơn giá</th><th style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>Thành tiền (Giảm trừ công nợ)</th></tr></thead>
+              <tbody>{printPOData.items.filter((i:any) => (i.damagedQty || 0) > 0).map((item: any, index: number) => (
+                <tr key={index}><td style={{ border: "1px solid #000", padding: "10px", textAlign: "center" }}>{index + 1}</td><td style={{ border: "1px solid #000", padding: "10px" }}>{cleanName(item.product.name)}</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "center", color: "#ef4444", fontWeight: "bold" }}>{item.damagedQty}</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{(item.importPrice||0).toLocaleString()}đ</td><td style={{ border: "1px solid #000", padding: "10px", textAlign: "right" }}>{(item.damagedQty * (item.importPrice||0)).toLocaleString()}đ</td></tr>
+              ))}</tbody>
+            </table>
+            <div style={{ textAlign: "right", fontSize: "16px", marginBottom: "40px" }}>
+              <h3>TỔNG GIÁ TRỊ HOÀN TRẢ: {printPOData.items.reduce((sum:number, item:any) => sum + ((item.damagedQty || 0) * (item.importPrice||0)), 0).toLocaleString()}đ</h3>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", textAlign: "center", marginTop: "30px", fontSize: "15px" }}>
+              <div style={{ width: "50%" }}><b>Người Nhận Lại Hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span></div>
+              <div style={{ width: "50%" }}><b>Đại diện Cửa Hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span></div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 
@@ -1645,7 +1746,7 @@ export default function App() {
                 <h2 className="custom-modal-title">🏢 QUẢN LÝ NHÀ CUNG CẤP</h2>
                 <button className="custom-modal-close" onClick={() => setShowSupplierModal(false)}>&times;</button>
               </div>
-              <div className="custom-modal-body" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px', background: '#f1f5f9', height: '100%', boxSizing: 'border-box' }}>
+              <div className="custom-modal-header" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px', background: '#f1f5f9', height: '100%', boxSizing: 'border-box' }}>
                 <div style={{ background: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                   <h3 style={{ marginTop: 0, marginBottom: '20px', color: '#1e293b' }}>Thêm Mới NCC</h3>
                   <div className="custom-input-group"><label className="custom-label">Tên Nhà Cung Cấp</label><input className="custom-input" placeholder="VD: Công ty TNHH Vinamilk" value={supName} onChange={e => setSupName(e.target.value)} /></div>
@@ -1678,7 +1779,7 @@ export default function App() {
           </div>
         )}
 
-        {/* MODAL SETTINGS XỊN XÒ KHÔNG THIẾU NGÂN HÀNG NÀO */}
+        {/* MODAL SETTINGS XỊN XÒ */}
         {showSettings && (
           <div className="custom-modal-overlay">
             <div className="custom-modal-box" style={{ maxWidth: '600px' }}>
@@ -1743,7 +1844,7 @@ export default function App() {
           </div>
         )}
 
-        {/* MODAL KHÁCH HÀNG VIP - FIX LỖI RỖNG DỮ LIỆU */}
+        {/* MODAL KHÁCH HÀNG VIP */}
         {showCustomerModal && (
           <div className="custom-modal-overlay">
             <div className="custom-modal-box" style={{ maxWidth: '900px', height: '80vh' }}>
@@ -1773,7 +1874,7 @@ export default function App() {
           </div>
         )}
 
-        {/* MODAL GỬI EMAIL MARKETING CHIẾN DỊCH KHUYẾN MÃI - FIX LỖI RỖNG */}
+        {/* MODAL GỬI EMAIL MARKETING */}
         {showMarketingModal && (
           <div className="custom-modal-overlay">
             <div className="custom-modal-box" style={{ maxWidth: '550px' }}>
@@ -1816,7 +1917,7 @@ export default function App() {
           </div>
         )}
 
-        {/* MODAL PHIẾU NHẬP PO */}
+        {/* MODAL PHIẾU NHẬP PO BIÊN TẬP HOÀN CHỈNH */}
         {showPOModal && (
           <div className="custom-modal-overlay">
             <div className="custom-modal-box" style={{ maxWidth: '1100px', height: '90vh' }}>
@@ -1966,19 +2067,27 @@ export default function App() {
                         </table>
                       </div>
                       
+                      {/* BỔ SUNG NÚT IN PHIẾU ĐẶT HÀNG NGAY TẠI KHỐI CHI TIẾT PO */}
                       {foundPO && (
                         <div style={{ marginTop: "15px", padding: "16px", background: "#f8fafc", borderRadius: "10px", border: "1px dashed #cbd5e1" }}>
-                          <div style={{ marginBottom: "8px", display: "flex", justifyContent: "space-between" }}>
-                            <span style={{ color: "#64748b", fontSize:"13px" }}>Số PO:</span>
-                            <span style={{ fontWeight: "bold", color: "#3b82f6", fontSize:"13px" }}>{foundPO.po_code}</span>
-                          </div>
-                          <div style={{ marginBottom: "8px", display: "flex", justifyContent: "space-between" }}>
-                            <span style={{ color: "#64748b", fontSize:"13px" }}>Nhà Cung Cấp:</span>
-                            <span style={{ fontWeight: "bold", color: "#0f172a", fontSize:"13px" }}>{foundPO.supplier?.name}</span>
-                          </div>
-                          <div style={{ display: "flex", justifyContent: "space-between" }}>
-                            <span style={{ color: "#64748b", fontSize:"13px" }}>Ngày tạo:</span>
-                            <span style={{ color: "#0f172a", fontSize:"13px" }}>{new Date(foundPO.created_at).toLocaleString('vi-VN')}</span>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div>
+                              <div style={{ marginBottom: "8px", display: "flex", justifyContent: "space-between", gap: "10px" }}>
+                                <span style={{ color: "#64748b", fontSize:"13px" }}>Số PO:</span>
+                                <span style={{ fontWeight: "bold", color: "#3b82f6", fontSize:"13px" }}>{foundPO.po_code}</span>
+                              </div>
+                              <div style={{ marginBottom: "8px", display: "flex", justifyContent: "space-between", gap: "10px" }}>
+                                <span style={{ color: "#64748b", fontSize:"13px" }}>Nhà Cung Cấp:</span>
+                                <span style={{ fontWeight: "bold", color: "#0f172a", fontSize:"13px" }}>{foundPO.supplier?.name}</span>
+                              </div>
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: "10px" }}>
+                                <span style={{ color: "#64748b", fontSize:"13px" }}>Ngày tạo:</span>
+                                <span style={{ color: "#0f172a", fontSize:"13px" }}>{new Date(foundPO.created_at).toLocaleString('vi-VN')}</span>
+                              </div>
+                            </div>
+                            <button onClick={() => handlePrintPO(foundPO, 'po_order')} style={{ padding: "10px 15px", background: "#0f172a", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", display: "flex", alignItems: "center", gap: "6px" }}>
+                              🖨️ In Phiếu PO
+                            </button>
                           </div>
                         </div>
                       )}
@@ -1988,7 +2097,20 @@ export default function App() {
                       <h3 style={{ margin: "0 0 15px 0", fontSize: "15px", color: "#1e293b", borderBottom: "1px dashed #cbd5e1", paddingBottom: "10px" }}>2. Đối Soát Hàng & Nhập Kho</h3>
                       {foundPO ? (
                         foundPO.status === 'COMPLETED' ? (
-                           <div style={{ textAlign: "center", padding: "40px", background: "#ecfdf5", color: "#059669", borderRadius: "12px", fontWeight: "bold", fontSize: "18px", border: "1px solid #a7f3d0", marginTop: "20px" }}>✅ PHIẾU NÀY ĐÃ ĐƯỢC NHẬP KHO XONG!</div>
+                           /* BỔ SUNG GIAO DIỆN IN KHI PHIẾU ĐÃ HOÀN THÀNH - IN NHẬP KHO / TRẢ HÀNG */
+                           <div style={{ textAlign: "center", padding: "40px", background: "#ecfdf5", borderRadius: "12px", border: "1px solid #a7f3d0", marginTop: "20px" }}>
+                             <div style={{ color: "#059669", fontWeight: "bold", fontSize: "18px", marginBottom: "20px" }}>Base ✅ PHIẾU NÀY ĐÃ ĐƯỢC ĐỐI SOÁT & NHẬP KHO XONG!</div>
+                             <div style={{ display: "flex", justifyContent: "center", gap: "15px" }}>
+                               <button onClick={() => handlePrintPO(foundPO, 'po_receipt')} style={{ padding: "12px 20px", background: "#10b981", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", boxShadow: "0 2px 4px rgba(16,185,129,0.3)" }}>
+                                 🖨️ In Phiếu Nhập Kho (Thực nhận)
+                               </button>
+                               {foundPO.items.some((i:any) => i.damagedQty > 0) && (
+                                 <button onClick={() => handlePrintPO(foundPO, 'po_return')} style={{ padding: "12px 20px", background: "#ef4444", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", boxShadow: "0 2px 4px rgba(239,68,68,0.3)" }}>
+                                   🖨️ In Phiếu Trả Hàng Lỗi
+                                 </button>
+                               )}
+                             </div>
+                           </div>
                         ) : (
                           <>
                             <div style={{ flex: 1, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
@@ -2008,232 +2130,4 @@ export default function App() {
                             </div>
                             
                             <div style={{ background: "#f8fafc", padding: "20px", borderRadius: "10px", marginTop: "24px", border: "1px solid #e2e8f0" }}>
-                               <p style={{ fontStyle: "italic", color: "#64748b", margin: "0 0 15px 0", fontSize: "13px", lineHeight: "1.5" }}>* Hệ thống sẽ tự động đối soát, cộng kho hàng thực tế và hoàn trả tiền công nợ hàng hỏng cho Nhà Cung Cấp.</p>
-                               <button className="gradient-btn" onClick={async () => {
-                                  if (!foundPO || receiveItems.length === 0) return; setLoading(true);
-                                  try {
-                                    let actualTotal = 0; let logs: any[] = [];
-                                    for (const item of receiveItems) {
-                                        const actualQty = item.qty - (item.damagedQty || 0); actualTotal += actualQty * item.importPrice;
-                                        if (actualQty > 0) {
-                                            const p = products.find(x => x.id === item.product.id);
-                                            if (p) {
-                                                await supabase.from('products').update({ stock: p.stock + actualQty, import_price: item.importPrice }).eq('id', p.id);
-                                                logs.push({ id: Date.now() + Math.random(), shift, type: "NHẬP PO", name: p.name, qty: actualQty, total: actualQty * item.importPrice, time: new Date().toLocaleString('vi-VN') });
-                                            }
-                                        }
-                                        if (item.damagedQty > 0) { logs.push({ id: Date.now() + Math.random(), shift, type: "TRẢ HÀNG NCC", name: item.product.name + " (Lỗi/Hỏng)", qty: item.damagedQty, total: 0, time: new Date().toLocaleString('vi-VN') }); }
-                                    }
-                                    
-                                    const finalDebt = actualTotal - foundPO.paid_amount;
-                                    if (finalDebt > 0 && foundPO.supplier) {
-                                        const supplierId = foundPO.supplier.id; const s = suppliers.find(x => x.id === supplierId);
-                                        if (s) { const newD = (s.debt || 0) + finalDebt; await supabase.from('suppliers').update({ debt: newD }).eq('id', supplierId); setSuppliers(prev => prev.map(x => x.id === supplierId ? { ...x, debt: newD } : x)); }
-                                    }
-
-                                    if(navigator.onLine) await supabase.from('purchase_orders_v2').update({ status: 'COMPLETED', items: receiveItems, total_amount: actualTotal }).eq('id', foundPO.id);
-                                    
-                                    const updatedPOs = localPOs.map(p => p.id === foundPO.id ? { ...p, status: 'COMPLETED' } : p); setLocalPOs(updatedPOs); localStorage.setItem("mart_pos", JSON.stringify(updatedPOs));
-
-                                    logs.forEach(lg => addTransactionAndSync(lg)); logAudit("NHẬN HÀNG PO", `Nhận mã ${foundPO.po_code}`); toast.success("Nhập Kho thành công!"); fetchProducts(); setShowPOModal(false);
-                                  } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); }
-                               }} disabled={loading} style={{ background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", boxShadow: "0 4px 15px rgba(16, 185, 129, 0.3)", padding: "16px", fontSize: "16px" }}>{loading ? "ĐANG XỬ LÝ..." : "✅ XÁC NHẬN NHẬN HÀNG"}</button>
-                            </div>
-                          </>
-                        )
-                      ) : (
-                        <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8", border: "2px dashed #cbd5e1", borderRadius: "12px", background: "#f8fafc", marginTop: "20px" }}>Vui lòng chọn một Phiếu Nhập (PO) từ danh sách bên trái để tiếp tục.</div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* CÁC MODAL KHÁC CỦA HỆ THỐNG */}
-        {showHandoverModal && (<HandoverModal role={role} shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onClose={() => setShowHandoverModal(false)} onConfirm={confirmHandover} />)}
-        <CashFlowModal cashFlowModalInfo={cashFlowModalInfo} setCashFlowModalInfo={setCashFlowModalInfo} shift={shift} todayStrStr={todayStrStr} currentShiftCashFlow={currentShiftCashFlow} currentShiftStats={currentShiftStats} />
-        <HoldOrdersModal showHoldModal={showHoldModal} setShowHoldModal={setShowHoldModal} heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={deleteHeldOrder} />
-        <CheckoutModal isCheckoutOpen={isCheckoutOpen} setIsCheckoutOpen={setIsCheckoutOpen} checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} voucherInput={voucherInput} setVoucherInput={setVoucherInput} customerInput={customerInput} setCustomerInput={setCustomerInput} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} useWallet={useWallet} setUseWallet={setUseWallet} appliedVoucherAmount={appliedVoucherAmount} setAppliedVoucherAmount={setAppliedVoucherAmount} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} finalToPay={finalToPay} customers={customers} isOnline={isOnline} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} loading={loading} handleVoucherSubmit={handleVoucherSubmit} handleCustomerInputChange={handleCustomerInputChange} setScannerMode={setScannerMode} handleNextToQR={handleNextToQR} confirmCheckout={confirmCheckout} setPrintMode={setPrintMode} sendReceiptEmail={sendReceiptEmail} closeCheckout={closeCheckout} />
-        <StatsModal showStatsModal={showStatsModal} setShowStatsModal={setShowStatsModal} reportStartDate={reportStartDate} setReportStartDate={setReportStartDate} reportEndDate={reportEndDate} setReportEndDate={setReportEndDate} exportToCSV={exportToCSV} onExportCSV={exportToCSV} handleExportCSV={exportToCSV} sendInventoryAlertEmail={sendInventoryAlertEmail} onSendAlert={sendInventoryAlertEmail} handleSendEmailReport={handleSendEmailReport} onSendReport={handleSendEmailReport} filteredStats={filteredStats} chartData={chartData} topSelling={topSelling} products={products} />
-        <InventoryModal showInventoryModal={showInventoryModal} setShowInventoryModal={setShowInventoryModal} inventorySearchTerm={inventorySearchTerm} setInventorySearchTerm={setInventorySearchTerm} handleInventorySearchEnter={handleInventorySearchEnter} invFilter={invFilter} setInvFilter={setInvFilter} exportInventoryCSV={exportInventoryCSV} onExport={exportInventoryCSV} handleImportInventoryCSV={handleImportInventoryCSV} onImport={handleImportInventoryCSV} products={products} actualStockInput={actualStockInput} setActualStockInput={setActualStockInput} handleInvInputKeyDown={handleInvInputKeyDown} syncInventoryCheck={syncInventoryCheck} onSync={syncInventoryCheck} loading={loading} />
-        <DebtModal showDebtModal={showDebtModal} setShowDebtModal={setShowDebtModal} customers={customers} handlePayDebt={handlePayDebt} />
-        <AuditModal showAuditModal={showAuditModal} setShowAuditModal={setShowAuditModal} auditLogs={auditLogs} exportAuditToCSV={exportAuditToCSV} setSelectedAuditLog={setSelectedAuditLog} setSelectedLog={setSelectedAuditLog} onViewDetail={setSelectedAuditLog} onRowClick={setSelectedAuditLog} />
-        <AuditDetailModal selectedAuditLog={selectedAuditLog} setSelectedAuditLog={setSelectedAuditLog} showModal={!!selectedAuditLog} setShowModal={(val: boolean) => !val && setSelectedAuditLog(null)} selectedLog={selectedAuditLog} setSelectedLog={setSelectedAuditLog} />
-        <ScannerModal scannerMode={scannerMode} setScannerMode={setScannerMode} scanMessage={scanMessage} />
-        <PinModal showPinModal={showPinModal} setShowPinModal={setShowPinModal} correctPin={adminPin} onSuccess={() => { if (pendingAction) { pendingAction(); setPendingAction(null); } }} />
-        <ScannerLinkModal showModal={showScannerLinkModal} setShowModal={setShowScannerLinkModal} />
-      </>
-    );
-  };
-
-  return (
-    <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
-      <style>{styles}</style> 
-      <style>{`
-        /* KHẮC PHỤC LOGO BỊ GIÃN DÀI VÀ KÉO SAO VÀO SÁT CHỮ T */
-        .logo-wrapper { display: inline-flex !important; align-items: center; padding: 10px 45px 10px 20px !important; position: relative; width: fit-content !important; min-width: 0 !important; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); border-radius: 12px; margin-right: auto; }
-        .logo-star { position: absolute !important; right: 12px !important; top: 50% !important; transform: translateY(-50%) !important; font-size: 26px !important; color: #f59e0b !important; margin: 0 !important; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
-
-        /* KHAI BÁO BỘ CSS BẢNG BIỂU & NÚT BẤM HIỆN ĐẠI BẬC NHẤT 2026 */
-        .modern-table { width: 100%; border-collapse: separate; border-spacing: 0; text-align: left; }
-        .modern-table th { background: #f8fafc; padding: 14px 16px; font-weight: 700; color: #475569; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; font-size: 13px; letter-spacing: 0.5px; white-space: nowrap; }
-        .modern-table td { padding: 16px; border-bottom: 1px solid #f1f5f9; color: #1e293b; font-size: 14px; vertical-align: middle; transition: background 0.2s; }
-        .modern-table tbody tr:hover td { background: #f8fafc; }
-        
-        .gradient-btn { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 14px; border-radius: 8px; font-weight: 800; border: none; width: 100%; font-size: 15px; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3); text-transform: uppercase; letter-spacing: 0.5px; }
-        .gradient-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4); }
-        .gradient-btn:disabled { opacity: 0.7; cursor: not-allowed; }
-
-        .custom-modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 99999; }
-        .custom-modal-overlay * { font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important; box-sizing: border-box; }
-        .custom-modal-box { background: white; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3); width: 95%; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-        @keyframes modalPop { 0% { opacity: 0; transform: scale(0.95) translateY(10px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
-        .custom-modal-header { padding: 20px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #ffffff; }
-        .custom-modal-title { font-size: 1.25rem; font-weight: 800; color: #0f172a; margin: 0; text-transform: uppercase; letter-spacing: 0.5px; }
-        .custom-modal-close { background: none; border: none; font-size: 28px; color: #94a3b8; cursor: pointer; transition: all 0.2s; padding: 0; line-height: 1; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; }
-        .custom-modal-close:hover { color: #ef4444; background: #fee2e2; transform: rotate(90deg); }
-        .custom-modal-body { padding: 24px; overflow-y: auto; }
-        .custom-input-group { margin-bottom: 18px; }
-        .custom-label { display: block; font-size: 0.85rem; font-weight: 700; color: #475569; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .custom-input { width: 100%; padding: 12px 16px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; outline: none; transition: all 0.2s; background: #f8fafc; color: #1e293b; font-weight: 500; }
-        .custom-input:focus { border-color: #3b82f6; background: #fff; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); }
-
-        .animated-bg-mesh { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; background: linear-gradient(135deg, #ffedd5 0%, #fef08a 50%, #fed7aa 100%); background-size: 400% 400%; animation: gradientBgAnim 15s ease infinite; opacity: 0.8; }
-        @keyframes gradientBgAnim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-        [data-theme='dark'] .animated-bg-mesh { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%); opacity: 1; }
-      `}</style>
-      <div className="animated-bg-mesh"></div>
-      <Toaster position="top-right" reverseOrder={false} />
-
-      <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeSubmitAction} />
-      
-      {renderPrintArea()}
-      {renderModals()}
-
-      {!isLoggedIn ? (
-        <div className="login-wrapper">
-          <style>{`
-            .login-wrapper { min-height: 100vh; width: 100vw; display: flex; justify-content: center; align-items: center; position: fixed; top:0; left:0; z-index: 9999; font-family: 'Inter', sans-serif;}
-            .floating-bubble { position: absolute; background: rgba(255,255,255,0.4); border-radius: 50%; animation: floatUp linear infinite; bottom: -120px; filter: blur(2px); }
-            @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-120vh) scale(1.2); opacity: 0; } }
-            .glass-login { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.8); padding: 40px 35px; border-radius: 20px; box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.1); width: 100%; max-width: 380px; z-index: 10; animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; display: flex; flex-direction: column; gap: 15px; box-sizing: border-box;}
-            @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-            .login-header { text-align: center; margin-bottom: 10px; }
-            .login-title { font-size: 28px; font-weight: 900; letter-spacing: -0.5px; margin: 0 0 6px 0; color: #0f172a; text-transform: uppercase; }
-            .login-title span { color: #e11d48; }
-            .login-subtitle { font-size: 13px; color: #64748b; font-weight: 500; margin: 0; }
-            .login-input-group { position: relative; width: 100%; margin-bottom: 0; }
-            .login-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94a3b8; width: 18px; height: 18px; pointer-events: none;}
-            .login-input { width: 100%; padding: 14px 16px 14px 42px; border-radius: 12px; border: 1.5px solid #e2e8f0; background: #f8fafc; box-sizing: border-box; outline: none; transition: all 0.2s ease; font-size: 14px; color: #1e293b; font-weight: 500; }
-            .login-input:focus { border-color: #e11d48; background: #fff; box-shadow: 0 0 0 4px rgba(225, 29, 72, 0.1); }
-            .login-btn-submit { width: 100%; padding: 14px; background: linear-gradient(135deg, #e11d48 0%, #be123c 100%); color: #fff; border: none; border-radius: 12px; font-weight: 800; font-size: 15px; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25); margin-top: 10px; text-transform: uppercase; letter-spacing: 0.5px;}
-            .login-btn-submit:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(225, 29, 72, 0.35); }
-            .login-btn-submit:disabled { opacity: 0.7; cursor: not-allowed; }
-          `}</style>
-          
-          <div className="floating-bubble" style={{ width: '100px', height: '100px', left: '10%', animationDuration: '8s' }}></div>
-          <div className="floating-bubble" style={{ width: '50px', height: '50px', left: '25%', animationDuration: '5s', animationDelay: '2s' }}></div>
-          <div className="floating-bubble" style={{ width: '80px', height: '80px', left: '70%', animationDuration: '10s', animationDelay: '1s' }}></div>
-          
-          <form className="glass-login" onSubmit={handleLogin}>
-            <div className="login-header">
-              <h2 className="login-title">HẢI LÊ <span>MART</span></h2>
-              <p className="login-subtitle">Hệ thống Quản lý ERP & POS</p>
-            </div>
-            
-            <div className="login-input-group">
-              <svg className="login-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-              <input className="login-input" placeholder="Tên đăng nhập (Email)..." value={authUsername} onChange={e => setAuthUsername(e.target.value)} required />
-            </div>
-            
-            <div className="login-input-group">
-              <svg className="login-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-              <input className="login-input" type="password" placeholder="Mật khẩu truy cập..." value={authPassword} onChange={e => setAuthPassword(e.target.value)} required />
-            </div>
-            
-            <button className="login-btn-submit" type="submit" disabled={loading}>
-              {loading ? "ĐANG TẢI..." : "ĐĂNG NHẬP HỆ THỐNG"}
-            </button>
-          </form>
-        </div>
-      ) : (
-        <div className="no-print" style={{ padding: "15px", position: "relative", minHeight: "100vh", overflowX: "auto" }}>
-          <div style={{ maxWidth: "1500px", margin: "0 auto", minWidth: "1000px" }}>
-            
-            <Header 
-              role={role} shift={shift} totalValue={totalValue} currentShiftStats={currentShiftStats} setCashFlowModalInfo={setCashFlowModalInfo} darkMode={darkMode} setDarkMode={setDarkMode} handleLogoutClick={handleLogoutClick} showMainMenu={showMainMenu} setShowMainMenu={setShowMainMenu} setShowStatsModal={setShowStatsModal} setShowCustomerModal={setShowCustomerModal} setShowInventoryModal={setShowInventoryModal} setShowDebtModal={setShowDebtModal} setShowAuditModal={setShowAuditModal} setShowExpenseModal={setShowExpenseModal} setShowSupplierModal={setShowSupplierModal} setShowMarketingModal={setShowMarketingModal} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} setShowSettings={setShowSettings} lowStockCount={lowStockCount} isOnline={isOnline} syncStatus={syncStatus} syncAllOfflineData={syncAllOfflineData}
-              setShowScannerLinkModal={setShowScannerLinkModal} setShowPOModal={setShowPOModal}
-            />
-            
-            <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: "10px" }}>
-              <div className="glass" style={{ padding: "12px" }}>
-                
-                <ProductSearchAndActions 
-                  role={role} 
-                  barcodeInput={barcodeInput} 
-                  setBarcodeInput={setBarcodeInput} 
-                  showSuggestions={showSuggestions} 
-                  setShowSuggestions={setShowSuggestions} 
-                  handleBarcodeSubmit={handleBarcodeSubmitAction} 
-                  setScannerMode={setScannerMode} 
-                  products={products} 
-                  handleSelectSuggest={handleSelectSuggest} 
-                  
-                  showInputForm={showInputForm} 
-                  setShowInputForm={setShowInputForm} 
-                  onAddProduct={() => setShowInputForm(true)}
-                  onAddClick={() => setShowInputForm(true)}
-                  handleAddClick={() => setShowInputForm(true)}
-                  
-                  handleFileUpload={handleFileUpload} 
-                  onFileUpload={handleFileUpload}
-                  onFileChange={handleFileUpload}
-                  
-                  downloadSampleCSV={downloadSampleCSV} 
-                  onDownloadSample={downloadSampleCSV}
-                  handleDownloadSample={downloadSampleCSV}
-                />
-                
-                {showInputForm && (
-                  <ProductInputForm
-                    newCode={newCode} handleCodeChange={handleCodeChange}
-                    newName={newName} setNewName={setNewName}
-                    newCategory={newCategory} setNewCategory={setNewCategory}
-                    categories={categories}
-                    newImportPrice={newImportPrice} setNewImportPrice={setNewImportPrice}
-                    newPrice={newPrice} setNewPrice={setNewPrice}
-                    newPromoPrice={newPromoPrice} setNewPromoPrice={setNewPromoPrice}
-                    newGiftCondition={newGiftCondition} setNewGiftCondition={setNewGiftCondition}
-                    newGiftInfo={newGiftInfo} setNewGiftInfo={setNewGiftInfo}
-                    newStock={newStock} setNewStock={setNewStock}
-                    newExpiry={newExpiry} setNewExpiry={setNewExpiry}
-                    handleAddProduct={handleAddProduct}
-                    onSubmit={handleAddProduct}
-                    onSave={handleAddProduct}
-                    setShowInputForm={setShowInputForm}
-                    onClose={() => setShowInputForm(false)}
-                    onCancel={() => setShowInputForm(false)}
-                    loading={loading}
-                  />
-                )}
-
-                <div style={{ display: "flex", gap: "8px", marginBottom: "15px", marginTop: showInputForm ? "15px" : "0" }}>
-                  {categories.map(cat => <button key={cat} onClick={() => setSelectedCategory(cat)} className={`tab-btn ${selectedCategory === cat ? 'active' : ''}`}>{cat}</button>)}
-                </div>
-                <ProductTable role={role} sortedAndFilteredProducts={sortedAndFilteredProducts} requestSort={requestSort} handleEdit={handleEdit} addToCart={addToCart} handlePrintBarcode={handlePrintBarcode} handleDelete={handleDelete} sortConfig={sortConfig} filters={filters} setFilters={setFilters} openFilter={openFilter} setOpenFilter={setOpenFilter} uniqueNames={uniqueNames} uniqueStocks={uniqueStocks} uniqueImportPrices={uniqueImportPrices} uniqueSalePrices={uniqueSalePrices} uniqueExpiries={uniqueExpiries} />
-              </div>
-              
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                <CartPanel cart={cart} custName={custName} heldOrders={heldOrders} cartTotalAmountDisplay={cartTotalAmountDisplay} setShowHoldModal={setShowHoldModal} handleHoldOrder={handleHoldOrder} clearCart={clearCart} setCustName={setCustName} setCustPhone={setCustPhone} setCustomerInput={setCustomerInput} setIsCheckoutOpen={setIsCheckoutOpen} setCheckoutStep={setCheckoutStep} adjustCartQty={adjustCartQty} handleDirectQtyChange={handleDirectQtyChange} handleDirectQtyBlur={handleDirectQtyBlur} removeFromCart={removeFromCart} />
-                <HistoryPanel logSearchTerm={logSearchTerm} setLogSearchTerm={setLogSearchTerm} logTypeFilter={logTypeFilter} setLogTypeFilter={setLogTypeFilter} exportToCSV={exportToCSV} groupedHistory={groupedHistory} expandedDates={expandedDates} toggleDateGroup={toggleDateGroup} handleRefund={handleRefund} handleReprint={handleReprint} />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+                               <p style={{ fontStyle: "italic", color: "#64748b", margin:
