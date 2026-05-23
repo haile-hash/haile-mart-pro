@@ -35,13 +35,10 @@ import { AuditModal } from "./components/modals/AuditModal";
 import { ScannerModal } from "./components/modals/ScannerModal";
 import { HandoverModal } from "./components/modals/HandoverModal";
 import { ExpenseModal } from "./components/modals/ExpenseModal";
-import { SupplierModal } from "./components/modals/SupplierModal";
 import { MarketingModal } from "./components/modals/MarketingModal";
-import { SettingsModal } from "./components/modals/SettingsModal";
 import { PinModal } from "./components/modals/PinModal"; 
 import { ScannerLinkModal } from "./components/modals/ScannerLinkModal"; 
 import { MobileScanner } from "./components/MobileScanner"; 
-import { PurchaseOrderModal } from "./components/modals/PurchaseOrderModal";
 
 export default function App() {
   if (typeof window !== "undefined" && window.location.search.includes("scanner=true")) {
@@ -65,12 +62,14 @@ export default function App() {
   const [bankBin, setBankBin] = useState("");
   const [bankAcc, setBankAcc] = useState("");
   const [bankNameStr, setBankNameStr] = useState("");
+  const [zaloPayId, setZaloPayId] = useState("");
   const [happyStart, setHappyStart] = useState("11:00");
   const [happyEnd, setHappyEnd] = useState("13:00");
 
   const [newBankBin, setNewBankBin] = useState("");
   const [newBankAcc, setNewBankAcc] = useState("");
   const [newBankNameStr, setNewBankNameStr] = useState("");
+  const [newZaloPayId, setNewZaloPayId] = useState("");
   const [newHappyStart, setNewHappyStart] = useState("11:00");
   const [newHappyEnd, setNewHappyEnd] = useState("13:00");
 
@@ -96,9 +95,13 @@ export default function App() {
   
   const [expName, setExpName] = useState("");
   const [expAmount, setExpAmount] = useState("");
+  
+  // Nhà cung cấp states
   const [supName, setSupName] = useState("");
   const [supPhone, setSupPhone] = useState("");
+  const [supAddress, setSupAddress] = useState("");
   const [supItem, setSupItem] = useState("");
+  
   const [marketingTier, setMarketingTier] = useState("Tất cả");
   const [marketingMsg, setMarketingMsg] = useState("");
   
@@ -128,6 +131,16 @@ export default function App() {
 
   const { isOnline, syncStatus, syncAllOfflineData, loadCloudData } = useOfflineSync({ isLoggedIn, history, setHistory, customers, setCustomers, heldOrders, setHeldOrders, auditLogs, setAuditLogs, expenses, setExpenses, suppliers, setSuppliers });
 
+  // TÍNH NĂNG GHI NHẬT KÝ ĐỒNG BỘ SUPABASE MẠNH MẼ (Khắc phục lỗi không hiện lịch sử nhập xuất)
+  const addTransactionAndSync = async (logData: any) => {
+    setHistory(prev => [logData, ...prev]);
+    if (navigator.onLine) {
+      try {
+        await supabase.from("history").insert([logData]);
+      } catch (err) { console.error("History sync error:", err); }
+    }
+  };
+
   useEffect(() => { if (darkMode) { document.documentElement.setAttribute('data-theme', 'dark'); localStorage.setItem("mart_theme", "dark"); } else { document.documentElement.removeAttribute('data-theme'); localStorage.setItem("mart_theme", "light"); } }, [darkMode]);
 
   useEffect(() => {
@@ -146,7 +159,7 @@ export default function App() {
     if (isLoggedIn) {
       fetchProducts(); loadCloudData(); fetchSettingsFromCloud(); 
       const channel = supabase.channel("db_changes").on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts()).on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData()).on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload) => { setScanQueue(prev => [...prev, payload.new.code]); }).subscribe();
-      const script = document.createElement("script"); script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"; script.onload = () => { (window as any).emailjs.init(EMAILJS_PUBLIC_KEY); }; document.head.appendChild(script);
+      const script = document.createElement("script"); script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"; script.onload = () => { if(EMAILJS_PUBLIC_KEY) { (window as any).emailjs.init(EMAILJS_PUBLIC_KEY); } }; document.head.appendChild(script);
       const xlsxScript = document.createElement("script"); xlsxScript.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; document.head.appendChild(xlsxScript);
       return () => { supabase.removeChannel(channel) };
     }
@@ -227,9 +240,7 @@ export default function App() {
 
   const totalValue = Math.round(products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
   const lowStockCount = products.filter(p => p.stock > 0 && p.stock < 10).length;
-  
   const categories = ["Tất cả", ...Array.from(new Set(products.map(p => formatCategoryStr(p.category))))];
-  
   const cartTotalAmountDisplay = cart.reduce((sum, item) => sum + item.total, 0);
   const currentTier = getCustomerTier(customers[custPhone]?.totalSpent || 0);
   const tierDiscountAmount = custPhone ? Math.round(cartTotalAmountDisplay * currentTier.discountRate) : 0;
@@ -264,19 +275,28 @@ export default function App() {
   const fetchSettingsFromCloud = async () => {
     try {
       const { data } = await supabase.from("settings").select("*").eq("id", 1).single();
-      if (data) { setBankBin(data.bank_bin); setBankAcc(data.bank_acc); setBankNameStr(data.bank_name_str); setNewBankBin(data.bank_bin); setNewBankAcc(data.bank_acc); setNewBankNameStr(data.bank_name_str); if (data.admin_pin) setAdminPin(data.admin_pin); if (data.happy_hour_start) { setHappyStart(data.happy_hour_start); setNewHappyStart(data.happy_hour_start); } if (data.happy_hour_end) { setHappyEnd(data.happy_hour_end); setNewHappyEnd(data.happy_hour_end); } }
+      if (data) { 
+        setBankBin(data.bank_bin); setBankAcc(data.bank_acc); setBankNameStr(data.bank_name_str); setZaloPayId(data.zalopay_id || "");
+        setNewBankBin(data.bank_bin); setNewBankAcc(data.bank_acc); setNewBankNameStr(data.bank_name_str); setNewZaloPayId(data.zalopay_id || "");
+        if (data.admin_pin) setAdminPin(data.admin_pin); 
+        if (data.happy_hour_start) { setHappyStart(data.happy_hour_start); setNewHappyStart(data.happy_hour_start); } 
+        if (data.happy_hour_end) { setHappyEnd(data.happy_hour_end); setNewHappyEnd(data.happy_hour_end); } 
+      }
     } catch (err) {}
   };
 
-  const updateSettingsToCloud = async (bin: string, acc: string, nameStr: string, hStart: string, hEnd: string) => {
-    if (!navigator.onLine) return toast.error("Mất mạng!"); setLoading(true);
+  const updateSettingsToCloud = async (bin: string, acc: string, nameStr: string, zaloId: string, hStart: string, hEnd: string) => {
+    if (!navigator.onLine) return toast.error("Mất mạng! Không thể lưu cài đặt lên Cloud."); setLoading(true);
     try {
-      const { error } = await supabase.from("settings").update({ bank_bin: bin, bank_acc: acc, bank_name_str: nameStr, happy_hour_start: hStart, happy_hour_end: hEnd, updated_at: new Date().toISOString() }).eq("id", 1);
-      if (!error) { setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr); setHappyStart(hStart); setHappyEnd(hEnd); toast.success("Lưu thành công!"); setShowSettings(false); }
+      const { error } = await supabase.from("settings").update({ bank_bin: bin, bank_acc: acc, bank_name_str: nameStr, zalopay_id: zaloId, happy_hour_start: hStart, happy_hour_end: hEnd, updated_at: new Date().toISOString() }).eq("id", 1);
+      if (!error) { 
+        setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr); setZaloPayId(zaloId); setHappyStart(hStart); setHappyEnd(hEnd); 
+        toast.success("Lưu thành công!"); setShowSettings(false); 
+      }
     } catch (err) {} finally { setLoading(false); }
   };
 
-  const saveSettings = () => { const bin = newBankBin.trim(); const acc = newBankAcc.trim(); const nameStr = newBankNameStr.trim().toUpperCase(); if (!bin || !acc || !nameStr || !newHappyStart || !newHappyEnd) return toast.error("Vui lòng điền đủ thông tin!"); updateSettingsToCloud(bin, acc, nameStr, newHappyStart, newHappyEnd); };
+  const saveSettings = () => { const bin = newBankBin.trim(); const acc = newBankAcc.trim(); const nameStr = newBankNameStr.trim().toUpperCase(); const zaloId = newZaloPayId.trim(); if (!bin || !acc || !nameStr) return toast.error("Vui lòng điền đủ thông tin Ngân hàng!"); updateSettingsToCloud(bin, acc, nameStr, zaloId, newHappyStart, newHappyEnd); };
   
   const logAudit = async (action: string, detail: string, extraData: any = null) => { 
     const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user_name: role === 'admin' ? 'Quản lý' : 'Thu ngân', shift, action, detail, extra_data: extraData ? JSON.stringify(extraData) : null }; 
@@ -289,8 +309,18 @@ export default function App() {
   const handleLogoutClick = () => setShowHandoverModal(true);
   const confirmHandover = async () => { try { if (navigator.onLine) { await supabase.auth.signOut(); } } catch (error) {} finally { localStorage.removeItem("mart_logged_in"); localStorage.removeItem("mart_role"); setIsLoggedIn(false); window.location.reload(); } };
   const handleEditPhone = async (oldPhone: string) => { executeWithAdminCheck(() => { const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customers[newPhone]) return toast.error("SĐT đã tồn tại!"); const cData = customers[oldPhone]; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = { ...cData, phone: newPhone }; delete updated[oldPhone]; return updated }); toast.success("Cập nhật thành công!"); } }); };
-  const addSupplier = async () => { if (!supName || !supPhone) return toast.error("Nhập đủ Tên/SĐT"); setSuppliers(prev => [{ id: Date.now(), name: supName, phone: supPhone, item: supItem, debt: 0 }, ...prev]); setSupName(""); setSupPhone(""); setSupItem(""); toast.success("Thêm NCC thành công!"); };
+  
+  const addSupplier = async () => { 
+    if (!supName || !supPhone) return toast.error("Nhập đủ Tên/SĐT"); 
+    const newId = Date.now();
+    setSuppliers(prev => [{ id: newId, name: supName, phone: supPhone, address: supAddress, item: supItem, debt: 0 }, ...prev]); 
+    if (navigator.onLine) {
+        supabase.from('suppliers').insert([{ id: newId, name: supName, phone: supPhone, address: supAddress, item: supItem, debt: 0 }]).then();
+    }
+    setSupName(""); setSupPhone(""); setSupAddress(""); setSupItem(""); toast.success("Thêm NCC thành công!"); 
+  };
   const deleteSupplier = async (id: any) => { setSuppliers(prev => prev.filter(s => s.id !== id)); if (navigator.onLine) await supabase.from('suppliers').delete().eq('id', id); };
+  
   const addExpense = async () => { if (!expName || !expAmount) return toast.error("Nhập chi phí!"); setExpenses(prev => [{ id: Date.now(), date: new Date().toLocaleDateString('vi-VN'), name: expName, amount: Number(expAmount) }, ...prev]); setExpName(""); setExpAmount(""); toast.success("Đã ghi nhận chi phí!"); };
   const deleteExpense = async (id: any) => { setExpenses(prev => prev.filter(e => e.id !== id)); if (navigator.onLine) await supabase.from('expenses').delete().eq('id', id); };
 
@@ -347,16 +377,37 @@ export default function App() {
            splitCashAmt = Math.round((Number(customerGiven) / finalTotal) * Math.round(item.qty * getActualPrice(item.product) * (1 + VAT_RATE)));
         }
 
-        logs.push({ id: Date.now() + Math.random(), shift, type: "BÁN", name: cleanName(item.product.name), qty: item.qty, total: item.total, profit: Math.round(item.qty * (getActualPrice(item.product) - (item.product.import_price || 0))), customer: custPhone ? `${custName}` : "Khách lẻ", product_id: item.product.id, paymentMethod: payMethod, split_cash: splitCashAmt, time: new Date().toLocaleString('vi-VN') });
+        const newLog = { id: Date.now() + Math.random(), shift, type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", name: cleanName(item.product.name), qty: item.qty, total: item.total, profit: Math.round(item.qty * (getActualPrice(item.product) - (item.product.import_price || 0))), customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id, paymentMethod: payMethod, split_cash: splitCashAmt, time: new Date().toLocaleString('vi-VN') };
+        logs.push(newLog);
       }
-      setHistory(prev => [...logs, ...prev]);
+      
+      // Khắc phục lỗi nợ khách hàng không lưu
+      if (custPhone) {
+        const earned = payMethod === 'GHI NỢ' ? 0 : Math.round(finalTotal * 0.02);
+        const updatedCust = { 
+            name: custName, 
+            wallet: payMethod === 'GHI NỢ' ? (customers[custPhone]?.wallet || 0) : Math.round((customers[custPhone]?.wallet || 0) - walletUsedAmount + earned), 
+            debt: (customers[custPhone]?.debt || 0) + (payMethod === 'GHI NỢ' ? finalTotal : 0), 
+            totalSpent: (customers[custPhone]?.totalSpent || 0) + (payMethod !== 'GHI NỢ' ? finalTotal : 0), 
+            email: customers[custPhone]?.email || "", 
+            address: customers[custPhone]?.address || "",
+            cardCode: customers[custPhone]?.cardCode || "" 
+        }; 
+        setCustomers((prev: any) => ({ ...prev, [custPhone]: updatedCust })); 
+        // Ép lưu Supabase ngay lập tức
+        if (navigator.onLine) {
+            await supabase.from("customers").upsert({ phone: custPhone, ...updatedCust });
+        }
+      }
+
+      logs.forEach(lg => addTransactionAndSync(lg));
       setLastOrder({ orderId: orderIdStr, shift, cart: [...cart], subTotal, vatTotal, finalTotal, debtAmount: payMethod === 'GHI NỢ' ? finalTotal : 0, discount: appliedVoucherAmount + tierDiscountAmount, time: new Date().toLocaleString('vi-VN'), paymentMethod: payMethod, customerGiven: Number(customerGiven) || 0, custPhone, custName });
       setCheckoutStep(3); fetchProducts(); 
     } catch (err) { toast.error("Lỗi thanh toán: " + err.message); } finally { setLoading(false); }
   };
 
-  const handleRefund = async (logId: any) => { executeWithAdminCheck(() => { const log = history.find(l => l.id === logId); if (!log || log.type !== 'BÁN') return; setHistory(prev => [{ id: Date.now(), shift, type: "TRẢ HÀNG", name: "HOÀN đơn: " + log.name, qty: log.qty, total: -log.total, profit: -(log.profit || 0), customer: log.customer, paymentMethod: "TIỀN MẶT", time: new Date().toLocaleString('vi-VN') }, ...prev]); toast.success("Hoàn đơn thành công!"); }); };
-  const handlePayDebt = async (phone: string) => { const currentDebt = customers[phone]?.debt || 0; if (currentDebt <= 0) return toast.error("Khách không có nợ!"); setCustomers(prev => ({ ...prev, [phone]: { ...prev[phone], debt: 0 } })); toast.success("Đã xóa nợ!"); };
+  const handleRefund = async (logId: any) => { executeWithAdminCheck(() => { const log = history.find(l => l.id === logId); if (!log || log.type !== 'BÁN') return; const lg = { id: Date.now(), shift, type: "TRẢ HÀNG", name: "HOÀN đơn: " + log.name, qty: log.qty, total: -log.total, profit: -(log.profit || 0), customer: log.customer, paymentMethod: "TIỀN MẶT", time: new Date().toLocaleString('vi-VN') }; addTransactionAndSync(lg); toast.success("Hoàn đơn thành công!"); }); };
+  const handlePayDebt = async (phone: string) => { const currentDebt = customers[phone]?.debt || 0; if (currentDebt <= 0) return toast.error("Khách không có nợ!"); setCustomers(prev => ({ ...prev, [phone]: { ...prev[phone], debt: 0 } })); if(navigator.onLine) await supabase.from("customers").update({ debt: 0 }).eq("phone", phone); const lg = { id: Date.now(), shift, type: "THU NỢ", name: "Thanh toán nợ", qty: 1, total: currentDebt, profit: 0, customer: `${customers[phone].name} (${phone})`, paymentMethod: 'TIỀN MẶT', time: new Date().toLocaleString('vi-VN') }; addTransactionAndSync(lg); toast.success("Đã xóa nợ!"); };
 
   const handleReprint = (timeStr: string) => {
     const logsInBill = history.filter(h => h.time === timeStr && h.type === 'BÁN' && h.product_id !== 'DISCOUNT'); const discountLog = history.find(h => h.time === timeStr && h.product_id === 'DISCOUNT');
@@ -379,8 +430,12 @@ export default function App() {
     if (!lastOrder) return; let savedEmail = (lastOrder.custPhone && customers[lastOrder.custPhone] && customers[lastOrder.custPhone].email) ? customers[lastOrder.custPhone].email : ""; 
     let email = window.prompt("Nhập Email khách hàng:", savedEmail); if (!email) return; email = email.trim(); const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; if (!emailRegex.test(email)) return toast.error("Địa chỉ Email không hợp lệ!");
     if (lastOrder.custPhone) { setCustomers((prev: any) => ({ ...prev, [lastOrder.custPhone]: { ...prev[lastOrder.custPhone], email: email } })); }
-    setLoading(true); 
     
+    if (!EMAILJS_PUBLIC_KEY || !EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID) {
+      return toast.error("Hệ thống chưa được cấu hình EmailJS!");
+    }
+    
+    setLoading(true); 
     let itemsHtml = ""; 
     lastOrder.cart.forEach((item: any) => { 
       const priceToUse = item.priceIncludingVat !== undefined ? item.priceIncludingVat : Math.round(getActualPrice(item.product) * (1 + VAT_RATE)); 
@@ -443,7 +498,15 @@ export default function App() {
   
   const sendCardEmail = async (phone: string) => {
     const cust = customers[phone]; let email = cust.email || window.prompt(`Nhập Email của ${cust.name}:`, ""); if (!email) return; email = email.trim(); const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; if (!emailRegex.test(email)) return toast.error("Địa chỉ Email không hợp lệ!");
-    if (!cust.email) { setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], email } })); } setLoading(true); const code = cust.cardCode || phone; const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=10&includetext=false`; 
+    if (!cust.email) { setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], email } })); } 
+    
+    if (!EMAILJS_PUBLIC_KEY || !EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_VIP_ID) {
+      return toast.error("Hệ thống chưa được cấu hình EmailJS!");
+    }
+
+    setLoading(true); 
+    const code = cust.cardCode || phone; 
+    const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=10&includetext=false`; 
     
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
@@ -498,25 +561,25 @@ export default function App() {
       if (exist) {
         if (exist.stock <= 0) {
           await supabase.from("products").update({ name: newName, category: formattedCat, import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null, created_at: new Date().toISOString() }).eq("id", exist.id);
-          if (added > 0) setHistory(prev => [{ id: Date.now(), shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') } as any, ...prev]); 
+          if (added > 0) addTransactionAndSync({ id: Date.now(), shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }); 
           toast.success(`Đã nhập hàng!${syncMsg}`);
         } else {
           if (exist.import_price !== impPrice || (exist.expiry_date || "") !== (newExpiry || "")) {
             const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}`; const batchName = `${newName} [Lô mới]`;
             if (window.confirm(`Tạo LÔ MỚI (${batchCode})?`)) {
               await supabase.from("products").insert([{ product_code: batchCode, name: batchName, category: formattedCat, import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null }]);
-              if (added > 0) setHistory(prev => [{ id: Date.now(), shift, type: "NHẬP", name: batchName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') } as any, ...prev]); 
+              if (added > 0) addTransactionAndSync({ id: Date.now(), shift, type: "NHẬP", name: batchName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }); 
               toast.success(`Đã tạo lô mới!${syncMsg}`);
             } else { setLoading(false); return; }
           } else {
             await supabase.from("products").update({ stock: exist.stock + added, created_at: new Date().toISOString() }).eq("id", exist.id);
-            if (added > 0) setHistory(prev => [{ id: Date.now(), shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') } as any, ...prev]); 
+            if (added > 0) addTransactionAndSync({ id: Date.now(), shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }); 
             toast.success(`Cộng dồn thành công!${syncMsg}`);
           }
         }
       } else {
         await supabase.from("products").insert([{ product_code: baseCode, name: newName, category: formattedCat, import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: added, expiry_date: newExpiry || null }]);
-        if (added > 0) setHistory(prev => [{ id: Date.now(), shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') } as any, ...prev]); 
+        if (added > 0) addTransactionAndSync({ id: Date.now(), shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }); 
         toast.success(`Nhập thành công!${syncMsg}`);
       }
       resetProductForm(); fetchProducts(); setShowInputForm(false);
@@ -566,7 +629,9 @@ export default function App() {
           if (pStock > 0) { importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "NHẬP", name: cleanName(pName), qty: pStock, total: 0, time: new Date().toLocaleString('vi-VN') } as any); successCount++; }
         }
         
-        if (importLogs.length > 0) { setHistory(prev => [...importLogs, ...prev]); } 
+        if (importLogs.length > 0) { 
+           importLogs.forEach(lg => addTransactionAndSync(lg));
+        } 
         logAudit("NHẬP FILE", `Nhập ${successCount} mã`); toast.success(`Nhập thành công ${successCount} sản phẩm từ file!`); fetchProducts();
       } catch (err) { console.error(err); toast.error("Lỗi xử lý dữ liệu file, vui lòng kiểm tra lại định dạng."); } setLoading(false);
     }; 
@@ -743,83 +808,347 @@ export default function App() {
   const requestSort = (key: string) => { if (sortConfig && sortConfig.key === key) { if (sortConfig.direction === 'asc') setSortConfig({ key, direction: 'desc' }); else setSortConfig(null) } else { setSortConfig({ key, direction: 'asc' }) } };
   const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
 
-  const handleSavePO = async (supplier: any, items: any[], totalAmount: number, paidAmount: number, note: string) => {
-    if (!navigator.onLine) return toast.error("Cần mạng để lưu Phiếu Nhập Hàng!"); setLoading(true);
-    try {
-      const debtAmount = totalAmount - paidAmount; const poCode = "PO" + Date.now().toString().slice(-6);
-      await supabase.from('purchase_orders').insert([{ po_code: poCode, supplier_name: supplier.name, supplier_phone: supplier.phone, total_amount: totalAmount, paid_amount: paidAmount, debt_amount: debtAmount, note: note }]);
-      if (debtAmount > 0) { const newDebt = (supplier.debt || 0) + debtAmount; await supabase.from('suppliers').update({ debt: newDebt }).eq('id', supplier.id); setSuppliers(prev => prev.map(s => s.id === supplier.id ? { ...s, debt: newDebt } : s)); }
-      for (const item of items) { const p = products.find(x => x.id === item.product.id); if (p) { const newStock = p.stock + item.qty; await supabase.from('products').update({ stock: newStock, import_price: item.importPrice }).eq('id', p.id); setHistory(prev => [{ id: Date.now() + Math.random(), shift, type: "NHẬP PO", name: p.name, qty: item.qty, total: item.qty * item.importPrice, time: new Date().toLocaleString('vi-VN') } as any, ...prev]); } }
-      logAudit("NHẬP HÀNG PO", `Mã ${poCode} từ ${supplier.name} (Nợ: ${debtAmount.toLocaleString()}đ)`); toast.success("Đã lưu Phiếu Nhập & Cộng Kho thành công!"); fetchProducts(); setShowPOModal(false);
-    } catch(err: any) { toast.error("Lỗi hệ thống: " + err.message); } finally { setLoading(false); }
-  };
-
-  const sendMarketingEmails = async () => {
-    if (!marketingMsg) return toast.error("Vui lòng nhập nội dung!"); if (!window.confirm("Giới hạn 200 mail/tháng. Gửi?")) return;
-    setLoading(true); const targetCustomers = Object.keys(customers).filter(phone => { const c = customers[phone]; if (!c.email) return false; if (marketingTier === "Tất cả") return true; return getCustomerTier(c.totalSpent).name.includes(marketingTier) });
-    if (targetCustomers.length === 0) { setLoading(false); return toast.error("Không có khách hàng nào phù hợp!"); }
+  // 🔥 TÍNH NĂNG MỚI: TẠO PHIẾU PO HOÀN CHỈNH (CÓ TÌM KIẾM, ĐỐI SOÁT HÀNG HỎNG)
+  // Lưu ý: Sẽ render thay thế component PurchaseOrderModal cũ để chạy được logic mới nhất
+  const CustomPOModal = () => {
+    if (!showPOModal) return null;
     
-    let successCount = 0;
-    for (const phone of targetCustomers) { 
-      const c = customers[phone]; 
+    const [poTab, setPoTab] = useState<'NEW' | 'RECEIVE'>('NEW');
+    
+    // States for NEW PO
+    const [selectedSupplierId, setSelectedSupplierId] = useState("");
+    const [poItems, setPoItems] = useState<any[]>([]);
+    const [poSearch, setPoSearch] = useState("");
+    const [poNote, setPoNote] = useState("");
+    const [paidAmount, setPaidAmount] = useState<number>(0);
+    
+    // States for RECEIVE PO
+    const [searchPoCode, setSearchPoCode] = useState("");
+    const [foundPO, setFoundPO] = useState<any>(null);
+    const [receiveItems, setReceiveItems] = useState<any[]>([]);
+
+    const handleAddPoItem = (p: Product) => {
+      const exist = poItems.find(i => i.product.id === p.id);
+      if (exist) {
+        setPoItems(poItems.map(i => i.product.id === p.id ? { ...i, qty: i.qty + 1 } : i));
+      } else {
+        setPoItems([{ product: p, qty: 1, importPrice: p.import_price || 0 }, ...poItems]);
+      }
+      setPoSearch("");
+    };
+    
+    const totalPOAmount = poItems.reduce((sum, item) => sum + (item.qty * item.importPrice), 0);
+
+    const handleSaveNewPO = async () => {
+      if (!selectedSupplierId) return toast.error("Vui lòng chọn Nhà Cung Cấp!");
+      if (poItems.length === 0) return toast.error("Phiếu nhập trống!");
+      const supplier = suppliers.find(s => s.id.toString() === selectedSupplierId);
+      if (!supplier) return;
       
-      const htmlContent = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-          <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 20px; text-align: center;">
-            <h1 style="margin: 0; font-size: 24px;">HẢI LÊ MART</h1>
-            <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">THÔNG BÁO ƯU ĐÃI ĐẶC QUYỀN</p>
+      setLoading(true);
+      try {
+        const debtAmount = totalPOAmount - paidAmount; 
+        const poCode = "PO" + Date.now().toString().slice(-6);
+        
+        // Lưu nháp (chưa cộng kho)
+        await supabase.from('purchase_orders_v2').insert([{ 
+          id: Date.now().toString(),
+          po_code: poCode, 
+          supplier: supplier, 
+          items: poItems, 
+          total_amount: totalPOAmount, 
+          paid_amount: paidAmount, 
+          debt_amount: debtAmount, 
+          status: 'PENDING',
+          note: poNote 
+        }]);
+        
+        toast.success(`Đã lưu Phiếu Nhập ${poCode} thành công!`);
+        setShowPOModal(false);
+      } catch (err: any) { toast.error("Lỗi: " + err.message); } 
+      finally { setLoading(false); }
+    };
+
+    const searchOldPO = async () => {
+      if (!searchPoCode.trim()) return;
+      setLoading(true);
+      const { data, error } = await supabase.from('purchase_orders_v2').select('*').eq('po_code', searchPoCode.trim()).single();
+      if (error || !data) {
+        toast.error("Không tìm thấy số PO này!");
+      } else {
+        setFoundPO(data);
+        // Map items để thêm trường damagedQty
+        setReceiveItems(data.items.map((i: any) => ({ ...i, damagedQty: 0 })));
+      }
+      setLoading(false);
+    };
+
+    const handleReceivePO = async () => {
+      if (!foundPO || receiveItems.length === 0) return;
+      setLoading(true);
+      try {
+        // Cập nhật công nợ thực tế dựa trên hàng nhập thành công
+        let actualTotal = 0;
+        let logs: any[] = [];
+        
+        for (const item of receiveItems) {
+            const actualQty = item.qty - (item.damagedQty || 0);
+            actualTotal += actualQty * item.importPrice;
+            
+            if (actualQty > 0) {
+                // Cộng kho
+                const p = products.find(x => x.id === item.product.id);
+                if (p) {
+                    await supabase.from('products').update({ stock: p.stock + actualQty, import_price: item.importPrice }).eq('id', p.id);
+                    logs.push({ id: Date.now() + Math.random(), shift, type: "NHẬP PO", name: p.name, qty: actualQty, total: actualQty * item.importPrice, time: new Date().toLocaleString('vi-VN') });
+                }
+            }
+            if (item.damagedQty > 0) {
+                logs.push({ id: Date.now() + Math.random(), shift, type: "TRẢ HÀNG NCC", name: item.product.name + " (Lỗi/Hỏng)", qty: item.damagedQty, total: 0, time: new Date().toLocaleString('vi-VN') });
+            }
+        }
+        
+        const finalDebt = actualTotal - foundPO.paid_amount;
+        
+        // Cộng nợ nhà cung cấp
+        if (finalDebt > 0 && foundPO.supplier) {
+            const supplierId = foundPO.supplier.id;
+            const s = suppliers.find(x => x.id === supplierId);
+            if (s) {
+                const newD = (s.debt || 0) + finalDebt;
+                await supabase.from('suppliers').update({ debt: newD }).eq('id', supplierId);
+                setSuppliers(prev => prev.map(x => x.id === supplierId ? { ...x, debt: newD } : x));
+            }
+        }
+
+        // Cập nhật trạng thái PO
+        await supabase.from('purchase_orders_v2').update({ status: 'COMPLETED', items: receiveItems, total_amount: actualTotal }).eq('id', foundPO.id);
+        
+        logs.forEach(lg => addTransactionAndSync(lg));
+        logAudit("NHẬN HÀNG PO", `Nhận mã ${foundPO.po_code} - Nợ phát sinh: ${finalDebt.toLocaleString()}đ`);
+        
+        toast.success("Nhập Kho thành công!");
+        fetchProducts();
+        setShowPOModal(false);
+      } catch (err: any) { toast.error("Lỗi: " + err.message); } 
+      finally { setLoading(false); }
+    };
+
+    return (
+      <div className="modal-overlay">
+        <div className="modal-content" style={{ width: "95%", maxWidth: "1200px", height: "90vh", display: "flex", flexDirection: "column" }}>
+          <div className="modal-header">
+            <h2>📦 QUẢN LÝ PHIẾU NHẬP (PO)</h2>
+            <button className="close-btn" onClick={() => setShowPOModal(false)}>×</button>
           </div>
-          <div style="padding: 30px 20px; background: #ffffff;">
-            <h2 style="margin: 0 0 15px 0; color: #0f172a; font-size: 20px;">Chào ${c.name},</h2>
-            <div style="color: #475569; font-size: 16px; line-height: 1.6; white-space: pre-wrap;">${marketingMsg}</div>
+          
+          <div style={{ display: "flex", gap: "10px", padding: "15px", borderBottom: "1px solid #eee" }}>
+            <button onClick={() => setPoTab('NEW')} className={`tab-btn ${poTab === 'NEW' ? 'active' : ''}`}>+ TẠO PO MỚI (CHỜ NHẬN)</button>
+            <button onClick={() => setPoTab('RECEIVE')} className={`tab-btn ${poTab === 'RECEIVE' ? 'active' : ''}`}>📥 TÌM & NHẬN HÀNG</button>
           </div>
-          <div style="background: #f8fafc; padding: 15px; text-align: center; border-top: 1px solid #e2e8f0;">
-            <p style="margin: 0; font-size: 12px; color: #94a3b8;">Hải Lê Mart © 2026 - Hotline: 0902 613 899</p>
+
+          <div style={{ flex: 1, overflowY: "auto", padding: "20px", display: "grid", gridTemplateColumns: "1fr 2fr", gap: "20px" }}>
+            
+            {/* TẠO PO MỚI */}
+            {poTab === 'NEW' && (
+              <>
+                <div style={{ background: "#f8fafc", padding: "15px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                  <h3 style={{ margin: "0 0 15px 0", fontSize: "16px" }}>1. Chọn Nhà Cung Cấp</h3>
+                  <select className="form-input" value={selectedSupplierId} onChange={e => setSelectedSupplierId(e.target.value)} style={{ marginBottom: "15px" }}>
+                    <option value="">-- Chọn Nhà Cung Cấp --</option>
+                    {suppliers.map((s: any) => <option key={s.id} value={s.id}>{s.name} - {s.phone}</option>)}
+                  </select>
+                  
+                  <h3 style={{ margin: "0 0 15px 0", fontSize: "16px" }}>2. Tìm Sản Phẩm</h3>
+                  <input type="text" className="form-input" placeholder="Nhập tên hoặc mã SP..." value={poSearch} onChange={e => setPoSearch(e.target.value)} />
+                  <div style={{ maxHeight: "250px", overflowY: "auto", background: "#fff", border: "1px solid #ddd", borderRadius: "8px", marginTop: "5px" }}>
+                    {poSearch.trim() && products.filter(p => cleanName(p.name).toLowerCase().includes(poSearch.toLowerCase()) || String(p.product_code).toLowerCase().includes(poSearch.toLowerCase())).slice(0, 10).map(p => (
+                      <div key={p.id} onClick={() => handleAddPoItem(p)} style={{ padding: "10px", borderBottom: "1px solid #eee", cursor: "pointer" }}>
+                        <div style={{ fontWeight: "bold" }}>{cleanName(p.name)}</div>
+                        <div style={{ fontSize: "12px", color: "#666" }}>Mã: {p.product_code} | Giá nhập: {(p.import_price||0).toLocaleString()}đ</div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div style={{ marginTop: "20px" }}>
+                    <label style={{ fontSize: "13px", fontWeight: "bold" }}>Ghi chú:</label>
+                    <textarea className="form-input" placeholder="Ghi chú phiếu..." value={poNote} onChange={e => setPoNote(e.target.value)} rows={3} style={{ resize: "vertical" }} />
+                  </div>
+                </div>
+
+                <div>
+                  <h3 style={{ margin: "0 0 15px 0" }}>Danh sách Sản Phẩm Sẽ Đặt</h3>
+                  <table className="cart-table">
+                    <thead><tr><th>Sản phẩm</th><th>Số lượng</th><th>Giá nhập (đ)</th><th>Thành tiền</th><th>Xóa</th></tr></thead>
+                    <tbody>
+                      {poItems.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", padding: "20px", color: "#999" }}>Chưa có sản phẩm nào</td></tr>}
+                      {poItems.map((item, idx) => (
+                        <tr key={idx}>
+                          <td>{cleanName(item.product.name)}</td>
+                          <td><input type="number" className="form-input" style={{ padding: "5px", width: "60px" }} value={item.qty} onChange={e => { const val = parseInt(e.target.value)||1; setPoItems(poItems.map((i, ix) => ix === idx ? { ...i, qty: val } : i)) }} min="1" /></td>
+                          <td><input type="number" className="form-input" style={{ padding: "5px", width: "100px" }} value={item.importPrice} onChange={e => { const val = parseInt(e.target.value)||0; setPoItems(poItems.map((i, ix) => ix === idx ? { ...i, importPrice: val } : i)) }} min="0" /></td>
+                          <td style={{ fontWeight: "bold" }}>{(item.qty * item.importPrice).toLocaleString()}</td>
+                          <td><button onClick={() => setPoItems(poItems.filter((_, ix) => ix !== idx))} style={{ background: "transparent", color: "red", border: "none", cursor: "pointer", fontSize: "18px" }}>×</button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  
+                  <div style={{ background: "#f8fafc", padding: "15px", borderRadius: "10px", marginTop: "20px", display: "flex", flexDirection: "column", gap: "10px", alignItems: "flex-end" }}>
+                    <div style={{ fontSize: "16px" }}>Tổng giá trị Đơn hàng: <b style={{ fontSize: "20px" }}>{totalPOAmount.toLocaleString()}đ</b></div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <span>Trả trước NCC:</span>
+                      <input type="number" className="form-input" style={{ width: "150px" }} value={paidAmount} onChange={e => setPaidAmount(parseInt(e.target.value)||0)} min="0" />
+                    </div>
+                    <div style={{ color: "#ef4444" }}>Công nợ sẽ ghi nhận: <b>{(totalPOAmount - paidAmount).toLocaleString()}đ</b></div>
+                    <button className="btn btn-save" onClick={handleSaveNewPO} disabled={loading} style={{ width: "200px", padding: "12px", marginTop: "10px" }}>{loading ? "ĐANG LƯU..." : "💾 LƯU PHIẾU ĐẶT HÀNG"}</button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* NHẬN HÀNG PO CŨ */}
+            {poTab === 'RECEIVE' && (
+              <>
+                <div style={{ background: "#f8fafc", padding: "15px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                  <h3 style={{ margin: "0 0 15px 0", fontSize: "16px" }}>1. Tìm Phiếu Đặt Hàng</h3>
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <input type="text" className="form-input" placeholder="Nhập số PO (VD: PO123456)..." value={searchPoCode} onChange={e => setSearchPoCode(e.target.value)} />
+                    <button className="btn btn-search" onClick={searchOldPO} disabled={loading}>TÌM</button>
+                  </div>
+                  
+                  {foundPO && (
+                    <div style={{ marginTop: "20px", padding: "15px", background: "#fff", borderRadius: "8px", border: "1px dashed #ccc" }}>
+                      <p><b>Số PO:</b> {foundPO.po_code}</p>
+                      <p><b>Nhà Cung Cấp:</b> {foundPO.supplier?.name}</p>
+                      <p><b>Ngày tạo:</b> {new Date(foundPO.created_at).toLocaleString('vi-VN')}</p>
+                      <p><b>Trạng thái:</b> <span style={{ color: foundPO.status === 'PENDING' ? '#f59e0b' : '#10b981', fontWeight: "bold" }}>{foundPO.status === 'PENDING' ? 'Đang chờ nhận' : 'Đã hoàn tất'}</span></p>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <h3 style={{ margin: "0 0 15px 0" }}>2. Đối Soát Hàng & Nhập Kho</h3>
+                  {foundPO ? (
+                    foundPO.status === 'COMPLETED' ? (
+                       <div style={{ textAlign: "center", padding: "30px", background: "#ecfdf5", color: "#059669", borderRadius: "10px", fontWeight: "bold", fontSize: "18px" }}>✅ PHIẾU NÀY ĐÃ ĐƯỢC NHẬP KHO XONG!</div>
+                    ) : (
+                      <>
+                        <table className="cart-table">
+                          <thead><tr><th>Sản phẩm</th><th>SL Đã Đặt</th><th>Báo Hàng Hỏng/Lỗi</th><th>SL Sẽ Nhập</th></tr></thead>
+                          <tbody>
+                            {receiveItems.map((item, idx) => (
+                              <tr key={idx}>
+                                <td>{cleanName(item.product.name)}</td>
+                                <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "16px" }}>{item.qty}</td>
+                                <td><input type="number" className="form-input" style={{ padding: "5px", width: "80px", color: "red", borderColor: item.damagedQty > 0 ? "red" : "#ccc" }} value={item.damagedQty} onChange={e => { const val = parseInt(e.target.value)||0; if(val <= item.qty && val >= 0) setReceiveItems(receiveItems.map((i, ix) => ix === idx ? { ...i, damagedQty: val } : i)) }} min="0" max={item.qty} /></td>
+                                <td style={{ textAlign: "center", fontWeight: "bold", color: "#10b981", fontSize: "16px" }}>{item.qty - (item.damagedQty || 0)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        
+                        <div style={{ background: "#f8fafc", padding: "15px", borderRadius: "10px", marginTop: "20px", display: "flex", flexDirection: "column", gap: "10px", alignItems: "flex-end" }}>
+                           <p style={{ fontStyle: "italic", color: "#666" }}>* Hệ thống sẽ tự động đối soát, cộng kho hàng thực tế và trả lại hàng hỏng cho NCC.</p>
+                           <button className="btn btn-save" onClick={handleReceivePO} disabled={loading} style={{ width: "250px", padding: "15px", background: "#10b981" }}>{loading ? "ĐANG XỬ LÝ..." : "✅ XÁC NHẬN NHẬN HÀNG"}</button>
+                        </div>
+                      </>
+                    )
+                  ) : (
+                    <div style={{ textAlign: "center", padding: "40px", color: "#999", border: "1px dashed #ccc", borderRadius: "10px" }}>Vui lòng tìm kiếm số PO để tiếp tục</div>
+                  )}
+                </div>
+              </>
+            )}
+
           </div>
         </div>
-      `;
-
-      try { 
-        await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { 
-          to_email: c.email, 
-          subject: "💌 Ưu Đãi Đặc Quyền Từ Hải Lê Mart",
-          html_message: htmlContent,
-          order_id: "", time: "", items_list: "", total_amount: "", payment_method: "", change_amount: "", barcode_url: "" 
-        }); 
-        successCount++;
-      } catch (error: any) { console.error("EmailJS Error", error); } 
-    }
-    
-    logAudit("GỬI MAIL MKT", `Gửi ${successCount} mail cho tập ${marketingTier}`); setLoading(false); setShowMarketingModal(false); toast.success(`Đã gửi ${successCount} mail!`)
+      </div>
+    );
   };
 
-  const handleBarcodeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => { document.getElementById('search-barcode')?.focus(); if (e.key === 'Enter') { e.preventDefault(); const p = findProductByCode(barcodeInput); if (p) handleSelectSuggest(p); else { const matchedPhone = Object.keys(customers).find(phone => phone === barcodeInput.trim() || customers[phone].cardCode === barcodeInput.trim()); if (matchedPhone) { playSound('success'); setCustomerInput(customers[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setBarcodeInput("") } else { playSound('error'); toast.error("Mã không hợp lệ!") } } } };
-  
-  const handleSelectSuggest = (p_input: any) => {
-    const baseCode = String(p_input.product_code).split('-')[0]; const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); 
-    if (totalStock <= 0) { playSound('error'); return toast.error("Sản phẩm đã hết hàng!"); }
-    const currentTime = new Date(); const currentTotalMins = currentTime.getHours() * 60 + currentTime.getMinutes(); const [startH, startM] = happyStart.split(':').map(Number); const [endH, endM] = happyEnd.split(':').map(Number); const startTotalMins = startH * 60 + startM; const endTotalMins = endH * 60 + endM; let isHappyNow = false; if (startTotalMins <= endTotalMins) { isHappyNow = currentTotalMins >= startTotalMins && currentTotalMins <= endTotalMins; } else { isHappyNow = currentTotalMins >= startTotalMins || currentTotalMins <= endTotalMins; }
-    let itemToCart = { ...p_input }; if (isHappyNow && p_input.promo_price > 0 && p_input.promo_price < p_input.sale_price) { itemToCart.isHappyHour = true; }
-    const price = getActualPrice(itemToCart); const repName = cleanName(itemToCart.name);
-    setCart(prev => {
-      const exist = prev.find(item => cleanName(item.product.name) === repName && !!item.product.isHappyHour === !!itemToCart.isHappyHour);
-      if (exist) { const newQty = exist.qty + 1; if (newQty > totalStock) { playSound('error'); return prev; } return prev.map(i => (cleanName(i.product.name) === repName && !!i.product.isHappyHour === !!itemToCart.isHappyHour) ? { ...i, qty: newQty, total: Math.round(newQty * price * (1 + VAT_RATE)) } : i); } 
-      else { return [...prev, { product: itemToCart, qty: 1, total: Math.round(price * (1 + VAT_RATE)) }]; }
-    });
-    setScanMessage({ text: `✅ Thêm: ${repName} ${itemToCart.isHappyHour ? '⭐' : ''}`, type: 'success' }); setBarcodeInput(""); setShowSuggestions(false); setTimeout(() => setScanMessage(null), 2000);
-  };
-  
-  const addToCart = (p_input: any) => { handleSelectSuggest(p_input); playSound('success'); };
-  const adjustCartQty = (productId: any, delta: number) => { let exceedStock = false; setCart(prev => { const updated = prev.map(item => { if (item.product.id === productId) { const baseCode = String(item.product.product_code).split('-')[0]; const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); const newQty = item.qty + delta; if (newQty > totalStock) { exceedStock = true; return item; } const price = getActualPrice(item.product); return { ...item, qty: newQty, total: Math.round(newQty * price * (1 + VAT_RATE)) }; } return item; }); return updated.filter(item => item.qty > 0); }); if (exceedStock) playSound('error'); else if (delta > 0) playSound('success'); };
-  const handleDirectQtyChange = (productId: any, val: string) => { setCart(prev => { if (val === '') return prev.map(i => i.product.id === productId ? { ...i, qty: '' as any, total: 0 } : i); let num = parseInt(val); if (isNaN(num) || num < 0) return prev; let exceedStock = false; const updated = prev.map(i => { if (i.product.id === productId) { const baseCode = String(i.product.product_code).split('-')[0]; const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); if (num > totalStock) { exceedStock = true; num = totalStock; } const price = getActualPrice(i.product); return { ...i, qty: num, total: Math.round(num * price * (1 + VAT_RATE)) }; } return i; }); if (exceedStock) playSound('error'); return updated; }); };
-  const handleDirectQtyBlur = (productId: any, val: string) => { if (val === '' || parseInt(val) <= 0 || isNaN(parseInt(val))) { setCart(prev => prev.map(i => { if (i.product.id === productId) { const price = getActualPrice(i.product); return { ...i, qty: 1, total: Math.round(1 * price * (1 + VAT_RATE)) } } return i })) } };
-  const removeFromCart = (productId: any) => { setCart(cart.filter(item => item.product.id !== productId)) };
-  const clearCart = () => { if (window.confirm("Hủy toàn bộ?")) { resetCheckout(); } };
+  const renderModals = () => (
+    <>
+      <ExpenseModal showExpenseModal={showExpenseModal} setShowExpenseModal={setShowExpenseModal} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} expenses={expenses} addExpense={addExpense} deleteExpense={deleteExpense} />
+      
+      {/* KHÔI PHỤC SUPPLIER CÓ ADDRESS */}
+      {showSupplierModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: "800px" }}>
+            <div className="modal-header"><h2>QUẢN LÝ NHÀ CUNG CẤP</h2><button className="close-btn" onClick={() => setShowSupplierModal(false)}>×</button></div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "20px" }}>
+              <div className="glass" style={{ padding: "15px" }}>
+                <h3 style={{ marginTop: 0 }}>Thêm Mới</h3>
+                <input className="form-input" placeholder="Tên Nhà Cung Cấp" value={supName} onChange={e => setSupName(e.target.value)} />
+                <input className="form-input" placeholder="Số điện thoại" value={supPhone} onChange={e => setSupPhone(e.target.value)} />
+                <input className="form-input" placeholder="Địa chỉ (Tùy chọn)" value={supAddress} onChange={e => setSupAddress(e.target.value)} />
+                <input className="form-input" placeholder="Mặt hàng cung cấp" value={supItem} onChange={e => setSupItem(e.target.value)} />
+                <button className="btn btn-save" onClick={addSupplier} style={{ width: "100%", marginTop: "10px" }}>THÊM</button>
+              </div>
+              <div style={{ maxHeight: "60vh", overflowY: "auto" }}>
+                <table className="cart-table">
+                  <thead><tr><th>Tên</th><th>SĐT</th><th>Địa chỉ</th><th>Nợ</th><th>Xóa</th></tr></thead>
+                  <tbody>{suppliers.map(s => <tr key={s.id}><td>{s.name}</td><td>{s.phone}</td><td>{s.address}</td><td style={{ color: "red", fontWeight: "bold" }}>{(s.debt || 0).toLocaleString()}đ</td><td><button onClick={() => deleteSupplier(s.id)} style={{ color: "red", background: "none", border: "none", cursor: "pointer" }}>🗑️</button></td></tr>)}</tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* KHÔI PHỤC SETTINGS CÓ ZALO PAY */}
+      {showSettings && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: "600px" }}>
+            <div className="modal-header"><h2>⚙️ CÀI ĐẶT HỆ THỐNG</h2><button className="close-btn" onClick={() => setShowSettings(false)}>×</button></div>
+            <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "15px" }}>
+              <div><label>Mã Ngân Hàng (BIN):</label><input className="form-input" value={newBankBin} onChange={e => setNewBankBin(e.target.value)} /></div>
+              <div><label>Số Tài Khoản:</label><input className="form-input" value={newBankAcc} onChange={e => setNewBankAcc(e.target.value)} /></div>
+              <div><label>Tên Chủ Tài Khoản:</label><input className="form-input" value={newBankNameStr} onChange={e => setNewBankNameStr(e.target.value)} /></div>
+              <div><label>SĐT ZaloPay (Đăng ký ví):</label><input className="form-input" placeholder="VD: 0901234567" value={newZaloPayId} onChange={e => setNewZaloPayId(e.target.value)} /></div>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <div style={{ flex: 1 }}><label>Giờ Vàng (Bắt đầu):</label><input type="time" className="form-input" value={newHappyStart} onChange={e => setNewHappyStart(e.target.value)} /></div>
+                <div style={{ flex: 1 }}><label>Giờ Vàng (Kết thúc):</label><input type="time" className="form-input" value={newHappyEnd} onChange={e => setNewHappyEnd(e.target.value)} /></div>
+              </div>
+              <button className="btn btn-save" onClick={saveSettings} style={{ marginTop: "15px", padding: "12px" }}>LƯU CẤU HÌNH</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showHandoverModal && (<HandoverModal role={role} shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onClose={() => setShowHandoverModal(false)} onConfirm={confirmHandover} />)}
+      <CashFlowModal cashFlowModalInfo={cashFlowModalInfo} setCashFlowModalInfo={setCashFlowModalInfo} shift={shift} todayStrStr={todayStrStr} currentShiftCashFlow={currentShiftCashFlow} currentShiftStats={currentShiftStats} />
+      <HoldOrdersModal showHoldModal={showHoldModal} setShowHoldModal={setShowHoldModal} heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={deleteHeldOrder} />
+      
+      <CheckoutModal isCheckoutOpen={isCheckoutOpen} setIsCheckoutOpen={setIsCheckoutOpen} checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} voucherInput={voucherInput} setVoucherInput={setVoucherInput} customerInput={customerInput} setCustomerInput={setCustomerInput} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} useWallet={useWallet} setUseWallet={setUseWallet} appliedVoucherAmount={appliedVoucherAmount} setAppliedVoucherAmount={setAppliedVoucherAmount} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} finalToPay={finalToPay} customers={customers} isOnline={isOnline} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} loading={loading} handleVoucherSubmit={handleVoucherSubmit} handleCustomerInputChange={handleCustomerInputChange} setScannerMode={setScannerMode} handleNextToQR={handleNextToQR} confirmCheckout={confirmCheckout} setPrintMode={setPrintMode} sendReceiptEmail={sendReceiptEmail} closeCheckout={closeCheckout} />
+      
+      <StatsModal showStatsModal={showStatsModal} setShowStatsModal={setShowStatsModal} reportStartDate={reportStartDate} setReportStartDate={setReportStartDate} reportEndDate={reportEndDate} setReportEndDate={setReportEndDate} exportToCSV={exportToCSV} onExportCSV={exportToCSV} handleExportCSV={exportToCSV} sendInventoryAlertEmail={sendInventoryAlertEmail} onSendAlert={sendInventoryAlertEmail} handleSendEmailReport={handleSendEmailReport} onSendReport={handleSendEmailReport} filteredStats={filteredStats} chartData={chartData} topSelling={topSelling} products={products} />
+      
+      <InventoryModal showInventoryModal={showInventoryModal} setShowInventoryModal={setShowInventoryModal} inventorySearchTerm={inventorySearchTerm} setInventorySearchTerm={setInventorySearchTerm} handleInventorySearchEnter={handleInventorySearchEnter} invFilter={invFilter} setInvFilter={setInvFilter} exportInventoryCSV={exportInventoryCSV} onExport={exportInventoryCSV} handleImportInventoryCSV={handleImportInventoryCSV} onImport={handleImportInventoryCSV} products={products} actualStockInput={actualStockInput} setActualStockInput={setActualStockInput} handleInvInputKeyDown={handleInvInputKeyDown} syncInventoryCheck={syncInventoryCheck} onSync={syncInventoryCheck} loading={loading} />
+      
+      <CustomerModal showCustomerModal={showCustomerModal} setShowCustomerModal={setShowCustomerModal} customers={customers} setCustomers={setCustomers} logAudit={logAudit} handleEditPhone={handleEditPhone} printCustomerCard={printCustomerCard} sendCardEmail={sendCardEmail} shareToZalo={shareToZalo} />
+      <DebtModal showDebtModal={showDebtModal} setShowDebtModal={setShowDebtModal} customers={customers} handlePayDebt={handlePayDebt} />
+      
+      <AuditModal showAuditModal={showAuditModal} setShowAuditModal={setShowAuditModal} auditLogs={auditLogs} exportAuditToCSV={exportAuditToCSV} setSelectedAuditLog={setSelectedAuditLog} setSelectedLog={setSelectedAuditLog} onViewDetail={setSelectedAuditLog} onRowClick={setSelectedAuditLog} />
+      <AuditDetailModal selectedAuditLog={selectedAuditLog} setSelectedAuditLog={setSelectedAuditLog} showModal={!!selectedAuditLog} setShowModal={(val: boolean) => !val && setSelectedAuditLog(null)} selectedLog={selectedAuditLog} setSelectedLog={setSelectedAuditLog} />
+
+      <ScannerModal scannerMode={scannerMode} setScannerMode={setScannerMode} scanMessage={scanMessage} />
+      <PinModal showPinModal={showPinModal} setShowPinModal={setShowPinModal} correctPin={adminPin} onSuccess={() => { if (pendingAction) { pendingAction(); setPendingAction(null); } }} />
+      <ScannerLinkModal showModal={showScannerLinkModal} setShowModal={setShowScannerLinkModal} />
+      
+      {/* BẬT PO V2 */}
+      <CustomPOModal />
+    </>
+  );
 
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
       <style>{styles}</style> 
       <style>{`
+        /* CHỈNH LẠI LOGO CHO GỌN VÀ NGÔI SAO SÁT VÀO CHỮ T */
+        .logo-wrapper { display: inline-flex !important; padding-right: 35px !important; position: relative; width: max-content !important; }
+        .logo-star { position: absolute !important; right: 5px !important; top: 50% !important; transform: translateY(-50%) !important; }
+
         .animated-bg-mesh { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; background: linear-gradient(135deg, #ffedd5 0%, #fef08a 50%, #fed7aa 100%); background-size: 400% 400%; animation: gradientBgAnim 15s ease infinite; opacity: 0.8; }
         @keyframes gradientBgAnim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
         [data-theme='dark'] .animated-bg-mesh { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%); opacity: 1; }
