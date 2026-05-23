@@ -53,6 +53,9 @@ export default function App() {
   const EMAILJS_TEMPLATE_VIP_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_VIP_ID || "template_t91erhg";
   const EMAILJS_PUBLIC_KEY = process.env.REACT_APP_EMAILJS_PUBLIC_KEY || "5ric0kxuwNPlUleAv";
   
+  // =====================================================================
+  // 1. KHAI BÁO BIẾN (STATES)
+  // =====================================================================
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem("mart_logged_in") === "true");
   const [role, setRole] = useState(() => localStorage.getItem("mart_role") || "staff");
   const [shift, setShift] = useState(() => localStorage.getItem("mart_shift") || "Ca Sáng");
@@ -119,6 +122,17 @@ export default function App() {
   const [barcodeCount, setBarcodeCount] = useState<number>(30);
   const [selectedAuditLog, setSelectedAuditLog] = useState<AuditLog | null>(null);
 
+  // States dành riêng cho Phiếu nhập PO
+  const [poTab, setPoTab] = useState<'NEW' | 'RECEIVE'>('NEW');
+  const [selectedSupplierId, setSelectedSupplierId] = useState("");
+  const [poItems, setPoItems] = useState<any[]>([]);
+  const [poSearch, setPoSearch] = useState("");
+  const [poNote, setPoNote] = useState("");
+  const [paidAmount, setPaidAmount] = useState<number>(0);
+  const [searchPoCode, setSearchPoCode] = useState("");
+  const [foundPO, setFoundPO] = useState<any>(null);
+  const [receiveItems, setReceiveItems] = useState<any[]>([]);
+
   const { darkMode, setDarkMode, showSettings, setShowSettings, showInputForm, setShowInputForm, showDebtModal, setShowDebtModal, showStatsModal, setShowStatsModal, showCustomerModal, setShowCustomerModal, showHandoverModal, setShowHandoverModal, showAuditModal, setShowAuditModal, showHoldModal, setShowHoldModal, showExpenseModal, setShowExpenseModal, showSupplierModal, setShowSupplierModal, showMarketingModal, setShowMarketingModal, showInventoryModal, setShowInventoryModal, showMainMenu, setShowMainMenu, cashFlowModalInfo, setCashFlowModalInfo, scannerMode, setScannerMode, printMode, setPrintMode } = useUIState();
   const { newCode, setNewCode, newName, setNewName, newImportPrice, setNewImportPrice, newPrice, setNewPrice, newPromoPrice, setNewPromoPrice, newGiftCondition, setNewGiftCondition, newGiftInfo, setNewGiftInfo, newStock, setNewStock, newExpiry, setNewExpiry, newCategory, setNewCategory, resetProductForm } = useProductInput();
   const { cart, setCart, barcodeInput, setBarcodeInput, isCheckoutOpen, setIsCheckoutOpen, checkoutStep, setCheckoutStep, customerInput, setCustomerInput, custPhone, setCustPhone, custName, setCustName, useWallet, setUseWallet, voucherInput, setVoucherInput, appliedVoucherAmount, setAppliedVoucherAmount, customerGiven, setCustomerGiven, lastOrder, setLastOrder, resetCheckout } = useCheckoutState();
@@ -139,6 +153,9 @@ export default function App() {
     }
   };
 
+  // =====================================================================
+  // 2. EFFECTS
+  // =====================================================================
   useEffect(() => { if (darkMode) { document.documentElement.setAttribute('data-theme', 'dark'); localStorage.setItem("mart_theme", "dark"); } else { document.documentElement.removeAttribute('data-theme'); localStorage.setItem("mart_theme", "light"); } }, [darkMode]);
 
   useEffect(() => {
@@ -161,7 +178,7 @@ export default function App() {
       const xlsxScript = document.createElement("script"); xlsxScript.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; document.head.appendChild(xlsxScript);
       return () => { supabase.removeChannel(channel) };
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, EMAILJS_PUBLIC_KEY]);
 
   useEffect(() => {
     if (scannerMode !== null) {
@@ -184,6 +201,9 @@ export default function App() {
 
   useEffect(() => { const handleAfterPrint = () => setPrintMode(null); window.addEventListener("afterprint", handleAfterPrint); return () => window.removeEventListener("afterprint", handleAfterPrint) }, []);
 
+  // =====================================================================
+  // 3. TÍNH TOÁN (MEMOS)
+  // =====================================================================
   const todayStrStr = new Date().toLocaleDateString('vi-VN');
   
   const currentShiftStats = useMemo(() => { 
@@ -267,6 +287,11 @@ export default function App() {
     }
     return filtered
   }, [products, searchTerm, selectedCategory, sortConfig, filters]);
+
+
+  // =====================================================================
+  // 4. ACTION FUNCTIONS
+  // =====================================================================
 
   const executeWithAdminCheck = (action: () => void) => { if (role === 'admin') { action(); } else { setPendingAction(() => action); setShowPinModal(true); } };
 
@@ -576,228 +601,32 @@ export default function App() {
   const requestSort = (key: string) => { if (sortConfig && sortConfig.key === key) { if (sortConfig.direction === 'asc') setSortConfig({ key, direction: 'desc' }); else setSortConfig(null) } else { setSortConfig({ key, direction: 'asc' }) } };
   const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
 
-  // 🔥 TÍNH NĂNG MỚI: TẠO PHIẾU PO HOÀN CHỈNH (CÓ TÌM KIẾM, ĐỐI SOÁT HÀNG HỎNG)
-  const CustomPOModal = () => {
-    if (!showPOModal) return null;
-    const [poTab, setPoTab] = useState<'NEW' | 'RECEIVE'>('NEW');
-    const [selectedSupplierId, setSelectedSupplierId] = useState("");
-    const [poItems, setPoItems] = useState<any[]>([]);
-    const [poSearch, setPoSearch] = useState("");
-    const [poNote, setPoNote] = useState("");
-    const [paidAmount, setPaidAmount] = useState<number>(0);
-    const [searchPoCode, setSearchPoCode] = useState("");
-    const [foundPO, setFoundPO] = useState<any>(null);
-    const [receiveItems, setReceiveItems] = useState<any[]>([]);
+  const handleSavePO = async (supplier: any, items: any[], totalAmount: number, paidAmount: number, note: string) => {
+    if (!navigator.onLine) return toast.error("Cần mạng để lưu Phiếu Nhập Hàng!"); setLoading(true);
+    try {
+      const debtAmount = totalAmount - paidAmount; const poCode = "PO" + Date.now().toString().slice(-6);
+      await supabase.from('purchase_orders').insert([{ po_code: poCode, supplier_name: supplier.name, supplier_phone: supplier.phone, total_amount: totalAmount, paid_amount: paidAmount, debt_amount: debtAmount, note: note }]);
+      if (debtAmount > 0) { const newDebt = (supplier.debt || 0) + debtAmount; await supabase.from('suppliers').update({ debt: newDebt }).eq('id', supplier.id); setSuppliers(prev => prev.map(s => s.id === supplier.id ? { ...s, debt: newDebt } : s)); }
+      for (const item of items) { const p = products.find(x => x.id === item.product.id); if (p) { const newStock = p.stock + item.qty; await supabase.from('products').update({ stock: newStock, import_price: item.importPrice }).eq('id', p.id); addTransactionAndSync({ id: Date.now() + Math.random(), shift, type: "NHẬP PO", name: p.name, qty: item.qty, total: item.qty * item.importPrice, time: new Date().toLocaleString('vi-VN') }); } }
+      logAudit("NHẬP HÀNG PO", `Mã ${poCode} từ ${supplier.name} (Nợ: ${debtAmount.toLocaleString()}đ)`); toast.success("Đã lưu Phiếu Nhập & Cộng Kho thành công!"); fetchProducts(); setShowPOModal(false);
+    } catch(err: any) { toast.error("Lỗi hệ thống: " + err.message); } finally { setLoading(false); }
+  };
 
-    const handleAddPoItem = (p: Product) => {
-      const exist = poItems.find(i => i.product.id === p.id);
-      if (exist) { setPoItems(poItems.map(i => i.product.id === p.id ? { ...i, qty: i.qty + 1 } : i)); } else { setPoItems([{ product: p, qty: 1, importPrice: p.import_price || 0 }, ...poItems]); }
-      setPoSearch("");
-    };
-    const totalPOAmount = poItems.reduce((sum, item) => sum + (item.qty * item.importPrice), 0);
-
-    const handleSaveNewPO = async () => {
-      if (!selectedSupplierId) return toast.error("Vui lòng chọn Nhà Cung Cấp!");
-      if (poItems.length === 0) return toast.error("Phiếu nhập trống!");
-      const supplier = suppliers.find(s => s.id.toString() === selectedSupplierId);
-      if (!supplier) return;
-      setLoading(true);
-      try {
-        const debtAmount = totalPOAmount - paidAmount; const poCode = "PO" + Date.now().toString().slice(-6);
-        await supabase.from('purchase_orders_v2').insert([{ id: Date.now().toString(), po_code: poCode, supplier: supplier, items: poItems, total_amount: totalPOAmount, paid_amount: paidAmount, debt_amount: debtAmount, status: 'PENDING', note: poNote }]);
-        toast.success(`Đã lưu Phiếu Nhập ${poCode} thành công!`); setShowPOModal(false);
-      } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); }
-    };
-
-    const searchOldPO = async () => {
-      if (!searchPoCode.trim()) return; setLoading(true);
-      const { data, error } = await supabase.from('purchase_orders_v2').select('*').eq('po_code', searchPoCode.trim()).single();
-      if (error || !data) { toast.error("Không tìm thấy số PO này!"); } else { setFoundPO(data); setReceiveItems(data.items.map((i: any) => ({ ...i, damagedQty: 0 }))); }
-      setLoading(false);
-    };
-
-    const handleReceivePO = async () => {
-      if (!foundPO || receiveItems.length === 0) return; setLoading(true);
-      try {
-        let actualTotal = 0; let logs: any[] = [];
-        for (const item of receiveItems) {
-            const actualQty = item.qty - (item.damagedQty || 0);
-            actualTotal += actualQty * item.importPrice;
-            if (actualQty > 0) {
-                const p = products.find(x => x.id === item.product.id);
-                if (p) {
-                    await supabase.from('products').update({ stock: p.stock + actualQty, import_price: item.importPrice }).eq('id', p.id);
-                    logs.push({ id: Date.now() + Math.random(), shift, type: "NHẬP PO", name: p.name, qty: actualQty, total: actualQty * item.importPrice, time: new Date().toLocaleString('vi-VN') });
-                }
-            }
-            if (item.damagedQty > 0) { logs.push({ id: Date.now() + Math.random(), shift, type: "TRẢ HÀNG NCC", name: item.product.name + " (Lỗi/Hỏng)", qty: item.damagedQty, total: 0, time: new Date().toLocaleString('vi-VN') }); }
-        }
-        
-        const finalDebt = actualTotal - foundPO.paid_amount;
-        if (finalDebt > 0 && foundPO.supplier) {
-            const supplierId = foundPO.supplier.id; const s = suppliers.find(x => x.id === supplierId);
-            if (s) { const newD = (s.debt || 0) + finalDebt; await supabase.from('suppliers').update({ debt: newD }).eq('id', supplierId); setSuppliers(prev => prev.map(x => x.id === supplierId ? { ...x, debt: newD } : x)); }
-        }
-
-        await supabase.from('purchase_orders_v2').update({ status: 'COMPLETED', items: receiveItems, total_amount: actualTotal }).eq('id', foundPO.id);
-        logs.forEach(lg => addTransactionAndSync(lg));
-        logAudit("NHẬN HÀNG PO", `Nhận mã ${foundPO.po_code} - Nợ phát sinh: ${finalDebt.toLocaleString()}đ`);
-        toast.success("Nhập Kho thành công!"); fetchProducts(); setShowPOModal(false);
-      } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); }
-    };
-
-    return (
-      <div className="custom-modal-overlay">
-        <div className="custom-modal-box" style={{ maxWidth: '1100px', height: '90vh' }}>
-          <div className="custom-modal-header">
-            <h2 className="custom-modal-title">📦 QUẢN LÝ PHIẾU NHẬP (PO)</h2>
-            <button className="custom-modal-close" onClick={() => setShowPOModal(false)}>&times;</button>
-          </div>
-          <div style={{ display: "flex", gap: "10px", padding: "15px", borderBottom: "1px solid #eee", background: "#fff" }}>
-            <button onClick={() => setPoTab('NEW')} className={`tab-btn ${poTab === 'NEW' ? 'active' : ''}`}>+ TẠO PO MỚI (CHỜ NHẬN)</button>
-            <button onClick={() => setPoTab('RECEIVE')} className={`tab-btn ${poTab === 'RECEIVE' ? 'active' : ''}`}>📥 TÌM & NHẬN HÀNG</button>
-          </div>
-          <div className="custom-modal-body" style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "20px", background: "#f1f5f9" }}>
-            {poTab === 'NEW' && (
-              <>
-                <div style={{ background: "#fff", padding: "20px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
-                  <h3 style={{ margin: "0 0 15px 0", fontSize: "16px", color: "#1e293b" }}>1. Chọn Nhà Cung Cấp</h3>
-                  <select className="custom-input" value={selectedSupplierId} onChange={e => setSelectedSupplierId(e.target.value)} style={{ marginBottom: "20px" }}>
-                    <option value="">-- Click để chọn NCC --</option>
-                    {suppliers.map((s: any) => <option key={s.id} value={s.id}>{s.name} - {s.phone}</option>)}
-                  </select>
-                  
-                  <h3 style={{ margin: "0 0 15px 0", fontSize: "16px", color: "#1e293b" }}>2. Tìm Sản Phẩm</h3>
-                  <input type="text" className="custom-input" placeholder="Nhập tên hoặc mã SP..." value={poSearch} onChange={e => setPoSearch(e.target.value)} />
-                  <div style={{ maxHeight: "250px", overflowY: "auto", background: "#fff", border: "1px solid #e2e8f0", borderRadius: "8px", marginTop: "10px" }}>
-                    {poSearch.trim() && products.filter(p => cleanName(p.name).toLowerCase().includes(poSearch.toLowerCase()) || String(p.product_code).toLowerCase().includes(poSearch.toLowerCase())).slice(0, 10).map(p => (
-                      <div key={p.id} onClick={() => handleAddPoItem(p)} style={{ padding: "12px", borderBottom: "1px solid #f1f5f9", cursor: "pointer" }}>
-                        <div style={{ fontWeight: "bold", color: "#0f172a" }}>{cleanName(p.name)}</div>
-                        <div style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>Mã: {p.product_code} | Giá nhập: {(p.import_price||0).toLocaleString()}đ</div>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <div style={{ marginTop: "20px" }}>
-                    <label className="custom-label">Ghi chú (Tùy chọn):</label>
-                    <textarea className="custom-input" placeholder="Ghi chú phiếu..." value={poNote} onChange={e => setPoNote(e.target.value)} rows={3} style={{ resize: "vertical" }} />
-                  </div>
-                </div>
-
-                <div style={{ background: "#fff", padding: "20px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", display: "flex", flexDirection: "column" }}>
-                  <h3 style={{ margin: "0 0 15px 0", color: "#1e293b" }}>Danh sách Sản Phẩm Sẽ Đặt</h3>
-                  <div style={{ flex: 1, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
-                    <table className="cart-table" style={{ margin: 0 }}>
-                      <thead><tr><th>Sản phẩm</th><th>Số lượng</th><th>Giá nhập (đ)</th><th>Thành tiền</th><th>Xóa</th></tr></thead>
-                      <tbody>
-                        {poItems.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", padding: "30px", color: "#94a3b8" }}>Chưa có sản phẩm nào được chọn</td></tr>}
-                        {poItems.map((item, idx) => (
-                          <tr key={idx}>
-                            <td>{cleanName(item.product.name)}</td>
-                            <td><input type="number" className="custom-input" style={{ padding: "6px", width: "70px", textAlign: "center" }} value={item.qty} onChange={e => { const val = parseInt(e.target.value)||1; setPoItems(poItems.map((i, ix) => ix === idx ? { ...i, qty: val } : i)) }} min="1" /></td>
-                            <td><input type="number" className="custom-input" style={{ padding: "6px", width: "110px", textAlign: "right" }} value={item.importPrice} onChange={e => { const val = parseInt(e.target.value)||0; setPoItems(poItems.map((i, ix) => ix === idx ? { ...i, importPrice: val } : i)) }} min="0" /></td>
-                            <td style={{ fontWeight: "bold", textAlign: "right", color: "#0f172a" }}>{(item.qty * item.importPrice).toLocaleString()}</td>
-                            <td style={{ textAlign: "center" }}><button onClick={() => setPoItems(poItems.filter((_, ix) => ix !== idx))} style={{ background: "none", color: "#ef4444", border: "none", cursor: "pointer", fontSize: "20px" }}>&times;</button></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  
-                  <div style={{ background: "#f8fafc", padding: "20px", borderRadius: "10px", marginTop: "20px", border: "1px solid #e2e8f0" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
-                      <span style={{ fontSize: "16px", color: "#475569" }}>Tổng giá trị đơn hàng:</span>
-                      <b style={{ fontSize: "22px", color: "#0f172a" }}>{totalPOAmount.toLocaleString()}đ</b>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
-                      <span style={{ fontSize: "15px", color: "#475569" }}>Đã trả trước cho NCC:</span>
-                      <input type="number" className="custom-input" style={{ width: "200px", textAlign: "right", fontWeight: "bold", color: "#10b981" }} value={paidAmount} onChange={e => setPaidAmount(parseInt(e.target.value)||0)} min="0" />
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", paddingTop: "15px", borderTop: "1px dashed #cbd5e1" }}>
-                      <span style={{ fontSize: "16px", color: "#475569" }}>Công nợ sẽ ghi nhận:</span>
-                      <b style={{ fontSize: "20px", color: "#ef4444" }}>{(totalPOAmount - paidAmount).toLocaleString()}đ</b>
-                    </div>
-                    <button className="custom-btn-primary" onClick={handleSaveNewPO} disabled={loading} style={{ background: "#3b82f6", padding: "14px" }}>
-                      {loading ? "ĐANG LƯU..." : "💾 LƯU PHIẾU ĐẶT HÀNG"}
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {poTab === 'RECEIVE' && (
-              <>
-                <div style={{ background: "#fff", padding: "20px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
-                  <h3 style={{ margin: "0 0 15px 0", fontSize: "16px", color: "#1e293b" }}>1. Tìm Phiếu Đặt Hàng</h3>
-                  <div style={{ display: "flex", gap: "10px" }}>
-                    <input type="text" className="custom-input" placeholder="VD: PO123456" value={searchPoCode} onChange={e => setSearchPoCode(e.target.value)} />
-                    <button className="custom-btn-primary" onClick={searchOldPO} disabled={loading} style={{ width: "100px", background: "#3b82f6" }}>TÌM</button>
-                  </div>
-                  
-                  {foundPO && (
-                    <div style={{ marginTop: "25px", padding: "20px", background: "#f8fafc", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
-                      <div style={{ marginBottom: "10px", display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: "#64748b" }}>Số PO:</span>
-                        <span style={{ fontWeight: "bold", color: "#3b82f6" }}>{foundPO.po_code}</span>
-                      </div>
-                      <div style={{ marginBottom: "10px", display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: "#64748b" }}>Nhà Cung Cấp:</span>
-                        <span style={{ fontWeight: "bold", color: "#0f172a" }}>{foundPO.supplier?.name}</span>
-                      </div>
-                      <div style={{ marginBottom: "10px", display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: "#64748b" }}>Ngày tạo:</span>
-                        <span style={{ color: "#0f172a" }}>{new Date(foundPO.created_at).toLocaleString('vi-VN')}</span>
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", paddingTop: "10px", borderTop: "1px dashed #cbd5e1" }}>
-                        <span style={{ color: "#64748b" }}>Trạng thái:</span>
-                        <span style={{ color: foundPO.status === 'PENDING' ? '#f59e0b' : '#10b981', fontWeight: "bold" }}>{foundPO.status === 'PENDING' ? 'Đang chờ nhận' : 'Đã hoàn tất'}</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div style={{ background: "#fff", padding: "20px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", display: "flex", flexDirection: "column" }}>
-                  <h3 style={{ margin: "0 0 15px 0", color: "#1e293b" }}>2. Đối Soát Hàng & Nhập Kho</h3>
-                  {foundPO ? (
-                    foundPO.status === 'COMPLETED' ? (
-                       <div style={{ textAlign: "center", padding: "40px", background: "#ecfdf5", color: "#059669", borderRadius: "12px", fontWeight: "bold", fontSize: "18px", border: "1px solid #a7f3d0", marginTop: "20px" }}>✅ PHIẾU NÀY ĐÃ ĐƯỢC NHẬP KHO XONG!</div>
-                    ) : (
-                      <>
-                        <div style={{ flex: 1, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
-                          <table className="cart-table" style={{ margin: 0 }}>
-                            <thead><tr><th style={{textAlign:"left"}}>Sản phẩm</th><th style={{textAlign:"center"}}>SL Đã Đặt</th><th style={{textAlign:"center"}}>Hàng Hỏng/Lỗi</th><th style={{textAlign:"center"}}>SL Sẽ Nhập</th></tr></thead>
-                            <tbody>
-                              {receiveItems.map((item, idx) => (
-                                <tr key={idx}>
-                                  <td>{cleanName(item.product.name)}</td>
-                                  <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "16px", color: "#3b82f6" }}>{item.qty}</td>
-                                  <td style={{ textAlign: "center" }}><input type="number" className="custom-input" style={{ padding: "6px", width: "90px", textAlign: "center", color: "#ef4444", fontWeight: "bold", borderColor: item.damagedQty > 0 ? "#ef4444" : "#cbd5e1" }} value={item.damagedQty} onChange={e => { const val = parseInt(e.target.value)||0; if(val <= item.qty && val >= 0) setReceiveItems(receiveItems.map((i, ix) => ix === idx ? { ...i, damagedQty: val } : i)) }} min="0" max={item.qty} /></td>
-                                  <td style={{ textAlign: "center", fontWeight: "bold", color: "#10b981", fontSize: "18px" }}>{item.qty - (item.damagedQty || 0)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                        
-                        <div style={{ background: "#f8fafc", padding: "20px", borderRadius: "10px", marginTop: "20px", border: "1px solid #e2e8f0" }}>
-                           <p style={{ fontStyle: "italic", color: "#64748b", margin: "0 0 15px 0", fontSize: "14px" }}>* Hệ thống sẽ tự động đối soát, cộng kho hàng thực tế và hoàn trả tiền công nợ hàng hỏng cho NCC.</p>
-                           <button className="custom-btn-primary" onClick={handleReceivePO} disabled={loading} style={{ padding: "14px", fontSize: "16px" }}>{loading ? "ĐANG XỬ LÝ..." : "✅ XÁC NHẬN NHẬN HÀNG"}</button>
-                        </div>
-                      </>
-                    )
-                  ) : (
-                    <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8", border: "2px dashed #e2e8f0", borderRadius: "12px", background: "#f8fafc", marginTop: "20px" }}>Vui lòng tìm kiếm số PO để tiếp tục</div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    );
+  const sendMarketingEmails = async () => {
+    if (!marketingMsg) return toast.error("Vui lòng nhập nội dung!"); if (!window.confirm("Giới hạn 200 mail/tháng. Gửi?")) return;
+    setLoading(true); const targetCustomers = Object.keys(customers).filter(phone => { const c = customers[phone]; if (!c.email) return false; if (marketingTier === "Tất cả") return true; return getCustomerTier(c.totalSpent).name.includes(marketingTier) });
+    if (targetCustomers.length === 0) { setLoading(false); return toast.error("Không có khách hàng nào phù hợp!"); }
+    let successCount = 0;
+    for (const phone of targetCustomers) { 
+      const c = customers[phone]; 
+      const htmlContent = `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"><div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 20px; text-align: center;"><h1 style="margin: 0; font-size: 24px;">HẢI LÊ MART</h1><p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">THÔNG BÁO ƯU ĐÃI ĐẶC QUYỀN</p></div><div style="padding: 30px 20px; background: #ffffff;"><h2 style="margin: 0 0 15px 0; color: #0f172a; font-size: 20px;">Chào ${c.name},</h2><div style="color: #475569; font-size: 16px; line-height: 1.6; white-space: pre-wrap;">${marketingMsg}</div></div><div style="background: #f8fafc; padding: 15px; text-align: center; border-top: 1px solid #e2e8f0;"><p style="margin: 0; font-size: 12px; color: #94a3b8;">Hải Lê Mart © 2026 - Hotline: 0902 613 899</p></div></div>`;
+      try { await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { to_email: c.email, subject: "💌 Ưu Đãi Đặc Quyền Từ Hải Lê Mart", html_message: htmlContent, order_id: "", time: "", items_list: "", total_amount: "", payment_method: "", change_amount: "", barcode_url: "" }); successCount++; } catch (error: any) { console.error("EmailJS Error", error); } 
+    }
+    logAudit("GỬI MAIL MKT", `Gửi ${successCount} mail cho tập ${marketingTier}`); setLoading(false); setShowMarketingModal(false); toast.success(`Đã gửi ${successCount} mail!`)
   };
 
   const handleBarcodeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => { document.getElementById('search-barcode')?.focus(); if (e.key === 'Enter') { e.preventDefault(); const p = findProductByCode(barcodeInput); if (p) handleSelectSuggest(p); else { const matchedPhone = Object.keys(customers).find(phone => phone === barcodeInput.trim() || customers[phone].cardCode === barcodeInput.trim()); if (matchedPhone) { playSound('success'); setCustomerInput(customers[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setBarcodeInput("") } else { playSound('error'); toast.error("Mã không hợp lệ!") } } } };
+  
   const handleSelectSuggest = (p_input: any) => {
     const baseCode = String(p_input.product_code).split('-')[0]; const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); 
     if (totalStock <= 0) { playSound('error'); return toast.error("Sản phẩm đã hết hàng!"); }
@@ -811,6 +640,7 @@ export default function App() {
     });
     setScanMessage({ text: `✅ Thêm: ${repName} ${itemToCart.isHappyHour ? '⭐' : ''}`, type: 'success' }); setBarcodeInput(""); setShowSuggestions(false); setTimeout(() => setScanMessage(null), 2000);
   };
+  
   const addToCart = (p_input: any) => { handleSelectSuggest(p_input); playSound('success'); };
   const adjustCartQty = (productId: any, delta: number) => { let exceedStock = false; setCart(prev => { const updated = prev.map(item => { if (item.product.id === productId) { const baseCode = String(item.product.product_code).split('-')[0]; const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); const newQty = item.qty + delta; if (newQty > totalStock) { exceedStock = true; return item; } const price = getActualPrice(item.product); return { ...item, qty: newQty, total: Math.round(newQty * price * (1 + VAT_RATE)) }; } return item; }); return updated.filter(item => item.qty > 0); }); if (exceedStock) playSound('error'); else if (delta > 0) playSound('success'); };
   const handleDirectQtyChange = (productId: any, val: string) => { setCart(prev => { if (val === '') return prev.map(i => i.product.id === productId ? { ...i, qty: '' as any, total: 0 } : i); let num = parseInt(val); if (isNaN(num) || num < 0) return prev; let exceedStock = false; const updated = prev.map(i => { if (i.product.id === productId) { const baseCode = String(i.product.product_code).split('-')[0]; const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); if (num > totalStock) { exceedStock = true; num = totalStock; } const price = getActualPrice(i.product); return { ...i, qty: num, total: Math.round(num * price * (1 + VAT_RATE)) }; } return i; }); if (exceedStock) playSound('error'); return updated; }); };
@@ -928,6 +758,157 @@ export default function App() {
           </div>
         )}
 
+        {/* MODAL PHIẾU NHẬP PO MỚI */}
+        {showPOModal && (
+          <div className="custom-modal-overlay">
+            <div className="custom-modal-box" style={{ maxWidth: '1100px', height: '90vh' }}>
+              <div className="custom-modal-header">
+                <h2 className="custom-modal-title">📦 QUẢN LÝ PHIẾU NHẬP (PO)</h2>
+                <button className="custom-modal-close" onClick={() => setShowPOModal(false)}>&times;</button>
+              </div>
+              <div style={{ display: "flex", gap: "10px", padding: "15px", borderBottom: "1px solid #eee", background: "#fff" }}>
+                <button onClick={() => setPoTab('NEW')} className={`tab-btn ${poTab === 'NEW' ? 'active' : ''}`}>+ TẠO PO MỚI (CHỜ NHẬN)</button>
+                <button onClick={() => setPoTab('RECEIVE')} className={`tab-btn ${poTab === 'RECEIVE' ? 'active' : ''}`}>📥 TÌM & NHẬN HÀNG</button>
+              </div>
+              <div className="custom-modal-body" style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "20px", background: "#f1f5f9" }}>
+                {poTab === 'NEW' && (
+                  <>
+                    <div style={{ background: "#fff", padding: "20px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+                      <h3 style={{ margin: "0 0 15px 0", fontSize: "16px", color: "#1e293b" }}>1. Chọn Nhà Cung Cấp</h3>
+                      <select className="custom-input" value={selectedSupplierId} onChange={e => setSelectedSupplierId(e.target.value)} style={{ marginBottom: "20px" }}>
+                        <option value="">-- Click để chọn NCC --</option>
+                        {suppliers.map((s: any) => <option key={s.id} value={s.id}>{s.name} - {s.phone}</option>)}
+                      </select>
+                      
+                      <h3 style={{ margin: "0 0 15px 0", fontSize: "16px", color: "#1e293b" }}>2. Tìm Sản Phẩm</h3>
+                      <input type="text" className="custom-input" placeholder="Nhập tên hoặc mã SP..." value={poSearch} onChange={e => setPoSearch(e.target.value)} />
+                      <div style={{ maxHeight: "250px", overflowY: "auto", background: "#fff", border: "1px solid #e2e8f0", borderRadius: "8px", marginTop: "10px" }}>
+                        {poSearch.trim() && products.filter(p => cleanName(p.name).toLowerCase().includes(poSearch.toLowerCase()) || String(p.product_code).toLowerCase().includes(poSearch.toLowerCase())).slice(0, 10).map(p => (
+                          <div key={p.id} onClick={() => handleAddPoItem(p)} style={{ padding: "12px", borderBottom: "1px solid #f1f5f9", cursor: "pointer" }}>
+                            <div style={{ fontWeight: "bold", color: "#0f172a" }}>{cleanName(p.name)}</div>
+                            <div style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>Mã: {p.product_code} | Giá nhập: {(p.import_price||0).toLocaleString()}đ</div>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <div style={{ marginTop: "20px" }}>
+                        <label className="custom-label">Ghi chú (Tùy chọn):</label>
+                        <textarea className="custom-input" placeholder="Ghi chú phiếu..." value={poNote} onChange={e => setPoNote(e.target.value)} rows={3} style={{ resize: "vertical" }} />
+                      </div>
+                    </div>
+
+                    <div style={{ background: "#fff", padding: "20px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", display: "flex", flexDirection: "column" }}>
+                      <h3 style={{ margin: "0 0 15px 0", color: "#1e293b" }}>Danh sách Sản Phẩm Sẽ Đặt</h3>
+                      <div style={{ flex: 1, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
+                        <table className="cart-table" style={{ margin: 0 }}>
+                          <thead><tr><th>Sản phẩm</th><th>Số lượng</th><th>Giá nhập (đ)</th><th>Thành tiền</th><th>Xóa</th></tr></thead>
+                          <tbody>
+                            {poItems.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", padding: "30px", color: "#94a3b8" }}>Chưa có sản phẩm nào được chọn</td></tr>}
+                            {poItems.map((item, idx) => (
+                              <tr key={idx}>
+                                <td>{cleanName(item.product.name)}</td>
+                                <td><input type="number" className="custom-input" style={{ padding: "6px", width: "70px", textAlign: "center" }} value={item.qty} onChange={e => { const val = parseInt(e.target.value)||1; setPoItems(poItems.map((i, ix) => ix === idx ? { ...i, qty: val } : i)) }} min="1" /></td>
+                                <td><input type="number" className="custom-input" style={{ padding: "6px", width: "110px", textAlign: "right" }} value={item.importPrice} onChange={e => { const val = parseInt(e.target.value)||0; setPoItems(poItems.map((i, ix) => ix === idx ? { ...i, importPrice: val } : i)) }} min="0" /></td>
+                                <td style={{ fontWeight: "bold", textAlign: "right", color: "#0f172a" }}>{(item.qty * item.importPrice).toLocaleString()}</td>
+                                <td style={{ textAlign: "center" }}><button onClick={() => setPoItems(poItems.filter((_, ix) => ix !== idx))} style={{ background: "none", color: "#ef4444", border: "none", cursor: "pointer", fontSize: "20px" }}>&times;</button></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      
+                      <div style={{ background: "#f8fafc", padding: "20px", borderRadius: "10px", marginTop: "20px", border: "1px solid #e2e8f0" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
+                          <span style={{ fontSize: "16px", color: "#475569" }}>Tổng giá trị đơn hàng:</span>
+                          <b style={{ fontSize: "22px", color: "#0f172a" }}>{totalPOAmount.toLocaleString()}đ</b>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
+                          <span style={{ fontSize: "15px", color: "#475569" }}>Đã trả trước cho NCC:</span>
+                          <input type="number" className="custom-input" style={{ width: "200px", textAlign: "right", fontWeight: "bold", color: "#10b981" }} value={paidAmount} onChange={e => setPaidAmount(parseInt(e.target.value)||0)} min="0" />
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", paddingTop: "15px", borderTop: "1px dashed #cbd5e1" }}>
+                          <span style={{ fontSize: "16px", color: "#475569" }}>Công nợ sẽ ghi nhận:</span>
+                          <b style={{ fontSize: "20px", color: "#ef4444" }}>{(totalPOAmount - paidAmount).toLocaleString()}đ</b>
+                        </div>
+                        <button className="custom-btn-primary" onClick={handleSaveNewPO} disabled={loading} style={{ background: "#3b82f6", padding: "14px" }}>
+                          {loading ? "ĐANG LƯU..." : "💾 LƯU PHIẾU ĐẶT HÀNG"}
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {poTab === 'RECEIVE' && (
+                  <>
+                    <div style={{ background: "#fff", padding: "20px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+                      <h3 style={{ margin: "0 0 15px 0", fontSize: "16px", color: "#1e293b" }}>1. Tìm Phiếu Đặt Hàng</h3>
+                      <div style={{ display: "flex", gap: "10px" }}>
+                        <input type="text" className="custom-input" placeholder="VD: PO123456" value={searchPoCode} onChange={e => setSearchPoCode(e.target.value)} />
+                        <button className="custom-btn-primary" onClick={searchOldPO} disabled={loading} style={{ width: "100px", background: "#3b82f6" }}>TÌM</button>
+                      </div>
+                      
+                      {foundPO && (
+                        <div style={{ marginTop: "25px", padding: "20px", background: "#f8fafc", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                          <div style={{ marginBottom: "10px", display: "flex", justifyContent: "space-between" }}>
+                            <span style={{ color: "#64748b" }}>Số PO:</span>
+                            <span style={{ fontWeight: "bold", color: "#3b82f6" }}>{foundPO.po_code}</span>
+                          </div>
+                          <div style={{ marginBottom: "10px", display: "flex", justifyContent: "space-between" }}>
+                            <span style={{ color: "#64748b" }}>Nhà Cung Cấp:</span>
+                            <span style={{ fontWeight: "bold", color: "#0f172a" }}>{foundPO.supplier?.name}</span>
+                          </div>
+                          <div style={{ marginBottom: "10px", display: "flex", justifyContent: "space-between" }}>
+                            <span style={{ color: "#64748b" }}>Ngày tạo:</span>
+                            <span style={{ color: "#0f172a" }}>{new Date(foundPO.created_at).toLocaleString('vi-VN')}</span>
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between", paddingTop: "10px", borderTop: "1px dashed #cbd5e1" }}>
+                            <span style={{ color: "#64748b" }}>Trạng thái:</span>
+                            <span style={{ color: foundPO.status === 'PENDING' ? '#f59e0b' : '#10b981', fontWeight: "bold" }}>{foundPO.status === 'PENDING' ? 'Đang chờ nhận' : 'Đã hoàn tất'}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ background: "#fff", padding: "20px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", display: "flex", flexDirection: "column" }}>
+                      <h3 style={{ margin: "0 0 15px 0", color: "#1e293b" }}>2. Đối Soát Hàng & Nhập Kho</h3>
+                      {foundPO ? (
+                        foundPO.status === 'COMPLETED' ? (
+                           <div style={{ textAlign: "center", padding: "40px", background: "#ecfdf5", color: "#059669", borderRadius: "12px", fontWeight: "bold", fontSize: "18px", border: "1px solid #a7f3d0", marginTop: "20px" }}>✅ PHIẾU NÀY ĐÃ ĐƯỢC NHẬP KHO XONG!</div>
+                        ) : (
+                          <>
+                            <div style={{ flex: 1, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
+                              <table className="cart-table" style={{ margin: 0 }}>
+                                <thead><tr><th style={{textAlign:"left"}}>Sản phẩm</th><th style={{textAlign:"center"}}>SL Đã Đặt</th><th style={{textAlign:"center"}}>Hàng Hỏng/Lỗi</th><th style={{textAlign:"center"}}>SL Sẽ Nhập</th></tr></thead>
+                                <tbody>
+                                  {receiveItems.map((item, idx) => (
+                                    <tr key={idx}>
+                                      <td>{cleanName(item.product.name)}</td>
+                                      <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "16px", color: "#3b82f6" }}>{item.qty}</td>
+                                      <td style={{ textAlign: "center" }}><input type="number" className="custom-input" style={{ padding: "6px", width: "90px", textAlign: "center", color: "#ef4444", fontWeight: "bold", borderColor: item.damagedQty > 0 ? "#ef4444" : "#cbd5e1" }} value={item.damagedQty} onChange={e => { const val = parseInt(e.target.value)||0; if(val <= item.qty && val >= 0) setReceiveItems(receiveItems.map((i, ix) => ix === idx ? { ...i, damagedQty: val } : i)) }} min="0" max={item.qty} /></td>
+                                      <td style={{ textAlign: "center", fontWeight: "bold", color: "#10b981", fontSize: "18px" }}>{item.qty - (item.damagedQty || 0)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                            
+                            <div style={{ background: "#f8fafc", padding: "20px", borderRadius: "10px", marginTop: "20px", border: "1px solid #e2e8f0" }}>
+                               <p style={{ fontStyle: "italic", color: "#64748b", margin: "0 0 15px 0", fontSize: "14px" }}>* Hệ thống sẽ tự động đối soát, cộng kho hàng thực tế và hoàn trả tiền công nợ hàng hỏng cho NCC.</p>
+                               <button className="custom-btn-primary" onClick={handleReceivePO} disabled={loading} style={{ padding: "14px", fontSize: "16px" }}>{loading ? "ĐANG XỬ LÝ..." : "✅ XÁC NHẬN NHẬN HÀNG"}</button>
+                            </div>
+                          </>
+                        )
+                      ) : (
+                        <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8", border: "2px dashed #e2e8f0", borderRadius: "12px", background: "#f8fafc", marginTop: "20px" }}>Vui lòng tìm kiếm số PO để tiếp tục</div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {showHandoverModal && (<HandoverModal role={role} shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onClose={() => setShowHandoverModal(false)} onConfirm={confirmHandover} />)}
         <CashFlowModal cashFlowModalInfo={cashFlowModalInfo} setCashFlowModalInfo={setCashFlowModalInfo} shift={shift} todayStrStr={todayStrStr} currentShiftCashFlow={currentShiftCashFlow} currentShiftStats={currentShiftStats} />
         <HoldOrdersModal showHoldModal={showHoldModal} setShowHoldModal={setShowHoldModal} heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={deleteHeldOrder} />
@@ -948,8 +929,6 @@ export default function App() {
         <PinModal showPinModal={showPinModal} setShowPinModal={setShowPinModal} correctPin={adminPin} onSuccess={() => { if (pendingAction) { pendingAction(); setPendingAction(null); } }} />
         <ScannerLinkModal showModal={showScannerLinkModal} setShowModal={setShowScannerLinkModal} />
         
-        <CustomPOModal />
-
       {!isLoggedIn ? (
         <div className="login-wrapper">
           <style>{`
