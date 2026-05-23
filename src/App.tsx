@@ -753,49 +753,67 @@ export default function App() {
   const handleRefund = async (logId: any) => { 
     executeWithAdminCheck(() => { 
       const log = history.find(l => l.id === logId); 
-      if (!log || log.type !== 'BÁN') return; 
+      if (!log || (log.type !== 'BÁN' && log.type !== 'GHI NỢ')) return; 
       
-      // Bật prompt hỏi hình thức hoàn tiền để thu ngân chọn nhanh
-      const choice = window.prompt(`Xác nhận hoàn đơn: ${log.name}\nNhập số để chọn hình thức trả tiền:\n1. TIỀN MẶT\n2. CHUYỂN KHOẢN\n3. HOÀN VÀO VÍ VIP`, "1");
-      if (choice === null) return; // Bấm hủy
+      // BƯỚC 1: Hỏi số lượng muốn trả
+      const qtyInput = window.prompt(`Sản phẩm: ${cleanName(log.name)}\nSố lượng đã mua: ${log.qty}\n\nNhập SỐ LƯỢNG khách muốn trả lại:`, log.qty.toString());
+      if (qtyInput === null) return; // Bấm Hủy đơn
+
+      const refundQty = parseInt(qtyInput);
+      if (isNaN(refundQty) || refundQty <= 0) {
+        return toast.error("Số lượng hoàn trả không hợp lệ!");
+      }
+      if (refundQty > log.qty) {
+        return toast.error(`Lỗi! Số lượng trả lại (${refundQty}) không được lớn hơn số lượng đã mua (${log.qty})!`);
+      }
+
+      // BƯỚC 2: Hỏi hình thức hoàn tiền
+      const choice = window.prompt(`Xác nhận trả lại ${refundQty} sản phẩm.\nNhập số để chọn hình thức hoàn tiền:\n1. TIỀN MẶT\n2. CHUYỂN KHOẢN\n3. HOÀN VÀO VÍ VIP`, "1");
+      if (choice === null) return; // Bấm Hủy đơn
 
       let selectedMethod = "TIỀN MẶT";
       if (choice === "2") selectedMethod = "CHUYỂN KHOẢN";
       if (choice === "3") selectedMethod = "VÍ WALLET";
 
-      // Nếu hoàn tiền vào ví, kiểm tra xem đơn hàng cũ có thông tin SĐT khách VIP không
+      // TỰ ĐỘNG TÍNH TOÁN SỐ TIỀN & LỢI NHUẬN THEO SL THỰC TẾ
+      const singlePrice = log.total / log.qty; // Giá của 1 sản phẩm kèm VAT trong đơn cũ
+      const refundTotal = Math.round(singlePrice * refundQty);
+      
+      const singleProfit = (log.profit || 0) / log.qty; // Lợi nhuận của 1 sản phẩm
+      const refundProfit = Math.round(singleProfit * refundQty);
+
+      // Nếu chọn hoàn vào Ví VIP, tự động cộng lại tiền vào ví cho khách
       if (choice === "3") {
         const phoneMatch = log.customer.match(/\((.*?)\)/);
         const customerPhone = phoneMatch ? phoneMatch[1] : null;
         if (!customerPhone || !customers[customerPhone]) {
-          return toast.error("Đơn hàng này thuộc Khách lẻ, không thể hoàn tiền vào Ví VIP!");
+          return toast.error("Đơn hàng này thuộc Khách lẻ, không có tài khoản để hoàn vào Ví VIP!");
         }
         
-        // Cộng lại tiền vào ví cho khách hàng
         const custData = customers[customerPhone];
-        const updatedCust = { ...custData, wallet: Math.round((custData.wallet || 0) + log.total) };
+        const updatedCust = { ...custData, wallet: Math.round((custData.wallet || 0) + refundTotal) };
         setCustomers(prev => ({ ...prev, [customerPhone]: updatedCust }));
         if (navigator.onLine) {
           supabase.from("customers").update({ wallet: updatedCust.wallet }).eq("phone", customerPhone).then();
         }
       }
 
-      // Tạo log trả hàng với đầy đủ thông tin hình thức trả và số lượng hoàn
+      // BƯỚC 3: Tạo Log Trả Hàng với số lượng và số tiền âm tương ứng
       const lg = { 
         id: Date.now(), 
         shift, 
         type: "TRẢ HÀNG", 
-        name: `HOÀN: ${log.name} (SL: ${log.qty})`, 
-        qty: log.qty, 
-        total: -log.total, // Lưu số tiền âm để tính doanh thu chính xác
-        profit: -(log.profit || 0), 
+        name: `HOÀN: ${cleanName(log.name)}`, 
+        qty: refundQty, // Lưu đúng số lượng trả thực tế
+        total: -refundTotal, // Tiền âm để trừ doanh thu ca
+        profit: -refundProfit, // Trừ lợi nhuận ca
         customer: log.customer, 
         paymentMethod: selectedMethod, 
         time: new Date().toLocaleString('vi-VN') 
       }; 
       
       addTransactionAndSync(lg); 
-      toast.success(`Đã hoàn đơn và trả tiền qua [${selectedMethod}]!`); 
+      toast.success(`Đã hoàn trả ${refundQty} mặt hàng thành công qua [${selectedMethod}]!`); 
     }); 
   };
 
