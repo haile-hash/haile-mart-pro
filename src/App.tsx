@@ -1677,12 +1677,14 @@ export default function App() {
                 <p style={{ margin: "4px 0", fontSize: "14px" }}><strong>Ngày đặt:</strong> {new Date(printPOData.created_at).toLocaleDateString('vi-VN')}</p>
               </div>
             </div>
-            
+          
             {/* Supplier Info */}
             <div style={{ marginBottom: "25px", fontSize: "15px", lineHeight: "1.6", background: "#f8fafc", padding: "15px", border: "1px solid #cbd5e1" }}>
               <p style={{ margin: "0 0 5px 0" }}><strong>Kính gửi Nhà Cung Cấp:</strong> {printPOData.supplier?.name}</p>
               <p style={{ margin: "0 0 5px 0" }}><strong>Điện thoại liên hệ:</strong> {printPOData.supplier?.phone}</p>
+              <p style={{ margin: "0 0 5px 0" }}><strong>Địa chỉ:</strong> {printPOData.supplier?.address || ".................................................................."}</p>
               <p style={{ margin: "0" }}><strong>Ghi chú đơn hàng:</strong> {printPOData.note || "Không có ghi chú"}</p>
+            </div>
             </div>
             
             {/* Items Table */}
@@ -1764,6 +1766,7 @@ export default function App() {
             
             <div style={{ marginBottom: "25px", fontSize: "15px", lineHeight: "1.6" }}>
               <p style={{ margin: "0 0 5px 0" }}><strong>Nhà Cung Cấp giao hàng:</strong> {printPOData.supplier?.name}</p>
+              <p style={{ margin: "0 0 5px 0" }}><strong>Điện thoại:</strong> {printPOData.supplier?.phone} | <strong>Địa chỉ:</strong> {printPOData.supplier?.address || "Không có"}</p>
               <p style={{ margin: "0 0 5px 0" }}><strong>Trạng thái:</strong> Đã kiểm tra và đối soát hàng hóa thực tế nhập kho.</p>
             </div>
             
@@ -1839,6 +1842,7 @@ export default function App() {
             
             <div style={{ marginBottom: "25px", fontSize: "15px", lineHeight: "1.6", background: "#fef2f2", padding: "15px", border: "1px solid #fca5a5", borderRadius: "4px" }}>
               <p style={{ margin: "0 0 5px 0", color: "#b91c1c" }}><strong>Hoàn trả cho Nhà Cung Cấp:</strong> {printPOData.supplier?.name}</p>
+              <p style={{ margin: "0 0 5px 0", color: "#b91c1c" }}><strong>Điện thoại:</strong> {printPOData.supplier?.phone} | <strong>Địa chỉ:</strong> {printPOData.supplier?.address || "Không có"}</p>
               <p style={{ margin: "0", color: "#b91c1c" }}><strong>Lý do:</strong> Phát hiện hàng lỗi/hỏng, không đạt tiêu chuẩn chất lượng khi kiểm tra đối soát lúc nhập kho.</p>
             </div>
             
