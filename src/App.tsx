@@ -126,6 +126,7 @@ export default function App() {
   const [barcodeCount, setBarcodeCount] = useState<number>(30);
   const [selectedAuditLog, setSelectedAuditLog] = useState<AuditLog | null>(null);
 
+  // States dành riêng cho Phiếu nhập PO
   const [localPOs, setLocalPOs] = useState<any[]>(() => { 
     const s = localStorage.getItem("mart_pos"); 
     return s ? JSON.parse(s) : []; 
@@ -152,6 +153,7 @@ export default function App() {
   const [suppliers, setSuppliers] = useState<any[]>(() => { const s = localStorage.getItem("mart_suppliers"); return s ? JSON.parse(s) : [] });
   const [history, setHistory] = useState<TransactionLog[]>(() => { const s = localStorage.getItem("mart_history"); return s ? JSON.parse(s) : [] });
 
+  // States dành riêng cho in phiếu PO chuyên sâu
   const [printPOData, setPrintPOData] = useState<any>(null);
 
   const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') => {
@@ -300,6 +302,7 @@ export default function App() {
     return () => window.removeEventListener("afterprint", handleAfterPrint) 
   }, []);
 
+  // Effect load danh sách PO
   useEffect(() => {
     if (showPOModal && poTab === 'RECEIVE') {
       const fetchPOs = async () => {
@@ -2118,20 +2121,20 @@ export default function App() {
         {/* MODAL PHIẾU NHẬP PO BIÊN TẬP HOÀN CHỈNH */}
         {showPOModal && (
           <div className="custom-modal-overlay">
-            <div className="custom-modal-box" style={{ maxWidth: '1100px', height: '90vh' }}>
+            <div className="custom-modal-box" style={{ maxWidth: '1000px', height: '85vh' }}>
               <div className="custom-modal-header">
                 <h2 className="custom-modal-title">📦 QUẢN LÝ PHIẾU NHẬP (PO)</h2>
                 <button className="custom-modal-close" onClick={() => setShowPOModal(false)}>&times;</button>
               </div>
-              <div style={{ display: "flex", gap: "10px", padding: "15px 24px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
+              <div style={{ display: "flex", gap: "10px", padding: "10px 15px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
                 <button onClick={() => setPoTab('NEW')} className={`tab-btn ${poTab === 'NEW' ? 'active' : ''}`} style={{ padding: "10px 20px", fontWeight: "bold", border: "none", borderRadius: "8px", cursor: "pointer", background: poTab === 'NEW' ? "#3b82f6" : "#e2e8f0", color: poTab === 'NEW' ? "white" : "#64748b" }}>+ TẠO PO MỚI (CHỜ NHẬN)</button>
                 <button onClick={() => setPoTab('RECEIVE')} className={`tab-btn ${poTab === 'RECEIVE' ? 'active' : ''}`} style={{ padding: "10px 20px", fontWeight: "bold", border: "none", borderRadius: "8px", cursor: "pointer", background: poTab === 'RECEIVE' ? "#3b82f6" : "#e2e8f0", color: poTab === 'RECEIVE' ? "white" : "#64748b" }}>📥 TÌM & NHẬN HÀNG</button>
               </div>
-              <div className="custom-modal-body" style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "24px", background: "#f1f5f9", padding: "24px" }}>
+              <div className="custom-modal-body" style={{ display: "grid", gridTemplateColumns: "3.5fr 6.5fr", gap: "15px", background: "#f1f5f9", padding: "15px" }}>
                 
                 {poTab === 'NEW' && (
                   <>
-                    <div style={{ background: "#fff", padding: "24px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", height: "fit-content" }}>
+                    <div style={{ background: "#fff", padding: "15px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", height: "fit-content" }}>
                       <h3 style={{ margin: "0 0 15px 0", fontSize: "15px", color: "#1e293b", borderBottom: "1px dashed #cbd5e1", paddingBottom: "10px" }}>1. Chọn Nhà Cung Cấp</h3>
                       <select className="custom-input" value={selectedSupplierId} onChange={e => setSelectedSupplierId(e.target.value)} style={{ marginBottom: "24px" }}>
                         <option value="">-- Click để chọn NCC --</option>
@@ -2159,7 +2162,7 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div style={{ background: "#fff", padding: "24px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", display: "flex", flexDirection: "column", height: "fit-content", minHeight: "100%" }}>
+                    <div style={{ background: "#fff", padding: "15px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", display: "flex", flexDirection: "column", height: "fit-content", minHeight: "100%" }}>
                       <h3 style={{ margin: "0 0 15px 0", fontSize: "15px", color: "#1e293b", borderBottom: "1px dashed #cbd5e1", paddingBottom: "10px" }}>Danh sách Sản Phẩm Sẽ Đặt</h3>
                       <div style={{ flex: 1, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
                         <table className="modern-table" style={{ margin: 0 }}>
@@ -2231,7 +2234,7 @@ export default function App() {
 
                 {poTab === 'RECEIVE' && (
                   <>
-                    <div style={{ background: "#fff", padding: "20px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", display: "flex", flexDirection: "column", height: "fit-content" }}>
+                    <div style={{ background: "#fff", padding: "15px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", display: "flex", flexDirection: "column", height: "fit-content" }}>
                       <h3 style={{ margin: "0 0 15px 0", fontSize: "15px", color: "#1e293b", borderBottom: "1px dashed #cbd5e1", paddingBottom: "10px" }}>1. Danh sách Phiếu Nhập</h3>
                       <div style={{ display: "flex", gap: "10px", marginBottom: "15px" }}>
                         <input type="text" className="custom-input" placeholder="Nhập mã PO để lọc..." value={searchPoCode} onChange={e => setSearchPoCode(e.target.value)} />
@@ -2276,6 +2279,7 @@ export default function App() {
                         </table>
                       </div>
                       
+                      {/* BỔ SUNG NÚT IN PHIẾU ĐẶT HÀNG NGAY TẠI KHỐI CHI TIẾT PO */}
                       {foundPO && (
                         <div style={{ marginTop: "15px", padding: "16px", background: "#f8fafc", borderRadius: "10px", border: "1px dashed #cbd5e1" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -2301,21 +2305,24 @@ export default function App() {
                       )}
                     </div>
 
-                    <div style={{ background: "#fff", padding: "20px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", display: "flex", flexDirection: "column", height: "fit-content", minHeight: "100%" }}>
+                    <div style={{ background: "#fff", padding: "15px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", display: "flex", flexDirection: "column", height: "fit-content", minHeight: "100%" }}>
                       <h3 style={{ margin: "0 0 15px 0", fontSize: "15px", color: "#1e293b", borderBottom: "1px dashed #cbd5e1", paddingBottom: "10px" }}>2. Đối Soát Hàng & Nhập Kho</h3>
                       {foundPO ? (
                         foundPO.status === 'COMPLETED' ? (
-                           <div style={{ textAlign: "center", padding: "40px", background: "#ecfdf5", borderRadius: "12px", border: "1px solid #a7f3d0", marginTop: "20px" }}>
-                             <div style={{ color: "#059669", fontWeight: "bold", fontSize: "18px", marginBottom: "20px" }}>✅ PHIẾU NÀY ĐÃ ĐƯỢC ĐỐI SOÁT & NHẬP KHO XONG!</div>
-                             <div style={{ display: "flex", justifyContent: "center", gap: "15px" }}>
-                               <button onClick={() => handlePrintPO(foundPO, 'po_receipt')} style={{ padding: "12px 20px", background: "#10b981", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", boxShadow: "0 2px 4px rgba(16,185,129,0.3)" }}>
-                                 🖨️ In Phiếu Nhập Kho
+                           <div style={{ textAlign: "center", padding: "30px", background: "#ecfdf5", borderRadius: "12px", border: "1px solid #a7f3d0", marginTop: "15px" }}>
+                             <div style={{ color: "#059669", fontWeight: "bold", fontSize: "16px", marginBottom: "15px" }}>✅ PHIẾU NÀY ĐÃ ĐƯỢC ĐỐI SOÁT & NHẬP KHO XONG!</div>
+                             <div style={{ display: "flex", justifyContent: "center", gap: "10px", flexWrap: "wrap" }}>
+                               <button onClick={() => handlePrintPO(foundPO, 'po_receipt')} style={{ padding: "10px 15px", background: "#10b981", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", boxShadow: "0 2px 4px rgba(16,185,129,0.3)", fontSize: "13px" }}>
+                                 🖨️ In Phiếu Nhập
                                </button>
                                {foundPO.items.some((i:any) => i.damagedQty > 0) && (
-                                 <button onClick={() => handlePrintPO(foundPO, 'po_return')} style={{ padding: "12px 20px", background: "#ef4444", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", boxShadow: "0 2px 4px rgba(239,68,68,0.3)" }}>
-                                   🖨️ In Phiếu Trả Hàng Lỗi
+                                 <button onClick={() => handlePrintPO(foundPO, 'po_return')} style={{ padding: "10px 15px", background: "#ef4444", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", boxShadow: "0 2px 4px rgba(239,68,68,0.3)", fontSize: "13px" }}>
+                                   🖨️ In Phiếu Trả
                                  </button>
                                )}
+                               <button onClick={() => setShowPOModal(false)} style={{ padding: "10px 15px", background: "#3b82f6", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", boxShadow: "0 2px 4px rgba(59,130,246,0.3)", fontSize: "13px" }}>
+                                 📦 Về Kho (Cập nhật HSD/Giá)
+                               </button>
                              </div>
                            </div>
                         ) : (
