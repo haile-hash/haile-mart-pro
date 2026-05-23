@@ -1649,14 +1649,39 @@ export default function App() {
       
       {/* --- IN TEM MÃ VẠCH --- */}
       {printMode === 'barcode' && printBarcodeProduct && (
-        <div className="print-only">
-          <div className="print-barcode-sheet">
+        <div className="print-a4-container" style={{ padding: "20px", background: "#fff" }}>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)", /* Lệnh này ép tem xếp thành 3 cột */
+            gap: "15px", /* Khoảng cách giữa các tem */
+            alignItems: "start"
+          }}>
             {Array.from({ length: barcodeCount }).map((_, i) => (
-              <div key={i} className="barcode-sticker">
-                <div style={{ fontSize: "9px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: "100%", textAlign: "center" }}>{cleanName(printBarcodeProduct.name)}</div>
-                <img src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(printBarcodeProduct.product_code)}&scale=2&height=10&includetext=false`} onError={(e) => { e.currentTarget.src = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(printBarcodeProduct.product_code)}&code=Code128&translate-esc=on`; }} style={{ maxWidth: "100%", height: "24px", margin: "2px 0" }} alt={printBarcodeProduct.product_code} />
-                <div style={{ fontSize: "8px", fontFamily: "monospace", letterSpacing: "1px", color: "#333", lineHeight: "1" }}>{printBarcodeProduct.product_code}</div>
-                <div style={{ fontSize: "12px", fontWeight: "900", color: "#000", lineHeight: "1.2" }}>{getActualPrice(printBarcodeProduct).toLocaleString()}đ</div>
+              <div key={i} style={{
+                border: "1px dashed #94a3b8", /* Viền cắt tem */
+                padding: "10px",
+                textAlign: "center",
+                borderRadius: "4px",
+                pageBreakInside: "avoid" /* Ngăn tem bị cắt làm đôi khi sang trang giấy mới */
+              }}>
+                <div style={{ fontSize: "12px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: "100%", marginBottom: "5px" }}>
+                  {cleanName(printBarcodeProduct.name)}
+                </div>
+                
+                <img 
+                  src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(printBarcodeProduct.product_code)}&scale=2&height=10&includetext=false`} 
+                  onError={(e) => { e.currentTarget.src = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(printBarcodeProduct.product_code)}&code=Code128&translate-esc=on`; }} 
+                  style={{ width: "100%", maxWidth: "160px", height: "40px", display: "block", margin: "0 auto" }} 
+                  alt={printBarcodeProduct.product_code} 
+                />
+                
+                <div style={{ fontSize: "11px", fontFamily: "monospace", letterSpacing: "1px", color: "#333", marginTop: "5px" }}>
+                  {printBarcodeProduct.product_code}
+                </div>
+                
+                <div style={{ fontSize: "16px", fontWeight: "900", color: "#000", marginTop: "2px" }}>
+                  {getActualPrice(printBarcodeProduct).toLocaleString()}đ
+                </div>
               </div>
             ))}
           </div>
