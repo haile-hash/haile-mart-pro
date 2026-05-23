@@ -754,9 +754,48 @@ export default function App() {
     executeWithAdminCheck(() => { 
       const log = history.find(l => l.id === logId); 
       if (!log || log.type !== 'BÁN') return; 
-      const lg = { id: Date.now(), shift, type: "TRẢ HÀNG", name: "HOÀN đơn: " + log.name, qty: log.qty, total: -log.total, profit: -(log.profit || 0), customer: log.customer, paymentMethod: "TIỀN MẶT", time: new Date().toLocaleString('vi-VN') }; 
+      
+      // Bật prompt hỏi hình thức hoàn tiền để thu ngân chọn nhanh
+      const choice = window.prompt(`Xác nhận hoàn đơn: ${log.name}\nNhập số để chọn hình thức trả tiền:\n1. TIỀN MẶT\n2. CHUYỂN KHOẢN\n3. HOÀN VÀO VÍ VIP`, "1");
+      if (choice === null) return; // Bấm hủy
+
+      let selectedMethod = "TIỀN MẶT";
+      if (choice === "2") selectedMethod = "CHUYỂN KHOẢN";
+      if (choice === "3") selectedMethod = "VÍ WALLET";
+
+      // Nếu hoàn tiền vào ví, kiểm tra xem đơn hàng cũ có thông tin SĐT khách VIP không
+      if (choice === "3") {
+        const phoneMatch = log.customer.match(/\((.*?)\)/);
+        const customerPhone = phoneMatch ? phoneMatch[1] : null;
+        if (!customerPhone || !customers[customerPhone]) {
+          return toast.error("Đơn hàng này thuộc Khách lẻ, không thể hoàn tiền vào Ví VIP!");
+        }
+        
+        // Cộng lại tiền vào ví cho khách hàng
+        const custData = customers[customerPhone];
+        const updatedCust = { ...custData, wallet: Math.round((custData.wallet || 0) + log.total) };
+        setCustomers(prev => ({ ...prev, [customerPhone]: updatedCust }));
+        if (navigator.onLine) {
+          supabase.from("customers").update({ wallet: updatedCust.wallet }).eq("phone", customerPhone).then();
+        }
+      }
+
+      // Tạo log trả hàng với đầy đủ thông tin hình thức trả và số lượng hoàn
+      const lg = { 
+        id: Date.now(), 
+        shift, 
+        type: "TRẢ HÀNG", 
+        name: `HOÀN: ${log.name} (SL: ${log.qty})`, 
+        qty: log.qty, 
+        total: -log.total, // Lưu số tiền âm để tính doanh thu chính xác
+        profit: -(log.profit || 0), 
+        customer: log.customer, 
+        paymentMethod: selectedMethod, 
+        time: new Date().toLocaleString('vi-VN') 
+      }; 
+      
       addTransactionAndSync(lg); 
-      toast.success("Hoàn đơn thành công!"); 
+      toast.success(`Đã hoàn đơn và trả tiền qua [${selectedMethod}]!`); 
     }); 
   };
 
