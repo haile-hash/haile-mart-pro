@@ -2178,7 +2178,18 @@ export default function App() {
                             localStorage.setItem("mart_pos", JSON.stringify(updatedPOs));
 
                             if(navigator.onLine) { await supabase.from('purchase_orders_v2').insert([newPO]); }
-                            toast.success(`Đã lưu Phiếu Nhập ${poCode}!`); setShowPOModal(false);
+                            // Làm sạch form tạo PO
+                            setPoItems([]);
+                            setPoNote("");
+                            setSelectedSupplierId("");
+                            setPaidAmount(0);
+
+                            // Chuyển sang Tab hiển thị PO vừa tạo để in
+                            toast.success(`Đã lưu Phiếu Đặt Hàng ${poCode}!`);
+                            setPoTab('RECEIVE');
+                            setSearchPoCode(poCode);
+                            setFoundPO(newPO);
+                            setReceiveItems(newPO.items.map((i: any) => ({ ...i, damagedQty: 0 })));
                           } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); }
                         }} disabled={loading} style={{ background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)", boxShadow: "0 4px 15px rgba(59, 130, 246, 0.3)", padding: "16px", fontSize: "16px" }}>
                           {loading ? "ĐANG LƯU..." : "💾 LƯU PHIẾU ĐẶT HÀNG"}
@@ -2323,7 +2334,13 @@ export default function App() {
                                     
                                     const updatedPOs = localPOs.map(p => p.id === foundPO.id ? { ...p, status: 'COMPLETED', items: receiveItems, total_amount: actualTotal } : p); setLocalPOs(updatedPOs); localStorage.setItem("mart_pos", JSON.stringify(updatedPOs));
 
-                                    logs.forEach(lg => addTransactionAndSync(lg)); logAudit("NHẬN HÀNG PO", `Nhận mã ${foundPO.po_code}`); toast.success("Nhập Kho thành công!"); fetchProducts(); setShowPOModal(false);
+                                   logs.forEach(lg => addTransactionAndSync(lg)); 
+                                    logAudit("NHẬN HÀNG PO", `Nhận mã ${foundPO.po_code}`); 
+                                    toast.success("Nhập Kho thành công!"); 
+                                    fetchProducts(); 
+                                    
+                                    // Cập nhật phiếu hiện tại thành COMPLETED để UI tự chuyển sang chế độ IN
+                                    setFoundPO(prev => ({ ...prev, status: 'COMPLETED', items: receiveItems, total_amount: actualTotal }));
                                   } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); }
                                }} disabled={loading} style={{ background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", boxShadow: "0 4px 15px rgba(16, 185, 129, 0.3)", padding: "16px", fontSize: "16px" }}>{loading ? "ĐANG XỬ LÝ..." : "✅ XÁC NHẬN NHẬN HÀNG"}</button>
                             </div>
