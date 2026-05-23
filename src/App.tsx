@@ -1617,14 +1617,32 @@ export default function App() {
               <thead><tr style={{ background: "#f1f5f9" }}><th style={{ borderBottom: "2px solid #cbd5e1", padding: "10px", textAlign: "center" }}>STT</th><th style={{ borderBottom: "2px solid #cbd5e1", padding: "10px", textAlign: "left" }}>Tên hàng hóa</th><th style={{ borderBottom: "2px solid #cbd5e1", padding: "10px", textAlign: "center" }}>SL</th><th style={{ borderBottom: "2px solid #cbd5e1", padding: "10px", textAlign: "right" }}>Đơn giá</th><th style={{ borderBottom: "2px solid #cbd5e1", padding: "10px", textAlign: "right" }}>Thành tiền</th></tr></thead>
               <tbody>{lastOrder.cart.map((item: any, index: number) => { const p = Math.round(getActualPrice(item.product)); const t = Math.round(item.qty * p * (1 + VAT_RATE)); return (<tr key={index}><td style={{ borderBottom: "1px solid #e2e8f0", padding: "12px 10px", textAlign: "center" }}>{index + 1}</td><td style={{ borderBottom: "1px solid #e2e8f0", padding: "12px 10px" }}>{cleanName(item.product.name)}</td><td style={{ borderBottom: "1px solid #e2e8f0", padding: "12px 10px", textAlign: "center" }}>{item.qty}</td><td style={{ borderBottom: "1px solid #e2e8f0", padding: "12px 10px", textAlign: "right" }}>{p.toLocaleString()}đ</td><td style={{ borderBottom: "1px solid #e2e8f0", padding: "12px 10px", textAlign: "right" }}>{t.toLocaleString()}đ</td></tr>); })}</tbody>
             </table>
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: "30px", fontSize: "15px" }}>
-              <div style={{ textAlign: "center", width: "40%" }}><b>Khách hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span><div style={{ marginTop: "70px", width: "150px", borderTop: "1px solid #000", display: "inline-block" }}></div></div>
-              <div style={{ textAlign: "right", width: "50%" }}><p style={{ margin: "5px 0" }}>Cộng tiền hàng: {Math.round(lastOrder.subTotal).toLocaleString()}đ</p><p style={{ margin: "5px 0" }}>Thuế GTGT (10%): {Math.round(lastOrder.vatTotal).toLocaleString()}đ</p>{lastOrder.discount > 0 && <p style={{ margin: "5px 0" }}>Giảm giá/Ví: -{Math.round(lastOrder.discount).toLocaleString()}đ</p>}<h3 style={{ borderTop: "2px solid #000", paddingTop: "10px", margin: "10px 0" }}>TỔNG CỘNG: {Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</h3>
+            {/* Phần Tính Tiền (Nằm bên phải) */}
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "20px", fontSize: "15px" }}>
+              <div style={{ textAlign: "right", width: "50%" }}>
+                <p style={{ margin: "5px 0" }}>Cộng tiền hàng: {Math.round(lastOrder.subTotal).toLocaleString()}đ</p>
+                <p style={{ margin: "5px 0" }}>Thuế GTGT (10%): {Math.round(lastOrder.vatTotal).toLocaleString()}đ</p>
+                {lastOrder.discount > 0 && <p style={{ margin: "5px 0" }}>Giảm giá/Ví: -{Math.round(lastOrder.discount).toLocaleString()}đ</p>}
+                <h3 style={{ borderTop: "2px solid #000", paddingTop: "10px", margin: "10px 0" }}>TỔNG CỘNG: {Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</h3>
                 {lastOrder.paymentMethod === 'TIỀN MẶT' && (<div style={{ fontSize: "14px", marginTop: "10px" }}><div style={{ display: "flex", justifyContent: "space-between" }}><span>Khách đưa:</span> <span>{Math.round(lastOrder.customerGiven || lastOrder.finalTotal).toLocaleString()}đ</span></div><div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}><span>Thối lại:</span> <span>{Math.round(Math.max(0, (lastOrder.customerGiven || lastOrder.finalTotal) - lastOrder.finalTotal)).toLocaleString()}đ</span></div></div>)}
                 {lastOrder.paymentMethod === 'KẾT HỢP' && (<div style={{ fontSize: "14px", marginTop: "10px" }}><div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Tiền mặt:</span> <span>{Math.round(lastOrder.customerGiven || 0).toLocaleString()}đ</span></div><div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Chuyển khoản:</span> <span>{Math.round(lastOrder.finalTotal - (lastOrder.customerGiven || 0)).toLocaleString()}đ</span></div></div>)}
-                <div style={{ textAlign: "center", marginTop: "40px" }}><b>Người bán hàng</b><br/><span style={{ fontSize: "12px", color: "#666" }}>(Ký, đóng dấu)</span><br/><div style={{ marginTop: "70px", width: "150px", borderTop: "1px solid #000", display: "inline-block" }}></div></div>
               </div>
             </div>
+            
+            {/* Phần Chữ Ký (Nằm thẳng hàng nhau ở dưới cùng) */}
+            <div style={{ display: "flex", justifyContent: "space-between", textAlign: "center", marginTop: "50px", fontSize: "15px" }}>
+              <div style={{ width: "40%" }}>
+                <b>Khách hàng</b><br/>
+                <span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span>
+                <div style={{ marginTop: "70px", width: "150px", borderTop: "1px solid #000", display: "inline-block" }}></div>
+              </div>
+              <div style={{ width: "40%" }}>
+                <b>Người bán hàng</b><br/>
+                <span style={{ fontSize: "12px", color: "#666" }}>(Ký, đóng dấu)</span>
+                <div style={{ marginTop: "70px", width: "150px", borderTop: "1px solid #000", display: "inline-block" }}></div>
+              </div>
+            </div>
+            
           </div>
         </div>
       )}
