@@ -1775,7 +1775,11 @@ export default function App() {
       setReceiveItems(newPO.items.map((i: any) => ({ ...i, damagedQty: 0 })));
     } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); }
   };
-
+const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') => {
+    setPrintPOData(po);
+    setPrintMode(type);
+    setTimeout(() => window.print(), 800);
+  };
   const handleConfirmReceipt = async () => {
     if (!foundPO || receiveItems.length === 0) return; setLoading(true);
     try {
