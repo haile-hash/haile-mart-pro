@@ -767,22 +767,58 @@ export default function App() {
         return toast.error(`Lỗi! Số lượng trả lại (${refundQty}) không được lớn hơn số lượng đã mua (${log.qty})!`);
       }
 
-      // BƯỚC 2: Hỏi hình thức hoàn tiền
-      const choice = window.prompt(`Xác nhận trả lại ${refundQty} sản phẩm.\nNhập số để chọn hình thức hoàn tiền:\n1. TIỀN MẶT\n2. CHUYỂN KHOẢN\n3. HOÀN VÀO VÍ VIP`, "1");
-      if (choice === null) return; 
-
-      let selectedMethod = "TIỀN MẶT";
-      if (choice === "2") selectedMethod = "CHUYỂN KHOẢN";
-      if (choice === "3") selectedMethod = "VÍ WALLET";
-
       // TỰ ĐỘNG TÍNH TOÁN SỐ TIỀN & LỢI NHUẬN THEO SL THỰC TẾ
       const singlePrice = log.total / log.qty; 
       const refundTotal = Math.round(singlePrice * refundQty);
-      
       const singleProfit = (log.profit || 0) / log.qty; 
       const refundProfit = Math.round(singleProfit * refundQty);
 
-      // --- VÁ LỖI: CỘNG LẠI SỐ LƯỢNG VÀO TỒN KHO TRÊN CLOUD ---
+      let selectedMethod = "TIỀN MẶT";
+
+      // BƯỚC 2: XỬ LÝ THANH TOÁN (PHÂN BIỆT RÕ BÁN THƯỜNG VÀ GHI NỢ)
+      if (log.type === 'GHI NỢ') {
+        // NẾU MUA NỢ -> BẮT BUỘC TRỪ NỢ (KHÔNG ĐƯỢC HOÀN TIỀN MẶT)
+        const confirmDebt = window.confirm(`Đơn hàng này được MUA NỢ.\nHệ thống sẽ tự động trừ ${refundTotal.toLocaleString()}đ vào dư nợ của khách hàng. Đồng ý?`);
+        if (!confirmDebt) return;
+        selectedMethod = "TRỪ NỢ";
+
+        const phoneMatch = log.customer.match(/\((.*?)\)/);
+        const customerPhone = phoneMatch ? phoneMatch[1] : null;
+        if (customerPhone && customers[customerPhone]) {
+          const custData = customers[customerPhone];
+          const newDebt = Math.max(0, (custData.debt || 0) - refundTotal); // Trừ nợ, không để nợ bị âm
+          const updatedCust = { ...custData, debt: newDebt };
+          setCustomers(prev => ({ ...prev, [customerPhone]: updatedCust }));
+          if (navigator.onLine) {
+            await supabase.from("customers").update({ debt: newDebt }).eq("phone", customerPhone);
+          }
+        }
+      } else {
+        // NẾU MUA TRẢ TIỀN RỒI -> HỎI HÌNH THỨC HOÀN LẠI TIỀN CHO KHÁCH
+        const choice = window.prompt(`Xác nhận trả lại ${refundQty} sản phẩm.\nNhập số để chọn hình thức hoàn tiền:\n1. TIỀN MẶT\n2. CHUYỂN KHOẢN\n3. HOÀN VÀO VÍ VIP`, "1");
+        if (choice === null) return; 
+
+        if (choice === "2") selectedMethod = "CHUYỂN KHOẢN";
+        if (choice === "3") selectedMethod = "VÍ WALLET";
+
+        // Nếu hoàn tiền vào Ví VIP
+        if (choice === "3") {
+          const phoneMatch = log.customer.match(/\((.*?)\)/);
+          const customerPhone = phoneMatch ? phoneMatch[1] : null;
+          if (!customerPhone || !customers[customerPhone]) {
+            return toast.error("Đơn hàng này thuộc Khách lẻ, không có tài khoản để hoàn vào Ví VIP!");
+          }
+          
+          const custData = customers[customerPhone];
+          const updatedCust = { ...custData, wallet: Math.round((custData.wallet || 0) + refundTotal) };
+          setCustomers(prev => ({ ...prev, [customerPhone]: updatedCust }));
+          if (navigator.onLine) {
+            await supabase.from("customers").update({ wallet: updatedCust.wallet }).eq("phone", customerPhone);
+          }
+        }
+      }
+
+      // BƯỚC 3: CỘNG LẠI SỐ LƯỢNG VÀO TỒN KHO TRÊN CLOUD
       if (log.product_id) {
         const currentProd = products.find(p => p.id === log.product_id);
         if (currentProd) {
@@ -797,23 +833,7 @@ export default function App() {
         }
       }
 
-      // Nếu chọn hoàn vào Ví VIP, tự động cộng lại tiền vào ví cho khách
-      if (choice === "3") {
-        const phoneMatch = log.customer.match(/\((.*?)\)/);
-        const customerPhone = phoneMatch ? phoneMatch[1] : null;
-        if (!customerPhone || !customers[customerPhone]) {
-          return toast.error("Đơn hàng này thuộc Khách lẻ, không có tài khoản để hoàn vào Ví VIP!");
-        }
-        
-        const custData = customers[customerPhone];
-        const updatedCust = { ...custData, wallet: Math.round((custData.wallet || 0) + refundTotal) };
-        setCustomers(prev => ({ ...prev, [customerPhone]: updatedCust }));
-        if (navigator.onLine) {
-          await supabase.from("customers").update({ wallet: updatedCust.wallet }).eq("phone", customerPhone);
-        }
-      }
-
-      // BƯỚC 3: Tạo Log Trả Hàng với số lượng và số tiền âm tương ứng
+      // BƯỚC 4: Tạo Log Trả Hàng vào lịch sử
       const lg = { 
         id: Date.now(), 
         shift, 
@@ -829,8 +849,8 @@ export default function App() {
       }; 
       
       await addTransactionAndSync(lg); 
-      await fetchProducts(); // Gọi hàm ép giao diện kéo dữ liệu tồn kho mới nhất về màn hình
-      toast.success(`Đã nhận hoàn trả ${refundQty} mặt hàng và cộng vào tồn kho thành công!`); 
+      await fetchProducts(); 
+      toast.success(`Đã nhận hoàn trả ${refundQty} mặt hàng (${selectedMethod})!`); 
     }); 
   };
   const handlePayDebt = async (phone: string) => { 
