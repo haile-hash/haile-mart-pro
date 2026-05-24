@@ -1701,20 +1701,22 @@ export default function App() {
                 {lastOrder.paymentMethod === 'KẾT HỢP' && (<div style={{ fontSize: "14px", marginTop: "10px" }}><div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Tiền mặt:</span> <span>{Math.round(lastOrder.customerGiven || 0).toLocaleString()}đ</span></div><div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Chuyển khoản:</span> <span>{Math.round(lastOrder.finalTotal - (lastOrder.customerGiven || 0)).toLocaleString()}đ</span></div></div>)}
               </div>
             </div>
-            
             {/* Phần Chữ Ký (Nằm thẳng hàng nhau ở dưới cùng) */}
             <div style={{ display: "flex", justifyContent: "space-between", textAlign: "center", marginTop: "50px", fontSize: "15px" }}>
               <div style={{ width: "40%" }}>
-                <b>Khách hàng</b><br/>
-                <span style={{ fontSize: "12px", color: "#666" }}>(Ký, ghi rõ họ tên)</span>
-                <div style={{ marginTop: "70px", width: "150px", borderTop: "1px solid #000", display: "inline-block" }}></div>
+                <strong style={{ display: "block", marginBottom: "4px", fontSize: "16px" }}>Khách hàng</strong>
+                <span style={{ fontSize: "13px", fontStyle: "italic", color: "#64748b", display: "block" }}>(Ký, ghi rõ họ tên)</span>
+                {/* Đường kẻ mờ để ký tên */}
+                <div style={{ marginTop: "90px", width: "60%", marginInline: "auto", borderTop: "1px dashed #94a3b8" }}></div>
               </div>
               <div style={{ width: "40%" }}>
-                <b>Người bán hàng</b><br/>
-                <span style={{ fontSize: "12px", color: "#666" }}>(Ký, đóng dấu)</span>
-                <div style={{ marginTop: "70px", width: "150px", borderTop: "1px solid #000", display: "inline-block" }}></div>
+                <strong style={{ display: "block", marginBottom: "4px", fontSize: "16px" }}>Người bán hàng</strong>
+                <span style={{ fontSize: "13px", fontStyle: "italic", color: "#64748b", display: "block" }}>(Ký, đóng dấu)</span>
+                {/* Đường kẻ mờ để ký tên */}
+                <div style={{ marginTop: "90px", width: "60%", marginInline: "auto", borderTop: "1px dashed #94a3b8" }}></div>
               </div>
             </div>
+            
             
           </div>
         </div>
