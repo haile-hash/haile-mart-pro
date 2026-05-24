@@ -1892,7 +1892,7 @@ const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') =
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
       <style>{styles}</style> 
-      <style>{`
+     <style>{`
         /* KHẮC PHỤC LOGO BỊ GIÃN DÀI VÀ KÉO SAO VÀO SÁT CHỮ T */
         .logo-wrapper { display: inline-flex !important; align-items: center; padding: 10px 45px 10px 20px !important; position: relative; width: fit-content !important; min-width: 0 !important; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); border-radius: 12px; margin-right: auto; }
         .logo-star { position: absolute !important; right: 12px !important; top: 50% !important; transform: translateY(-50%) !important; font-size: 26px !important; color: #f59e0b !important; margin: 0 !important; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
@@ -1926,7 +1926,6 @@ const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') =
         [data-theme='dark'] .animated-bg-mesh { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%); opacity: 1; }
 
         /* ==================================================================== */
-       /* ==================================================================== */
         /* CSS IN ẤN ĐÃ FIX LỖI TRẮNG TRANG (AN TOÀN TUYỆT ĐỐI)                 */
         /* ==================================================================== */
         
@@ -1988,6 +1987,7 @@ const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') =
             print-color-adjust: exact !important; 
           }
         }
+      `}</style>
       `
       <div className="animated-bg-mesh"></div>
       <Toaster position="top-right" reverseOrder={false} />
