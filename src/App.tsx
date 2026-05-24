@@ -1026,13 +1026,17 @@ export default function App() {
     const cust = customers[phone];
     if(!cust) return toast.error("Không tìm thấy dữ liệu khách!");
     
+    // Nạp dữ liệu vào state trước
     setPrintCustomer({ phone, ...cust }); 
     setPrintMode('customer_card'); 
     
-    toast.loading("Đang tạo thẻ in...", { duration: 1500 });
+    // Tăng thời gian chờ lên một chút (2000ms) để đảm bảo PrintManager đã ăn khớp dữ liệu và render xong UI
+    const loadingToast = toast.loading("Đang dựng cấu trúc thẻ VIP...", { duration: 2000 });
+    
     setTimeout(() => {
+      toast.dismiss(loadingToast);
       window.print();
-    }, 1500); 
+    }, 2000); 
   };
 
   const sendCardEmail = async (phone: string) => {
