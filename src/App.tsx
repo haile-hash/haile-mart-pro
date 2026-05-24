@@ -913,22 +913,23 @@ export default function App() {
     const discountLog = history.find(h => h.time === timeStr && h.product_id === 'DISCOUNT');
     if(logsInBill.length === 0) return toast.error("Không tìm thấy dữ liệu hóa đơn!");
     
+    // Nhận diện xem đây có phải là in lại Phiếu Trả Hàng không
     const isRefundSlip = logsInBill[0].type === 'TRẢ HÀNG';
     
     const reconstructedCart = logsInBill.map(l => ({ 
-      qty: l.qty, 
+      qty: Math.abs(l.qty), // Dùng Math.abs để chuyển số lượng âm thành dương khi in
       product: { 
-        name: l.name, 
+        name: l.name.replace("HOÀN: ", ""), // Xóa chữ HOÀN đi cho hóa đơn đẹp
         gift_info: null, 
         isHappyHour: String(l.name).includes('[Giờ Vàng]') 
       }, 
-      priceIncludingVat: l.total / l.qty 
+      priceIncludingVat: Math.abs(l.total) / Math.abs(l.qty) 
     }));
     
     const subTotal = reconstructedCart.reduce((s, i) => s + (i.qty * (i.priceIncludingVat / (1 + VAT_RATE))), 0); 
     const vatTotal = Math.round(subTotal * VAT_RATE); 
     const discount = discountLog ? Math.abs(discountLog.total) : 0; 
-    const finalTotal = logsInBill.reduce((sum, l) => sum + l.total, 0) - discount;
+    const finalTotal = logsInBill.reduce((sum, l) => sum + Math.abs(l.total), 0) - discount; // Dùng Math.abs để tổng tiền dương
     
     let cPhone = ""; let cName = logsInBill[0].customer;
     if (cName !== "Khách lẻ") { 
@@ -937,8 +938,7 @@ export default function App() {
     }
     
     const rOrder = { 
-      // Nếu là đơn hoàn hàng, tiêu đề máy in POS tự đổi thành PHIẾU TRẢ HÀNG thay vì Hải Lê Mart
-      orderId: isRefundSlip ? "PHIẾU TRẢ HÀNG" : "HD_COPY", 
+      orderId: isRefundSlip ? "PHIẾU_TRẢ_HÀNG" : "HD_COPY", // Đánh dấu ID riêng cho phiếu trả
       shift: logsInBill[0].shift, 
       cart: reconstructedCart, 
       subTotal, 
@@ -952,9 +952,7 @@ export default function App() {
       custName: cName, 
       custPhone: cPhone 
     };
-    setLastOrder(rOrder); 
-    setPrintMode('receipt'); 
-    setTimeout(() => window.print(), 500);
+    setLastOrder(rOrder); setPrintMode('receipt'); setTimeout(() => window.print(), 500);
   };
 
   const sendReceiptEmail = async () => {
@@ -1772,42 +1770,95 @@ export default function App() {
       {printMode === 'invoice_a4' && lastOrder && (
         <div className="print-a4-container">
           <div style={{ width: "100%", fontFamily: "'Inter', sans-serif" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #000", paddingBottom: "10px", marginBottom: "20px" }}><div><h1 style={{ margin: 0, color: "#dc2626", fontSize: "28px" }}>HẢI LÊ MART</h1><p style={{ margin: "5px 0", fontSize: "14px" }}>Địa chỉ: Tòa Nhà ATS, 252 Hoàng Quốc Việt, Cầu Giấy, HN</p></div><div style={{ textAlign: "right" }}><h2 style={{ margin: 0, fontSize: "24px" }}>HÓA ĐƠN BÁN HÀNG</h2><p style={{ margin: "5px 0", fontSize: "14px" }}>Số: <b>{lastOrder.orderId}</b></p><p style={{ margin: "5px 0", fontSize: "14px" }}>Ngày: {lastOrder.time}</p></div></div>
-            <div style={{ marginBottom: "20px", fontSize: "15px", display: "grid", gridTemplateColumns: "1fr 1fr" }}>
-              <div><p style={{ margin: "5px 0" }}><b>Khách hàng:</b> {lastOrder.custName || "Khách lẻ"}</p>{lastOrder.custPhone && <p style={{ margin: "5px 0" }}><b>SĐT:</b> {lastOrder.custPhone}</p>}{lastOrder.custPhone && customers[lastOrder.custPhone]?.email && <p style={{ margin: "5px 0" }}><b>Email:</b> {customers[lastOrder.custPhone].email}</p>}{lastOrder.custPhone && customers[lastOrder.custPhone]?.address && <p style={{ margin: "5px 0" }}><b>Địa chỉ:</b> {customers[lastOrder.custPhone].address}</p>}</div>
-              <div style={{ textAlign: "right" }}><p style={{ margin: "5px 0" }}><b>Phương thức thanh toán:</b> {lastOrder.paymentMethod}</p></div>
+            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #000", paddingBottom: "10px", marginBottom: "20px" }}>
+              <div>
+                <h1 style={{ margin: 0, color: "#dc2626", fontSize: "28px" }}>HẢI LÊ MART</h1>
+                <p style={{ margin: "5px 0", fontSize: "14px" }}>Địa chỉ: Tòa Nhà ATS, 252 Hoàng Quốc Việt, Cầu Giấy, HN</p>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                {/* Đổi tiêu đề nếu là phiếu trả hàng */}
+                <h2 style={{ margin: 0, fontSize: "24px", color: lastOrder.orderId === "PHIẾU_TRẢ_HÀNG" ? "#ef4444" : "#000" }}>
+                  {lastOrder.orderId === "PHIẾU_TRẢ_HÀNG" ? "BIÊN LAI TRẢ HÀNG" : "HÓA ĐƠN BÁN HÀNG"}
+                </h2>
+                <p style={{ margin: "5px 0", fontSize: "14px" }}>Số: <b>{lastOrder.orderId}</b></p>
+                <p style={{ margin: "5px 0", fontSize: "14px" }}>Ngày: {lastOrder.time}</p>
+              </div>
             </div>
+            
+            <div style={{ marginBottom: "20px", fontSize: "15px", display: "grid", gridTemplateColumns: "1fr 1fr" }}>
+              <div>
+                <p style={{ margin: "5px 0" }}><b>Khách hàng:</b> {lastOrder.custName || "Khách lẻ"}</p>
+                {lastOrder.custPhone && <p style={{ margin: "5px 0" }}><b>SĐT:</b> {lastOrder.custPhone}</p>}
+                {lastOrder.custPhone && customers[lastOrder.custPhone]?.email && <p style={{ margin: "5px 0" }}><b>Email:</b> {customers[lastOrder.custPhone].email}</p>}
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <p style={{ margin: "5px 0" }}><b>Phương thức thanh toán:</b> {lastOrder.paymentMethod}</p>
+              </div>
+            </div>
+            
             <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px" }}>
-              <thead><tr style={{ background: "#f1f5f9" }}><th style={{ borderBottom: "2px solid #cbd5e1", padding: "10px", textAlign: "center" }}>STT</th><th style={{ borderBottom: "2px solid #cbd5e1", padding: "10px", textAlign: "left" }}>Tên hàng hóa</th><th style={{ borderBottom: "2px solid #cbd5e1", padding: "10px", textAlign: "center" }}>SL</th><th style={{ borderBottom: "2px solid #cbd5e1", padding: "10px", textAlign: "right" }}>Đơn giá</th><th style={{ borderBottom: "2px solid #cbd5e1", padding: "10px", textAlign: "right" }}>Thành tiền</th></tr></thead>
-              <tbody>{lastOrder.cart.map((item: any, index: number) => { const p = Math.round(getActualPrice(item.product)); const t = Math.round(item.qty * p * (1 + VAT_RATE)); return (<tr key={index}><td style={{ borderBottom: "1px solid #e2e8f0", padding: "12px 10px", textAlign: "center" }}>{index + 1}</td><td style={{ borderBottom: "1px solid #e2e8f0", padding: "12px 10px" }}>{cleanName(item.product.name)}</td><td style={{ borderBottom: "1px solid #e2e8f0", padding: "12px 10px", textAlign: "center" }}>{item.qty}</td><td style={{ borderBottom: "1px solid #e2e8f0", padding: "12px 10px", textAlign: "right" }}>{p.toLocaleString()}đ</td><td style={{ borderBottom: "1px solid #e2e8f0", padding: "12px 10px", textAlign: "right" }}>{t.toLocaleString()}đ</td></tr>); })}</tbody>
+              <thead>
+                <tr style={{ background: "#f1f5f9" }}>
+                  <th style={{ borderBottom: "2px solid #cbd5e1", padding: "10px", textAlign: "center" }}>STT</th>
+                  <th style={{ borderBottom: "2px solid #cbd5e1", padding: "10px", textAlign: "left" }}>Tên hàng hóa</th>
+                  <th style={{ borderBottom: "2px solid #cbd5e1", padding: "10px", textAlign: "center" }}>SL</th>
+                  <th style={{ borderBottom: "2px solid #cbd5e1", padding: "10px", textAlign: "right" }}>Đơn giá</th>
+                  <th style={{ borderBottom: "2px solid #cbd5e1", padding: "10px", textAlign: "right" }}>Thành tiền</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lastOrder.cart.map((item: any, index: number) => { 
+                  const p = Math.round(getActualPrice(item.product)); 
+                  const t = Math.round(item.qty * p * (1 + VAT_RATE)); 
+                  return (
+                    <tr key={index}>
+                      <td style={{ borderBottom: "1px solid #e2e8f0", padding: "12px 10px", textAlign: "center" }}>{index + 1}</td>
+                      <td style={{ borderBottom: "1px solid #e2e8f0", padding: "12px 10px" }}>{cleanName(item.product.name)}</td>
+                      <td style={{ borderBottom: "1px solid #e2e8f0", padding: "12px 10px", textAlign: "center" }}>{item.qty}</td>
+                      <td style={{ borderBottom: "1px solid #e2e8f0", padding: "12px 10px", textAlign: "right" }}>{p.toLocaleString()}đ</td>
+                      <td style={{ borderBottom: "1px solid #e2e8f0", padding: "12px 10px", textAlign: "right" }}>{t.toLocaleString()}đ</td>
+                    </tr>
+                  ); 
+                })}
+              </tbody>
             </table>
-            {/* Phần Tính Tiền (Nằm bên phải) */}
+            
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "20px", fontSize: "15px" }}>
               <div style={{ textAlign: "right", width: "50%" }}>
                 <p style={{ margin: "5px 0" }}>Cộng tiền hàng: {Math.round(lastOrder.subTotal).toLocaleString()}đ</p>
                 <p style={{ margin: "5px 0" }}>Thuế GTGT (10%): {Math.round(lastOrder.vatTotal).toLocaleString()}đ</p>
                 {lastOrder.discount > 0 && <p style={{ margin: "5px 0" }}>Giảm giá/Ví: -{Math.round(lastOrder.discount).toLocaleString()}đ</p>}
-                <h3 style={{ borderTop: "2px solid #000", paddingTop: "10px", margin: "10px 0" }}>TỔNG CỘNG: {Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</h3>
-                {lastOrder.paymentMethod === 'TIỀN MẶT' && (<div style={{ fontSize: "14px", marginTop: "10px" }}><div style={{ display: "flex", justifyContent: "space-between" }}><span>Khách đưa:</span> <span>{Math.round(lastOrder.customerGiven || lastOrder.finalTotal).toLocaleString()}đ</span></div><div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}><span>Thối lại:</span> <span>{Math.round(Math.max(0, (lastOrder.customerGiven || lastOrder.finalTotal) - lastOrder.finalTotal)).toLocaleString()}đ</span></div></div>)}
-                {lastOrder.paymentMethod === 'KẾT HỢP' && (<div style={{ fontSize: "14px", marginTop: "10px" }}><div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Tiền mặt:</span> <span>{Math.round(lastOrder.customerGiven || 0).toLocaleString()}đ</span></div><div style={{ display: "flex", justifyContent: "space-between" }}><span>Thanh toán Chuyển khoản:</span> <span>{Math.round(lastOrder.finalTotal - (lastOrder.customerGiven || 0)).toLocaleString()}đ</span></div></div>)}
+                
+                <h3 style={{ borderTop: "2px solid #000", paddingTop: "10px", margin: "10px 0", color: lastOrder.orderId === "PHIẾU_TRẢ_HÀNG" ? "#ef4444" : "#000" }}>
+                  {lastOrder.orderId === "PHIẾU_TRẢ_HÀNG" ? "SỐ TIỀN HOÀN TRẢ:" : "TỔNG CỘNG:"} {Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ
+                </h3>
+                
+                {/* --- KHỐI HIỂN THỊ DƯ NỢ CÒN LẠI --- */}
+                {lastOrder.custPhone && customers[lastOrder.custPhone] && (
+                  <div style={{ marginTop: "15px", padding: "10px", background: "#f8fafc", border: "1px dashed #94a3b8", textAlign: "left" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold", fontSize: "16px" }}>
+                      <span>DƯ NỢ HIỆN TẠI (SAU GIAO DỊCH):</span>
+                      <span style={{ color: "#ef4444" }}>{(customers[lastOrder.custPhone].debt || 0).toLocaleString()}đ</span>
+                    </div>
+                  </div>
+                )}
+                
               </div>
             </div>
-            {/* Phần Chữ Ký (Nằm thẳng hàng nhau ở dưới cùng) */}
+            
+            {/* Phần Chữ Ký */}
             <div style={{ display: "flex", justifyContent: "space-between", textAlign: "center", marginTop: "50px", fontSize: "15px" }}>
               <div style={{ width: "40%" }}>
                 <strong style={{ display: "block", marginBottom: "4px", fontSize: "16px" }}>Khách hàng</strong>
                 <span style={{ fontSize: "13px", fontStyle: "italic", color: "#64748b", display: "block" }}>(Ký, ghi rõ họ tên)</span>
-                {/* Đường kẻ mờ để ký tên */}
                 <div style={{ marginTop: "90px", width: "60%", marginInline: "auto", borderTop: "1px dashed #94a3b8" }}></div>
               </div>
               <div style={{ width: "40%" }}>
-                <strong style={{ display: "block", marginBottom: "4px", fontSize: "16px" }}>Người bán hàng</strong>
+                <strong style={{ display: "block", marginBottom: "4px", fontSize: "16px" }}>Người bán hàng / Thu ngân</strong>
                 <span style={{ fontSize: "13px", fontStyle: "italic", color: "#64748b", display: "block" }}>(Ký, đóng dấu)</span>
-                {/* Đường kẻ mờ để ký tên */}
                 <div style={{ marginTop: "90px", width: "60%", marginInline: "auto", borderTop: "1px dashed #94a3b8" }}></div>
               </div>
             </div>
-            
             
           </div>
         </div>
