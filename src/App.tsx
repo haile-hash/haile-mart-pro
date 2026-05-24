@@ -1734,7 +1734,12 @@ export default function App() {
       {lastOrder && printMode === 'receipt' && (
         <div className="print-only">
           <div className="print-receipt-container">
-            <div style={{ textAlign: "center", marginBottom: "8px" }}><h2 style={{ margin: 0, fontSize: "20px", fontWeight: 900 }}>HẢI LÊ MART</h2><div style={{ fontSize: "11px" }}>Tòa Nhà ATS, 252 Hoàng Quốc Việt, HN</div></div>
+            <div style={{ textAlign: "center", marginBottom: "8px" }}>
+              <h2 style={{ margin: 0, fontSize: "20px", fontWeight: 900 }}>
+                {lastOrder.orderId === "PHIẾU_TRẢ_HÀNG" ? "PHIẾU TRẢ HÀNG" : "HẢI LÊ MART"}
+              </h2>
+              {lastOrder.orderId !== "PHIẾU_TRẢ_HÀNG" && <div style={{ fontSize: "11px" }}>Tòa Nhà ATS, 252 Hoàng Quốc Việt, HN</div>}
+            </div>
             <div style={{ borderBottom: "1px dashed #000", marginBottom: "8px" }}></div>
             <table style={{ width: "100%", fontSize: "11px", marginBottom: "4px", borderCollapse: "collapse" }}><tbody><tr><td style={{ textAlign: "left" }}><b>HĐ:</b> {lastOrder.orderId}</td><td style={{ textAlign: "right" }}><b>Ca:</b> {shift}</td></tr><tr><td style={{ textAlign: "left" }}><b>Ngày:</b> {lastOrder.time}</td><td style={{ textAlign: "right" }}><b>TN:</b> {role}</td></tr></tbody></table>
             <div style={{ borderBottom: "1px dashed #000", marginBottom: "6px" }}></div>
@@ -1755,12 +1760,24 @@ export default function App() {
             <div style={{ borderBottom: "1px dashed #000", marginBottom: "8px", marginTop: "4px" }}></div>
             <table style={{ width: "100%", fontSize: "12px", borderCollapse: "collapse" }}><tbody><tr><td style={{ padding: "2px 0" }}>Tiền hàng:</td><td style={{ textAlign: "right", padding: "2px 0" }}>{Math.round(lastOrder.subTotal).toLocaleString()}đ</td></tr><tr><td style={{ padding: "2px 0" }}>VAT (10%):</td><td style={{ textAlign: "right", padding: "2px 0" }}>{Math.round(lastOrder.vatTotal).toLocaleString()}đ</td></tr>{lastOrder.discount > 0 && <tr><td style={{ padding: "2px 0" }}>Giảm giá/Ví:</td><td style={{ textAlign: "right", padding: "2px 0" }}>-{Math.round(lastOrder.discount).toLocaleString()}đ</td></tr>}</tbody></table>
             <div style={{ borderBottom: "2px dashed #000", margin: "6px 0" }}></div>
-            <table style={{ width: "100%", fontSize: "16px", fontWeight: 900, borderCollapse: "collapse" }}><tbody><tr><td>{lastOrder.debtAmount > 0 ? "NỢ:" : "TỔNG ĐƠN:"}</td><td style={{ textAlign: "right" }}>{Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</td></tr></tbody></table>
+            <table style={{ width: "100%", fontSize: "16px", fontWeight: 900, borderCollapse: "collapse" }}><tbody><tr><td>{lastOrder.orderId === "PHIẾU_TRẢ_HÀNG" ? "HOÀN TRẢ:" : (lastOrder.debtAmount > 0 ? "NỢ:" : "TỔNG ĐƠN:")}</td><td style={{ textAlign: "right" }}>{Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</td></tr></tbody></table>
+            
             <div style={{ borderTop: "1px dotted #000", paddingTop: "6px", marginTop: "6px", fontSize: "12px" }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}><span>Phương thức TT:</span><b>{lastOrder.paymentMethod}</b></div>
               {lastOrder.paymentMethod === 'TIỀN MẶT' && (<><div style={{ display: "flex", justifyContent: "space-between" }}><span>Khách đưa:</span><span>{Math.round(lastOrder.customerGiven || lastOrder.finalTotal).toLocaleString()}đ</span></div><div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}><span>Thối lại:</span><span>{Math.round(Math.max(0, (lastOrder.customerGiven || lastOrder.finalTotal) - lastOrder.finalTotal)).toLocaleString()}đ</span></div></>)}
               {lastOrder.paymentMethod === 'KẾT HỢP' && (<><div style={{ display: "flex", justifyContent: "space-between" }}><span>Tiền mặt:</span><span>{Math.round(lastOrder.customerGiven || 0).toLocaleString()}đ</span></div><div style={{ display: "flex", justifyContent: "space-between" }}><span>Chuyển khoản:</span><span>{Math.round(lastOrder.finalTotal - (lastOrder.customerGiven || 0)).toLocaleString()}đ</span></div></>)}
             </div>
+
+            {/* --- KHỐI HIỂN THỊ DƯ NỢ CÒN LẠI CHUẨN POS --- */}
+            {lastOrder.custPhone && customers[lastOrder.custPhone] && (
+              <div style={{ borderTop: "1px dashed #000", paddingTop: "6px", marginTop: "6px", fontSize: "13px", fontWeight: "bold" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>DƯ NỢ HIỆN TẠI:</span>
+                  <span>{(customers[lastOrder.custPhone].debt || 0).toLocaleString()}đ</span>
+                </div>
+              </div>
+            )}
+
             <div style={{ textAlign: "center", marginTop: "15px", fontSize: "11px" }}><b>CẢM ƠN QUÝ KHÁCH!</b></div>
           </div>
         </div>
