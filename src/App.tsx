@@ -427,7 +427,12 @@ export default function App() {
     if (logTypeFilter !== "Tất cả") filtered = filtered.filter(log => log.type === logTypeFilter); 
     if (logSearchTerm.trim() !== "") { 
       const term = String(logSearchTerm || "").toLowerCase(); 
-      filtered = filtered.filter(log => (log.name && String(log.name).toLowerCase().includes(term)) || (log.customer && String(log.customer).toLowerCase().includes(term)) || (log.id.toString().includes(term))) 
+      filtered = filtered.filter(log => 
+        (log.name && String(log.name).toLowerCase().includes(term)) || 
+        (log.customer && String(log.customer).toLowerCase().includes(term)) || 
+        (log.id.toString().includes(term)) ||
+        (log.order_id && String(log.order_id).toLowerCase().includes(term)) // BỔ SUNG: Cho phép tìm theo mã HD
+      ) 
     } 
     return filtered.reduce((groups: any, log: any) => { 
       const date = new Date(Math.floor(log.id)).toLocaleDateString('vi-VN'); 
