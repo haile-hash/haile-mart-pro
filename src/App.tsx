@@ -853,28 +853,82 @@ export default function App() {
       toast.success(`Đã nhận hoàn trả ${refundQty} mặt hàng (${selectedMethod})!`); 
     }); 
   };
-  const handlePayDebt = async (phone: string) => { 
+ const handlePayDebt = async (phone: string) => { 
     const currentDebt = customers[phone]?.debt || 0; 
-    if (currentDebt <= 0) return toast.error("Khách không có nợ!"); 
+    if (currentDebt <= 0) return toast.error("Khách hàng hiện không có nợ!"); 
     
-    setCustomers(prev => ({ ...prev, [phone]: { ...prev[phone], debt: 0 } })); 
-    if(navigator.onLine) await supabase.from("customers").update({ debt: 0 }).eq("phone", phone); 
+    // BƯỚC 1: Hiện Prompt hỏi số tiền khách muốn trả trước là bao nhiêu
+    const inputAmount = window.prompt(
+      `Khách hàng: ${customers[phone].name}\nDư nợ hiện tại: ${currentDebt.toLocaleString()}đ\n\nNhập số tiền khách muốn thanh toán trước:`, 
+      currentDebt.toString()
+    );
+    if (inputAmount === null) return; // Bấm hủy bỏ đơn
+
+    const paidAmount = parseInt(inputAmount.replace(/[,.]/g, ''));
+    if (isNaN(paidAmount) || paidAmount <= 0) {
+      return toast.error("Số tiền thanh toán không hợp lệ!");
+    }
+    if (paidAmount > currentDebt) {
+      return toast.error(`Số tiền trả (${paidAmount.toLocaleString()}đ) không được lớn hơn tổng nợ hiện tại (${currentDebt.toLocaleString()}đ)!`);
+    }
+
+    // BƯỚC 2: Tính toán số dư nợ còn lại
+    const remainingDebt = currentDebt - paidAmount;
     
-    const lg = { id: Date.now(), shift, type: "THU NỢ", name: "Thanh toán nợ", qty: 1, total: currentDebt, profit: 0, customer: `${customers[phone].name} (${phone})`, paymentMethod: 'TIỀN MẶT', time: new Date().toLocaleString('vi-VN') }; 
+    // Cập nhật lên State nội bộ của ứng dụng
+    setCustomers(prev => ({ 
+      ...prev, 
+      [phone]: { ...prev[phone], debt: remainingDebt } 
+    })); 
+    
+    // Đồng bộ trực tiếp lên Cloud cơ sở dữ liệu Supabase
+    if (navigator.onLine) {
+      await supabase.from("customers").update({ debt: remainingDebt }).eq("phone", phone); 
+    }
+    
+    // BƯỚC 3: Ghi nhận giao dịch THU NỢ với số tiền thực tế khách vừa đóng vào két ca làm việc
+    const lg = { 
+      id: Date.now(), 
+      shift, 
+      type: "THU NỢ", 
+      name: remainingDebt === 0 ? "Thanh toán hết nợ" : `Trả bớt nợ (Còn nợ: ${remainingDebt.toLocaleString()}đ)`, 
+      qty: 1, 
+      total: paidAmount, // Số tiền thực nhận trong ca
+      profit: 0, 
+      customer: `${customers[phone].name} (${phone})`, 
+      paymentMethod: 'TIỀN MẶT', 
+      time: new Date().toLocaleString('vi-VN') 
+    }; 
     addTransactionAndSync(lg); 
-    toast.success("Đã xóa nợ!"); 
+    
+    if (remainingDebt === 0) {
+      toast.success("Khách hàng đã thanh toán sạch nợ hoàn toàn!");
+    } else {
+      toast.success(`Đã thu trước ${paidAmount.toLocaleString()}đ. Dư nợ còn lại của khách: ${remainingDebt.toLocaleString()}đ`);
+    }
   };
 
   const handleReprint = (timeStr: string) => {
-    const logsInBill = history.filter(h => h.time === timeStr && h.type === 'BÁN' && h.product_id !== 'DISCOUNT'); 
+    const logsInBill = history.filter(h => h.time === timeStr && (h.type === 'BÁN' || h.type === 'GHI NỢ' || h.type === 'TRẢ HÀNG') && h.product_id !== 'DISCOUNT'); 
     const discountLog = history.find(h => h.time === timeStr && h.product_id === 'DISCOUNT');
     if(logsInBill.length === 0) return toast.error("Không tìm thấy dữ liệu hóa đơn!");
     
-    const reconstructedCart = logsInBill.map(l => ({ qty: l.qty, product: { name: l.name, gift_info: null, isHappyHour: String(l.name).includes('[Giờ Vàng]') }, priceIncludingVat: l.total / l.qty }));
+    const isRefundSlip = logsInBill[0].type === 'TRẢ HÀNG';
+    
+    const reconstructedCart = logsInBill.map(l => ({ 
+      qty: l.qty, 
+      product: { 
+        name: l.name, 
+        gift_info: null, 
+        isHappyHour: String(l.name).includes('[Giờ Vàng]') 
+      }, 
+      priceIncludingVat: l.total / l.qty 
+    }));
+    
     const subTotal = reconstructedCart.reduce((s, i) => s + (i.qty * (i.priceIncludingVat / (1 + VAT_RATE))), 0); 
     const vatTotal = Math.round(subTotal * VAT_RATE); 
     const discount = discountLog ? Math.abs(discountLog.total) : 0; 
-    const finalTotal = subTotal + vatTotal - discount;
+    const finalTotal = logsInBill.reduce((sum, l) => sum + l.total, 0) - discount;
     
     let cPhone = ""; let cName = logsInBill[0].customer;
     if (cName !== "Khách lẻ") { 
@@ -882,8 +936,25 @@ export default function App() {
       if (match && match[1]) { cPhone = match[1]; cName = cName.replace(` (${cPhone})`, ""); } else { cPhone = cName; } 
     }
     
-    const rOrder = { orderId: "HD_COPY", shift: logsInBill[0].shift, cart: reconstructedCart, subTotal, vatTotal, finalTotal, debtAmount: 0, discount, time: timeStr, paymentMethod: logsInBill[0].paymentMethod, customerGiven: 0, custName: cName, custPhone: cPhone };
-    setLastOrder(rOrder); setPrintMode('receipt'); setTimeout(() => window.print(), 500);
+    const rOrder = { 
+      // Nếu là đơn hoàn hàng, tiêu đề máy in POS tự đổi thành PHIẾU TRẢ HÀNG thay vì Hải Lê Mart
+      orderId: isRefundSlip ? "PHIẾU TRẢ HÀNG" : "HD_COPY", 
+      shift: logsInBill[0].shift, 
+      cart: reconstructedCart, 
+      subTotal, 
+      vatTotal, 
+      finalTotal, 
+      debtAmount: logsInBill[0].type === 'GHI NỢ' ? finalTotal : 0, 
+      discount, 
+      time: timeStr, 
+      paymentMethod: logsInBill[0].paymentMethod, 
+      customerGiven: 0, 
+      custName: cName, 
+      custPhone: cPhone 
+    };
+    setLastOrder(rOrder); 
+    setPrintMode('receipt'); 
+    setTimeout(() => window.print(), 500);
   };
 
   const sendReceiptEmail = async () => {
