@@ -1924,69 +1924,58 @@ const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') =
         .animated-bg-mesh { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; background: linear-gradient(135deg, #ffedd5 0%, #fef08a 50%, #fed7aa 100%); background-size: 400% 400%; animation: gradientBgAnim 15s ease infinite; opacity: 0.8; }
         @keyframes gradientBgAnim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
         [data-theme='dark'] .animated-bg-mesh { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%); opacity: 1; }
-        
+
         /* ==================================================================== */
-        /* CSS ẨN CÁC VÙNG IN KHÔNG XÂM LẤN MÀN HÌNH CHÍNH                      */
+        /* CSS IN ẤN ĐÃ ĐƯỢC CHUẨN HOÁ TUYỆT ĐỐI                                */
         /* ==================================================================== */
         
-        /* Đẩy các vùng in ra khỏi phạm vi nhìn thấy của màn hình thường thay vì dùng display:none */
-        .print-only, .print-a4-container, .print-card-container {
-          position: absolute !important;
-          top: -9999px !important;
-          left: -9999px !important;
-          opacity: 0 !important;
+        /* Ở màn hình thường: Giấu tiệt các vùng in đi */
+        @media screen {
+          .print-only, .print-a4-container, .print-card-container {
+            display: none !important;
+          }
         }
 
-        /* KHỐI XỬ LÝ ĐỘC LẬP KHI BẤM IN (PRINT) */
         @media print {
-          /* Ẩn toàn bộ giao diện app bán hàng nền đằng sau */
-          #root > div:not(.print-only):not(.print-a4-container):not(.print-card-container), 
-          .custom-modal-overlay, .animated-bg-mesh, .Toaster, .no-print {
-            display: none !important;
-            visibility: hidden !important;
-            height: 0 !important;
-          }
-
-          /* Kéo các vùng in quay trở lại vị trí gốc 0,0 để máy in chộp dữ liệu */
-          .print-only, .print-a4-container, .print-card-container {
-            position: static !important;
-            opacity: 1 !important;
-            display: block !important;
-          }
-
+          /* Thiết lập nền giấy trắng tinh */
           body, html {
             background: #fff !important;
             color: #000 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            min-height: 100vh !important;
+          }
+
+          /* Ẩn hoàn toàn giao diện App (.no-print đã bọc toàn bộ App) */
+          .no-print, .animated-bg-mesh, .Toaster, .custom-modal-overlay {
+            display: none !important;
+          }
+
+          /* Đưa các vùng in lên trên cùng bằng Absolute (Ép đè lên mọi thứ) */
+          .print-only, .print-a4-container, .print-card-container {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
             width: 100% !important;
-            height: auto !important;
-            overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+            z-index: 999999 !important;
           }
 
-          /* Cấu hình hiển thị bill POS nhiệt 80mm */
-          .print-only {
-            width: 80mm !important;
-            margin: 0 auto !important;
-            page-break-inside: avoid !important;
+          /* Cấp quyền hiển thị Block cho Bill và A4 */
+          .print-only, .print-a4-container {
+            display: block !important;
           }
 
-          /* Cấu hình hiển thị Hoá đơn A4 hoặc Phiếu PO */
-          .print-a4-container {
-            width: 210mm !important;
-            margin: 0 auto !important;
-            padding: 10mm !important;
-          }
-
-          /* Cấu hình hiển thị Thẻ VIP */
+          /* Cấp quyền hiển thị Flex cho thẻ VIP để căn giữa */
           .print-card-container {
             display: flex !important;
             justify-content: center !important;
             align-items: center !important;
             height: 100vh !important;
-            page-break-inside: avoid !important;
-            background: #fff !important;
           }
 
-          /* Giữ màu sắc/hình ảnh thiết kế thẻ */
           * { 
             -webkit-print-color-adjust: exact !important; 
             print-color-adjust: exact !important; 
