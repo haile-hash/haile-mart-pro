@@ -143,7 +143,10 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
                           }}
                         >
                           <div style={{ display: "flex", justifyContent: "space-between", color: "#64748b", fontSize: "12px" }}>
-                            <span>👤 {log.customer || "Khách lẻ"}</span>
+                            <span>
+    👤 {log.customer || "Khách lẻ"} 
+    {log.order_id && <b style={{ color: '#3b82f6', marginLeft: '6px' }}>({log.order_id})</b>}
+  </span>
                             <span style={{ fontFamily: "monospace" }}>🕒 {log.t || log.time?.split(" ")[1] || log.time}</span>
                           </div>
 
