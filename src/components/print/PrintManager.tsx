@@ -1,5 +1,5 @@
 import React from 'react';
-import { cleanName, getActualPrice, parseGift } from './utils/helpers';
+import { cleanName, getActualPrice, parseGift } from '../../utils/helpers';
 
 interface PrintManagerProps {
   printMode: string | null;
