@@ -298,11 +298,16 @@ export default function App() {
     }
   }, [scanQueue, products, scannerMode]);
 
-  useEffect(() => { 
-    const handleAfterPrint = () => setPrintMode(null); 
-    window.addEventListener("afterprint", handleAfterPrint); 
-    return () => window.removeEventListener("afterprint", handleAfterPrint) 
-  }, []);
+    useEffect(() => {
+  const handleAfterPrint = () => {
+    // Delay 1 giây để trình duyệt chắc chắn đã lấy xong giao diện in
+    setTimeout(() => {
+      setPrintMode(null);
+    }, 1000); 
+  };
+  window.addEventListener("afterprint", handleAfterPrint);
+  return () => window.removeEventListener("afterprint", handleAfterPrint);
+}, []);
 
   useEffect(() => {
     if (showPOModal && poTab === 'RECEIVE') {
@@ -1955,7 +1960,9 @@ const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') =
             color: #000 !important;
             margin: 0 !important;
             padding: 0 !important;
-          }
+            height: auto !important;
+    overflow: visible !important;
+  }
 
           /* 3. Hiển thị vùng in theo luồng tự nhiên (Static) để máy in đọc được */
           .print-only, .print-a4-container, .print-card-container {
@@ -1992,7 +1999,7 @@ const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') =
           }
         }
       `}</style>
-      `
+      
       <div className="animated-bg-mesh"></div>
       <Toaster position="top-right" reverseOrder={false} />
 
