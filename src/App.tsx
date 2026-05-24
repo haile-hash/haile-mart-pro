@@ -718,7 +718,8 @@ export default function App() {
           product_id: item.product.id, 
           paymentMethod: payMethod, 
           split_cash: splitCashAmt, 
-          time: new Date().toLocaleString('vi-VN') 
+          time: new Date().toLocaleString('vi-VN'),
+          order_id: orderIdStr // BỔ SUNG: Lưu mã hóa đơn vào lịch sử
         };
         newLogs.push(newLog);
       }
