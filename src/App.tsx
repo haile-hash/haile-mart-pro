@@ -1927,50 +1927,48 @@ const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') =
 
         /* ==================================================================== */
      /* ==================================================================== */
-        /* CSS IN ẤN ĐÃ FIX LỖI TRẮNG TRANG (LUỒNG TĨNH - STATIC FLOW)          */
+       /* ==================================================================== */
+        /* CSS IN ẤN ĐÃ FIX LỖI ẨN NHẦM THẺ CHA (CHUẨN 100%)                    */
         /* ==================================================================== */
         
-        /* Ở màn hình thường: Giấu vùng in bằng cách đẩy ra ngoài màn hình (Không dùng display: none) */
+        /* Ở màn hình thường: Giấu tiệt các vùng in đi */
         @media screen {
           .print-only, .print-a4-container, .print-card-container {
-            position: fixed !important;
-            top: -10000px !important;
-            left: -10000px !important;
-            opacity: 0 !important;
-            pointer-events: none !important;
-            z-index: -9999 !important;
+            display: none !important;
           }
         }
 
         @media print {
-          /* 1. Thiết lập nền giấy trắng, chiều cao tự động */
+          /* 1. Ẩn CHÍNH XÁC các thành phần UI, TUYỆT ĐỐI KHÔNG đụng vào thẻ cha */
+          .no-print, .custom-modal-overlay, .animated-bg-mesh, .login-wrapper, #search-barcode {
+            display: none !important;
+          }
+
+          /* Tắt luôn các thông báo pop-up (Toast) khi đang in */
+          div[style*="z-index: 9999"] {
+            display: none !important;
+          }
+
+          /* 2. Thiết lập nền giấy trắng tinh */
           body, html, #root {
             background: #fff !important;
             color: #000 !important;
             margin: 0 !important;
             padding: 0 !important;
-            height: auto !important;
-            position: static !important;
           }
 
-          /* 2. Ẩn TOÀN BỘ giao diện (App chính, Modals, Toaster) */
-          .no-print, .custom-modal-overlay, .animated-bg-mesh, .Toaster, .login-wrapper, #search-barcode {
-            display: none !important;
-          }
-
-          /* 3. ĐƯA VÙNG IN VỀ LUỒNG TĨNH (STATIC) - QUAN TRỌNG NHẤT ĐỂ KHÔNG BỊ TRẮNG */
+          /* 3. Hiển thị vùng in theo luồng tự nhiên (Static) để máy in đọc được */
           .print-only, .print-a4-container, .print-card-container {
-            position: static !important;
             display: block !important;
-            opacity: 1 !important;
             background: white !important;
             margin: 0 auto !important;
           }
 
-          /* Cấu hình hiển thị độc lập cho chiếc Thẻ VIP (Căn giữa) */
+          /* Cấu hình hiển thị chiếc Thẻ VIP (Căn giữa trang) */
           .print-card-container {
             display: flex !important;
-            min-height: 100vh !important;
+            width: 100% !important;
+            height: 100vh !important;
             align-items: center !important;
             justify-content: center !important;
           }
@@ -1987,7 +1985,7 @@ const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') =
             padding: 0 !important;
           }
 
-          /* Giữ màu sắc hiển thị đúng thiết kế */
+          /* Ép máy in giữ màu sắc, không tự tiện tẩy trắng background */
           * { 
             -webkit-print-color-adjust: exact !important; 
             print-color-adjust: exact !important; 
