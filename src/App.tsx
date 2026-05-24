@@ -1926,43 +1926,51 @@ const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') =
         [data-theme='dark'] .animated-bg-mesh { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%); opacity: 1; }
 
         /* ==================================================================== */
-        /* CSS IN ẤN ĐÃ FIX LỖI TRẮNG TRANG (AN TOÀN TUYỆT ĐỐI)                 */
+     /* ==================================================================== */
+        /* CSS IN ẤN ĐÃ FIX LỖI TRẮNG TRANG (LUỒNG TĨNH - STATIC FLOW)          */
         /* ==================================================================== */
         
-        /* Ở màn hình thường: Giấu tiệt các vùng in đi */
-        .print-only, .print-a4-container, .print-card-container {
-          display: none !important;
+        /* Ở màn hình thường: Giấu vùng in bằng cách đẩy ra ngoài màn hình (Không dùng display: none) */
+        @media screen {
+          .print-only, .print-a4-container, .print-card-container {
+            position: fixed !important;
+            top: -10000px !important;
+            left: -10000px !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            z-index: -9999 !important;
+          }
         }
 
         @media print {
-          /* 1. Ẩn TOÀN BỘ giao diện (vì giao diện chính đã bọc class .no-print) */
-          .no-print, .custom-modal-overlay, .animated-bg-mesh, .Toaster, .login-wrapper, #search-barcode {
-            display: none !important;
-          }
-
-          /* 2. Thiết lập nền giấy trắng tinh */
+          /* 1. Thiết lập nền giấy trắng, chiều cao tự động */
           body, html, #root {
             background: #fff !important;
             color: #000 !important;
             margin: 0 !important;
             padding: 0 !important;
+            height: auto !important;
+            position: static !important;
           }
 
-          /* 3. Đưa các vùng in hiện lên trên cùng (Tuyệt đối không bị ẩn) */
+          /* 2. Ẩn TOÀN BỘ giao diện (App chính, Modals, Toaster) */
+          .no-print, .custom-modal-overlay, .animated-bg-mesh, .Toaster, .login-wrapper, #search-barcode {
+            display: none !important;
+          }
+
+          /* 3. ĐƯA VÙNG IN VỀ LUỒNG TĨNH (STATIC) - QUAN TRỌNG NHẤT ĐỂ KHÔNG BỊ TRẮNG */
           .print-only, .print-a4-container, .print-card-container {
+            position: static !important;
             display: block !important;
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
+            opacity: 1 !important;
             background: white !important;
-            z-index: 999999 !important;
+            margin: 0 auto !important;
           }
 
           /* Cấu hình hiển thị độc lập cho chiếc Thẻ VIP (Căn giữa) */
           .print-card-container {
             display: flex !important;
-            width: 100% !important;
-            height: 100vh !important;
+            min-height: 100vh !important;
             align-items: center !important;
             justify-content: center !important;
           }
@@ -1971,17 +1979,15 @@ const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') =
           .print-a4-container {
             width: 210mm !important;
             padding: 10mm !important;
-            margin: 0 auto !important;
           }
 
           /* Cấu hình cho Bill nhiệt 80mm */
           .print-only {
             width: 80mm !important;
-            margin: 0 auto !important;
             padding: 0 !important;
           }
 
-          /* Ép máy in giữ màu sắc, không tự tiện tẩy trắng background */
+          /* Giữ màu sắc hiển thị đúng thiết kế */
           * { 
             -webkit-print-color-adjust: exact !important; 
             print-color-adjust: exact !important; 
