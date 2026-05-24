@@ -1926,38 +1926,68 @@ const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') =
         [data-theme='dark'] .animated-bg-mesh { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%); opacity: 1; }
         
         /* ==================================================================== */
+        /* ==================================================================== */
+        /* CSS CHUẨN HOÁ IN ẤN - KHÔNG BỊ ĐÈ GIAO DIỆN CHÍNH                    */
+        /* ==================================================================== */
+        
+        /* 1. Ở CHẾ ĐỘ MÀN HÌNH THƯỜNG (SCREEN): Ẩn hoàn toàn tất cả vùng dữ liệu in */
+        .print-only, .print-a4-container, .print-card-container {
+          display: none !important;
+        }
+
+        /* 2. Ở CHẾ ĐỘ MÁY IN (PRINT): Kích hoạt hiển thị cô lập */
         @media print {
-          /* Ẩn toàn bộ tất cả mọi thứ trên trang web ngầm định */
-          body *, html * { 
-            visibility: hidden !important; 
-          }
-          
-          /* Chỉ cho phép hiển thị duy nhất vùng chứa dữ liệu in */
-          .print-only, .print-only *, .print-a4-container, .print-a4-container *, .print-card-container, .print-card-container * { 
-            visibility: visible !important; 
-          }
-          
-          /* Đưa vùng in lên trên cùng góc trái và loại bỏ mọi khoảng trắng thừa */
-          .print-only, .print-a4-container, .print-card-container { 
-            position: absolute !important; 
-            left: 0 !important; 
-            top: 0 !important; 
+          /* Reset lại toàn bộ thuộc tính nền trang in */
+          body, html {
+            background: #fff !important;
+            color: #000 !important;
             width: 100% !important;
+            height: auto !important;
             margin: 0 !important;
             padding: 0 !important;
+            overflow: visible !important;
+          }
+
+          /* Ẩn sạch sẽ giao diện ứng dụng, modal nền, các thanh thông báo */
+          #root > div:not(.print-only):not(.print-a4-container):not(.print-card-container), 
+          .custom-modal-overlay, .animated-bg-mesh, .Toaster, .no-print {
+            display: none !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+
+          /* Cấu hình hiển thị độc lập cho Bill máy POS nhiệt 80mm */
+          .print-only {
+            display: block !important;
+            width: 80mm !important;
+            margin: 0 auto !important;
+            page-break-inside: avoid !important;
+          }
+
+          /* Cấu hình hiển thị độc lập cho Hoá đơn A4 hoặc Phiếu PO */
+          .print-a4-container {
+            display: block !important;
+            width: 210mm !important;
+            margin: 0 auto !important;
+            padding: 10mm !important;
+          }
+
+          /* Cấu hình hiển thị độc lập cho chiếc Thẻ VIP khách hàng */
+          .print-card-container {
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            width: 100% !important;
+            height: 100vh !important;
+            page-break-inside: avoid !important;
             background: white !important;
           }
 
-          /* Giữ nguyên màu sắc/hình ảnh thiết kế khi in */
+          /* Đảm bảo máy in giữ nguyên màu sắc, hình nền thiết kế thẻ */
           * { 
             -webkit-print-color-adjust: exact !important; 
             print-color-adjust: exact !important; 
-          }
-
-          body, html {
-            height: auto !important;
-            overflow: visible !important;
-            background: white !important;
           }
         }
       `}</style>
