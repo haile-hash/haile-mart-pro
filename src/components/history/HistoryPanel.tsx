@@ -172,9 +172,9 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
 
                           {/* Dòng cuối: Nút bấm tác vụ nhanh */}
                           <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px", marginTop: "2px" }}>
-                            {log.type === "BÁN" && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleRefund(log.id); }}
+                           {(log.type === "BÁN" || log.type === "GHI NỢ") && (
+  <button
+    onClick={(e) => { e.stopPropagation(); handleRefund(log.id); }}
                                 style={{ padding: "4px 8px", background: "#fee2e2", color: "#dc2626", border: "1px solid #fca5a5", borderRadius: "4px", fontSize: "11px", fontWeight: "bold", cursor: "pointer" }}
                               >
                                 ↩️ Hoàn tiền ({log.qty})
