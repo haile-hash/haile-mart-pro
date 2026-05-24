@@ -1,7 +1,6 @@
 import React from 'react';
-import { cleanName, getActualPrice, parseGift } from '../../utils/helpers';
+import { cleanName, getActualPrice, parseGift } from './utils/helpers';
 
-// Định nghĩa các kiểu dữ liệu (Props) mà App.tsx sẽ truyền vào
 interface PrintManagerProps {
   printMode: string | null;
   lastOrder: any;
@@ -16,44 +15,108 @@ interface PrintManagerProps {
 }
 
 export const PrintManager: React.FC<PrintManagerProps> = ({
-  printMode,
-  lastOrder,
-  shift,
-  role,
-  customers,
-  VAT_RATE,
-  printBarcodeProduct,
-  barcodeCount,
-  printCustomer,
-  printPOData
+  printMode, lastOrder, shift, role, customers, VAT_RATE,
+  printBarcodeProduct, barcodeCount, printCustomer, printPOData
 }) => {
-  // Tối ưu hiệu năng: Nếu không có lệnh in, không render gì cả
+  
   if (!printMode) return null;
 
   return (
     <>
       {/* 1. IN HÓA ĐƠN MÁY POS (Bill 80mm) */}
       {printMode === 'receipt' && lastOrder && (
-         <div className="print-only">
-           {/* Paste toàn bộ nội dung <div className="print-receipt-container"> của bạn vào đây */}
-         </div>
-      )}
+        <div className="print-only" style={{ width: "80mm", padding: "10px", fontFamily: "monospace", fontSize: "12px", color: "#000", background: "#fff" }}>
+          <div style={{ textAlign: "center", borderBottom: "1px dashed #000", paddingBottom: "10px", marginBottom: "10px" }}>
+            <h2 style={{ margin: "0 0 5px 0", fontSize: "18px" }}>HẢI LÊ MART</h2>
+            <p style={{ margin: "0" }}>Hotline: 0902 613 899</p>
+            <p style={{ margin: "0" }}>ĐC: 123 Đường ABC, Hà Nội</p>
+          </div>
+          
+          <div style={{ marginBottom: "10px" }}>
+            <p style={{ margin: "2px 0" }}>Mã HĐ: <b>{lastOrder.orderId}</b></p>
+            <p style={{ margin: "2px 0" }}>Thời gian: {lastOrder.time}</p>
+            <p style={{ margin: "2px 0" }}>Thu ngân: {role === 'admin' ? 'Quản lý' : 'Nhân viên'} ({shift})</p>
+            <p style={{ margin: "2px 0" }}>Khách hàng: {lastOrder.custName || "Khách lẻ"}</p>
+          </div>
 
-      {/* 2. IN HÓA ĐƠN BÁN HÀNG A4 */}
-      {printMode === 'invoice_a4' && lastOrder && (
-         <div className="print-a4-container">
-           {/* Paste toàn bộ nội dung <div className="print-a4-container"> của bạn vào đây */}
-         </div>
+          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "10px" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #000" }}>
+                <th style={{ textAlign: "left", padding: "5px 0" }}>Sản phẩm</th>
+                <th style={{ textAlign: "center", padding: "5px 0" }}>SL</th>
+                <th style={{ textAlign: "right", padding: "5px 0" }}>T.Tiền</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lastOrder.cart.map((item: any, idx: number) => {
+                const priceToUse = item.priceIncludingVat !== undefined 
+                  ? item.priceIncludingVat 
+                  : Math.round(getActualPrice(item.product) * (1 + VAT_RATE));
+                return (
+                  <tr key={idx}>
+                    <td style={{ padding: "5px 0" }}>{cleanName(item.product.name)} {item.product.isHappyHour ? '⭐' : ''}</td>
+                    <td style={{ textAlign: "center", padding: "5px 0" }}>{item.qty}</td>
+                    <td style={{ textAlign: "right", padding: "5px 0" }}>{(priceToUse * item.qty).toLocaleString()}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          <div style={{ borderTop: "1px dashed #000", paddingTop: "10px", marginBottom: "10px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 0" }}>
+              <span>Tổng tiền hàng:</span>
+              <span>{Math.round(lastOrder.subTotal + lastOrder.vatTotal).toLocaleString()}đ</span>
+            </div>
+            {lastOrder.discount > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 0" }}>
+                <span>Chiết khấu/Ví:</span>
+                <span>-{Math.round(lastOrder.discount).toLocaleString()}đ</span>
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "space-between", margin: "5px 0", fontWeight: "bold", fontSize: "14px" }}>
+              <span>THÁNH TOÁN:</span>
+              <span>{Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 0" }}>
+              <span>Tiền khách đưa ({lastOrder.paymentMethod}):</span>
+              <span>{Math.round(lastOrder.customerGiven || lastOrder.finalTotal).toLocaleString()}đ</span>
+            </div>
+          </div>
+
+          <div style={{ textAlign: "center", borderTop: "1px dashed #000", paddingTop: "10px" }}>
+            <p style={{ margin: "0", fontStyle: "italic" }}>Cảm ơn Quý khách & Hẹn gặp lại!</p>
+            <p style={{ margin: "0", fontSize: "10px", marginTop: "5px" }}>Powered by Hải Lê ERP</p>
+          </div>
+        </div>
       )}
 
       {/* 3. IN TEM MÃ VẠCH */}
       {printMode === 'barcode' && printBarcodeProduct && (
-         <div className="print-a4-container" style={{ padding: "20px", background: "#fff" }}>
-           {/* Paste nội dung in tem của bạn vào đây */}
+         <div className="print-a4-container" style={{ background: "#fff" }}>
+           <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", justifyContent: "flex-start" }}>
+             {Array.from({ length: barcodeCount }).map((_, i) => {
+               const code = String(printBarcodeProduct.product_code).split('-')[0];
+               return (
+                 <div key={i} style={{ width: "30mm", height: "20mm", padding: "2mm", border: "1px dashed #ccc", textAlign: "center", boxSizing: "border-box", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
+                   <div style={{ fontSize: "9px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: "100%", marginBottom: "2px" }}>
+                     {cleanName(printBarcodeProduct.name)}
+                   </div>
+                   <img 
+                     src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=8&includetext=false`} 
+                     style={{ maxWidth: "100%", height: "25px" }} 
+                     alt="barcode" 
+                   />
+                   <div style={{ fontSize: "8px", fontFamily: "monospace", marginTop: "2px" }}>{code}</div>
+                   <div style={{ fontSize: "10px", fontWeight: "bold" }}>{printBarcodeProduct.sale_price.toLocaleString()}đ</div>
+                 </div>
+               );
+             })}
+           </div>
          </div>
       )}
 
-     {/* 4. IN THẺ KHÁCH HÀNG */}
+      {/* 4. IN THẺ KHÁCH HÀNG (Giữ nguyên của bạn) */}
       {printMode === 'customer_card' && printCustomer && (
          <div className="print-card-container"> 
            <div style={{ width: "85.6mm", height: "53.98mm", border: "3px solid #dc2626", borderRadius: "12px", padding: "15px", textAlign: "center", boxSizing: "border-box", display: "flex", flexDirection: "column", justifyContent: "center", background: "#fff7ed", fontFamily: "'Inter', sans-serif" }}>
@@ -63,27 +126,6 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
              <img src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(printCustomer.cardCode || printCustomer.phone)}&scale=2&height=10&includetext=false`} onError={(e) => { e.currentTarget.src = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(printCustomer.cardCode || printCustomer.phone)}&code=Code128&translate-esc=on`; }} style={{ maxWidth: "100%", height: "45px", marginTop: "10px", margin: "10px auto 0 auto", display: "block" }} alt="barcode" />
              <div style={{ fontSize: "12px", fontFamily: "monospace", letterSpacing: "2px", marginTop: "4px", fontWeight: "bold" }}>{printCustomer.cardCode || printCustomer.phone}</div>
            </div>
-         </div>
-      )}
-
-      {/* 5. IN PHIẾU ĐẶT HÀNG (PO ORDER) */}
-      {printMode === 'po_order' && printPOData && (
-         <div className="print-a4-container">
-           {/* Paste nội dung in PO Order của bạn vào đây */}
-         </div>
-      )}
-
-      {/* 6. IN PHIẾU NHẬP KHO (PO RECEIPT) */}
-      {printMode === 'po_receipt' && printPOData && (
-         <div className="print-a4-container">
-           {/* Paste nội dung in PO Receipt của bạn vào đây */}
-         </div>
-      )}
-
-      {/* 7. IN PHIẾU XUẤT TRẢ (PO RETURN) */}
-      {printMode === 'po_return' && printPOData && (
-         <div className="print-a4-container">
-           {/* Paste nội dung in PO Return của bạn vào đây */}
          </div>
       )}
     </>
