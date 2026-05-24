@@ -93,29 +93,36 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
 
       {/* 3. IN TEM MÃ VẠCH */}
       {printMode === 'barcode' && printBarcodeProduct && (
-         <div className="print-a4-container" style={{ background: "#fff" }}>
-           <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", justifyContent: "flex-start" }}>
+         <div className="print-a4-container" style={{ background: "#fff", padding: "10mm" }}>
+           
+           {/* DÙNG CSS GRID ĐỂ ÉP CHUẨN 3 CỘT (repeat(3, 1fr)) */}
+           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "15px", justifyItems: "center" }}>
+             
              {Array.from({ length: barcodeCount }).map((_, i) => {
                const code = String(printBarcodeProduct.product_code).split('-')[0];
                return (
-                 <div key={i} style={{ width: "30mm", height: "20mm", padding: "2mm", border: "1px dashed #ccc", textAlign: "center", boxSizing: "border-box", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
-                   <div style={{ fontSize: "9px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: "100%", marginBottom: "2px" }}>
+                 <div key={i} style={{ width: "55mm", height: "28mm", padding: "3mm", border: "1px dashed #ccc", textAlign: "center", boxSizing: "border-box", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
+                   
+                   <div style={{ fontSize: "12px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: "100%", marginBottom: "4px" }}>
                      {cleanName(printBarcodeProduct.name)}
                    </div>
+                   
                    <img 
-                     src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=8&includetext=false`} 
-                     style={{ maxWidth: "100%", height: "25px" }} 
+                     src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=10&includetext=false`} 
+                     style={{ maxWidth: "100%", height: "35px" }} 
                      alt="barcode" 
                    />
-                   <div style={{ fontSize: "8px", fontFamily: "monospace", marginTop: "2px" }}>{code}</div>
-                   <div style={{ fontSize: "10px", fontWeight: "bold" }}>{printBarcodeProduct.sale_price.toLocaleString()}đ</div>
+                   
+                   <div style={{ fontSize: "10px", fontFamily: "monospace", marginTop: "3px" }}>{code}</div>
+                   <div style={{ fontSize: "13px", fontWeight: "900" }}>{printBarcodeProduct.sale_price.toLocaleString()}đ</div>
+                 
                  </div>
                );
              })}
+             
            </div>
          </div>
       )}
-
       {/* 4. IN THẺ KHÁCH HÀNG (Giữ nguyên của bạn) */}
       {printMode === 'customer_card' && printCustomer && (
          <div className="print-card-container"> 
