@@ -1926,22 +1926,39 @@ const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') =
         [data-theme='dark'] .animated-bg-mesh { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%); opacity: 1; }
         
         /* ==================================================================== */
-        /* CSS DÀNH CHO MÁY IN (XÓA TOÀN BỘ UI, CHỈ GIỮ LẠI BẢN IN)             */
-        /* ==================================================================== */
         @media print {
-          body, html { margin: 0; padding: 0; background: #fff; width: 100%; }
-          .no-print, .custom-modal-overlay, .animated-bg-mesh, .Toaster { display: none !important; }
-          .print-a4-container { 
-            display: block !important; 
-            position: absolute !important; 
-            top: 0 !important; 
-            left: 0 !important; 
-            width: 100% !important; 
-            background: white !important; 
-            z-index: 999999 !important; 
-            color: #000 !important;
+          /* Ẩn toàn bộ tất cả mọi thứ trên trang web ngầm định */
+          body *, html * { 
+            visibility: hidden !important; 
           }
-          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          
+          /* Chỉ cho phép hiển thị duy nhất vùng chứa dữ liệu in */
+          .print-only, .print-only *, .print-a4-container, .print-a4-container *, .print-card-container, .print-card-container * { 
+            visibility: visible !important; 
+          }
+          
+          /* Đưa vùng in lên trên cùng góc trái và loại bỏ mọi khoảng trắng thừa */
+          .print-only, .print-a4-container, .print-card-container { 
+            position: absolute !important; 
+            left: 0 !important; 
+            top: 0 !important; 
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+          }
+
+          /* Giữ nguyên màu sắc/hình ảnh thiết kế khi in */
+          * { 
+            -webkit-print-color-adjust: exact !important; 
+            print-color-adjust: exact !important; 
+          }
+
+          body, html {
+            height: auto !important;
+            overflow: visible !important;
+            background: white !important;
+          }
         }
       `}</style>
       <div className="animated-bg-mesh"></div>
