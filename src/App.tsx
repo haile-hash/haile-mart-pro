@@ -1926,71 +1926,74 @@ const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') =
         [data-theme='dark'] .animated-bg-mesh { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%); opacity: 1; }
         
         /* ==================================================================== */
-        /* ==================================================================== */
-        /* CSS CHUẨN HOÁ IN ẤN - KHÔNG BỊ ĐÈ GIAO DIỆN CHÍNH                    */
+        /* CSS ẨN CÁC VÙNG IN KHÔNG XÂM LẤN MÀN HÌNH CHÍNH                      */
         /* ==================================================================== */
         
-        /* 1. Ở CHẾ ĐỘ MÀN HÌNH THƯỜNG (SCREEN): Ẩn hoàn toàn tất cả vùng dữ liệu in */
+        /* Đẩy các vùng in ra khỏi phạm vi nhìn thấy của màn hình thường thay vì dùng display:none */
         .print-only, .print-a4-container, .print-card-container {
-          display: none !important;
+          position: absolute !important;
+          top: -9999px !important;
+          left: -9999px !important;
+          opacity: 0 !important;
         }
 
-        /* 2. Ở CHẾ ĐỘ MÁY IN (PRINT): Kích hoạt hiển thị cô lập */
+        /* KHỐI XỬ LÝ ĐỘC LẬP KHI BẤM IN (PRINT) */
         @media print {
-          /* Reset lại toàn bộ thuộc tính nền trang in */
+          /* Ẩn toàn bộ giao diện app bán hàng nền đằng sau */
+          #root > div:not(.print-only):not(.print-a4-container):not(.print-card-container), 
+          .custom-modal-overlay, .animated-bg-mesh, .Toaster, .no-print {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+          }
+
+          /* Kéo các vùng in quay trở lại vị trí gốc 0,0 để máy in chộp dữ liệu */
+          .print-only, .print-a4-container, .print-card-container {
+            position: static !important;
+            opacity: 1 !important;
+            display: block !important;
+          }
+
           body, html {
             background: #fff !important;
             color: #000 !important;
             width: 100% !important;
             height: auto !important;
-            margin: 0 !important;
-            padding: 0 !important;
             overflow: visible !important;
           }
 
-          /* Ẩn sạch sẽ giao diện ứng dụng, modal nền, các thanh thông báo */
-          #root > div:not(.print-only):not(.print-a4-container):not(.print-card-container), 
-          .custom-modal-overlay, .animated-bg-mesh, .Toaster, .no-print {
-            display: none !important;
-            height: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-
-          /* Cấu hình hiển thị độc lập cho Bill máy POS nhiệt 80mm */
+          /* Cấu hình hiển thị bill POS nhiệt 80mm */
           .print-only {
-            display: block !important;
             width: 80mm !important;
             margin: 0 auto !important;
             page-break-inside: avoid !important;
           }
 
-          /* Cấu hình hiển thị độc lập cho Hoá đơn A4 hoặc Phiếu PO */
+          /* Cấu hình hiển thị Hoá đơn A4 hoặc Phiếu PO */
           .print-a4-container {
-            display: block !important;
             width: 210mm !important;
             margin: 0 auto !important;
             padding: 10mm !important;
           }
 
-          /* Cấu hình hiển thị độc lập cho chiếc Thẻ VIP khách hàng */
+          /* Cấu hình hiển thị Thẻ VIP */
           .print-card-container {
             display: flex !important;
             justify-content: center !important;
             align-items: center !important;
-            width: 100% !important;
             height: 100vh !important;
             page-break-inside: avoid !important;
-            background: white !important;
+            background: #fff !important;
           }
 
-          /* Đảm bảo máy in giữ nguyên màu sắc, hình nền thiết kế thẻ */
+          /* Giữ màu sắc/hình ảnh thiết kế thẻ */
           * { 
             -webkit-print-color-adjust: exact !important; 
             print-color-adjust: exact !important; 
           }
         }
       `}</style>
+      `
       <div className="animated-bg-mesh"></div>
       <Toaster position="top-right" reverseOrder={false} />
 
