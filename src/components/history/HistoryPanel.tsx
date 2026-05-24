@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-// Bổ sung import hàm cleanName từ utils hệ thống để xử lý lỗi TS2304
 import { cleanName } from "../../utils/helpers";
 
 interface HistoryPanelProps {
@@ -25,7 +24,6 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   handleRefund,
   handleReprint,
 }) => {
-  // Bộ quản lý trạng thái đóng mở cục bộ không lo bị đơ cứng giao diện
   const [localExpanded, setLocalExpanded] = useState<Record<string, boolean>>({});
 
   const toggleGroup = (dateStr: string) => {
@@ -38,7 +36,6 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   return (
     <div className="glass" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "12px", background: "#ffffff", borderRadius: "12px", boxShadow: "0 4px 20px rgba(0,0,0,0.05)" }}>
       
-      {/* Thanh bộ lọc tìm kiếm thoáng đãng */}
       <div style={{ display: "flex", gap: "8px", alignItems: "center", flexShrink: 0 }}>
         <div style={{ flex: 1, position: "relative" }}>
           <input
@@ -90,7 +87,6 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
         </button>
       </div>
 
-      {/* Vùng cuộn mượt danh sách đơn hàng chống co sập */}
       <div style={{ maxHeight: "400px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px", paddingRight: "2px" }}>
         {Object.keys(groupedHistory).length === 0 ? (
           <div style={{ textAlign: "center", padding: "30px", color: "#94a3b8", fontSize: "14px", fontStyle: "italic" }}>
@@ -102,8 +98,6 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
             
             return (
               <div key={dateStr} style={{ flexShrink: 0, display: "flex", flexDirection: "column", border: "1px solid #e2e8f0", borderRadius: "8px", background: "#ffffff", overflow: "hidden" }}>
-                
-                {/* Thanh tiêu đề Ngày */}
                 <div
                   onClick={() => toggleGroup(dateStr)}
                   style={{
@@ -125,13 +119,11 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
                   </span>
                 </div>
 
-                {/* Danh sách các dòng con lộ diện khi bung xòe */}
                 {isExpanded && (
                   <div style={{ display: "flex", flexDirection: "column" }}>
                     {logs.map((log: any) => {
                       const isRefund = log.type === "TRẢ HÀNG";
                       
-                      // Phân bổ màu sắc định danh nghiệp vụ công khai
                       let typeColor = "#2563eb"; 
                       if (isRefund) typeColor = "#dc2626"; 
                       if (log.type?.includes("NHẬP")) typeColor = "#7c3aed"; 
@@ -150,13 +142,11 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
                             background: isRefund ? "#fff5f5" : "transparent" 
                           }}
                         >
-                          {/* Dòng phụ: Đối tượng & Thời gian */}
                           <div style={{ display: "flex", justifyContent: "space-between", color: "#64748b", fontSize: "12px" }}>
                             <span>👤 {log.customer || "Khách lẻ"}</span>
                             <span style={{ fontFamily: "monospace" }}>🕒 {log.t || log.time?.split(" ")[1] || log.time}</span>
                           </div>
 
-                          {/* Dòng chính: Tên hàng, Số lượng & Tiền tệ */}
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
                             <span style={{ fontSize: "13px", fontWeight: "600", color: "#1e293b", lineHeight: "1.4" }}>
                               <span style={{ color: typeColor, marginRight: "6px", fontWeight: "bold" }}>[{log.type}]</span>
@@ -170,17 +160,17 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
                             </span>
                           </div>
 
-                          {/* Dòng cuối: Nút bấm tác vụ nhanh */}
                           <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px", marginTop: "2px" }}>
-                           {(log.type === "BÁN" || log.type === "GHI NỢ") && (
-  <button
-    onClick={(e) => { e.stopPropagation(); handleRefund(log.id); }}
+                            {(log.type === "BÁN" || log.type === "GHI NỢ") && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleRefund(log.id); }}
                                 style={{ padding: "4px 8px", background: "#fee2e2", color: "#dc2626", border: "1px solid #fca5a5", borderRadius: "4px", fontSize: "11px", fontWeight: "bold", cursor: "pointer" }}
                               >
-                                ↩️ Hoàn tiền ({log.qty})
+                                ↩️ Hoàn đơn ({log.qty})
                               </button>
                             )}
-                            {(log.type === "BÁN" || log.type === "GHI NỢ") && (
+                            {/* Cho phép nút IN LẠI xuất hiện ở đơn BÁN, GHI NỢ, và cả đơn TRẢ HÀNG */}
+                            {(log.type === "BÁN" || log.type === "GHI NỢ" || log.type === "TRẢ HÀNG") && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleReprint(log.time); }}
                                 style={{ padding: "4px 8px", background: "#f1f5f9", color: "#475569", border: "1px solid #cbd5e1", borderRadius: "4px", fontSize: "11px", fontWeight: "bold", cursor: "pointer" }}
