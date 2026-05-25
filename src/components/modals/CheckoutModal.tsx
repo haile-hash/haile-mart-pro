@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 
 interface CheckoutModalProps {
   isCheckoutOpen: boolean; setIsCheckoutOpen: (val: boolean) => void;
@@ -43,19 +43,44 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     closeCheckout();    
   };
 
+  // Thuật toán tự động sinh gợi ý tiền mặt thông minh
+  const getCashSuggestions = (total: number) => {
+    if (total <= 0) return [];
+    const suggestions = new Set<number>([total]); // Luôn có nút "Đưa đúng số tiền"
+    const roundUp = (num: number, multiple: number) => Math.ceil(num / multiple) * multiple;
+
+    if (total < 100000) {
+      suggestions.add(roundUp(total, 10000));
+      suggestions.add(roundUp(total, 50000));
+      suggestions.add(100000);
+    } else if (total < 500000) {
+      suggestions.add(roundUp(total, 50000));
+      suggestions.add(roundUp(total, 100000));
+      suggestions.add(500000);
+    } else {
+      suggestions.add(roundUp(total, 10000));
+      suggestions.add(roundUp(total, 100000));
+      suggestions.add(roundUp(total, 500000));
+      suggestions.add(roundUp(total, 1000000));
+    }
+
+    return Array.from(suggestions)
+      .filter(val => val >= total) // Lọc bỏ số nhỏ hơn tổng bill
+      .sort((a, b) => a - b)
+      .slice(0, 4); // Lấy 4 mốc sát nhất
+  };
+
   if (!isCheckoutOpen) return null;
 
   const vietQrUrl = `https://img.vietqr.io/image/${bankBin || 'ICB'}-${bankAcc || '0000'}-qr_only.png?amount=${finalToPay}&addInfo=Hải%20Lê%20Mart%20Thanh%20Toán`;
 
   return (
     <div className="checkout-modal-overlay" onClick={handleClose}>
-      {/* MỞ RỘNG MODAL: Ép max-width lên 720px để giao diện 2 cột cực kỳ rộng rãi và thoáng đãng */}
       <div className="checkout-modal-content" onClick={(e) => e.stopPropagation()} ref={modalRef} style={{ maxWidth: '720px', width: '95%' }}>
         
         {/* HEADER */}
         <div className="checkout-header" style={{ padding: '16px 24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {/* THÊM NÚT QUAY LẠI Ở BƯỚC 2 */}
             {checkoutStep === 2 && (
               <button 
                 onClick={() => setCheckoutStep(1)}
@@ -124,7 +149,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           )}
 
           {/* ============================================================== */}
-          {/* BƯỚC 2: CHỐT ĐƠN (GIAO DIỆN CHIA 2 CỘT RỘNG RÃI) */}
+          {/* BƯỚC 2: CHỐT ĐƠN */}
           {/* ============================================================== */}
           {checkoutStep === 2 && (
             <div style={{ display: 'flex', gap: '24px', alignItems: 'stretch' }}>
@@ -172,17 +197,49 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       style={{ padding: '10px 14px', fontSize: '16px', fontWeight: 'bold' }} 
                     />
                   </div>
+                  
+                  {/* BỘ NÚT GỢI Ý MỆNH GIÁ THÔNG MINH */}
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
+                    {getCashSuggestions(finalToPay).map((amt, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setCustomerGiven(amt.toString())}
+                        style={{
+                          padding: '6px 12px',
+                          background: '#f1f5f9',
+                          color: '#334155',
+                          border: '1px solid #cbd5e1',
+                          borderRadius: '6px',
+                          fontSize: '13px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          transition: 'background 0.2s'
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.background = '#e2e8f0'}
+                        onMouseOut={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                      >
+                        {amt.toLocaleString()}
+                      </button>
+                    ))}
+                    <button 
+                       onClick={() => setCustomerGiven("")}
+                       style={{ padding: '6px 12px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}
+                    >
+                       Xóa
+                    </button>
+                  </div>
+
                   <div style={{ height: '22px', marginTop: '6px' }}>
                     {Number(customerGiven) > finalToPay && (
                       <span style={{ fontSize: '14px', color: '#10b981', fontWeight: '700' }}>↳ Thừa trả khách: {(Number(customerGiven) - finalToPay).toLocaleString()}đ</span>
                     )}
                     {Number(customerGiven) > 0 && Number(customerGiven) < finalToPay && (
-                      <span style={{ fontSize: '14px', color: '#ea580c', fontWeight: '700' }}>↳ Còn thiếu (Quét QR): {(finalToPay - Number(customerGiven)).toLocaleString()}đ</span>
+                      <span style={{ fontSize: '14px', color: '#ea580c', fontWeight: '700' }}>↳ Còn thiếu (Quét QR nốt): {(finalToPay - Number(customerGiven)).toLocaleString()}đ</span>
                     )}
                   </div>
                 </div>
 
-                {/* Các nút bấm to rõ, dễ bấm */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <button onClick={() => confirmCheckout('TIỀN MẶT')} disabled={loading} className="btn-method green" style={{ padding: '16px', fontSize: '15px' }}>
                     💵 Tiền mặt (F2)
