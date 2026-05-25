@@ -193,6 +193,9 @@
 /* ========================================================= */
 @media print {
   /* Khóa toàn bộ nền và màn hình nền App */
+  @page {
+    margin: 5mm; 
+  }
   body, html {
     background: #ffffff !important;
     color: #000000 !important;
