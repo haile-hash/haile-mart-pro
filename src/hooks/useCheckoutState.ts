@@ -16,6 +16,7 @@ export const useCheckoutState = () => {
   const [lastOrder, setLastOrder] = useState<any>(null);
 
   const resetCheckout = () => {
+    setCustAddress("");
     setCart([]); setIsCheckoutOpen(false); setCheckoutStep(1); setCustPhone("");
     setCustName(""); setCustomerInput(""); setUseWallet(false); setVoucherInput("");
     setAppliedVoucherAmount(0); setCustomerGiven(""); setLastOrder(null);
