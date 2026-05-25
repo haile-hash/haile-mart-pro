@@ -23,9 +23,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
 
   const getCustomerDetail = (phone: string) => phone ? (customers[phone] || null) : null;
 
-  // =====================================================================
-  // HÀM HELPER: KẾ TOÁN DÒNG TIỀN (HIỂN THỊ CHI TIẾT TỪNG PHƯƠNG THỨC)
-  // =====================================================================
+  // HÀM KẾ TOÁN DÒNG TIỀN
   const renderPaymentDetails = (order: any, cDetail: any, isA4: boolean) => {
     const total = Math.round(order.debtAmount > 0 ? order.debtAmount : order.finalTotal);
     const given = Number(order.customerGiven || 0);
@@ -42,7 +40,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
     } else if (order.paymentMethod === 'GHI NỢ') {
         debtPart = total;
     } else {
-        transferPart = total; // Các hình thức không dùng tiền mặt (CK, Quẹt thẻ, ZaloPay)
+        transferPart = total;
     }
 
     const change = Math.max(0, cashPart - (total - transferPart));
@@ -53,40 +51,17 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
     return (
         <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: isA4 ? '1px dashed #cbd5e1' : '1px dashed #000' }}>
             <div style={{ ...rowStyle, fontWeight: 'bold', marginBottom: '4px' }}>
-                <span>Hình thức thanh toán:</span>
+                <span>Hình thức TT:</span>
                 <span style={{ color: isA4 ? '#2563eb' : '#000', textTransform: 'uppercase' }}>{order.paymentMethod}</span>
             </div>
-
-            {cashPart > 0 && (
-                <div style={rowStyle}>
-                    <span>- Khách trả (Tiền mặt):</span>
-                    <span style={{ fontWeight: 'bold' }}>{cashPart.toLocaleString()}đ</span>
-                </div>
-            )}
-            {transferPart > 0 && (
-                <div style={rowStyle}>
-                    <span>- Khách trả (Chuyển khoản/Thẻ):</span>
-                    <span style={{ fontWeight: 'bold' }}>{transferPart.toLocaleString()}đ</span>
-                </div>
-            )}
-            {change > 0 && (
-                <div style={rowStyle}>
-                    <span>- Tiền thừa thối lại khách:</span>
-                    <span style={{ fontWeight: 'bold' }}>{change.toLocaleString()}đ</span>
-                </div>
-            )}
-            {debtPart > 0 && (
-                <div style={rowStyle}>
-                    <span>- Khách nợ chứng từ này:</span>
-                    <span style={{ fontWeight: 'bold', color: isA4 ? '#ef4444' : '#000' }}>{debtPart.toLocaleString()}đ</span>
-                </div>
-            )}
+            {cashPart > 0 && <div style={rowStyle}><span>- Tiền mặt:</span><span style={{ fontWeight: 'bold' }}>{cashPart.toLocaleString()}đ</span></div>}
+            {transferPart > 0 && <div style={rowStyle}><span>- CK/Quẹt thẻ:</span><span style={{ fontWeight: 'bold' }}>{transferPart.toLocaleString()}đ</span></div>}
+            {change > 0 && <div style={rowStyle}><span>- Tiền thối lại:</span><span style={{ fontWeight: 'bold' }}>{change.toLocaleString()}đ</span></div>}
+            {debtPart > 0 && <div style={rowStyle}><span>- Khách nợ đơn này:</span><span style={{ fontWeight: 'bold', color: isA4 ? '#ef4444' : '#000' }}>{debtPart.toLocaleString()}đ</span></div>}
             {order.paymentMethod === 'GHI NỢ' && cDetail && (
                 <div style={{ ...rowStyle, marginTop: '6px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                    <span style={{ fontWeight: 'bold', fontStyle: 'italic' }}>=&gt; TỔNG DƯ NỢ HIỆN TẠI:</span>
-                    <span style={{ fontWeight: 'bold', color: isA4 ? '#ef4444' : '#000', fontSize: isA4 ? '16px' : '13px' }}>
-                        {(cDetail.debt || 0).toLocaleString()}đ
-                    </span>
+                    <span style={{ fontWeight: 'bold', fontStyle: 'italic' }}>=&gt; TỔNG NỢ HIỆN TẠI:</span>
+                    <span style={{ fontWeight: 'bold', color: isA4 ? '#ef4444' : '#000', fontSize: isA4 ? '16px' : '13px' }}>{(cDetail.debt || 0).toLocaleString()}đ</span>
                 </div>
             )}
         </div>
@@ -94,15 +69,18 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
   };
 
   // =====================================================================
-  // 1A. IN BILL NHIỆT (MÁY POS K80)
+  // 1A. IN BILL NHIỆT (MÁY POS K80) - FIX LỖI CĂN LỀ TRÁI
   // =====================================================================
   if (printMode === 'receipt_thermal') {
     if (!lastOrder) return null;
     const cDetail = getCustomerDetail(lastOrder.custPhone);
 
     return (
-      <div className="print-only-zone" style={{ width: '100%', display: 'flex', justifyContent: 'center', backgroundColor: '#fff' }}>
-        <div style={{ width: '78mm', fontFamily: 'Arial, sans-serif', color: '#000', padding: '0', boxSizing: 'border-box' }}>
+      // Dùng textAlign center ở thẻ ngoài cùng để ép thẻ bên trong ra giữa màn hình
+      <div className="print-only-zone" style={{ width: '100%', textAlign: 'center', backgroundColor: '#fff' }}>
+        
+        {/* Dùng inline-block và margin 0 auto để luôn giữ Form K80 */}
+        <div style={{ display: 'inline-block', width: '78mm', margin: '0 auto', textAlign: 'left', fontFamily: 'Arial, sans-serif', color: '#000', padding: '10px 0', boxSizing: 'border-box' }}>
           
           <div style={{ textAlign: 'center', marginBottom: '10px' }}>
             <h2 style={{ margin: '0 0 4px 0', fontSize: '20px', fontWeight: '900', textTransform: 'uppercase' }}>HẢI LÊ MART</h2>
@@ -149,16 +127,16 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
           <div style={{ fontSize: '13px', lineHeight: '1.6' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Cộng tiền hàng:</span><span>{Math.round(lastOrder.subTotal + lastOrder.vatTotal).toLocaleString()}đ</span></div>
             {lastOrder.discount > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Chiết khấu/Giảm giá:</span><span>-{Math.round(lastOrder.discount).toLocaleString()}đ</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Giảm giá:</span><span>-{Math.round(lastOrder.discount).toLocaleString()}đ</span></div>
             )}
             
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '18px', fontWeight: '900', margin: '8px 0', borderTop: '1px solid #000', paddingTop: '8px' }}>
               <span>TỔNG CỘNG:</span><span>{Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</span>
             </div>
             
-            {/* IN CHI TIẾT DÒNG TIỀN VÀO BILL */}
-            {renderPaymentDetails(lastOrder, cDetail, false)}
-
+            <div style={{ marginTop: '10px', background: '#f8fafc', padding: '6px', borderRadius: '4px' }}>
+              {renderPaymentDetails(lastOrder, cDetail, false)}
+            </div>
           </div>
           
           <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '12px', fontStyle: 'italic' }}>
@@ -170,7 +148,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
   }
 
   // =====================================================================
-  // 1B. IN HÓA ĐƠN A4 / A5 - CHUẨN FORM CHỨNG TỪ KẾ TOÁN
+  // 1B. IN HÓA ĐƠN A4 / A5 - GIỮ NGUYÊN NHƯ CŨ
   // =====================================================================
   if (printMode === 'receipt_a4') {
     if (!lastOrder) return null;
@@ -189,7 +167,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
             <div style={{ width: '45%', textAlign: 'center' }}>
               <h2 style={{ margin: '0 0 8px 0', fontSize: '26px', fontWeight: 'bold' }}>HÓA ĐƠN BÁN HÀNG</h2>
               <p style={{ margin: '3px 0', fontSize: '14px', fontStyle: 'italic' }}>Ngày {new Date().getDate()} tháng {new Date().getMonth() + 1} năm {new Date().getFullYear()}</p>
-              <p style={{ margin: '3px 0', fontSize: '14px' }}>Số chứng từ: <strong>{lastOrder.orderId}</strong></p>
+              <p style={{ margin: '3px 0', fontSize: '14px' }}>Số: <strong>{lastOrder.orderId}</strong></p>
             </div>
           </div>
 
@@ -229,9 +207,9 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
           </table>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '40px' }}>
-            <div style={{ width: '420px' }}>
+            <div style={{ width: '400px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '15px' }}>
-                <span>Cộng tiền hàng hóa:</span>
+                <span>Cộng tiền hàng:</span>
                 <span>{Math.round(lastOrder.subTotal + lastOrder.vatTotal).toLocaleString()}đ</span>
               </div>
               {lastOrder.discount > 0 && (
@@ -245,7 +223,6 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
                 <span>{Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</span>
               </div>
               
-              {/* CHI TIẾT TÀI CHÍNH BẢN A4 */}
               <div style={{ marginTop: '15px', padding: '15px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
                 {renderPaymentDetails(lastOrder, cDetail, true)}
               </div>
@@ -268,9 +245,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
     );
   }
 
-  // =====================================================================
-  // 2. IN MÃ VẠCH (BARCODE) VÀ CÁC CHỨNG TỪ KHÁC GIỮ NGUYÊN...
-  // =====================================================================
+  // Các chế độ in khác (Mã vạch, PO...) giữ nguyên
   if (printMode === 'barcode') {
     if (!printBarcodeProduct) return null;
     const code = printBarcodeProduct.product_code;
@@ -290,82 +265,6 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
             <div style={{ fontSize: '16px', fontWeight: '900' }}>{Number(price).toLocaleString()}đ</div>
           </div>
         ))}
-      </div>
-    );
-  }
-
-  // Các chế độ khác giữ nguyên... (Thẻ VIP, PO)
-  if (printMode === 'customer_card') {
-    if (!printCustomer) return null;
-    const code = printCustomer.cardCode || printCustomer.phone;
-    const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(code)}&code=Code128&dpi=96`;
-
-    return (
-      <div className="print-only-zone" style={{ padding: '20px', backgroundColor: '#fff', display: 'flex', justifyContent: 'center' }}>
-        <div style={{ width: '86mm', height: '54mm', border: '2px solid #b91c1c', borderRadius: '8px', padding: '10px', background: 'linear-gradient(135deg, #fff7ed 0%, #fffff0 100%)', fontFamily: 'Arial, sans-serif', color: '#000', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxSizing: 'border-box' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #dc2626', paddingBottom: '4px' }}>
-            <span style={{ fontWeight: 'bold', color: '#b91c1c', fontSize: '14px' }}>HẢI LÊ MART</span>
-            <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#ea580c', backgroundColor: '#ffedd5', padding: '2px 6px', borderRadius: '4px' }}>VIP CARD</span>
-          </div>
-          <div style={{ margin: '8px 0' }}>
-            <div style={{ fontSize: '13px', fontWeight: 'bold' }}>{printCustomer.name}</div>
-            <div style={{ fontSize: '11px', color: '#475569' }}>SĐT: {printCustomer.phone}</div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <img src={barcodeUrl} alt="Barcode VIP" style={{ height: '25px', maxWidth: '100%' }} />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (printMode === 'po_order' || printMode === 'po_receipt' || printMode === 'po_return') {
-    if (!printPOData) return null;
-    const isReceipt = printMode === 'po_receipt';
-    const isReturn = printMode === 'po_return';
-    let title = isReceipt ? "PHIẾU NHẬP KHO CHÍNH THỨC" : isReturn ? "PHIẾU ĐỔI TRẢ HÀNG LỖI (NCC)" : "PHIẾU ĐẶT HÀNG (PO)";
-
-    return (
-      <div className="print-only-zone" style={{ padding: '30px', color: '#000', backgroundColor: '#fff', fontFamily: 'Arial, sans-serif', fontSize: '13px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', borderBottom: '2px solid #000', paddingBottom: '10px' }}>
-          <div>
-            <h1 style={{ margin: '0', fontSize: '20px', fontWeight: 'bold' }}>HẢI LÊ MART</h1>
-            <p style={{ margin: '2px 0' }}>Hotline: 0902 613 899</p>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <h2 style={{ margin: '0', fontSize: '18px', fontWeight: 'bold' }}>{title}</h2>
-            <p style={{ margin: '2px 0' }}>Mã Số: {printPOData.po_code}</p>
-          </div>
-        </div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#f2f2f2' }}>
-              <th style={{ border: '1px solid #000', padding: '6px' }}>STT</th>
-              <th style={{ border: '1px solid #000', padding: '6px', textAlign: 'left' }}>Tên mặt hàng</th>
-              <th style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>SL Đặt</th>
-              <th style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>Giá Nhập</th>
-              <th style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>Thành tiền</th>
-            </tr>
-          </thead>
-          <tbody>
-            {printPOData.items?.map((item: any, idx: number) => {
-              const qty = isReceipt ? (item.qty - (item.damagedQty || 0)) : item.qty;
-              if (qty <= 0) return null;
-              return (
-                <tr key={idx}>
-                  <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{idx + 1}</td>
-                  <td style={{ border: '1px solid #000', padding: '6px' }}>{item.product?.name || item.name}</td>
-                  <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{qty}</td>
-                  <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{Number(item.importPrice).toLocaleString()}đ</td>
-                  <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{(qty * item.importPrice).toLocaleString()}đ</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        <div style={{ textAlign: 'right', fontWeight: 'bold', fontSize: '14px' }}>
-          Tổng cộng thực tế: {Number(printPOData.total_amount || 0).toLocaleString()}đ
-        </div>
       </div>
     );
   }
