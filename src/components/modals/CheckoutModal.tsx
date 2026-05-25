@@ -196,7 +196,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
           {checkoutStep === 3 && (
             <div style={{ textAlign: "center", padding: "15px 0" }}>
-              <div style={{ width: '60px', height: '60px', background: '#dcfce7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyindex: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#10b981' }}>
+              <div style={{ width: '60px', height: '60px', background: '#dcfce7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#10b981' }}>
                 <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
               </div>
               <h2 style={{ color: "#059669", marginBottom: "6px", fontSize: '20px', fontWeight: '800' }}>THANH TOÁN THÀNH CÔNG!</h2>
