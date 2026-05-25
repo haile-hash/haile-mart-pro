@@ -140,22 +140,65 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
   }
 
   // =====================================================================
-  // 2. CHẾ ĐỘ: IN MÃ VẠCH (BARCODE) SẢN PHẨM
+  // 2. CHẾ ĐỘ: IN MÃ VẠCH (BARCODE) SẢN PHẨM CHUẨN SIÊU THỊ
   // =====================================================================
   if (printMode === 'barcode') {
     if (!printBarcodeProduct) return null;
     const code = printBarcodeProduct.product_code;
     const name = printBarcodeProduct.name;
     const price = printBarcodeProduct.sale_price;
-    const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=10&includetext=true`;
+    
+    // Tắt chữ mặc định của mã vạch (includetext=false) để ta tự render chữ cho nét và cân đối hơn
+    // Tăng scale lên 3 để nét mã vạch cực kỳ sắc sảo khi in ra giấy
+    const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=3&height=12&includetext=false`;
 
     return (
-      <div className="print-only-zone barcode-print-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', padding: '10px', backgroundColor: '#fff' }}>
+      <div className="print-only-zone" style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(4, 1fr)', // Ép chuẩn 4 cột trên khổ A4
+        gap: '2mm', /* Khoảng cách giữa các tem */
+        padding: '5mm', /* Lề an toàn cho trang giấy */
+        backgroundColor: '#fff',
+        boxSizing: 'border-box',
+        width: '100%'
+      }}>
         {Array.from({ length: barcodeCount }).map((_, idx) => (
-          <div key={idx} style={{ border: '1px solid #ccc', padding: '5px', textAlign: 'center', fontFamily: 'Arial, sans-serif', fontSize: '10px', backgroundColor: '#fff', color: '#000' }}>
-            <div style={{ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px' }}>{cleanName(name)}</div>
-            <img src={barcodeUrl} alt="Barcode" style={{ maxWidth: '100%', height: 'auto' }} />
-            <div style={{ marginTop: '2px', fontWeight: 'bold', fontSize: '11px' }}>{Number(price).toLocaleString()}đ</div>
+          <div key={idx} style={{ 
+            border: '1px dashed #94a3b8', /* Viền nét đứt làm guide chém giấy cực kỳ chuyên nghiệp */
+            padding: '6px', 
+            textAlign: 'center', 
+            fontFamily: 'Arial, sans-serif', 
+            backgroundColor: '#fff', 
+            color: '#000',
+            height: '35mm', /* Cố định chiều cao tem chuẩn */
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            pageBreakInside: 'avoid', /* KHÔNG BAO GIỜ bị cắt đôi tem giữa 2 trang giấy */
+            overflow: 'hidden'
+          }}>
+            {/* Tên siêu thị định diện */}
+            <div style={{ fontSize: '8px', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              HẢI LÊ MART
+            </div>
+
+            {/* Tên sản phẩm */}
+            <div style={{ fontSize: '12px', fontWeight: 'bold', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: '2px 0' }}>
+              {cleanName(name)}
+            </div>
+
+            {/* Hình ảnh mã vạch & Mã số */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', width: '100%' }}>
+              <img src={barcodeUrl} alt="Barcode" style={{ maxWidth: '100%', maxHeight: '14mm', objectFit: 'contain' }} />
+              {/* Tự render mã số font máy chữ đẹp hơn */}
+              <div style={{ fontSize: '9px', fontFamily: 'monospace', letterSpacing: '1px', marginTop: '1px' }}>{code}</div>
+            </div>
+
+            {/* Giá sản phẩm (Phải to, Rõ, Đập vào mắt) */}
+            <div style={{ fontSize: '16px', fontWeight: '900', marginTop: '2px' }}>
+              {Number(price).toLocaleString()}đ
+            </div>
           </div>
         ))}
       </div>
