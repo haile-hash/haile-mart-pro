@@ -962,36 +962,40 @@ export default function App() {
     }
   };
 
-  const handleReprint = (timeStr: string) => {
+  const handleReprint = (timeStr: string, mode: 'receipt_thermal' | 'receipt_a4') => {
+    // 1. Tìm tất cả các món hàng được quét cùng 1 thời điểm
     const logsInBill = history.filter(h => h.time === timeStr && (h.type === 'BÁN' || h.type === 'GHI NỢ' || h.type === 'TRẢ HÀNG') && h.product_id !== 'DISCOUNT'); 
     const discountLog = history.find(h => h.time === timeStr && h.product_id === 'DISCOUNT');
     if(logsInBill.length === 0) return toast.error("Không tìm thấy dữ liệu hóa đơn!");
     
     const isRefundSlip = logsInBill[0].type === 'TRẢ HÀNG';
     
+    // 2. Tái tạo lại giỏ hàng (Cart) từ các dòng lịch sử
     const reconstructedCart = logsInBill.map(l => ({ 
-      qty: Math.abs(l.qty), 
+      qty: Math.abs(l.qty || 1), 
       product: { 
         name: l.name.replace("HOÀN: ", ""), 
         gift_info: null, 
         isHappyHour: String(l.name).includes('[Giờ Vàng]') 
       }, 
-      priceIncludingVat: Math.abs(l.total) / Math.abs(l.qty) 
+      priceIncludingVat: Math.abs(l.total) / Math.abs(l.qty || 1) 
     }));
     
+    // 3. Tính toán lại dòng tiền
     const subTotal = reconstructedCart.reduce((s, i) => s + (i.qty * (i.priceIncludingVat / (1 + VAT_RATE))), 0); 
     const vatTotal = Math.round(subTotal * VAT_RATE); 
     const discount = discountLog ? Math.abs(discountLog.total) : 0; 
     const finalTotal = logsInBill.reduce((sum, l) => sum + Math.abs(l.total), 0) - discount; 
     
     let cPhone = ""; let cName = logsInBill[0].customer;
-    if (cName !== "Khách lẻ") { 
+    if (cName && cName !== "Khách lẻ") { 
       const match = cName.match(/\((.*?)\)/); 
-      if (match && match[1]) { cPhone = match[1]; cName = cName.replace(` (${cPhone})`, ""); } else { cPhone = cName; } 
+      if (match && match[1]) { cPhone = match[1]; cName = cName.replace(` (${cPhone})`, "").trim(); } else { cPhone = cName; } 
     }
     
+    // 4. Đóng gói thành Order hoàn chỉnh và gửi lệnh in
     const rOrder = { 
-      orderId: isRefundSlip ? "PHIẾU_TRẢ_HÀNG" : "HD_COPY", 
+      orderId: logsInBill[0].order_id || (isRefundSlip ? "PHIẾU_TRẢ_HÀNG" : "HD_COPY"), 
       shift: logsInBill[0].shift, 
       cart: reconstructedCart, 
       subTotal, 
@@ -1002,11 +1006,12 @@ export default function App() {
       time: timeStr, 
       paymentMethod: logsInBill[0].paymentMethod, 
       customerGiven: 0, 
-      custName: cName, 
+      custName: cName || "Khách lẻ", 
       custPhone: cPhone 
     };
+    
     setLastOrder(rOrder); 
-    setPrintMode('receipt'); 
+    setPrintMode(mode); 
   };
 
   const sendReceiptEmail = async () => {
