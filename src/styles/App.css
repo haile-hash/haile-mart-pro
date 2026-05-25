@@ -188,29 +188,56 @@
   background: #2563eb;
 }
 /* ========================================================= */
-/* 1. SỬA LỖI MÀN HÌNH IN (CHỈ IN HÓA ĐƠN, ẨN TOÀN BỘ APP)   */
+/* ========================================================= */
+/* BIỆN PHÁP CHỐNG VỠ APP: ẨN TUYỆT ĐỐI KHỐI RÁC KHI IN      */
 /* ========================================================= */
 @media print {
-  /* Ẩn TOÀN BỘ body, kể cả các Modal đang mở */
-  body * {
-    visibility: hidden !important;
+  /* Khóa toàn bộ nền và màn hình nền App */
+  body, html {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
   
-  /* Chép khu vực in lên góc trái, hiển thị bình thường */
-  .print-only-zone, .print-only-zone * {
-    visibility: visible !important;
+  /* ẨN TRIỆT ĐỂ: Giao diện App chính, Khối Mesh tạo màu, và tất cả Modal nền */
+  #root > div > .no-print,
+  .checkout-modal-overlay,
+  .animated-bg-mesh,
+  #search-barcode,
+  .modal,
+  .toast {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
   }
+
+  /* GIẢI PHÓNG VÙNG IN: Đưa vùng in lên cấp cao nhất, chiếm trọn 100% giấy */
   .print-only-zone {
+    display: block !important;
+    visibility: visible !important;
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
     width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
+    background: #fff !important;
+  }
+  
+  .print-only-zone * {
+    visibility: visible !important;
+  }
+
+  /* Định hình chuẩn lưới in tem mã vạch A4 không lệch dòng */
+  .barcode-print-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 3mm !important;
+    width: 100% !important;
+    padding: 0 !important;
   }
 }
-
-/* ========================================================= */
 /* 2. CHECKOUT MODAL - GIAO DIỆN TỐI GIẢN (MINIMALIST ERP)   */
 /* ========================================================= */
 .checkout-modal-overlay {
