@@ -21,7 +21,10 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
   
   if (!printMode) return null;
 
-  // 1. BIẾN AN TOÀN CHỐNG CRASH TẬN GỐC CHO REACT
+  // Xử lý thông minh tên lệnh in (Tránh lỗi sai chính tả chữ hoa/thường)
+  const safeMode = String(printMode).toLowerCase().trim();
+
+  // BỌC THÉP TẤT CẢ BIẾN ĐỂ CHỐNG CRASH TẬN GỐC
   const safeFinalTotal = Number(lastOrder?.finalTotal) || 0;
   const safeCustomerGiven = Number(lastOrder?.customerGiven) || 0;
   const safeDebtAmount = Number(lastOrder?.debtAmount) || safeFinalTotal;
@@ -38,15 +41,15 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
   const currentTotalDebt = (custPhone && customers?.[custPhone]) ? (Number(customers[custPhone]?.debt) || 0) : 0;
   const custAddress = (custPhone && customers?.[custPhone]) ? (customers[custPhone]?.address || "N/A") : "N/A";
   
-  // Tránh lỗi .map() is not a function nếu giỏ hàng rỗng
   const cartItems = Array.isArray(lastOrder?.cart) ? lastOrder.cart : [];
+  const safeVatRate = Number(VAT_RATE) || 0.1;
 
   return (
     <>
       {/* ========================================================= */}
       {/* 1. IN HÓA ĐƠN MÁY POS (Bill nhiệt 80mm) */}
       {/* ========================================================= */}
-      {printMode === 'receipt' && lastOrder && (
+      {(safeMode === 'receipt' || safeMode === 'bill') && lastOrder && (
         <div className="print-only" style={{ width: "80mm", padding: "10px", fontFamily: "monospace", fontSize: "12px", color: "#000", background: "#fff" }}>
           <div style={{ textAlign: "center", borderBottom: "1px dashed #000", paddingBottom: "10px", marginBottom: "10px" }}>
             <h2 style={{ margin: "0 0 5px 0", fontSize: "18px" }}>HẢI LÊ MART</h2>
@@ -73,11 +76,11 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
             </thead>
             <tbody>
               {cartItems.map((item: any, idx: number) => {
-                const prod = item?.product || {}; // Bọc an toàn chống undefined
+                const prod = item?.product || {};
                 const itemQty = Number(item?.qty) || 0;
                 const priceToUse = item?.priceIncludingVat !== undefined 
                   ? Number(item.priceIncludingVat)
-                  : Math.round(getActualPrice(prod) * (1 + VAT_RATE));
+                  : Math.round(getActualPrice(prod) * (1 + safeVatRate));
                   
                 return (
                   <tr key={idx}>
@@ -99,7 +102,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
             {Number(lastOrder?.discount || 0) > 0 && (
               <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 0" }}>
                 <span>Chiết khấu/Ví:</span>
-                <span>-{Math.round(Number(lastOrder.discount)).toLocaleString()}đ</span>
+                <span>-{Math.round(Number(lastOrder?.discount || 0)).toLocaleString()}đ</span>
               </div>
             )}
             
@@ -146,7 +149,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
       {/* ========================================================= */}
       {/* 2. IN HÓA ĐƠN BÁN HÀNG KHỔ A4 */}
       {/* ========================================================= */}
-      {printMode === 'invoice_a4' && lastOrder && (
+      {(safeMode === 'invoice_a4' || safeMode === 'a4') && lastOrder && (
          <div className="print-a4-container" style={{ width: "210mm", padding: "15mm", fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", color: "#000", background: "#fff", boxSizing: "border-box" }}>
            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px" }}>
              <tbody>
@@ -211,7 +214,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
                  const itemQty = Number(item?.qty) || 0;
                  const priceToUse = item?.priceIncludingVat !== undefined 
                    ? Number(item.priceIncludingVat) 
-                   : Math.round(getActualPrice(prod) * (1 + VAT_RATE));
+                   : Math.round(getActualPrice(prod) * (1 + safeVatRate));
                    
                  return (
                    <tr key={idx}>
@@ -243,7 +246,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
                  {Number(lastOrder?.discount || 0) > 0 && (
                    <tr>
                      <td style={{ padding: "4px 0", textAlign: "left", color: "#ef4444" }}>Chiết khấu ưu đãi / Mã giảm:</td>
-                     <td style={{ padding: "4px 0", textAlign: "right", fontWeight: "bold", color: "#ef4444" }}>-{Math.round(Number(lastOrder?.discount)).toLocaleString()}đ</td>
+                     <td style={{ padding: "4px 0", textAlign: "right", fontWeight: "bold", color: "#ef4444" }}>-{Math.round(Number(lastOrder?.discount || 0)).toLocaleString()}đ</td>
                    </tr>
                  )}
                  <tr style={{ borderTop: "1px solid #000" }}>
@@ -302,7 +305,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
       {/* ========================================================= */}
       {/* 3. IN TEM MÃ VẠCH */}
       {/* ========================================================= */}
-      {printMode === 'barcode' && printBarcodeProduct && (
+      {safeMode === 'barcode' && printBarcodeProduct && (
          <div className="print-a4-container" style={{ background: "#fff", padding: "10mm" }}>
            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "15px", justifyItems: "center" }}>
              {Array.from({ length: Number(barcodeCount) || 0 }).map((_, i) => {
@@ -325,7 +328,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
       {/* ========================================================= */}
       {/* 4. IN THẺ KHÁCH HÀNG */}
       {/* ========================================================= */}
-      {printMode === 'customer_card' && printCustomer && (
+      {safeMode === 'customer_card' && printCustomer && (
          <div className="print-card-container"> 
            <div style={{ width: "85.6mm", height: "53.98mm", border: "3px solid #dc2626", borderRadius: "12px", padding: "15px", textAlign: "center", boxSizing: "border-box", display: "flex", flexDirection: "column", justifyContent: "center", background: "#fff7ed", fontFamily: "'Inter', sans-serif" }}>
              <h2 style={{ margin: "0 0 5px 0", color: "#b91c1c", fontSize: "20px", textTransform: "uppercase", fontWeight: "900" }}>HẢI LÊ MART</h2>
