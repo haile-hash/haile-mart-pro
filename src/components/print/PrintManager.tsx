@@ -70,9 +70,10 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
                 return (
                   <tr key={idx} style={{ borderBottom: '1px dashed #eee' }}>
                     <td style={{ padding: '4px 0' }}>
-                      {item.product?.name || item.name}
-                      {item.product?.isHappyHour && <span style={{ marginLeft: '4px' }}>⭐</span>}
-                    </td>
+    {/* Dùng Regex chặt bỏ toàn bộ chữ [Lô...] khỏi tên in ra hóa đơn */}
+    {(item.product?.name || item.name).replace(/\s*\[Lô[^\]]*\]/gi, '').trim()}
+    {item.product?.isHappyHour && <span style={{ marginLeft: '4px' }}>⭐</span>}
+  </td>
                     <td style={{ padding: '4px 0', textAlign: 'center' }}>{item.qty}</td>
                     <td style={{ padding: '4px 0', textAlign: 'right' }}>{(price * item.qty).toLocaleString()}đ</td>
                   </tr>
