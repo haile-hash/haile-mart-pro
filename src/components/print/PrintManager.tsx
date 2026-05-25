@@ -46,15 +46,14 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
       const order = lastOrder;
       const safeFinalTotal = Number(order?.finalTotal) || 0;
       const safeCustomerGiven = Number(order?.customerGiven) || 0;
-      const safeDebtAmount = Number(order?.debtAmount) || safeFinalTotal;
       const changeAmount = Math.max(0, safeCustomerGiven - safeFinalTotal);
       
       const paymentMethod = String(order?.paymentMethod || 'TIỀN MẶT');
       const orderId = String(order?.orderId || '');
       
-      const isDebtSale = paymentMethod === 'GHI NỢ' || safeDebtAmount > 0;
+      // FIX LỖI LOGIC: Không dùng || safeFinalTotal vì nếu nợ là 0 thì 0 || val sẽ lấy val gây lỗi hiển thị dư nợ
+      const isDebtSale = paymentMethod === 'GHI NỢ';
       const isRefundDebt = paymentMethod === 'TRỪ NỢ';
-      const isNoCashInvolved = isDebtSale || isRefundDebt;
       
       const custPhone = String(order?.custPhone || '');
       const currentTotalDebt = (custPhone && customers?.[custPhone]) ? (Number(customers[custPhone]?.debt) || 0) : 0;
@@ -65,7 +64,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
 
       if (!isA4) {
         // ---------------------------------------------------------
-        // 1. IN BILL MÁY POS 80MM (Đã bổ sung SĐT + Địa chỉ)
+        // 1. IN BILL MÁY POS 80MM
         // ---------------------------------------------------------
         return (
           <div className="print-only" style={{ width: "80mm", padding: "10px", fontFamily: "monospace", fontSize: "12px", color: "#000", background: "#fff" }}>
@@ -140,23 +139,40 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
                   <span style={{ fontWeight: "bold" }}>{paymentMethod}</span>
                 </div>
                 
-                {!isNoCashInvolved && (
-                  <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 0" }}>
-                    <span>Tiền mặt khách đưa:</span>
-                    <span>{Math.round(safeCustomerGiven).toLocaleString()}đ</span>
-                  </div>
+                {/* XỬ LÝ RIÊNG HÌNH THỨC KẾT HỢP */}
+                {paymentMethod === 'KẾT HỢP' && (
+                  <>
+                    <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 0" }}>
+                      <span> - Tiền mặt:</span>
+                      <span>{Math.round(safeCustomerGiven).toLocaleString()}đ</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 0" }}>
+                      <span> - Chuyển khoản:</span>
+                      <span>{Math.max(0, safeFinalTotal - safeCustomerGiven).toLocaleString()}đ</span>
+                    </div>
+                  </>
+                )}
+
+                {/* XỬ LÝ RIÊNG HÌNH THỨC TIỀN MẶT */}
+                {paymentMethod === 'TIỀN MẶT' && (
+                  <>
+                    <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 0" }}>
+                      <span>Tiền khách đưa:</span>
+                      <span>{Math.round(safeCustomerGiven).toLocaleString()}đ</span>
+                    </div>
+                    {changeAmount > 0 && (
+                      <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 0" }}>
+                        <span>Tiền thối lại:</span>
+                        <span>{Math.round(changeAmount).toLocaleString()}đ</span>
+                      </div>
+                    )}
+                  </>
                 )}
                 
-                {paymentMethod === 'TIỀN MẶT' && changeAmount > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 0" }}>
-                    <span>Tiền thối lại:</span>
-                    <span>{Math.round(changeAmount).toLocaleString()}đ</span>
-                  </div>
-                )}
-                
+                {/* XỬ LÝ RIÊNG HÌNH THỨC GHI NỢ */}
                 {(isDebtSale || isRefundDebt) && (
                   <div style={{ display: "flex", justifyContent: "space-between", margin: "6px 0", color: "#b91c1c", fontWeight: "bold", borderTop: "1px dashed #b91c1c", paddingTop: "6px" }}>
-                    <span>TỔNG DƯ NỢ HIỆN TẠI:</span>
+                    <span>TỔNG DƯ NỢ CỦA KHÁCH:</span>
                     <span style={{ fontSize: "14px" }}>{Math.round(currentTotalDebt).toLocaleString()}đ</span>
                   </div>
                 )}
@@ -170,7 +186,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
         );
       } else {
         // ---------------------------------------------------------
-        // 2. IN HÓA ĐƠN A4 (Bọc thép chống trắng trang)
+        // 2. IN HÓA ĐƠN A4 
         // ---------------------------------------------------------
         return (
           <div className="print-a4-container" style={{ width: "210mm", padding: "15mm", fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", color: "#000", background: "#fff", boxSizing: "border-box", margin: "0 auto" }}>
@@ -212,7 +228,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
                   </tr>
                   <tr>
                     <td><b>Hình thức TT:</b></td>
-                    <td><span style={{ fontWeight: "bold", textTransform: "uppercase", color: isNoCashInvolved ? "#b91c1c" : "#000" }}>{paymentMethod}</span></td>
+                    <td><span style={{ fontWeight: "bold", textTransform: "uppercase", color: (isDebtSale || isRefundDebt) ? "#b91c1c" : "#000" }}>{paymentMethod}</span></td>
                     <td><b>Thu ngân trực:</b></td>
                     <td>{role === 'admin' ? 'Quản lý' : 'Nhân viên'} ({shift})</td>
                   </tr>
@@ -277,18 +293,32 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
                     <td style={{ padding: "8px 0 4px 0", textAlign: "right", fontSize: "16px", fontWeight: "bold" }}>{Math.round(safeFinalTotal).toLocaleString()}đ</td>
                   </tr>
                   
-                  {!isNoCashInvolved && (
-                    <tr style={{ backgroundColor: "#f8fafc" }}>
-                      <td style={{ padding: "6px 8px", textAlign: "left" }}>Số tiền mặt khách đưa:</td>
-                      <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: "bold" }}>{Math.round(safeCustomerGiven).toLocaleString()}đ</td>
-                    </tr>
+                  {paymentMethod === 'KẾT HỢP' && (
+                    <>
+                      <tr style={{ backgroundColor: "#f8fafc" }}>
+                        <td style={{ padding: "6px 8px", textAlign: "left" }}>- Khách đưa tiền mặt:</td>
+                        <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: "bold" }}>{Math.round(safeCustomerGiven).toLocaleString()}đ</td>
+                      </tr>
+                      <tr style={{ backgroundColor: "#f8fafc" }}>
+                        <td style={{ padding: "6px 8px", textAlign: "left" }}>- Khách chuyển khoản:</td>
+                        <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: "bold" }}>{Math.max(0, safeFinalTotal - safeCustomerGiven).toLocaleString()}đ</td>
+                      </tr>
+                    </>
                   )}
-                  
-                  {paymentMethod === 'TIỀN MẶT' && changeAmount > 0 && (
-                    <tr>
-                      <td style={{ padding: "4px 0", textAlign: "left", fontStyle: "italic" }}>Tiền thối lại cho khách:</td>
-                      <td style={{ padding: "4px 0", textAlign: "right" }}>{Math.round(changeAmount).toLocaleString()}đ</td>
-                    </tr>
+
+                  {paymentMethod === 'TIỀN MẶT' && (
+                    <>
+                      <tr style={{ backgroundColor: "#f8fafc" }}>
+                        <td style={{ padding: "6px 8px", textAlign: "left" }}>Số tiền mặt khách đưa:</td>
+                        <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: "bold" }}>{Math.round(safeCustomerGiven).toLocaleString()}đ</td>
+                      </tr>
+                      {changeAmount > 0 && (
+                        <tr>
+                          <td style={{ padding: "4px 0", textAlign: "left", fontStyle: "italic" }}>Tiền thối lại cho khách:</td>
+                          <td style={{ padding: "4px 0", textAlign: "right" }}>{Math.round(changeAmount).toLocaleString()}đ</td>
+                        </tr>
+                      )}
+                    </>
                   )}
                   
                   {(isDebtSale || isRefundDebt) && (
