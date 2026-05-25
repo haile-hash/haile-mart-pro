@@ -312,33 +312,24 @@ export default function App() {
       setScanQueue(prev => prev.slice(1));
     }
   }, [scanQueue, products, scannerMode]);
-// FIX LỖI: Luồng quản lý in ấn "Đơn luồng" (Single-thread Print)
-  const printTimerRef = useRef<any>(null);
-
-  useEffect(() => {
-    const handleAfterPrint = () => {
-      setPrintMode(null); // Chỉ làm 1 việc duy nhất là tắt UI sau khi người dùng đóng hộp thoại in
-    };
-    window.addEventListener("afterprint", handleAfterPrint);
-    return () => window.removeEventListener("afterprint", handleAfterPrint);
-  }, []);
-
+// FIX LỖI: TRỊ DỨT ĐIỂM BỆNH IN TRẮNG & IN ĐÚP LẦN 2
   useEffect(() => {
     if (printMode) {
-      // Hủy bỏ bất kỳ lệnh in nào đang bị "xếp hàng" chờ trước đó
-      if (printTimerRef.current) clearTimeout(printTimerRef.current);
+      const timer = setTimeout(() => {
+        // 1. Đợi 1.2s để đảm bảo mọi bảng biểu A4, mã vạch đã vẽ xong 100%
+        window.print(); 
+        
+        // 2. Lệnh window.print() sẽ khóa cứng trình duyệt. 
+        // Code sẽ KHÔNG CHẠY TIẾP cho đến khi bạn bấm Print hoặc Cancel.
+        
+        // 3. Ngay khi hộp thoại in vừa đóng lại, lệnh dưới đây mới được chạy để tắt UI in.
+        setPrintMode(null); 
+        
+      }, 1200); 
       
-      // Tạo lệnh in mới và duy nhất
-      printTimerRef.current = setTimeout(() => {
-        window.print();
-      }, 1000); 
+      return () => clearTimeout(timer);
     }
-    
-    // Dọn dẹp timer nếu React vô tình re-render
-    return () => {
-      if (printTimerRef.current) clearTimeout(printTimerRef.current);
-    };
-  }, [printMode]); // CHÌA KHÓA NẰM Ở ĐÂY: Chỉ theo dõi duy nhất biến printMode!
+  }, [printMode]); // Chỉ theo dõi duy nhất printMode, không theo dõi biến nào khác
   useEffect(() => {
     if (showPOModal && poTab === 'RECEIVE') {
       const fetchPOs = async () => {
