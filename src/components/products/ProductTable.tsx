@@ -44,7 +44,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
 }) => {
 
   // =====================================================================
-  // HÀM HELPER: RENDER GIAO DIỆN HEADER (GỒM CẢ SẮP XẾP & BỘ LỌC CHUYÊN NGHIỆP)
+  // HÀM HELPER: RENDER GIAO DIỆN HEADER BỘ LỌC
   // =====================================================================
   const renderColumnHeader = (
     sortKey: string, 
@@ -52,26 +52,23 @@ export const ProductTable: React.FC<ProductTableProps> = ({
     label: string, 
     options: any[], 
     formatValue: (val: any) => string,
-    alignRight: boolean = false // Chống tràn viền cho các cột sát lề phải
+    alignRight: boolean = false
   ) => {
     const isActive = filters[filterKey]?.length > 0;
     const isOpen = openFilter === filterKey;
 
-    // Xóa bộ lọc của cột này
     const handleToggleAll = () => {
       const newFilters = { ...filters };
       delete newFilters[filterKey];
       setFilters(newFilters);
     };
 
-    // Chọn / Bỏ chọn từng item trong list lọc
     const handleToggleItem = (val: any, checked: boolean) => {
       const current = filters[filterKey] || [];
       const updated = checked ? [...current, val] : current.filter((item: any) => item !== val);
       setFilters({ ...filters, [filterKey]: updated.length ? updated : [] });
     };
 
-    // Render mũi tên Sắp xếp (Sort)
     const renderSortIcon = () => {
       if (sortConfig?.key !== sortKey) return <span style={{ opacity: 0.3, fontSize: '12px' }}>↕</span>;
       return sortConfig.direction === 'asc' ? <span style={{ color: '#3b82f6', fontSize: '14px' }}>↑</span> : <span style={{ color: '#3b82f6', fontSize: '14px' }}>↓</span>;
@@ -80,7 +77,6 @@ export const ProductTable: React.FC<ProductTableProps> = ({
     return (
       <th className="table-th-relative" key={filterKey} style={{ padding: '10px 8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {/* Nhấn vào Chữ để Sắp xếp (Sort) */}
           <div 
             style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', userSelect: 'none', color: '#64748b' }} 
             onClick={() => requestSort(sortKey)}
@@ -89,7 +85,6 @@ export const ProductTable: React.FC<ProductTableProps> = ({
             {label} {renderSortIcon()}
           </div>
           
-          {/* Nhấn vào Phễu để Mở Bộ lọc (Filter) */}
           <div 
             className="filter-trigger" 
             onClick={(e) => { e.stopPropagation(); setOpenFilter(isOpen ? null : filterKey); }}
@@ -104,24 +99,17 @@ export const ProductTable: React.FC<ProductTableProps> = ({
           </div>
         </div>
 
-        {/* BẢNG POPOVER CHUYÊN NGHIỆP KHI XỔ XUỐNG */}
         {isOpen && (
           <div 
             className="filter-popover" 
             onClick={e => e.stopPropagation()}
             style={alignRight ? { right: 0, left: 'auto' } : { left: 0 }}
           >
-            <div className="filter-popover-header">
-              Lọc {label}
-            </div>
+            <div className="filter-popover-header">Lọc {label}</div>
             
             <div className="filter-popover-body">
               <label className="filter-checkbox-item">
-                <input 
-                  type="checkbox" 
-                  checked={!isActive}
-                  onChange={handleToggleAll} 
-                />
+                <input type="checkbox" checked={!isActive} onChange={handleToggleAll} />
                 <span style={{ fontWeight: 'bold', color: '#0f172a' }}>Tất cả</span>
               </label>
               
@@ -140,17 +128,26 @@ export const ProductTable: React.FC<ProductTableProps> = ({
             </div>
 
             <div className="filter-popover-footer">
-              <button className="filter-btn-reset" onClick={handleToggleAll}>
-                Bỏ lọc
-              </button>
-              <button className="filter-btn-apply" onClick={() => setOpenFilter(null)}>
-                Áp dụng
-              </button>
+              <button className="filter-btn-reset" onClick={handleToggleAll}>Bỏ lọc</button>
+              <button className="filter-btn-apply" onClick={() => setOpenFilter(null)}>Áp dụng</button>
             </div>
           </div>
         )}
       </th>
     );
+  };
+
+  // =====================================================================
+  // HÀM HELPER: TÍNH THỜI GIAN LƯU KHO (NGÀY TRƯỚC)
+  // =====================================================================
+  const getStorageTime = (dateString: string | null) => {
+    if (!dateString) return '';
+    const diffMs = new Date().getTime() - new Date(dateString).getTime();
+    const days = Math.floor(diffMs / 86400000); // 86400000 = 1000 * 60 * 60 * 24
+    if (days < 0) return ''; 
+    if (days === 0) return 'Nhập hôm nay';
+    if (days === 1) return '1 ngày trước';
+    return `${days} ngày trước`;
   };
 
   // =====================================================================
@@ -161,18 +158,11 @@ export const ProductTable: React.FC<ProductTableProps> = ({
       <table className="mart-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
-            
-            {/* SỬ DỤNG HÀM HELPER ĐỂ RENDER 5 CỘT CÓ BỘ LỌC */}
             {renderColumnHeader('name', 'name', 'SẢN PHẨM', uniqueNames, (val) => val)}
-            
             {renderColumnHeader('stock', 'stock', 'TỒN', uniqueStocks, (val) => val.toLocaleString())}
-            
             {role === 'admin' && renderColumnHeader('import_price', 'import_price', 'GIÁ VỐN', uniqueImportPrices, (val) => `${Number(val || 0).toLocaleString()}đ`)}
-            
             {renderColumnHeader('sale_price', 'sale_price', 'GIÁ BÁN', uniqueSalePrices, (val) => `${Number(val).toLocaleString()}đ`)}
-            
             {renderColumnHeader('expiry_date', 'expiry_date', 'HẠN SỬ DỤNG', uniqueExpiries, (val) => val ? new Date(val).toLocaleDateString('vi-VN') : 'Không có', true)}
-            
             <th style={{ padding: '10px 8px', color: '#64748b' }}>THAO TÁC</th>
           </tr>
         </thead>
@@ -214,7 +204,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
                     </span>
                   </td>
 
-                  {/* CỘT GIÁ VỐN (CHỈ ADMIN THẤY) */}
+                  {/* CỘT GIÁ VỐN */}
                   {role === 'admin' && (
                     <td style={{ padding: '10px 8px', color: '#64748b', cursor: 'pointer' }} onClick={() => handleEdit(p.id, 'import_price', p.import_price)}>
                       {Number(p.import_price || 0).toLocaleString()}đ
@@ -238,11 +228,19 @@ export const ProductTable: React.FC<ProductTableProps> = ({
                     )}
                   </td>
 
-                  {/* CỘT HẠN SỬ DỤNG */}
+                  {/* CỘT HẠN SỬ DỤNG VÀ THỜI GIAN LƯU KHO ĐÃ ĐƯỢC LẤY LẠI */}
                   <td style={{ padding: '10px 8px', fontSize: '12px' }}>
-                    <div style={{ color: isUrgent ? '#ef4444' : '#475569', fontWeight: isUrgent ? 'bold' : 'normal', cursor: role === 'admin' ? 'pointer' : 'default' }} onClick={() => role === 'admin' && handleEdit(p.id, 'expiry_date', p.expiry_date, true)}>
+                    <div style={{ color: isUrgent ? '#ef4444' : '#0f172a', fontWeight: isUrgent ? 'bold' : '600', cursor: role === 'admin' ? 'pointer' : 'default' }} onClick={() => role === 'admin' && handleEdit(p.id, 'expiry_date', p.expiry_date, true)}>
                       {p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : '---'}
                     </div>
+                    
+                    {/* KHÔI PHỤC THỜI GIAN LƯU KHO TẠI ĐÂY */}
+                    {p.created_at && (
+                      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+                        {getStorageTime(p.created_at)}
+                      </div>
+                    )}
+
                     {isUrgent && p.expiry_date && (
                       <div style={{ fontSize: '10px', color: '#ef4444', backgroundColor: '#fee2e2', padding: '2px 4px', borderRadius: '4px', display: 'inline-block', marginTop: '2px' }}>
                         Cận date!
