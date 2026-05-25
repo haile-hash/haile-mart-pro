@@ -312,29 +312,36 @@ export default function App() {
       setScanQueue(prev => prev.slice(1));
     }
   }, [scanQueue, products, scannerMode]);
-
-  // FIX LỖI: Đóng luồng in mượt mà sau khi Print hoặc Cancel
+// FIX LỖI 1: Xử lý khi người dùng ấn Print hoặc Cancel
   useEffect(() => {
     const handleAfterPrint = () => {
-      isPrintingRef.current = false; // Mở khóa biến cờ
+      setPrintMode(null); // [QUAN TRỌNG] Phải tắt giao diện in TRƯỚC TIÊN
       setTimeout(() => {
-        setPrintMode(null);
-      }, 300); 
+        isPrintingRef.current = false; // [QUAN TRỌNG] Đợi UI tắt hẳn rồi mới mở khóa cờ
+      }, 500); 
     };
     window.addEventListener("afterprint", handleAfterPrint);
     return () => window.removeEventListener("afterprint", handleAfterPrint);
   }, []);
 
-  // FIX LỖI: Trị dứt điểm bệnh "In Trắng Tinh" & "Bắt bấm Cancel 2 lần" nhờ biến cờ kiểm soát
+  // FIX LỖI 2: Kích hoạt in một lần duy nhất
   useEffect(() => {
     if (printMode && !isPrintingRef.current) {
-      isPrintingRef.current = true; // Khóa cờ ngay lập tức
+      isPrintingRef.current = true; // Khóa cờ ngay khi bắt đầu
+      
       const timer = setTimeout(() => {
-        window.print();
-      }, 1200); // Trễ 1.2 giây để HTML A4 / Bill nhiệt kịp render đầy đủ dữ liệu
+        window.print(); // Code sẽ khựng lại ở đây chờ bạn ấn In/Cancel
+        
+        // CHỐT CHẶN DỰ PHÒNG: Ngay khi bảng In biến mất, ép buộc tắt UI ngay lập tức
+        setPrintMode(null);
+        setTimeout(() => { isPrintingRef.current = false; }, 500);
+
+      }, 1200); 
       return () => clearTimeout(timer);
     }
   }, [printMode, printPOData, lastOrder, printCustomer, printBarcodeProduct]);
+  
+  
 
   useEffect(() => {
     if (showPOModal && poTab === 'RECEIVE') {
