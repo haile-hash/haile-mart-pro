@@ -1,5 +1,4 @@
 import React, { useEffect, useRef } from "react";
-import { formatCategoryStr, cleanName } from "../../utils/helpers";
 
 interface CheckoutModalProps {
   isCheckoutOpen: boolean;
@@ -58,12 +57,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
   }, [isCheckoutOpen, checkoutStep]);
 
-  // ==========================================
-  // FIX LỖI: HÀM ĐÓNG MODAL VÀ HỦY IN
-  // ==========================================
   const handleClose = () => {
-    setPrintMode(null); // 1. Hủy ngay mọi lệnh in đang chờ
-    closeCheckout();    // 2. Đóng Modal và reset giỏ hàng
+    setPrintMode(null); 
+    closeCheckout();    
   };
 
   if (!isCheckoutOpen) return null;
@@ -84,11 +80,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </button>
         </div>
 
-        {/* BODY (CÓ THỂ CUỘN NẾU DÀI) */}
+        {/* BODY */}
         <div className="checkout-body">
+          {/* STEP 1: KHÁCH HÀNG & VOUCHER */}
           {checkoutStep === 1 && (
             <>
-              {/* SĐT Khách hàng */}
               <div className="co-group">
                 <label className="co-label">SĐT / Mã Khách Hàng</label>
                 <div className="co-input-wrapper">
@@ -103,7 +99,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
               </div>
 
-              {/* Tên Khách Hàng */}
               <div className="co-group">
                 <label className="co-label">Tên Khách Hàng</label>
                 <div className="co-input-wrapper">
@@ -114,7 +109,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
               </div>
 
-              {/* Địa Chỉ */}
               <div className="co-group">
                 <label className="co-label">Địa Chỉ Giao Hàng (Tùy chọn)</label>
                 <div className="co-input-wrapper">
@@ -125,7 +119,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
               </div>
 
-              {/* Mã Giảm Giá */}
               <div className="co-group" style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '20px' }}>
                 <label className="co-label" style={{ color: '#059669' }}>Mã Giảm Giá / Voucher</label>
                 <div className="co-input-wrapper">
@@ -140,7 +133,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
               </div>
 
-              {/* Tổng Tiền Summary */}
               <div className="co-summary-box">
                 <div className="co-summary-title">CẦN THANH TOÁN</div>
                 <div className="co-summary-price">{finalToPay.toLocaleString()}đ</div>
@@ -148,55 +140,112 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </>
           )}
 
+          {/* STEP 2: PHƯƠNG THỨC THANH TOÁN CHUYÊN NGHIỆP */}
           {checkoutStep === 2 && (
-            <div style={{ textAlign: "center", padding: "10px 0" }}>
-              <div className="co-summary-box" style={{ marginTop: 0, marginBottom: '25px' }}>
-                <div className="co-summary-title">TỔNG TIỀN:</div>
-                <div className="co-summary-price" style={{ fontSize: '40px' }}>{finalToPay.toLocaleString()}đ</div>
+            <div style={{ padding: "0" }}>
+              <div className="co-summary-box" style={{ marginTop: 0, marginBottom: '20px', padding: '15px' }}>
+                <div className="co-summary-title">TỔNG TIỀN PHẢI THU:</div>
+                <div className="co-summary-price" style={{ fontSize: '36px' }}>{finalToPay.toLocaleString()}đ</div>
               </div>
 
               {customers[custPhone]?.wallet > 0 && (
-                <label style={{ display: "flex", alignItems: "center", gap: "10px", background: "#f8fafc", padding: "15px", borderRadius: "10px", marginBottom: "20px", cursor: "pointer", border: "1px solid #cbd5e1" }}>
-                  <input type="checkbox" checked={useWallet} onChange={e => setUseWallet(e.target.value === 'true' ? true : (!useWallet))} style={{ width: '20px', height: '20px', accentColor: '#ea580c' }} />
-                  <span style={{ fontSize: "15px", fontWeight: "bold", color: "#0f172a" }}>Trừ Ví VIP: <span style={{ color: "#ea580c" }}>{customers[custPhone].wallet.toLocaleString()}đ</span></span>
+                <label style={{ display: "flex", alignItems: "center", gap: "10px", background: "#f8fafc", padding: "12px", borderRadius: "10px", marginBottom: "15px", cursor: "pointer", border: "1px solid #cbd5e1" }}>
+                  <input type="checkbox" checked={useWallet} onChange={e => setUseWallet(e.target.checked)} style={{ width: '18px', height: '18px', accentColor: '#ea580c' }} />
+                  <span style={{ fontSize: "14px", fontWeight: "bold", color: "#0f172a" }}>Trừ Ví VIP: <span style={{ color: "#ea580c" }}>{customers[custPhone].wallet.toLocaleString()}đ</span></span>
                 </label>
               )}
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {/* Ô NHẬP TIỀN KHÁCH ĐƯA (Bắt buộc cho thanh toán Kết Hợp) */}
+              <div className="co-group" style={{ marginBottom: '20px' }}>
+                <label className="co-label">Tiền mặt khách đưa (Dùng cho tính tiền thừa / TT Kết hợp):</label>
+                <div className="co-input-wrapper">
+                  <div className="co-icon-box" style={{ fontSize: '18px' }}>💵</div>
+                  <input 
+                    type="number" 
+                    className="co-input" 
+                    placeholder="Nhập số tiền mặt khách trả..." 
+                    value={customerGiven} 
+                    onChange={(e) => setCustomerGiven(e.target.value)} 
+                    style={{ fontSize: '18px' }}
+                  />
+                </div>
+                
+                {/* HIỂN THỊ TIỀN THỪA / TIỀN THIẾU TỰ ĐỘNG */}
+                {Number(customerGiven) > finalToPay && (
+                  <div style={{ marginTop: '8px', fontSize: '15px', color: '#10b981', fontWeight: 'bold' }}>
+                    ↪ Tiền thừa trả khách: {(Number(customerGiven) - finalToPay).toLocaleString()}đ
+                  </div>
+                )}
+                {Number(customerGiven) > 0 && Number(customerGiven) < finalToPay && (
+                  <div style={{ marginTop: '8px', fontSize: '15px', color: '#ea580c', fontWeight: 'bold' }}>
+                    ↪ Còn thiếu (Bấm "Kết Hợp" để CK phần này): {(finalToPay - Number(customerGiven)).toLocaleString()}đ
+                  </div>
+                )}
+              </div>
+
+              {/* KHỐI NÚT CHỌN PHƯƠNG THỨC THANH TOÁN */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                
                 <button 
                   onClick={() => confirmCheckout('TIỀN MẶT')} 
                   disabled={loading}
-                  style={{ width: "100%", padding: "16px", background: "#10b981", color: "white", border: "none", borderRadius: "10px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                  style={{ width: "100%", padding: "14px", background: "#10b981", color: "white", border: "none", borderRadius: "10px", fontSize: "15px", fontWeight: "bold", cursor: "pointer", display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                 >
                   💵 THANH TOÁN TIỀN MẶT (F2)
                 </button>
+                
                 <button 
                   onClick={() => confirmCheckout('CHUYỂN KHOẢN')} 
                   disabled={loading}
-                  style={{ width: "100%", padding: "16px", background: "#3b82f6", color: "white", border: "none", borderRadius: "10px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                  style={{ width: "100%", padding: "14px", background: "#3b82f6", color: "white", border: "none", borderRadius: "10px", fontSize: "15px", fontWeight: "bold", cursor: "pointer", display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                 >
                   🏦 MÃ QR CHUYỂN KHOẢN (F3)
                 </button>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+
+                <button 
+                  onClick={() => {
+                    if(!customerGiven || Number(customerGiven) <= 0 || Number(customerGiven) >= finalToPay) {
+                      alert("Để thanh toán KẾT HỢP, vui lòng nhập chính xác số tiền mặt khách đưa (phải nhỏ hơn Tổng tiền) vào ô bên trên!");
+                      return;
+                    }
+                    confirmCheckout('KẾT HỢP');
+                  }} 
+                  disabled={loading}
+                  style={{ width: "100%", padding: "14px", background: "#f59e0b", color: "white", border: "none", borderRadius: "10px", fontSize: "15px", fontWeight: "bold", cursor: "pointer", display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                >
+                  🤝 KẾT HỢP (TIỀN MẶT + CHUYỂN KHOẢN)
+                </button>
+
+                {/* Grid 3 nút phụ */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
                   <button 
                     onClick={() => confirmCheckout('QUẸT THẺ')} 
                     disabled={loading}
-                    style={{ padding: "14px", background: "#64748b", color: "white", border: "none", borderRadius: "10px", fontSize: "14px", fontWeight: "bold", cursor: "pointer" }}
+                    style={{ padding: "12px 5px", background: "#64748b", color: "white", border: "none", borderRadius: "10px", fontSize: "13px", fontWeight: "bold", cursor: "pointer" }}
                   >
                     💳 QUẸT THẺ
                   </button>
                   <button 
+                    onClick={() => confirmCheckout('ZALO PAY')} 
+                    disabled={loading}
+                    style={{ padding: "12px 5px", background: "#0ea5e9", color: "white", border: "none", borderRadius: "10px", fontSize: "13px", fontWeight: "bold", cursor: "pointer" }}
+                  >
+                    📱 ZALO PAY
+                  </button>
+                  <button 
                     onClick={() => confirmCheckout('GHI NỢ')} 
                     disabled={loading}
-                    style={{ padding: "14px", background: "#ef4444", color: "white", border: "none", borderRadius: "10px", fontSize: "14px", fontWeight: "bold", cursor: "pointer" }}
+                    style={{ padding: "12px 5px", background: "#ef4444", color: "white", border: "none", borderRadius: "10px", fontSize: "13px", fontWeight: "bold", cursor: "pointer" }}
                   >
-                    📓 KHÁCH GHI NỢ
+                    📓 KHÁCH NỢ
                   </button>
                 </div>
+
               </div>
             </div>
           )}
 
+          {/* STEP 3: HOÀN TẤT */}
           {checkoutStep === 3 && (
             <div style={{ textAlign: "center", padding: "20px 0" }}>
               <div style={{ width: '80px', height: '80px', background: '#dcfce7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: '#10b981' }}>
