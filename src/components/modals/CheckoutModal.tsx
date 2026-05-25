@@ -58,10 +58,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
   }, [isCheckoutOpen, checkoutStep]);
 
+  // ==========================================
+  // FIX LỖI: HÀM ĐÓNG MODAL VÀ HỦY IN
+  // ==========================================
+  const handleClose = () => {
+    setPrintMode(null); // 1. Hủy ngay mọi lệnh in đang chờ
+    closeCheckout();    // 2. Đóng Modal và reset giỏ hàng
+  };
+
   if (!isCheckoutOpen) return null;
 
   return (
-    <div className="checkout-modal-overlay" onClick={closeCheckout}>
+    <div className="checkout-modal-overlay" onClick={handleClose}>
       <div className="checkout-modal-content" onClick={(e) => e.stopPropagation()} ref={modalRef}>
         
         {/* HEADER */}
@@ -71,7 +79,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             {checkoutStep === 2 && "2. PHƯƠNG THỨC THANH TOÁN"}
             {checkoutStep === 3 && "3. HOÀN TẤT ĐƠN HÀNG"}
           </h2>
-          <button className="checkout-close-btn" onClick={closeCheckout}>
+          <button className="checkout-close-btn" onClick={handleClose}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
         </div>
@@ -211,7 +219,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   ✉️ GỬI EMAIL HÓA ĐƠN
                 </button>
                 <button 
-                  onClick={closeCheckout}
+                  onClick={handleClose}
                   style={{ width: "100%", padding: "16px", background: "#e2e8f0", color: "#0f172a", border: "none", borderRadius: "10px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", marginTop: '10px' }}
                 >
                   XONG & ĐÓNG
