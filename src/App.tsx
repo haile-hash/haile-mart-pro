@@ -684,9 +684,15 @@ export default function App() {
     const val = e.target.value; setCustomerInput(val);
     const matchedPhone = Object.keys(customers || {}).find(phone => phone === val.trim() || customers[phone]?.cardCode === val.trim());
     if (matchedPhone) { 
-      setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setUseWallet(false); 
+      setCustPhone(matchedPhone); 
+      setCustName(customers[matchedPhone].name); 
+      setCustAddress(customers[matchedPhone].address || ""); // <-- Tự động gọi địa chỉ cũ ra
+      setUseWallet(false); 
     } else { 
-      setCustPhone(val); setCustName(""); setUseWallet(false); 
+      setCustPhone(val); 
+      setCustName(""); 
+      setCustAddress(""); // <-- Xóa trắng nếu là SĐT lạ/Khách mới
+      setUseWallet(false); 
     }
   };
 
