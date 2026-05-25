@@ -21,35 +21,49 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
   
   if (!printMode) return null;
 
-  // Xử lý thông minh tên lệnh in (Tránh lỗi sai chính tả chữ hoa/thường)
+  // 1. Mở rộng bộ nhận diện lệnh in (thêm 'pos', 'invoice' phòng hờ truyền sai)
   const safeMode = String(printMode).toLowerCase().trim();
+  
+  // 2. Ép kiểu lastOrder thành object để tránh chặn render gây trắng bill
+  const order = lastOrder || {};
 
   // BỌC THÉP TẤT CẢ BIẾN ĐỂ CHỐNG CRASH TẬN GỐC
-  const safeFinalTotal = Number(lastOrder?.finalTotal) || 0;
-  const safeCustomerGiven = Number(lastOrder?.customerGiven) || 0;
-  const safeDebtAmount = Number(lastOrder?.debtAmount) || safeFinalTotal;
+  const safeFinalTotal = Number(order?.finalTotal) || 0;
+  const safeCustomerGiven = Number(order?.customerGiven) || 0;
+  const safeDebtAmount = Number(order?.debtAmount) || safeFinalTotal;
   const changeAmount = Math.max(0, safeCustomerGiven - safeFinalTotal);
   
-  const paymentMethod = lastOrder?.paymentMethod || '';
-  const orderId = lastOrder?.orderId || '';
+  const paymentMethod = order?.paymentMethod || '';
+  const orderId = order?.orderId || '';
   
   const isDebtSale = paymentMethod === 'GHI NỢ' || safeDebtAmount > 0;
   const isRefundDebt = paymentMethod === 'TRỪ NỢ';
   const isNoCashInvolved = isDebtSale || isRefundDebt;
   
-  const custPhone = lastOrder?.custPhone || '';
-  const currentTotalDebt = (custPhone && customers?.[custPhone]) ? (Number(customers[custPhone]?.debt) || 0) : 0;
-  const custAddress = (custPhone && customers?.[custPhone]) ? (customers[custPhone]?.address || "N/A") : "N/A";
+  const custPhone = order?.custPhone || '';
   
-  const cartItems = Array.isArray(lastOrder?.cart) ? lastOrder.cart : [];
+  // 3. FIX LỖI CRASH TRẮNG TRANG: Dùng optional chaining triệt để thay vì ternary operator
+  const currentTotalDebt = Number(customers?.[custPhone]?.debt) || 0;
+  const custAddress = customers?.[custPhone]?.address || "N/A";
+  
+  const cartItems = Array.isArray(order?.cart) ? order.cart : [];
   const safeVatRate = Number(VAT_RATE) || 0.1;
+
+  // Hàm bọc an toàn cho getActualPrice tránh crash component
+  const safeGetPrice = (product: any) => {
+    try {
+      return typeof getActualPrice === 'function' ? (getActualPrice(product) || 0) : 0;
+    } catch (error) {
+      return 0;
+    }
+  };
 
   return (
     <>
       {/* ========================================================= */}
       {/* 1. IN HÓA ĐƠN MÁY POS (Bill nhiệt 80mm) */}
       {/* ========================================================= */}
-      {(safeMode === 'receipt' || safeMode === 'bill') && lastOrder && (
+      {(safeMode === 'receipt' || safeMode === 'bill' || safeMode === 'pos') && (
         <div className="print-only" style={{ width: "80mm", padding: "10px", fontFamily: "monospace", fontSize: "12px", color: "#000", background: "#fff" }}>
           <div style={{ textAlign: "center", borderBottom: "1px dashed #000", paddingBottom: "10px", marginBottom: "10px" }}>
             <h2 style={{ margin: "0 0 5px 0", fontSize: "18px" }}>HẢI LÊ MART</h2>
@@ -61,9 +75,9 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
             <p style={{ margin: "2px 0" }}>
               {orderId === 'PHIẾU_TRẢ_HÀNG' ? <b>PHIẾU HOÀN TRẢ HÀNG</b> : <span>Mã HĐ: <b>{orderId}</b></span>}
             </p>
-            <p style={{ margin: "2px 0" }}>Thời gian: {lastOrder?.time || ''}</p>
+            <p style={{ margin: "2px 0" }}>Thời gian: {order?.time || ''}</p>
             <p style={{ margin: "2px 0" }}>Thu ngân: {role === 'admin' ? 'Quản lý' : 'Nhân viên'} ({shift})</p>
-            <p style={{ margin: "2px 0" }}>Khách hàng: {lastOrder?.custName || "Khách lẻ"}</p>
+            <p style={{ margin: "2px 0" }}>Khách hàng: {order?.custName || "Khách lẻ"}</p>
           </div>
 
           <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "10px" }}>
@@ -78,9 +92,11 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
               {cartItems.map((item: any, idx: number) => {
                 const prod = item?.product || {};
                 const itemQty = Number(item?.qty) || 0;
+                
+                // Sử dụng hàm an toàn để lấy giá
                 const priceToUse = item?.priceIncludingVat !== undefined 
                   ? Number(item.priceIncludingVat)
-                  : Math.round(getActualPrice(prod) * (1 + safeVatRate));
+                  : Math.round(safeGetPrice(prod) * (1 + safeVatRate));
                   
                 return (
                   <tr key={idx}>
@@ -96,13 +112,13 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
           <div style={{ borderTop: "1px dashed #000", paddingTop: "10px", marginBottom: "10px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 0" }}>
               <span>Tổng tiền hàng:</span>
-              <span>{Math.round(Number(lastOrder?.subTotal || 0) + Number(lastOrder?.vatTotal || 0)).toLocaleString()}đ</span>
+              <span>{Math.round(Number(order?.subTotal || 0) + Number(order?.vatTotal || 0)).toLocaleString()}đ</span>
             </div>
             
-            {Number(lastOrder?.discount || 0) > 0 && (
+            {Number(order?.discount || 0) > 0 && (
               <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 0" }}>
                 <span>Chiết khấu/Ví:</span>
-                <span>-{Math.round(Number(lastOrder?.discount || 0)).toLocaleString()}đ</span>
+                <span>-{Math.round(Number(order?.discount || 0)).toLocaleString()}đ</span>
               </div>
             )}
             
@@ -114,7 +130,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
             <div style={{ borderTop: "1px solid #000", marginTop: "5px", paddingTop: "5px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 0" }}>
                 <span>Hình thức TT:</span>
-                <span style={{ fontWeight: "bold" }}>{paymentMethod}</span>
+                <span style={{ fontWeight: "bold" }}>{paymentMethod || 'Tiền mặt'}</span>
               </div>
               
               {!isNoCashInvolved && (
@@ -149,7 +165,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
       {/* ========================================================= */}
       {/* 2. IN HÓA ĐƠN BÁN HÀNG KHỔ A4 */}
       {/* ========================================================= */}
-      {(safeMode === 'invoice_a4' || safeMode === 'a4') && lastOrder && (
+      {(safeMode === 'invoice_a4' || safeMode === 'a4' || safeMode === 'invoice') && (
          <div className="print-a4-container" style={{ width: "210mm", padding: "15mm", fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", color: "#000", background: "#fff", boxSizing: "border-box" }}>
            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px" }}>
              <tbody>
@@ -171,7 +187,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
              <h1 style={{ margin: "0 0 5px 0", fontSize: "28px", fontWeight: "bold", letterSpacing: "1px" }}>
                {orderId === 'PHIẾU_TRẢ_HÀNG' ? "PHIẾU HOÀN TRẢ HÀNG" : "HÓA ĐƠN BÁN HÀNG"}
              </h1>
-             <p style={{ margin: "0", fontSize: "13px", fontStyle: "italic" }}>Thời gian xuất đơn: {lastOrder?.time || ''}</p>
+             <p style={{ margin: "0", fontSize: "13px", fontStyle: "italic" }}>Thời gian xuất đơn: {order?.time || ''}</p>
            </div>
 
            <div style={{ border: "1px solid #000", padding: "15px", borderRadius: "8px", marginBottom: "25px", fontSize: "14px", lineHeight: "1.7" }}>
@@ -179,7 +195,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
                <tbody>
                  <tr>
                    <td style={{ width: "18%" }}><b>Tên khách hàng:</b></td>
-                   <td style={{ width: "47%" }}>{lastOrder?.custName || "Khách lẻ"}</td>
+                   <td style={{ width: "47%" }}>{order?.custName || "Khách lẻ"}</td>
                    <td style={{ width: "15%" }}><b>Số điện thoại:</b></td>
                    <td style={{ width: "20%" }}>{custPhone || "N/A"}</td>
                  </tr>
@@ -189,7 +205,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
                  </tr>
                  <tr>
                    <td><b>Hình thức TT:</b></td>
-                   <td><span style={{ fontWeight: "bold", textTransform: "uppercase", color: isNoCashInvolved ? "#b91c1c" : "#000" }}>{paymentMethod}</span></td>
+                   <td><span style={{ fontWeight: "bold", textTransform: "uppercase", color: isNoCashInvolved ? "#b91c1c" : "#000" }}>{paymentMethod || 'Tiền mặt'}</span></td>
                    <td><b>Thu ngân trực:</b></td>
                    <td>{role === 'admin' ? 'Quản lý' : 'Nhân viên'} ({shift})</td>
                  </tr>
@@ -214,7 +230,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
                  const itemQty = Number(item?.qty) || 0;
                  const priceToUse = item?.priceIncludingVat !== undefined 
                    ? Number(item.priceIncludingVat) 
-                   : Math.round(getActualPrice(prod) * (1 + safeVatRate));
+                   : Math.round(safeGetPrice(prod) * (1 + safeVatRate));
                    
                  return (
                    <tr key={idx}>
@@ -229,6 +245,11 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
                    </tr>
                  );
                })}
+               {cartItems.length === 0 && (
+                 <tr>
+                    <td colSpan={6} style={{ border: "1px solid #000", padding: "10px", textAlign: "center", fontStyle: "italic" }}>Chưa có sản phẩm nào</td>
+                 </tr>
+               )}
              </tbody>
            </table>
 
@@ -237,16 +258,16 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
                <tbody>
                  <tr>
                    <td style={{ padding: "4px 0", textAlign: "left" }}>Cộng tiền hàng hóa (Chưa thuế):</td>
-                   <td style={{ padding: "4px 0", textAlign: "right", fontWeight: "bold" }}>{Math.round(Number(lastOrder?.subTotal || 0)).toLocaleString()}đ</td>
+                   <td style={{ padding: "4px 0", textAlign: "right", fontWeight: "bold" }}>{Math.round(Number(order?.subTotal || 0)).toLocaleString()}đ</td>
                  </tr>
                  <tr>
                    <td style={{ padding: "4px 0", textAlign: "left" }}>Thuế giá trị gia tăng VAT (10%):</td>
-                   <td style={{ padding: "4px 0", textAlign: "right", fontWeight: "bold" }}>{Math.round(Number(lastOrder?.vatTotal || 0)).toLocaleString()}đ</td>
+                   <td style={{ padding: "4px 0", textAlign: "right", fontWeight: "bold" }}>{Math.round(Number(order?.vatTotal || 0)).toLocaleString()}đ</td>
                  </tr>
-                 {Number(lastOrder?.discount || 0) > 0 && (
+                 {Number(order?.discount || 0) > 0 && (
                    <tr>
                      <td style={{ padding: "4px 0", textAlign: "left", color: "#ef4444" }}>Chiết khấu ưu đãi / Mã giảm:</td>
-                     <td style={{ padding: "4px 0", textAlign: "right", fontWeight: "bold", color: "#ef4444" }}>-{Math.round(Number(lastOrder?.discount || 0)).toLocaleString()}đ</td>
+                     <td style={{ padding: "4px 0", textAlign: "right", fontWeight: "bold", color: "#ef4444" }}>-{Math.round(Number(order?.discount || 0)).toLocaleString()}đ</td>
                    </tr>
                  )}
                  <tr style={{ borderTop: "1px solid #000" }}>
@@ -270,7 +291,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
                  
                  {(isDebtSale || isRefundDebt) && (
                    <tr style={{ borderTop: "2px double #b91c1c" }}>
-                     <td style={{ padding: "8px 0", textAlign: "left", fontSize: "15px", fontWeight: "bold", color: "#b91c1c" }}>TỔNG DƯ NỢ HIỆN TẠI CỦA KHÁCH:</td>
+                     <td style={{ padding: "8px 0", textAlign: "left", fontSize: "15px", fontWeight: "bold", color: "#b91c1c" }}>TỔNG DƯ NỢ HIỆN TẠI:</td>
                      <td style={{ padding: "8px 0", textAlign: "right", fontSize: "16px", fontWeight: "bold", color: "#b91c1c" }}>
                        {Math.round(currentTotalDebt).toLocaleString()}đ
                      </td>
@@ -294,7 +315,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
                  </td>
                </tr>
                <tr>
-                 <td><p style={{ margin: "0", fontWeight: "bold" }}>{lastOrder?.custName || ""}</p></td>
+                 <td><p style={{ margin: "0", fontWeight: "bold" }}>{order?.custName || ""}</p></td>
                  <td><p style={{ margin: "0", fontWeight: "bold", color: "#dc2626" }}>HẢI LÊ MART</p></td>
                </tr>
              </tbody>
