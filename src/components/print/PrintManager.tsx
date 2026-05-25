@@ -22,102 +22,94 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
   if (!printMode) return null;
 
   // =====================================================================
-  // 1. IN HÓA ĐƠN BÁN HÀNG - PHÂN TẦNG KHỔ RỘNG CHUẨN ĐẸP A4/A5 (2 LIÊN)
+  // 1. IN HÓA ĐƠN BÁN HÀNG - HỖ TRỢ SONG SONG KHỔ BILL NHIỆT 80MM & KHỔ A4/A5
   // =====================================================================
   if (printMode === 'receipt') {
     if (!lastOrder) return null;
 
     const renderReceiptContent = (lienTitle: string) => {
       return (
-        <div style={{ padding: '20px 30px', width: '100%', maxWidth: '210mm', margin: '0 auto', fontFamily: 'Arial, sans-serif', color: '#000', boxSizing: 'border-box' }}>
+        <div className="responsive-invoice-box" style={{ padding: '10px', width: '100%', maxWidth: '100%', margin: '0 auto', fontFamily: 'Arial, sans-serif', color: '#000', boxSizing: 'border-box', lineHeight: '1.4' }}>
           {/* Đầu hóa đơn */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #000', paddingBottom: '12px', marginBottom: '15px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '12px', borderBottom: '1px dashed #000', paddingBottom: '8px' }}>
+            <h2 style={{ margin: '0 0 4px 0', fontSize: '20px', fontWeight: 'bold' }}>HẢI LÊ MART</h2>
+            <p style={{ margin: '1px 0', fontSize: '11px' }}>📍 ĐC: 123 Đường ABC, Hà Nội | 📞 Hotline: 0902 613 899</p>
+            <h3 style={{ margin: '8px 0 2px 0', fontSize: '15px', fontWeight: 'bold' }}>HÓA ĐƠN BÁN HÀNG</h3>
+            <p style={{ margin: '0', fontSize: '11px', fontWeight: 'bold', color: '#475569' }}>({lienTitle})</p>
+          </div>
+
+          {/* Thông tin đơn hàng ngắn gọn */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', fontSize: '12px', marginBottom: '10px', borderBottom: '1px dashed #eee', paddingBottom: '5px' }}>
             <div>
-              <h1 style={{ margin: '0 0 4px 0', fontSize: '22px', fontWeight: 'bold', letterSpacing: '0.5px' }}>HẢI LÊ MART</h1>
-              <p style={{ margin: '2px 0', fontSize: '12px' }}>📍 ĐC: 123 Đường ABC, Hà Nội</p>
-              <p style={{ margin: '2px 0', fontSize: '12px' }}>📞 Hotline: 0902 613 899</p>
+              <div style={{ margin: '2px 0' }}><strong>Mã HĐ:</strong> {lastOrder.orderId}</div>
+              <div style={{ margin: '2px 0' }}><strong>Thời gian:</strong> {lastOrder.time}</div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <h2 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 'bold' }}>HÓA ĐƠN BÁN HÀNG</h2>
-              <p style={{ margin: '0', fontSize: '12px', fontWeight: 'bold', color: '#475569' }}>{lienTitle}</p>
+              <div style={{ margin: '2px 0' }}><strong>Khách:</strong> {lastOrder.custName || "Khách lẻ"} {lastOrder.custPhone ? `(${lastOrder.custPhone})` : ""}</div>
+              <div style={{ margin: '2px 0' }}><strong>Thu ngân:</strong> {role === 'admin' ? 'Quản lý' : 'Thu ngân'} ({lastOrder.shift || shift})</div>
             </div>
           </div>
 
-          {/* Thông tin đơn hàng */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', fontSize: '13px', marginBottom: '15px' }}>
-            <div>
-              <p style={{ margin: '3px 0' }}><strong>Mã HĐ:</strong> {lastOrder.orderId}</p>
-              <p style={{ margin: '3px 0' }}><strong>Thời gian:</strong> {lastOrder.time}</p>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <p style={{ margin: '3px 0' }}><strong>Khách hàng:</strong> {lastOrder.custName || "Khách lẻ"} {lastOrder.custPhone ? `(${lastOrder.custPhone})` : ""}</p>
-              <p style={{ margin: '3px 0' }}><strong>Thu ngân:</strong> {role === 'admin' ? 'Quản lý' : 'Thu ngân'} ({lastOrder.shift || shift})</p>
-            </div>
-          </div>
-
-          {/* Bảng sản phẩm khổ rộng */}
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', marginBottom: '15px' }}>
+          {/* Bảng sản phẩm tự thích ứng độ rộng dòng */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '12px' }}>
             <thead>
-              <tr style={{ backgroundColor: '#f8fafc', borderTop: '1px solid #000', borderBottom: '1px solid #000' }}>
-                <th style={{ padding: '8px', textAlign: 'center', width: '40px', border: '1px solid #cbd5e1' }}>STT</th>
-                <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #cbd5e1' }}>Tên sản phẩm</th>
-                <th style={{ padding: '8px', textAlign: 'center', width: '60px', border: '1px solid #cbd5e1' }}>SL</th>
-                <th style={{ padding: '8px', textAlign: 'right', width: '100px', border: '1px solid #cbd5e1' }}>Đơn giá</th>
-                <th style={{ padding: '8px', textAlign: 'right', width: '120px', border: '1px solid #cbd5e1' }}>Thành tiền</th>
+              <tr style={{ borderTop: '1px solid #000', borderBottom: '1px solid #000', backgroundColor: '#f8fafc' }}>
+                <th style={{ padding: '6px 4px', textAlign: 'left' }}>Sản phẩm</th>
+                <th style={{ padding: '6px 4px', textAlign: 'center', width: '35px' }}>SL</th>
+                <th style={{ padding: '6px 4px', textAlign: 'right', width: '70px' }}>Đơn giá</th>
+                <th style={{ padding: '6px 4px', textAlign: 'right', width: '80px' }}>T.Tiền</th>
               </tr>
             </thead>
             <tbody>
               {lastOrder.cart?.map((item: any, idx: number) => {
                 const price = item.priceIncludingVat !== undefined ? item.priceIncludingVat : Math.round((item.product?.sale_price || 0) * (1 + VAT_RATE));
-                // HÀM CHẶT ĐỨT CHỮ LÔ MỚI / LÔ CŨ
+                // CHẶT ĐỨT HOÀN TOÀN CHỮ [LÔ MỚI], [LÔ CŨ]
                 const cleanProductName = (item.product?.name || item.name).replace(/\s*\[Lô[^\]]*\]/gi, '').trim();
 
                 return (
-                  <tr key={idx}>
-                    <td style={{ padding: '8px', textAlign: 'center', border: '1px solid #cbd5e1' }}>{idx + 1}</td>
-                    <td style={{ padding: '8px', border: '1px solid #cbd5e1', fontWeight: '500' }}>
+                  <tr key={idx} style={{ borderBottom: '1px dashed #e2e8f0' }}>
+                    <td style={{ padding: '6px 4px', wordBreak: 'break-word' }}>
                       {cleanProductName} {item.product?.isHappyHour && '⭐'}
                     </td>
-                    <td style={{ padding: '8px', textAlign: 'center', border: '1px solid #cbd5e1' }}>{item.qty}</td>
-                    <td style={{ padding: '8px', textAlign: 'right', border: '1px solid #cbd5e1' }}>{price.toLocaleString()}đ</td>
-                    <td style={{ padding: '8px', textAlign: 'right', border: '1px solid #cbd5e1', fontWeight: 'bold' }}>{(price * item.qty).toLocaleString()}đ</td>
+                    <td style={{ padding: '6px 4px', textAlign: 'center' }}>{item.qty}</td>
+                    <td style={{ padding: '6px 4px', textAlign: 'right' }}>{price.toLocaleString()}</td>
+                    <td style={{ padding: '6px 4px', textAlign: 'right', fontWeight: 'bold' }}>{(price * item.qty).toLocaleString()}</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
 
-          {/* Phần chân tính tiền & chữ ký */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '10px' }}>
-            <div style={{ textAlign: 'center', width: '200px', fontSize: '13px', paddingTop: '10px' }}>
-              <p style={{ margin: '0 0 45px 0' }}><strong>Khách hàng</strong></p>
-              <p style={{ margin: 0, fontSize: '11px', fontStyle: 'italic', color: '#64748b' }}>(Ký và ghi rõ họ tên)</p>
+          {/* Phần cộng tiền */}
+          <div style={{ borderTop: '1px solid #000', paddingTop: '6px', fontSize: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0' }}>
+              <span>Tổng tiền hàng mua:</span>
+              <span>{Math.round(lastOrder.subTotal + lastOrder.vatTotal).toLocaleString()}đ</span>
             </div>
-
-            <div style={{ width: '320px', fontSize: '13px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', margin: '3px 0' }}>
-                <span>Tiền hàng tổng cộng:</span>
-                <span>{Math.round(lastOrder.subTotal + lastOrder.vatTotal).toLocaleString()}đ</span>
+            {lastOrder.discount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0', color: '#dc2626' }}>
+                <span>Chiết khấu / VIP / Voucher:</span>
+                <span>-{Math.round(lastOrder.discount).toLocaleString()}đ</span>
               </div>
-              {lastOrder.discount > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', margin: '3px 0', color: '#dc2626' }}>
-                  <span>Giảm giá / VIP / Voucher:</span>
-                  <span>-{Math.round(lastOrder.discount).toLocaleString()}đ</span>
-                </div>
-              )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', margin: '6px 0', fontSize: '16px', fontWeight: 'bold', borderTop: '1px dashed #000', paddingTop: '6px' }}>
-                <span>TỔNG THANH TOÁN:</span>
-                <span>{Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', margin: '3px 0', fontSize: '11px', color: '#475569' }}>
-                <span>Hình thức thanh toán:</span>
-                <span style={{ fontWeight: 'bold' }}>{lastOrder.paymentMethod}</span>
-              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', margin: '5px 0', fontSize: '15px', fontWeight: 'bold', borderTop: '1px dashed #000', paddingTop: '5px' }}>
+              <span>TỔNG THANH TOÁN:</span>
+              <span>{Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</span>
             </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0', fontSize: '11px', color: '#475569' }}>
+              <span>Phương thức chi trả:</span>
+              <span style={{ fontWeight: 'bold' }}>{lastOrder.paymentMethod}</span>
+            </div>
+            {lastOrder.paymentMethod === 'TIỀN MẶT' && lastOrder.customerGiven > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0', fontSize: '11px' }}>
+                <span>Tiền mặt trả thừa khách:</span>
+                <span>{Math.max(0, lastOrder.customerGiven - lastOrder.finalTotal).toLocaleString()}đ</span>
+              </div>
+            )}
           </div>
 
-          <div style={{ textAlign: 'center', marginTop: '30px', borderTop: '1px dashed #cbd5e1', paddingTop: '10px', fontSize: '11px', fontStyle: 'italic' }}>
-            Cảm ơn Quý khách & Hẹn gặp lại! Powered by Hải Lê ERP
+          <div style={{ textAlign: 'center', marginTop: '15px', borderTop: '1px dashed #000', paddingTop: '5px', fontSize: '11px', fontStyle: 'italic' }}>
+            Cảm ơn Quý khách & Hẹn gặp lại!
           </div>
         </div>
       );
@@ -125,15 +117,15 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
 
     return (
       <div className="print-only-zone">
-        <div>{renderReceiptContent("LIÊN 1: LƯU TẠI TIỆM")}</div>
+        <div style={{ width: '100%', margin: '0 auto' }}>{renderReceiptContent("LIÊN 1: LƯU TẠI CỬA HÀNG")}</div>
         <div style={{ pageBreakAfter: 'always', height: '1px' }}></div>
-        <div style={{ marginTop: '20px' }}>{renderReceiptContent("LIÊN 2: GIAO KHÁCH HÀNG")}</div>
+        <div style={{ width: '100%', margin: '20px auto 0' }}>{renderReceiptContent("LIÊN 2: GIAO CHO KHÁCH HÀNG")}</div>
       </div>
     );
   }
 
   // =====================================================================
-  // 2. IN MÃ VẠCH (BARCODE) CHUẨN ĐỨT NÉT KHỔ GIẤY
+  // 2. IN MÃ VẠCH (BARCODE) SẢN PHẨM KHÔNG CHỨA CHỮ LÔ HÀNG
   // =====================================================================
   if (printMode === 'barcode') {
     if (!printBarcodeProduct) return null;
@@ -148,7 +140,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
           <div key={idx} style={{ border: '1px dashed #94a3b8', padding: '6px', textAlign: 'center', fontFamily: 'Arial, sans-serif', backgroundColor: '#fff', color: '#000', height: '34mm', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center', pageBreakInside: 'avoid', overflow: 'hidden', boxSizing: 'border-box' }}>
             <div style={{ fontSize: '8px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase' }}>HẢI LÊ MART</div>
             <div style={{ fontSize: '11px', fontWeight: 'bold', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cleanName(name)}</div>
-            <div style={{ width: '100%', textAlgin: 'center' }}>
+            <div style={{ width: '100%' }}>
               <img src={barcodeUrl} alt="Barcode" style={{ maxWidth: '95%', height: '13mm', objectFit: 'contain' }} />
               <div style={{ fontSize: '9px', fontFamily: 'monospace' }}>{code}</div>
             </div>
@@ -160,7 +152,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
   }
 
   // =====================================================================
-  // 3. IN THÈ KHÁCH HÀNG VIP
+  // 3. IN THẺ VIP KHÁCH HÀNG
   // =====================================================================
   if (printMode === 'customer_card') {
     if (!printCustomer) return null;
