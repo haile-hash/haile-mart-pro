@@ -287,9 +287,17 @@ export default function App() {
         const val = currentCode.trim(); setCustomerInput(val); 
         const matchedPhone = Object.keys(customers || {}).find(phone => phone === val || customers[phone]?.cardCode === val); 
         if (matchedPhone) { 
-          setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); playSound('success'); setScanMessage({ text: `✅ Nhận diện VIP: ${customers[matchedPhone].name}`, type: 'success' }) 
+          setCustPhone(matchedPhone); 
+          setCustName(customers[matchedPhone].name); 
+          setCustAddress(customers[matchedPhone].address || ""); // <-- Tự động điền địa chỉ khi quét thẻ
+          playSound('success'); 
+          setScanMessage({ text: `✅ Nhận diện VIP: ${customers[matchedPhone].name}`, type: 'success' }) 
         } else { 
-          setCustPhone(val); setCustName(""); playSound('success'); setScanMessage({ text: `✅ Đã quét mã (Khách mới)`, type: 'success' }) 
+          setCustPhone(val); 
+          setCustName(""); 
+          setCustAddress(""); // <-- Để trống nếu thẻ lạ
+          playSound('success'); 
+          setScanMessage({ text: `✅ Đã quét mã (Khách mới)`, type: 'success' }) 
         } 
       }
       setTimeout(() => setScannerMode(null), 1000); 
