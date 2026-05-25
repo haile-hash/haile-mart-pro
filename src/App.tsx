@@ -313,24 +313,35 @@ export default function App() {
 
   // =====================================================================
  // =====================================================================
-  // FIX LỖI: CHẶN ĐỨT ĐIỂM KẸT MÀN HÌNH IN (DÙNG EVENT GỐC CỦA TRÌNH DUYỆT)
   // =====================================================================
-  useEffect(() => {
-    if (!printMode) return;
+  // FIX LỖI TRIỆT ĐỂ: BẤM CANCEL THOÁT HẲN, KHÔNG HIỆN LẠI HỘP THOẠI IN
+  // =====================================================================
+  const isPrintingRef = React.useRef(false); // Đặt biến cờ ở đầu hàm App() nếu chưa có
 
-    // Hàm ép React thoát chế độ in, trả lại UI bán hàng
+  useEffect(() => {
+    if (!printMode) {
+      isPrintingRef.current = false;
+      return;
+    }
+
+    // Nếu đang trong quá trình mở hộp thoại in -> Chặn đứng không cho chạy tiếp
+    if (isPrintingRef.current) return;
+    isPrintingRef.current = true;
+
     const handleAfterPrint = () => {
       setPrintMode(null);
+      isPrintingRef.current = false;
     };
 
-    // Bắt sự kiện gốc: Hễ hộp thoại in ĐÓNG LẠI (bấm Cancel/Print) là gọi hàm thoát ngay!
+    // Lắng nghe sự kiện đóng hộp thoại in của trình duyệt (Bất kể chọn Print hay Cancel)
     window.addEventListener('afterprint', handleAfterPrint);
 
     const timer = setTimeout(() => {
-      window.print();
-      // Lớp bảo vệ thứ 2: Đề phòng trình duyệt bị lag không văng event, ép tắt sau 500ms
-      setTimeout(handleAfterPrint, 500);
-    }, 800);
+      // Kiểm tra lại một lần nữa trước khi gọi lệnh in
+      if (printMode) {
+        window.print();
+      }
+    }, 500); // Giảm xuống 500ms để hộp thoại in xuất hiện nhanh hơn, tránh lag bám đuôi
 
     return () => {
       clearTimeout(timer);
