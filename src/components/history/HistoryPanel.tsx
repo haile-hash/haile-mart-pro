@@ -20,6 +20,8 @@ export interface TransactionLog {
 }
 
 interface HistoryPanelProps {
+  onPrintK80?: (log: any) => void;
+  onPrintA4?: (log: any) => void;
   logSearchTerm: string;
   setLogSearchTerm: (val: string) => void;
   logTypeFilter: string;
@@ -27,7 +29,7 @@ interface HistoryPanelProps {
   exportToCSV: () => void;
   groupedHistory: Record<string, TransactionLog[]>;
   handleRefund: (logId: string | number) => void;
-  handleReprint: (timeStr: string) => void;
+  handleReprint: (timeStr: string) => void; // Giữ lại cho tương thích (nếu có dùng ở đâu khác)
 }
 
 // ==========================================
@@ -39,6 +41,8 @@ const LOG_TYPES: TransactionType[] = ["BÁN", "NHẬP", "NHẬP PO", "TRẢ HÀN
 // 3. COMPONENT CHÍNH
 // ==========================================
 export const HistoryPanel: React.FC<HistoryPanelProps> = ({
+  onPrintK80,
+  onPrintA4,
   logSearchTerm,
   setLogSearchTerm,
   logTypeFilter,
@@ -46,7 +50,6 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   exportToCSV,
   groupedHistory,
   handleRefund,
-  handleReprint,
 }) => {
   const [localExpanded, setLocalExpanded] = useState<Record<string, boolean>>({});
 
@@ -57,7 +60,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
     }));
   };
 
-  // --- Hàm Render từng giao dịch (Tách ra cho gọn code) ---
+  // --- Hàm Render từng giao dịch ---
   const renderTransactionItem = (log: TransactionLog) => {
     const isRefund = log.type === "TRẢ HÀNG";
     const logTime = log.t || log.time?.split(" ")[1] || log.time;
@@ -105,22 +108,37 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
         </div>
 
         {/* Dòng 3: Các nút thao tác */}
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px", marginTop: "2px" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "4px" }}>
+          
+          {/* Nút Hoàn Đơn */}
           {(log.type === "BÁN" || log.type === "GHI NỢ") && (
             <button 
               onClick={(e) => { e.stopPropagation(); handleRefund(log.id); }} 
-              style={{ padding: "4px 8px", background: "#fee2e2", color: "#dc2626", border: "1px solid #fca5a5", borderRadius: "4px", fontSize: "11px", fontWeight: "bold", cursor: "pointer" }}
+              style={{ padding: "4px 10px", background: "#fee2e2", color: "#dc2626", border: "1px solid #fca5a5", borderRadius: "4px", fontSize: "11px", fontWeight: "bold", cursor: "pointer" }}
             >
               <span role="img" aria-label="refund">↩️</span> Hoàn đơn ({log.qty || 0})
             </button>
           )}
+
+          {/* 2 NÚT IN HÓA ĐƠN MỚI TÍCH HỢP VÀO ĐÂY */}
           {(log.type === "BÁN" || log.type === "GHI NỢ" || log.type === "TRẢ HÀNG") && log.time && (
-            <button 
-              onClick={(e) => { e.stopPropagation(); handleReprint(log.time!); }} 
-              style={{ padding: "4px 8px", background: "#f1f5f9", color: "#475569", border: "1px solid #cbd5e1", borderRadius: "4px", fontSize: "11px", fontWeight: "bold", cursor: "pointer" }}
-            >
-              <span role="img" aria-label="print">🖨️</span> In lại bill
-            </button>
+            <>
+              <button 
+                onClick={(e) => { e.stopPropagation(); if (onPrintK80) onPrintK80(log); }} 
+                style={{ padding: "4px 10px", background: "#0f172a", color: "#fff", border: "none", borderRadius: "4px", fontSize: "11px", fontWeight: "bold", cursor: "pointer", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }}
+                title="In lại Bill Nhiệt K80"
+              >
+                🖨️ K80
+              </button>
+
+              <button 
+                onClick={(e) => { e.stopPropagation(); if (onPrintA4) onPrintA4(log); }} 
+                style={{ padding: "4px 10px", background: "#2563eb", color: "#fff", border: "none", borderRadius: "4px", fontSize: "11px", fontWeight: "bold", cursor: "pointer", boxShadow: "0 2px 4px rgba(37,99,235,0.2)" }}
+                title="In lại Hóa Đơn A4"
+              >
+                🖨️ A4
+              </button>
+            </>
           )}
         </div>
       </div>
