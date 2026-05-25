@@ -164,24 +164,3 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({ showModa
     </div>
   );
 };
-{/* NÚT IN BILL NHIỆT K80 */}
-<button 
-  onClick={() => {
-    setLastOrder(order); // 'order' là biến chứa dữ liệu đơn hàng ở dòng hiện tại
-    setPrintMode('receipt_thermal');
-  }}
-  style={{ padding: '6px 10px', background: '#0f172a', color: '#fff', borderRadius: '4px', border: 'none', cursor: 'pointer', marginRight: '5px' }}
->
-  🖨️ In K80
-</button>
-
-{/* NÚT IN HÓA ĐƠN A4 */}
-<button 
-  onClick={() => {
-    setLastOrder(order); // Gán dữ liệu đơn hàng
-    setPrintMode('receipt_a4'); // Gọi lệnh in A4
-  }}
-  style={{ padding: '6px 10px', background: '#2563eb', color: '#fff', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
->
-  🖨️ In A4
-</button>
