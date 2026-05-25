@@ -48,16 +48,21 @@ import { POModal } from "./components/modals/POModal";
 // IMPORT KHU VỰC IN ẤN ĐÃ TÁCH
 import { PrintManager } from "./components/print/PrintManager";
 
+// IMPORT CSS ĐÃ TÁCH RIÊNG
+import './styles/App.css';
+import './styles/Print.css';
+
 export default function App() {
   if (typeof window !== "undefined" && window.location.search.includes("scanner=true")) {
     return <MobileScanner />;
   }
 
   const VAT_RATE = 0.1;
-  const EMAILJS_SERVICE_ID = process.env.REACT_APP_EMAILJS_SERVICE_ID || "service_7ie990l";
-  const EMAILJS_TEMPLATE_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_ID || "template_m1j9i7k";
-  const EMAILJS_TEMPLATE_VIP_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_VIP_ID || "template_t91erhg";
-  const EMAILJS_PUBLIC_KEY = process.env.REACT_APP_EMAILJS_PUBLIC_KEY || "5ric0kxuwNPlUleAv";
+  // BẢO MẬT: Đã xóa các key lộ liễu, sử dụng biến môi trường từ file .env
+  const EMAILJS_SERVICE_ID = process.env.REACT_APP_EMAILJS_SERVICE_ID;
+  const EMAILJS_TEMPLATE_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_ID;
+  const EMAILJS_TEMPLATE_VIP_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_VIP_ID;
+  const EMAILJS_PUBLIC_KEY = process.env.REACT_APP_EMAILJS_PUBLIC_KEY;
   
   // =====================================================================
   // 1. STATES CƠ BẢN
@@ -112,7 +117,7 @@ export default function App() {
   
   const [supName, setSupName] = useState("");
   const [supPhone, setSupPhone] = useState("");
-  const [supAddress, setSupAddress] = useState(""); // Vẫn giữ phòng hờ nếu cần dùng lại
+  const [supAddress, setSupAddress] = useState(""); 
   const [supItem, setSupItem] = useState("");
   
   const [marketingTier, setMarketingTier] = useState("Tất cả");
@@ -289,13 +294,13 @@ export default function App() {
         if (matchedPhone) { 
           setCustPhone(matchedPhone); 
           setCustName(customers[matchedPhone].name); 
-          setCustAddress(customers[matchedPhone].address || ""); // <-- Tự động điền địa chỉ khi quét thẻ
+          setCustAddress(customers[matchedPhone].address || ""); 
           playSound('success'); 
           setScanMessage({ text: `✅ Nhận diện VIP: ${customers[matchedPhone].name}`, type: 'success' }) 
         } else { 
           setCustPhone(val); 
           setCustName(""); 
-          setCustAddress(""); // <-- Để trống nếu thẻ lạ
+          setCustAddress(""); 
           playSound('success'); 
           setScanMessage({ text: `✅ Đã quét mã (Khách mới)`, type: 'success' }) 
         } 
@@ -306,16 +311,15 @@ export default function App() {
     }
   }, [scanQueue, products, scannerMode]);
 
-    useEffect(() => {
-  const handleAfterPrint = () => {
-    // Delay 1 giây để trình duyệt chắc chắn đã lấy xong giao diện in
-    setTimeout(() => {
-      setPrintMode(null);
-    }, 1000); 
-  };
-  window.addEventListener("afterprint", handleAfterPrint);
-  return () => window.removeEventListener("afterprint", handleAfterPrint);
-}, []);
+  useEffect(() => {
+    const handleAfterPrint = () => {
+      setTimeout(() => {
+        setPrintMode(null);
+      }, 1000); 
+    };
+    window.addEventListener("afterprint", handleAfterPrint);
+    return () => window.removeEventListener("afterprint", handleAfterPrint);
+  }, []);
 
   useEffect(() => {
     if (showPOModal && poTab === 'RECEIVE') {
@@ -694,12 +698,12 @@ export default function App() {
     if (matchedPhone) { 
       setCustPhone(matchedPhone); 
       setCustName(customers[matchedPhone].name); 
-      setCustAddress(customers[matchedPhone].address || ""); // <-- Tự động gọi địa chỉ cũ ra
+      setCustAddress(customers[matchedPhone].address || ""); 
       setUseWallet(false); 
     } else { 
       setCustPhone(val); 
       setCustName(""); 
-      setCustAddress(""); // <-- Xóa trắng nếu là SĐT lạ/Khách mới
+      setCustAddress(""); 
       setUseWallet(false); 
     }
   };
@@ -1843,7 +1847,6 @@ const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') =
   const renderModals = () => {
     return (
       <>
-        {/* CÁC MODAL CŨ */}
         <ExpenseModal showExpenseModal={showExpenseModal} setShowExpenseModal={setShowExpenseModal} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} expenses={expenses} addExpense={addExpense} deleteExpense={deleteExpense} />
         {showHandoverModal && <HandoverModal role={role} shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onClose={() => setShowHandoverModal(false)} onConfirm={confirmHandover} />}
         <CashFlowModal cashFlowModalInfo={cashFlowModalInfo} setCashFlowModalInfo={setCashFlowModalInfo} shift={shift} todayStrStr={todayStrStr} currentShiftCashFlow={currentShiftCashFlow} currentShiftStats={currentShiftStats} />
@@ -1859,7 +1862,6 @@ setCustAddress={setCustAddress}/>
         <PinModal showPinModal={showPinModal} setShowPinModal={setShowPinModal} correctPin={adminPin} onSuccess={() => { if (pendingAction) { pendingAction(); setPendingAction(null); } }} />
         <ScannerLinkModal showModal={showScannerLinkModal} setShowModal={setShowScannerLinkModal} />
 
-        {/* 5 MODAL VỪA ĐƯỢC BÓC TÁCH */}
         <SupplierModal 
           showSupplierModal={showSupplierModal} setShowSupplierModal={setShowSupplierModal}
           supName={supName} setSupName={setSupName} supPhone={supPhone} setSupPhone={setSupPhone}
@@ -1909,111 +1911,13 @@ setCustAddress={setCustAddress}/>
     );
   };
 
+  // =====================================================================
+  // RENDER GIAO DIỆN CHÍNH (ĐÃ DỌN SẠCH THẺ <style>)
+  // =====================================================================
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
-      <style>{styles}</style> 
-     <style>{`
-        /* KHẮC PHỤC LOGO BỊ GIÃN DÀI VÀ KÉO SAO VÀO SÁT CHỮ T */
-        .logo-wrapper { display: inline-flex !important; align-items: center; padding: 10px 45px 10px 20px !important; position: relative; width: fit-content !important; min-width: 0 !important; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); border-radius: 12px; margin-right: auto; }
-        .logo-star { position: absolute !important; right: 12px !important; top: 50% !important; transform: translateY(-50%) !important; font-size: 26px !important; color: #f59e0b !important; margin: 0 !important; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
-
-        /* KHAI BÁO BỘ CSS BẢNG BIỂU & NÚT BẤM HIỆN ĐẠI BẬC NHẤT 2026 */
-        .modern-table { width: 100%; border-collapse: separate; border-spacing: 0; text-align: left; }
-        .modern-table th { background: #f8fafc; padding: 14px 16px; font-weight: 700; color: #475569; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; font-size: 13px; letter-spacing: 0.5px; white-space: nowrap; }
-        .modern-table td { padding: 16px; border-bottom: 1px solid #f1f5f9; color: #1e293b; font-size: 14px; vertical-align: middle; transition: background 0.2s; }
-        .modern-table tbody tr:hover td { background: #f8fafc; }
-        
-        .gradient-btn { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 14px; border-radius: 8px; font-weight: 800; border: none; width: 100%; font-size: 15px; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3); text-transform: uppercase; letter-spacing: 0.5px; }
-        .gradient-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4); }
-        .gradient-btn:disabled { opacity: 0.7; cursor: not-allowed; }
-
-        .custom-modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 99999; }
-        .custom-modal-overlay * { font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important; box-sizing: border-box; }
-        .custom-modal-box { background: white; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3); width: 95%; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-        @keyframes modalPop { 0% { opacity: 0; transform: scale(0.95) translateY(10px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
-        .custom-modal-header { padding: 20px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #ffffff; }
-        .custom-modal-title { font-size: 1.25rem; font-weight: 800; color: #0f172a; margin: 0; text-transform: uppercase; letter-spacing: 0.5px; }
-        .custom-modal-close { background: none; border: none; font-size: 28px; color: #94a3b8; cursor: pointer; transition: all 0.2s; padding: 0; line-height: 1; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; }
-        .custom-modal-close:hover { color: #ef4444; background: #fee2e2; transform: rotate(90deg); }
-        .custom-modal-body { padding: 24px; overflow-y: auto; }
-        .custom-input-group { margin-bottom: 18px; }
-        .custom-label { display: block; font-size: 0.85rem; font-weight: 700; color: #475569; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .custom-input { width: 100%; padding: 12px 16px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; outline: none; transition: all 0.2s; background: #f8fafc; color: #1e293b; font-weight: 500; }
-        .custom-input:focus { border-color: #3b82f6; background: #fff; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); }
-
-        .animated-bg-mesh { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; background: linear-gradient(135deg, #ffedd5 0%, #fef08a 50%, #fed7aa 100%); background-size: 400% 400%; animation: gradientBgAnim 15s ease infinite; opacity: 0.8; }
-        @keyframes gradientBgAnim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-        [data-theme='dark'] .animated-bg-mesh { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%); opacity: 1; }
-
-        /* ==================================================================== */
-     /* ==================================================================== */
-       /* ==================================================================== */
-        /* CSS IN ẤN ĐÃ FIX LỖI ẨN NHẦM THẺ CHA (CHUẨN 100%)                    */
-        /* ==================================================================== */
-        
-        /* Ở màn hình thường: Giấu tiệt các vùng in đi */
-        @media screen {
-          .print-only, .print-a4-container, .print-card-container {
-            display: none !important;
-          }
-        }
-
-        @media print {
-          /* 1. Ẩn CHÍNH XÁC các thành phần UI, TUYỆT ĐỐI KHÔNG đụng vào thẻ cha */
-          .no-print, .custom-modal-overlay, .animated-bg-mesh, .login-wrapper, #search-barcode {
-            display: none !important;
-          }
-
-          /* Tắt luôn các thông báo pop-up (Toast) khi đang in */
-          div[style*="z-index: 9999"] {
-            display: none !important;
-          }
-
-          /* 2. Thiết lập nền giấy trắng tinh */
-          body, html, #root {
-            background: #fff !important;
-            color: #000 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            height: auto !important;
-    overflow: visible !important;
-  }
-
-          /* 3. Hiển thị vùng in theo luồng tự nhiên (Static) để máy in đọc được */
-          .print-only, .print-a4-container, .print-card-container {
-            display: block !important;
-            background: white !important;
-            margin: 0 auto !important;
-          }
-
-          /* Cấu hình hiển thị chiếc Thẻ VIP (Căn giữa trang) */
-          .print-card-container {
-            display: flex !important;
-            width: 100% !important;
-            height: 100vh !important;
-            align-items: center !important;
-            justify-content: center !important;
-          }
-
-          /* Cấu hình cho Hóa đơn A4 / PO */
-          .print-a4-container {
-            width: 210mm !important;
-            padding: 10mm !important;
-          }
-
-          /* Cấu hình cho Bill nhiệt 80mm */
-          .print-only {
-            width: 80mm !important;
-            padding: 0 !important;
-          }
-
-          /* Ép máy in giữ màu sắc, không tự tiện tẩy trắng background */
-          * { 
-            -webkit-print-color-adjust: exact !important; 
-            print-color-adjust: exact !important; 
-          }
-        }
-      `}</style>
+      <style>{styles}</style>
+      
       <div className="animated-bg-mesh"></div>
       <Toaster position="top-right" reverseOrder={false} />
 
@@ -2037,25 +1941,6 @@ setCustAddress={setCustAddress}/>
 
       {!isLoggedIn ? (
         <div className="login-wrapper">
-          <style>{`
-            .login-wrapper { min-height: 100vh; width: 100vw; display: flex; justify-content: center; align-items: center; position: fixed; top:0; left:0; z-index: 9999; font-family: 'Inter', sans-serif;}
-            .floating-bubble { position: absolute; background: rgba(255,255,255,0.4); border-radius: 50%; animation: floatUp linear infinite; bottom: -120px; filter: blur(2px); }
-            @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-120vh) scale(1.2); opacity: 0; } }
-            .glass-login { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.8); padding: 40px 35px; border-radius: 20px; box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.1); width: 100%; max-width: 380px; z-index: 10; animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; display: flex; flex-direction: column; gap: 15px; box-sizing: border-box;}
-            @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-            .login-header { text-align: center; margin-bottom: 10px; }
-            .login-title { font-size: 28px; font-weight: 900; letter-spacing: -0.5px; margin: 0 0 6px 0; color: #0f172a; text-transform: uppercase; }
-            .login-title span { color: #e11d48; }
-            .login-subtitle { font-size: 13px; color: #64748b; font-weight: 500; margin: 0; }
-            .login-input-group { position: relative; width: 100%; margin-bottom: 0; }
-            .login-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94a3b8; width: 18px; height: 18px; pointer-events: none; z-index: 2;}
-            .login-input { width: 100%; padding: 14px 16px 14px 42px; border-radius: 12px; border: 1.5px solid #e2e8f0; background: #f8fafc; box-sizing: border-box; outline: none; transition: all 0.2s ease; font-size: 14px; color: #1e293b; font-weight: 500; cursor: pointer; }
-            .login-input:focus { border-color: #e11d48; background: #fff; box-shadow: 0 0 0 4px rgba(225, 29, 72, 0.1); }
-            .login-btn-submit { width: 100%; padding: 14px; background: linear-gradient(135deg, #e11d48 0%, #be123c 100%); color: #fff; border: none; border-radius: 12px; font-weight: 800; font-size: 15px; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25); margin-top: 10px; text-transform: uppercase; letter-spacing: 0.5px;}
-            .login-btn-submit:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(225, 29, 72, 0.35); }
-            .login-btn-submit:disabled { opacity: 0.7; cursor: not-allowed; }
-          `}</style>
-          
           <div className="floating-bubble" style={{ width: '100px', height: '100px', left: '10%', animationDuration: '8s' }}></div>
           <div className="floating-bubble" style={{ width: '50px', height: '50px', left: '25%', animationDuration: '5s', animationDelay: '2s' }}></div>
           <div className="floating-bubble" style={{ width: '80px', height: '80px', left: '70%', animationDuration: '10s', animationDelay: '1s' }}></div>
