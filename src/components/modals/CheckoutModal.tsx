@@ -13,8 +13,8 @@ interface CheckoutModalProps {
   setCustPhone: (val: string) => void;
   custName: string;
   setCustName: (val: string) => void;
-  custAddress: string;                            // <-- Đã thêm props địa chỉ
-  setCustAddress: (val: string) => void;          // <-- Đã thêm props địa chỉ
+  custAddress: string;
+  setCustAddress: (val: string) => void;
   useWallet: boolean;
   setUseWallet: (val: boolean) => void;
   appliedVoucherAmount: number;
@@ -41,8 +41,7 @@ interface CheckoutModalProps {
 export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   isCheckoutOpen, setIsCheckoutOpen, checkoutStep, setCheckoutStep,
   voucherInput, setVoucherInput, customerInput, setCustomerInput,
-  custPhone, setCustPhone, custName, setCustName, 
-  custAddress, setCustAddress, // <-- Sử dụng props
+  custPhone, setCustPhone, custName, setCustName, custAddress, setCustAddress,
   useWallet, setUseWallet, appliedVoucherAmount, setAppliedVoucherAmount,
   customerGiven, setCustomerGiven, finalToPay, customers, isOnline,
   bankBin, bankAcc, bankNameStr, loading,
@@ -53,6 +52,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [selectedMethod, setSelectedMethod] = useState<'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 'GHI NỢ' | 'KẾT HỢP' | 'QUẸT THẺ' | 'ZALO PAY'>('TIỀN MẶT');
 
   if (!isCheckoutOpen) return null;
+
+  // Tính toán mảng gợi ý tiền chẵn (Tự động đưa ra các mức 50k, 100k... cao hơn tổng bill)
+  const suggestAmounts = Array.from(new Set([
+    finalToPay,
+    Math.ceil(finalToPay / 50000) * 50000,
+    Math.ceil(finalToPay / 100000) * 100000,
+    200000,
+    500000
+  ])).filter(v => v >= finalToPay).sort((a, b) => a - b).slice(0, 4);
+
+  // Tính toán số tiền chuyển khoản nếu dùng phương thức "KẾT HỢP"
+  const transferAmount = selectedMethod === 'KẾT HỢP' ? Math.max(0, finalToPay - Number(customerGiven || 0)) : finalToPay;
 
   return (
     <div className="custom-modal-overlay">
@@ -76,164 +87,122 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <div className="custom-input-group">
                 <label className="custom-label">SĐT / Mã Khách Hàng</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <input 
-                    className="custom-input" 
-                    placeholder="Nhập SĐT hoặc quét mã thẻ..." 
-                    value={customerInput} 
-                    onChange={handleCustomerInputChange} 
-                  />
-                  <button 
-                    type="button" 
-                    style={{ padding: '0 15px', background: '#e2e8f0', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
-                    onClick={() => setScannerMode('customer')}
-                  >
-                    📷 Quét
-                  </button>
+                  <input className="custom-input" placeholder="Nhập SĐT hoặc quét mã thẻ..." value={customerInput} onChange={handleCustomerInputChange} />
+                  <button type="button" style={{ padding: '0 15px', background: '#e2e8f0', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => setScannerMode('customer')}>📷 Quét</button>
                 </div>
               </div>
 
               <div className="custom-input-group">
                 <label className="custom-label">Tên khách hàng</label>
-                <input 
-                  className="custom-input" 
-                  placeholder="Tên khách hàng..." 
-                  value={custName} 
-                  onChange={(e) => setCustName(e.target.value)} 
-                  disabled={customers[custPhone] && customers[custPhone].name} 
-                />
+                <input className="custom-input" placeholder="Tên khách hàng..." value={custName} onChange={(e) => setCustName(e.target.value)} disabled={customers[custPhone] && customers[custPhone].name} />
               </div>
 
-              {/* Ô NHẬP ĐỊA CHỈ VỪA THÊM */}
               <div className="custom-input-group">
                 <label className="custom-label">Địa chỉ giao hàng (Tùy chọn)</label>
-                <input 
-                  className="custom-input" 
-                  placeholder="Số nhà, đường, phường, quận..." 
-                  value={custAddress} 
-                  onChange={(e) => setCustAddress(e.target.value)} 
-                />
+                <input className="custom-input" placeholder="Số nhà, đường, phường, quận..." value={custAddress} onChange={(e) => setCustAddress(e.target.value)} />
               </div>
 
               <div className="custom-input-group">
                 <label className="custom-label">Mã Giảm Giá / Voucher</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <input 
-                    className="custom-input" 
-                    placeholder="Nhập mã và ấn Enter..." 
-                    value={voucherInput} 
-                    onChange={(e) => setVoucherInput(e.target.value)}
-                    onKeyDown={handleVoucherSubmit}
-                  />
-                  <button 
-                    type="button" 
-                    style={{ padding: '0 15px', background: '#e2e8f0', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
-                    onClick={() => setScannerMode('voucher')}
-                  >
-                    📷 Quét
-                  </button>
+                  <input className="custom-input" placeholder="Nhập mã và ấn Enter..." value={voucherInput} onChange={(e) => setVoucherInput(e.target.value)} onKeyDown={handleVoucherSubmit} />
+                  <button type="button" style={{ padding: '0 15px', background: '#e2e8f0', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => setScannerMode('voucher')}>📷 Quét</button>
                 </div>
-                {appliedVoucherAmount > 0 && (
-                  <p style={{ color: '#10b981', fontWeight: 'bold', fontSize: '13px', marginTop: '5px' }}>
-                    ✅ Đã áp dụng giảm {appliedVoucherAmount.toLocaleString()}đ
-                  </p>
-                )}
+                {appliedVoucherAmount > 0 && <p style={{ color: '#10b981', fontWeight: 'bold', fontSize: '13px', marginTop: '5px' }}>✅ Đã áp dụng giảm {appliedVoucherAmount.toLocaleString()}đ</p>}
               </div>
 
               {customers[custPhone] && customers[custPhone].wallet > 0 && (
                 <div style={{ background: '#fef3c7', padding: '12px', borderRadius: '8px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <span style={{ fontWeight: 'bold', color: '#d97706' }}>Ví VIP tích lũy:</span><br/>
-                    <span style={{ fontSize: '18px', fontWeight: '900', color: '#b45309' }}>{customers[custPhone].wallet.toLocaleString()}đ</span>
-                  </div>
+                  <div><span style={{ fontWeight: 'bold', color: '#d97706' }}>Ví VIP tích lũy:</span><br/><span style={{ fontSize: '18px', fontWeight: '900', color: '#b45309' }}>{customers[custPhone].wallet.toLocaleString()}đ</span></div>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 'bold', color: '#b45309' }}>
-                    <input 
-                      type="checkbox" 
-                      style={{ transform: 'scale(1.5)' }} 
-                      checked={useWallet} 
-                      onChange={(e) => setUseWallet(e.target.checked)} 
-                    />
-                    Dùng ví
+                    <input type="checkbox" style={{ transform: 'scale(1.5)' }} checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} /> Dùng ví
                   </label>
                 </div>
               )}
 
               <div style={{ padding: '15px', background: '#f8fafc', borderRadius: '12px', border: '2px dashed #cbd5e1', textAlign: 'center', marginBottom: '20px' }}>
                 <p style={{ margin: '0 0 5px 0', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase' }}>Cần Thanh Toán</p>
-                <h2 style={{ margin: '0', fontSize: '32px', color: '#dc2626', fontWeight: '900' }}>
-                  {finalToPay.toLocaleString()}đ
-                </h2>
+                <h2 style={{ margin: '0', fontSize: '32px', color: '#dc2626', fontWeight: '900' }}>{finalToPay.toLocaleString()}đ</h2>
               </div>
 
-              <button className="gradient-btn" onClick={handleNextToQR}>
-                TIẾP TỤC THANH TOÁN
-              </button>
+              <button className="gradient-btn" onClick={handleNextToQR}>TIẾP TỤC THANH TOÁN</button>
             </div>
           )}
 
           {/* ======================= BƯỚC 2: CHỌN PHƯƠNG THỨC & XÁC NHẬN ======================= */}
           {checkoutStep === 2 && (
             <div className="checkout-step-2">
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
-                {['TIỀN MẶT', 'CHUYỂN KHOẢN', 'QUẸT THẺ', 'GHI NỢ'].map(method => (
+              {/* LƯỚI CHỌN PHƯƠNG THỨC THANH TOÁN */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '20px' }}>
+                {['TIỀN MẶT', 'CHUYỂN KHOẢN', 'KẾT HỢP', 'QUẸT THẺ', 'ZALO PAY', 'GHI NỢ'].map(method => (
                   <button 
-                    key={method}
-                    type="button"
+                    key={method} type="button"
                     style={{
-                      padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', border: '2px solid',
+                      padding: '10px 5px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', border: '2px solid', fontSize: '12px',
                       background: selectedMethod === method ? '#eff6ff' : '#fff',
                       borderColor: selectedMethod === method ? '#3b82f6' : '#e2e8f0',
                       color: selectedMethod === method ? '#1d4ed8' : '#475569'
                     }}
-                    onClick={() => setSelectedMethod(method as any)}
+                    onClick={() => { setSelectedMethod(method as any); setCustomerGiven(""); }}
                   >
                     {method}
                   </button>
                 ))}
               </div>
 
-              {selectedMethod === 'TIỀN MẶT' && (
-                <div className="custom-input-group" style={{ background: '#f1f5f9', padding: '15px', borderRadius: '8px' }}>
-                  <label className="custom-label">Tiền khách đưa (VND)</label>
+              {/* Ô NHẬP TIỀN NẾU LÀ "TIỀN MẶT" HOẶC "KẾT HỢP" */}
+              {(selectedMethod === 'TIỀN MẶT' || selectedMethod === 'KẾT HỢP') && (
+                <div className="custom-input-group" style={{ background: '#f1f5f9', padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
+                  <label className="custom-label">
+                    {selectedMethod === 'KẾT HỢP' ? 'Tiền mặt khách đưa (Phần còn lại sẽ CK)' : 'Tiền khách đưa (VND)'}
+                  </label>
                   <input 
-                    type="number" 
-                    className="custom-input" 
-                    placeholder="Nhập số tiền..." 
-                    value={customerGiven} 
-                    onChange={(e) => setCustomerGiven(e.target.value)} 
+                    type="number" className="custom-input" placeholder="Nhập số tiền..." 
+                    value={customerGiven} onChange={(e) => setCustomerGiven(e.target.value)} 
                   />
-                  {Number(customerGiven) > finalToPay && (
-                    <p style={{ margin: '10px 0 0 0', fontWeight: 'bold', color: '#10b981', fontSize: '15px' }}>
+                  
+                  {/* CÁC NÚT GỢI Ý TIỀN NHANH */}
+                  <div style={{ display: 'flex', gap: '6px', marginTop: '10px', flexWrap: 'wrap' }}>
+                    {suggestAmounts.map((amt, idx) => (
+                      <button 
+                        key={idx} type="button"
+                        style={{ padding: '6px 10px', background: '#e2e8f0', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', color: '#334155' }}
+                        onClick={() => setCustomerGiven(amt)}
+                      >
+                        {amt === finalToPay ? 'Đưa đủ' : `${(amt/1000)}k`}
+                      </button>
+                    ))}
+                  </div>
+
+                  {selectedMethod === 'TIỀN MẶT' && Number(customerGiven) > finalToPay && (
+                    <p style={{ margin: '12px 0 0 0', fontWeight: 'bold', color: '#10b981', fontSize: '15px' }}>
                       Tiền thối lại: {(Number(customerGiven) - finalToPay).toLocaleString()}đ
                     </p>
                   )}
                 </div>
               )}
 
-              {selectedMethod === 'CHUYỂN KHOẢN' && (
-                <div style={{ textAlign: 'center', background: '#f8fafc', padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
-                  <p style={{ fontWeight: 'bold', marginBottom: '10px', color: '#0f172a' }}>Quét mã QR để thanh toán {finalToPay.toLocaleString()}đ</p>
+              {/* MÃ QR CODE NẾU LÀ "CHUYỂN KHOẢN", "ZALO PAY" HOẶC "KẾT HỢP" */}
+              {(selectedMethod === 'CHUYỂN KHOẢN' || selectedMethod === 'ZALO PAY' || selectedMethod === 'KẾT HỢP') && transferAmount > 0 && (
+                <div style={{ textAlign: 'center', background: '#f8fafc', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px dashed #cbd5e1' }}>
+                  <p style={{ fontWeight: 'bold', marginBottom: '10px', color: '#0f172a' }}>
+                    Quét mã QR để chuyển khoản: <span style={{ color: '#dc2626', fontSize: '18px' }}>{transferAmount.toLocaleString()}đ</span>
+                  </p>
                   <img 
-                    src={`https://img.vietqr.io/image/${bankBin}-${bankAcc}-compact2.png?amount=${finalToPay}&addInfo=ThanhToan&accountName=${encodeURIComponent(bankNameStr)}`} 
-                    alt="VietQR" 
-                    style={{ width: '200px', height: '200px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                    src={`https://img.vietqr.io/image/${bankBin}-${bankAcc}-compact2.png?amount=${transferAmount}&addInfo=ThanhToan&accountName=${encodeURIComponent(bankNameStr)}`} 
+                    alt="VietQR" style={{ width: '180px', height: '180px', borderRadius: '8px', border: '1px solid #e2e8f0' }}
                   />
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-                <button 
-                  type="button" 
-                  style={{ flex: 1, padding: '14px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', fontWeight: 'bold', cursor: 'pointer' }}
-                  onClick={() => setCheckoutStep(1)}
-                  disabled={loading}
-                >
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button type="button" style={{ flex: 1, padding: '14px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', fontWeight: 'bold', cursor: 'pointer' }} onClick={() => setCheckoutStep(1)} disabled={loading}>
                   QUAY LẠI
                 </button>
                 <button 
-                  className="gradient-btn" 
-                  style={{ flex: 2 }}
+                  className="gradient-btn" style={{ flex: 2 }}
                   onClick={() => confirmCheckout(selectedMethod)}
-                  disabled={loading || (selectedMethod === 'TIỀN MẶT' && Number(customerGiven) < finalToPay && Number(customerGiven) !== 0)}
+                  disabled={loading || (selectedMethod === 'TIỀN MẶT' && Number(customerGiven) < finalToPay && Number(customerGiven) > 0)}
                 >
                   {loading ? 'ĐANG XỬ LÝ...' : 'XÁC NHẬN HOÀN TẤT'}
                 </button>
@@ -249,40 +218,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <p style={{ color: '#64748b', marginBottom: '25px' }}>Đơn hàng đã được lưu vào hệ thống.</p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <button 
-                  type="button" 
-                  style={{ padding: '14px', borderRadius: '8px', border: 'none', background: '#3b82f6', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }}
-                  onClick={() => setPrintMode('receipt')}
-                >
-                  🖨️ IN BILL MÁY POS (80MM)
-                </button>
-
-                <button 
-                  type="button" 
-                  style={{ padding: '14px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }}
-                  onClick={() => setPrintMode('invoice_a4')}
-                >
-                  📄 IN HÓA ĐƠN A4
-                </button>
-
-                {isOnline && (
-                  <button 
-                    type="button" 
-                    style={{ padding: '14px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fef3c7', color: '#d97706', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }}
-                    onClick={sendReceiptEmail}
-                    disabled={loading}
-                  >
-                    📧 GỬI HÓA ĐƠN QUA EMAIL
-                  </button>
-                )}
-
-                <button 
-                  className="gradient-btn" 
-                  style={{ marginTop: '10px' }}
-                  onClick={closeCheckout}
-                >
-                  ĐÓNG & TẠO ĐƠN MỚI
-                </button>
+                <button type="button" style={{ padding: '14px', borderRadius: '8px', border: 'none', background: '#3b82f6', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }} onClick={() => setPrintMode('receipt')}>🖨️ IN BILL MÁY POS (80MM)</button>
+                <button type="button" style={{ padding: '14px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }} onClick={() => setPrintMode('invoice_a4')}>📄 IN HÓA ĐƠN A4</button>
+                {isOnline && <button type="button" style={{ padding: '14px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fef3c7', color: '#d97706', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }} onClick={sendReceiptEmail} disabled={loading}>📧 GỬI HÓA ĐƠN QUA EMAIL</button>}
+                <button className="gradient-btn" style={{ marginTop: '10px' }} onClick={closeCheckout}>ĐÓNG & TẠO ĐƠN MỚI</button>
               </div>
             </div>
           )}
