@@ -312,24 +312,30 @@ export default function App() {
       setScanQueue(prev => prev.slice(1));
     }
   }, [scanQueue, products, scannerMode]);
-// FIX LỖI: TRỊ DỨT ĐIỂM BỆNH IN TRẮNG & IN ĐÚP LẦN 2
+
+  // FIX LỖI: TRỊ DỨT ĐIỂM BỆNH IN TRẮNG & IN ĐÚP LẦN 2
   useEffect(() => {
     if (printMode) {
+      if (isPrintingRef.current) return;
+      isPrintingRef.current = true;
+
       const timer = setTimeout(() => {
-        // 1. Đợi 1.2s để đảm bảo mọi bảng biểu A4, mã vạch đã vẽ xong 100%
+        // Đợi 1.2s để đảm bảo mọi bảng biểu A4, mã vạch đã vẽ xong 100%
         window.print(); 
         
-        // 2. Lệnh window.print() sẽ khóa cứng trình duyệt. 
-        // Code sẽ KHÔNG CHẠY TIẾP cho đến khi bạn bấm Print hoặc Cancel.
-        
-        // 3. Ngay khi hộp thoại in vừa đóng lại, lệnh dưới đây mới được chạy để tắt UI in.
+        // Ngay khi hộp thoại in vừa đóng lại, lệnh dưới đây mới được chạy để tắt UI in.
         setPrintMode(null); 
         
+        // Thời gian làm nguội, chặn re-render thừa
+        setTimeout(() => {
+          isPrintingRef.current = false;
+        }, 500);
       }, 1200); 
       
       return () => clearTimeout(timer);
     }
-  }, [printMode]); // Chỉ theo dõi duy nhất printMode, không theo dõi biến nào khác
+  }, [printMode]);
+
   useEffect(() => {
     if (showPOModal && poTab === 'RECEIVE') {
       const fetchPOs = async () => {
@@ -943,7 +949,6 @@ export default function App() {
     }
   };
 
-  // ĐÃ SỬA: Luồng gọi máy in chạy tự động qua useEffect, hàm này chỉ setup state
   const handleReprint = (timeStr: string) => {
     const logsInBill = history.filter(h => h.time === timeStr && (h.type === 'BÁN' || h.type === 'GHI NỢ' || h.type === 'TRẢ HÀNG') && h.product_id !== 'DISCOUNT'); 
     const discountLog = history.find(h => h.time === timeStr && h.product_id === 'DISCOUNT');
@@ -1056,7 +1061,6 @@ export default function App() {
     setLoading(false)
   };
 
-  // ĐÃ SỬA: Tách lệnh in ra ngoài, nhường quyền kiểm soát in ấn cho useEffect điều khiển
   const printCustomerCard = (phone: string) => { 
     const cust = customers[phone];
     if(!cust) return toast.error("Không tìm thấy dữ liệu khách!");
@@ -1412,7 +1416,6 @@ export default function App() {
     }); 
   };
 
-  // ĐÃ SỬA: Gỡ bỏ việc ép gọi máy in trực tiếp, đồng bộ theo luồng React
   const handlePrintBarcode = (p: any) => { 
     const q = window.prompt(`SL tem in: ${cleanName(p.name)}`, "30"); 
     if (q && parseInt(q) > 0) { 
@@ -1807,7 +1810,6 @@ export default function App() {
     } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); }
   };
 
-  // ĐÃ SỬA: Setup state, điều phối chạy luồng in tự động thông qua useEffect
   const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') => {
     setPrintPOData(po);
     setPrintMode(type);
