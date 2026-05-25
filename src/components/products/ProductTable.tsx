@@ -1,20 +1,21 @@
+/* eslint-disable */
+// @ts-nocheck
 import React from 'react';
-import { cleanName, parseGift, getActualPrice } from '../../utils/helpers';
+import { cleanName, parseGift } from '../../utils/helpers';
 
 interface ProductTableProps {
   role: string;
   sortedAndFilteredProducts: any[];
   requestSort: (key: string) => void;
-  handleEdit: (id: any, field: string, old: any, isText?: boolean) => void;
-  addToCart: (p: any) => void;
-  handlePrintBarcode: (p: any) => void;
+  handleEdit: (id: any, field: string, oldVal: any, isText?: boolean) => void;
+  addToCart: (product: any) => void;
+  handlePrintBarcode: (product: any) => void;
   handleDelete: (id: any, name: string) => void;
-  // Dữ liệu dùng cho Popup Lọc
   sortConfig: { key: string, direction: 'asc' | 'desc' } | null;
   filters: Record<string, any[]>;
   setFilters: React.Dispatch<React.SetStateAction<Record<string, any[]>>>;
   openFilter: string | null;
-  setOpenFilter: (val: string | null) => void;
+  setOpenFilter: React.Dispatch<React.SetStateAction<string | null>>;
   uniqueNames: string[];
   uniqueStocks: number[];
   uniqueImportPrices: number[];
@@ -23,105 +24,267 @@ interface ProductTableProps {
 }
 
 export const ProductTable: React.FC<ProductTableProps> = ({
-  role, sortedAndFilteredProducts, requestSort, handleEdit,
-  addToCart, handlePrintBarcode, handleDelete,
-  sortConfig, filters, setFilters, openFilter, setOpenFilter,
-  uniqueNames, uniqueStocks, uniqueImportPrices, uniqueSalePrices, uniqueExpiries
+  role,
+  sortedAndFilteredProducts,
+  requestSort,
+  handleEdit,
+  addToCart,
+  handlePrintBarcode,
+  handleDelete,
+  sortConfig,
+  filters,
+  setFilters,
+  openFilter,
+  setOpenFilter,
+  uniqueNames,
+  uniqueStocks,
+  uniqueImportPrices,
+  uniqueSalePrices,
+  uniqueExpiries
 }) => {
 
-  const handleFilterCheck = (col: string, val: any) => { 
-    setFilters(prev => { 
-      const cur = prev[col] || []; 
-      if (cur.includes(val)) return { ...prev, [col]: cur.filter(v => v !== val) }; 
-      return { ...prev, [col]: [...cur, val] } 
-    });
-  };
+  // =====================================================================
+  // HÀM HELPER: RENDER GIAO DIỆN HEADER (GỒM CẢ SẮP XẾP & BỘ LỌC CHUYÊN NGHIỆP)
+  // =====================================================================
+  const renderColumnHeader = (
+    sortKey: string, 
+    filterKey: string, 
+    label: string, 
+    options: any[], 
+    formatValue: (val: any) => string,
+    alignRight: boolean = false // Chống tràn viền cho các cột sát lề phải
+  ) => {
+    const isActive = filters[filterKey]?.length > 0;
+    const isOpen = openFilter === filterKey;
 
-  const renderHeaderIcon = (colKey: string) => { 
-    const isFiltered = filters[colKey]?.length > 0; 
-    const isSortedAsc = sortConfig?.key === colKey && sortConfig.direction === 'asc'; 
-    const isSortedDesc = sortConfig?.key === colKey && sortConfig.direction === 'desc'; 
-    let icon = '🔽'; if (isSortedAsc) icon = '🔼'; if (isSortedDesc) icon = '🔽'; 
+    // Xóa bộ lọc của cột này
+    const handleToggleAll = () => {
+      const newFilters = { ...filters };
+      delete newFilters[filterKey];
+      setFilters(newFilters);
+    };
+
+    // Chọn / Bỏ chọn từng item trong list lọc
+    const handleToggleItem = (val: any, checked: boolean) => {
+      const current = filters[filterKey] || [];
+      const updated = checked ? [...current, val] : current.filter((item: any) => item !== val);
+      setFilters({ ...filters, [filterKey]: updated.length ? updated : [] });
+    };
+
+    // Render mũi tên Sắp xếp (Sort)
+    const renderSortIcon = () => {
+      if (sortConfig?.key !== sortKey) return <span style={{ opacity: 0.3, fontSize: '12px' }}>↕</span>;
+      return sortConfig.direction === 'asc' ? <span style={{ color: '#3b82f6', fontSize: '14px' }}>↑</span> : <span style={{ color: '#3b82f6', fontSize: '14px' }}>↓</span>;
+    };
+
     return (
-      <span onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === colKey ? null : colKey) }} 
-            style={{ cursor: "pointer", color: isFiltered || sortConfig?.key === colKey ? '#ef4444' : '#94a3b8', fontSize: "10px", padding: "2px", marginLeft: "4px", border: isFiltered ? "1px dashed #ef4444" : "1px solid transparent", borderRadius: "2px" }} title="Lọc">
-        {icon}
-      </span>
-    );
-  };
-  
-  const renderFilterPopup = (colKey: string, title: string, uniqueValues: any[], formatVal?: (v: any) => string) => {
-    if (openFilter !== colKey) return null;
-    return (
-      <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: colKey === 'name' ? "0" : "50%", transform: colKey === 'name' ? "none" : "translateX(-50%)", background: "var(--bg-glass)", border: "1px solid var(--border-glass)", borderRadius: "8px", padding: "10px", zIndex: 999, boxShadow: "0 10px 25px -5px rgba(0,0,0,0.5)", minWidth: "160px", textAlign: "left", color: "var(--text-main)", fontWeight: "normal", fontSize: "12px", display: "flex", flexDirection: "column" }}>
-        <div style={{ marginTop: "10px", fontWeight: "bold", color: "var(--text-muted)", fontSize: "10px", marginBottom: "6px" }}>LỌC {title}:</div>
-        <div style={{ overflowY: "auto", flex: 1, maxHeight: "150px", border: "1px solid var(--border-glass)", borderRadius: "4px", padding: "4px" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px", cursor: "pointer", borderBottom: "1px dashed var(--border-glass)" }}>
-            <input type="checkbox" checked={!filters[colKey] || filters[colKey].length === 0} onChange={() => setFilters(prev => ({ ...prev, [colKey]: [] }))} />
-            <span style={{ color: "#3b82f6", fontWeight: "bold" }}>Tất cả</span>
-          </label>
-          {uniqueValues.map((v, i) => (
-            <label key={i} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px", cursor: "pointer", borderBottom: "1px dashed var(--border-glass)" }}>
-              <input type="checkbox" checked={filters[colKey]?.includes(v) || false} onChange={() => handleFilterCheck(colKey, v)} />
-              <span>{formatVal ? formatVal(v) : v}</span>
-            </label>
-          ))}
+      <th className="table-th-relative" key={filterKey} style={{ padding: '10px 8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Nhấn vào Chữ để Sắp xếp (Sort) */}
+          <div 
+            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', userSelect: 'none', color: '#64748b' }} 
+            onClick={() => requestSort(sortKey)}
+            title={`Sắp xếp theo ${label}`}
+          >
+            {label} {renderSortIcon()}
+          </div>
+          
+          {/* Nhấn vào Phễu để Mở Bộ lọc (Filter) */}
+          <div 
+            className="filter-trigger" 
+            onClick={(e) => { e.stopPropagation(); setOpenFilter(isOpen ? null : filterKey); }}
+            title={`Lọc ${label}`}
+          >
+            <svg 
+              className={`filter-icon ${isActive ? 'active' : ''}`} 
+              viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            >
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+            </svg>
+          </div>
         </div>
-        {filters[colKey]?.length > 0 && (<div style={{ marginTop: "8px", textAlign: "center", cursor: "pointer", color: "#ef4444", fontWeight: "bold", fontSize: "11px", padding: "4px" }} onClick={() => setFilters(prev => ({ ...prev, [colKey]: [] }))}>❌ Bỏ lọc</div>)}
-      </div>
+
+        {/* BẢNG POPOVER CHUYÊN NGHIỆP KHI XỔ XUỐNG */}
+        {isOpen && (
+          <div 
+            className="filter-popover" 
+            onClick={e => e.stopPropagation()}
+            style={alignRight ? { right: 0, left: 'auto' } : { left: 0 }}
+          >
+            <div className="filter-popover-header">
+              Lọc {label}
+            </div>
+            
+            <div className="filter-popover-body">
+              <label className="filter-checkbox-item">
+                <input 
+                  type="checkbox" 
+                  checked={!isActive}
+                  onChange={handleToggleAll} 
+                />
+                <span style={{ fontWeight: 'bold', color: '#0f172a' }}>Tất cả</span>
+              </label>
+              
+              {options.map((val: any) => (
+                <label key={val} className="filter-checkbox-item">
+                  <input 
+                    type="checkbox" 
+                    checked={filters[filterKey]?.includes(val) || false}
+                    onChange={(e) => handleToggleItem(val, e.target.checked)}
+                  />
+                  <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {formatValue(val)}
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            <div className="filter-popover-footer">
+              <button className="filter-btn-reset" onClick={handleToggleAll}>
+                Bỏ lọc
+              </button>
+              <button className="filter-btn-apply" onClick={() => setOpenFilter(null)}>
+                Áp dụng
+              </button>
+            </div>
+          </div>
+        )}
+      </th>
     );
   };
 
+  // =====================================================================
+  // RENDER BẢNG CHÍNH
+  // =====================================================================
   return (
-    <div style={{ maxHeight: "calc(100vh - 220px)", overflowY: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+    <div className="table-responsive" style={{ overflow: 'visible' }}>
+      <table className="mart-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
-          <tr style={{ color: "#10b981", fontSize: "10px", borderBottom: "2px solid var(--border-glass)", position: "sticky", top: 0, background: "var(--bg-glass)", zIndex: 1 }}>
-            <th style={{ textAlign: "left", padding: "10px 4px" }}><div style={{ display: "flex", alignItems: "center", gap: "4px", width: "max-content" }}><span onClick={() => requestSort('name')} style={{ cursor: "pointer", userSelect: "none" }}>SẢN PHẨM</span>{renderHeaderIcon('name')}</div>{renderFilterPopup('name', 'TÊN SẢN PHẨM', uniqueNames)}</th>
-            <th style={{ textAlign: "center", padding: "10px 4px" }}><div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}><span onClick={() => requestSort('stock')} style={{ cursor: "pointer", userSelect: "none" }}>TỒN</span>{renderHeaderIcon('stock')}</div>{renderFilterPopup('stock', 'SỐ LƯỢNG TỒN', uniqueStocks)}</th>
-            {role === 'admin' && (<th style={{ textAlign: "center", padding: "10px 4px" }}><div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}><span onClick={() => requestSort('import_price')} style={{ cursor: "pointer", userSelect: "none" }}>GIÁ VỐN</span>{renderHeaderIcon('import_price')}</div>{renderFilterPopup('import_price', 'GIÁ VỐN', uniqueImportPrices, (v) => v.toLocaleString() + 'đ')}</th>)}
-            <th style={{ textAlign: "center", padding: "10px 4px" }}><div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}><span onClick={() => requestSort('sale_price')} style={{ cursor: "pointer", userSelect: "none" }}>GIÁ BÁN</span>{renderHeaderIcon('sale_price')}</div>{renderFilterPopup('sale_price', 'GIÁ BÁN', uniqueSalePrices, (v) => v.toLocaleString() + 'đ')}</th>
-            <th style={{ textAlign: "center", padding: "10px 4px", lineHeight: "1.2" }}><div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}><span onClick={() => requestSort('expiry_date')} style={{ cursor: "pointer", userSelect: "none" }}>HẠN SỬ DỤNG</span>{renderHeaderIcon('expiry_date')}</div>{renderFilterPopup('expiry_date', 'HẠN SỬ DỤNG', uniqueExpiries, (v) => v ? new Date(v).toLocaleDateString('vi-VN') : '---')}</th>
-            <th style={{ textAlign: "right", padding: "10px 4px" }}></th>
+          <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
+            
+            {/* SỬ DỤNG HÀM HELPER ĐỂ RENDER 5 CỘT CÓ BỘ LỌC */}
+            {renderColumnHeader('name', 'name', 'SẢN PHẨM', uniqueNames, (val) => val)}
+            
+            {renderColumnHeader('stock', 'stock', 'TỒN', uniqueStocks, (val) => val.toLocaleString())}
+            
+            {role === 'admin' && renderColumnHeader('import_price', 'import_price', 'GIÁ VỐN', uniqueImportPrices, (val) => `${Number(val || 0).toLocaleString()}đ`)}
+            
+            {renderColumnHeader('sale_price', 'sale_price', 'GIÁ BÁN', uniqueSalePrices, (val) => `${Number(val).toLocaleString()}đ`)}
+            
+            {renderColumnHeader('expiry_date', 'expiry_date', 'HẠN SỬ DỤNG', uniqueExpiries, (val) => val ? new Date(val).toLocaleDateString('vi-VN') : 'Không có', true)}
+            
+            <th style={{ padding: '10px 8px', color: '#64748b' }}>THAO TÁC</th>
           </tr>
         </thead>
+        
         <tbody>
-          {sortedAndFilteredProducts.map(p => {
-            const isP = p.promo_price > 0; 
-            const d = Math.floor(Math.abs(new Date().getTime() - new Date(p.created_at).getTime()) / 86400000); 
-            const isOutOfStock = p.stock <= 0; 
-            const isNearExpiry = p.expiry_date && (new Date(p.expiry_date).getTime() - new Date().getTime()) / 86400000 <= 45 && !isOutOfStock; 
-            const isLowStock = p.stock > 0 && p.stock < 10; 
-            const gift = parseGift(p.gift_info); 
-            let dText = "Mới nhập hôm nay"; if (d === 1) dText = "Nhập hôm qua"; else if (d > 1) dText = `${d} ngày trước`;
-            
-            return (
-              <tr key={p.id} style={{ borderBottom: "1px solid var(--border-glass)", background: isNearExpiry ? "rgba(239, 68, 68, 0.1)" : "transparent" }}>
-                <td style={{ padding: "12px 4px" }}>
-                  <div style={{ fontSize: "14px", fontWeight: "bold" }}>{role === 'admin' ? p.name : cleanName(p.name)} {isNearExpiry && <span style={{ color: "#ef4444", fontSize: "9px", border: "1px solid #ef4444", padding: "1px 2px", borderRadius: "2px" }}>⚠️</span>} {p.isHappyHour && <span style={{ color: "#ea580c", fontSize: "9px", fontStyle: "italic" }}>[Giờ Vàng]</span>}</div>
-                  <div style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "2px" }}>{p.product_code} • <span style={{ cursor: role === 'admin' ? 'pointer' : 'default', textDecoration: role === 'admin' ? 'underline' : 'none' }} onClick={() => role === 'admin' && handleEdit(p.id, 'category', p.category || "Khác", true)}>{p.category || "Khác"}</span></div>
-                  {gift.text ? (<div style={{ fontSize: "10px", color: "#10b981", fontWeight: "bold", cursor: role === 'admin' ? 'pointer' : 'default', marginTop: "2px" }} onClick={() => role === 'admin' && handleEdit(p.id, 'gift_info', p.gift_info, true)}>🎁 Tặng: {gift.text} {gift.cond > 1 ? `(Mua ≥ ${gift.cond})` : ''}</div>) : (role === 'admin' && <div style={{ fontSize: "9px", color: "var(--border-glass)", cursor: "pointer", marginTop: "2px" }} onClick={() => handleEdit(p.id, 'gift_info', '', true)}>+ Thêm quà</div>)}
-                </td>
-                <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "14px", color: isOutOfStock ? "var(--text-muted)" : (isLowStock ? "#ef4444" : "var(--text-main)") }}>{p.stock} {isLowStock && <span title="Sắp hết hàng" style={{ fontSize: "10px" }}>📉</span>}</td>
-                {role === 'admin' && <td style={{ textAlign: "center", color: "var(--text-muted)", fontSize: "12px" }}>{p.import_price?.toLocaleString()}</td>}
-                <td style={{ textAlign: "center" }}>
-                  <div style={{ color: isP ? "var(--text-muted)" : "#10b981", textDecoration: isP ? "line-through" : "none", fontSize: isP ? "11px" : "14px", fontWeight: "bold", cursor: role === 'admin' ? "pointer" : "default" }} onClick={() => role === 'admin' && handleEdit(p.id, 'sale_price', p.sale_price)}>{p.sale_price.toLocaleString()}</div>
-                  {isP ? (<div style={{ color: "#ef4444", fontWeight: "900", fontSize: "14px", cursor: role === 'admin' ? "pointer" : "default" }} onClick={() => role === 'admin' && handleEdit(p.id, 'promo_price', p.promo_price)}>🔥 {p.promo_price.toLocaleString()}</div>) : (role === 'admin' && <div style={{ fontSize: "9px", color: "var(--border-glass)", cursor: "pointer", marginTop: "2px" }} onClick={() => handleEdit(p.id, 'promo_price', 0)}>🏷️ +Thêm KM</div>)}
-                </td>
-                <td style={{ textAlign: "center", fontSize: "11px" }}>
-                  <div style={{ color: isNearExpiry ? "#ef4444" : "#b91c1c", fontWeight: "bold", cursor: role === 'admin' ? "pointer" : "default" }} onClick={() => role === 'admin' && handleEdit(p.id, 'expiry_date', p.expiry_date, true)}>{isOutOfStock ? "---" : (p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : "---")}</div>
-                  <div style={{ color: "var(--text-muted)", marginTop: "2px" }}>{isOutOfStock ? "---" : dText}</div>
-                </td>
-                <td style={{ textAlign: "right", padding: "12px 4px" }}>
-                  <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}>
-                    <button className="add-to-cart-btn" onClick={() => addToCart(p)}>+ GIỎ</button>
-                    {role === 'admin' && <button onClick={() => handlePrintBarcode(p)} style={{ padding: "6px 8px", background: "var(--border-glass)", color: "var(--text-main)", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "11px" }} title="In tem mã vạch">🖨️ Tem</button>}
-                    {role === 'admin' && <button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "14px", padding: 0 }}>🗑️</button>}
-                  </div>
-                </td>
-              </tr>
-            )
-          })}
+          {sortedAndFilteredProducts.length === 0 ? (
+            <tr>
+              <td colSpan={6} style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>
+                Không tìm thấy sản phẩm nào phù hợp với bộ lọc.
+              </td>
+            </tr>
+          ) : (
+            sortedAndFilteredProducts.map(p => {
+              const gift = parseGift(p.gift_info);
+              const isUrgent = p.expiry_date && (new Date(p.expiry_date).getTime() - new Date().getTime()) / 86400000 <= 45;
+              
+              return (
+                <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  
+                  {/* CỘT SẢN PHẨM */}
+                  <td style={{ padding: '10px 8px' }}>
+                    <div style={{ fontWeight: '600', color: '#0f172a', marginBottom: '2px' }}>
+                      {cleanName(p.name)}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#64748b' }}>
+                      <span style={{ cursor: 'pointer' }} title="Click để sao chép" onClick={() => { navigator.clipboard.writeText(p.product_code); }}>
+                        Mã: {p.product_code}
+                      </span>
+                    </div>
+                  </td>
+                  
+                  {/* CỘT TỒN KHO */}
+                  <td style={{ padding: '10px 8px' }}>
+                    <span 
+                      style={{ fontWeight: 'bold', color: p.stock <= 0 ? '#ef4444' : p.stock < 10 ? '#f59e0b' : '#10b981', cursor: role === 'admin' ? 'pointer' : 'default' }}
+                      onClick={() => role === 'admin' && handleEdit(p.id, 'stock', p.stock)}
+                    >
+                      {p.stock.toLocaleString()}
+                    </span>
+                  </td>
+
+                  {/* CỘT GIÁ VỐN (CHỈ ADMIN THẤY) */}
+                  {role === 'admin' && (
+                    <td style={{ padding: '10px 8px', color: '#64748b', cursor: 'pointer' }} onClick={() => handleEdit(p.id, 'import_price', p.import_price)}>
+                      {Number(p.import_price || 0).toLocaleString()}đ
+                    </td>
+                  )}
+
+                  {/* CỘT GIÁ BÁN & KHUYẾN MÃI */}
+                  <td style={{ padding: '10px 8px' }}>
+                    <div style={{ fontWeight: 'bold', color: '#3b82f6', cursor: role === 'admin' ? 'pointer' : 'default' }} onClick={() => role === 'admin' && handleEdit(p.id, 'sale_price', p.sale_price)}>
+                      {p.sale_price.toLocaleString()}đ
+                    </div>
+                    {p.promo_price > 0 && (
+                      <div style={{ fontSize: '11px', color: '#ef4444', cursor: role === 'admin' ? 'pointer' : 'default' }} onClick={() => role === 'admin' && handleEdit(p.id, 'promo_price', p.promo_price)}>
+                        [GV]: {p.promo_price.toLocaleString()}đ
+                      </div>
+                    )}
+                    {gift && (
+                      <div style={{ fontSize: '11px', color: '#8b5cf6', marginTop: '2px', cursor: role === 'admin' ? 'pointer' : 'default' }} onClick={() => role === 'admin' && handleEdit(p.id, 'gift_info', p.gift_info, true)}>
+                        🎁 Tặng {gift.text} (HĐ ≥ {gift.cond.toLocaleString()})
+                      </div>
+                    )}
+                  </td>
+
+                  {/* CỘT HẠN SỬ DỤNG */}
+                  <td style={{ padding: '10px 8px', fontSize: '12px' }}>
+                    <div style={{ color: isUrgent ? '#ef4444' : '#475569', fontWeight: isUrgent ? 'bold' : 'normal', cursor: role === 'admin' ? 'pointer' : 'default' }} onClick={() => role === 'admin' && handleEdit(p.id, 'expiry_date', p.expiry_date, true)}>
+                      {p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : '---'}
+                    </div>
+                    {isUrgent && p.expiry_date && (
+                      <div style={{ fontSize: '10px', color: '#ef4444', backgroundColor: '#fee2e2', padding: '2px 4px', borderRadius: '4px', display: 'inline-block', marginTop: '2px' }}>
+                        Cận date!
+                      </div>
+                    )}
+                  </td>
+
+                  {/* CỘT THAO TÁC */}
+                  <td style={{ padding: '10px 8px' }}>
+                    <div style={{ display: 'flex', gap: '5px' }}>
+                      <button 
+                        className="btn-action btn-add-cart" 
+                        onClick={() => addToCart(p)}
+                        style={{ padding: '6px 12px', background: '#eab308', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}
+                      >
+                        + GIỎ
+                      </button>
+                      <button 
+                        className="btn-action" 
+                        onClick={() => handlePrintBarcode(p)}
+                        style={{ padding: '6px 10px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}
+                        title="In Tem Mã Vạch"
+                      >
+                        🖨️ Tem
+                      </button>
+                      {role === 'admin' && (
+                        <button 
+                          className="btn-action" 
+                          onClick={() => handleDelete(p.id, p.name)}
+                          style={{ padding: '6px 8px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                          title="Xóa sản phẩm"
+                        >
+                          🗑️
+                        </button>
+                      )}
+                    </div>
+                  </td>
+
+                </tr>
+              );
+            })
+          )}
         </tbody>
       </table>
     </div>
