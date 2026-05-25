@@ -2072,8 +2072,21 @@ export default function App() {
               
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                 <CartPanel cart={cart} custName={custName} heldOrders={heldOrders} cartTotalAmountDisplay={cartTotalAmountDisplay} setShowHoldModal={setShowHoldModal} handleHoldOrder={handleHoldOrder} clearCart={clearCart} setCustName={setCustName} setCustPhone={setCustPhone} setCustomerInput={setCustomerInput} setIsCheckoutOpen={setIsCheckoutOpen} setCheckoutStep={setCheckoutStep} adjustCartQty={adjustCartQty} handleDirectQtyChange={handleDirectQtyChange} handleDirectQtyBlur={handleDirectQtyBlur} removeFromCart={removeFromCart} />
-                <HistoryPanel logSearchTerm={logSearchTerm} setLogSearchTerm={setLogSearchTerm} logTypeFilter={logTypeFilter} setLogTypeFilter={setLogTypeFilter} exportToCSV={exportToCSV} groupedHistory={groupedHistory} expandedDates={expandedDates} toggleDateGroup={toggleDateGroup} handleRefund={handleRefund} handleReprint={handleReprint} onPrintK80={(log) => { setLastOrder(log); setPrintMode('receipt_thermal'); }}
-  onPrintA4={(log) => { setLastOrder(log); setPrintMode('receipt_a4'); }}/>
+                <HistoryPanel 
+  logSearchTerm={logSearchTerm} 
+  setLogSearchTerm={setLogSearchTerm} 
+  logTypeFilter={logTypeFilter} 
+  setLogTypeFilter={setLogTypeFilter} 
+  exportToCSV={exportToCSV} 
+  groupedHistory={groupedHistory} 
+  expandedDates={expandedDates} 
+  toggleDateGroup={toggleDateGroup} 
+  handleRefund={handleRefund} 
+  handleReprint={(time) => handleReprint(time, 'receipt_thermal')} 
+  // Gắn lệnh in gọi hàm Tái tạo hóa đơn kèm theo chuẩn Loại giấy (K80 hoặc A4)
+  onPrintK80={(log) => handleReprint(log.time, 'receipt_thermal')}
+  onPrintA4={(log) => handleReprint(log.time, 'receipt_a4')}
+/>
               </div>
             </div>
           </div>
