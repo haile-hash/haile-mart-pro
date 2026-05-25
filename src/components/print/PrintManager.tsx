@@ -51,7 +51,6 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
       const paymentMethod = String(order?.paymentMethod || 'TIỀN MẶT');
       const orderId = String(order?.orderId || '');
       
-      // FIX LỖI LOGIC: Không dùng || safeFinalTotal vì nếu nợ là 0 thì 0 || val sẽ lấy val gây lỗi hiển thị dư nợ
       const isDebtSale = paymentMethod === 'GHI NỢ';
       const isRefundDebt = paymentMethod === 'TRỪ NỢ';
       
@@ -61,6 +60,12 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
       
       const cartItems = Array.isArray(order?.cart) ? order.cart : [];
       const safeVatRate = Number(VAT_RATE) || 0.1;
+
+      // THUẬT TOÁN MỚI: Tự động gom TẤT CẢ các khoản giảm giá (Voucher + Hạng VIP + Điểm Ví)
+      const safeSubTotal = Math.round(Number(order?.subTotal || 0));
+      const safeVatTotal = Math.round(Number(order?.vatTotal || 0));
+      const totalGoodsAndVat = safeSubTotal + safeVatTotal;
+      const totalDeduction = totalGoodsAndVat - Math.round(safeFinalTotal);
 
       if (!isA4) {
         // ---------------------------------------------------------
@@ -118,13 +123,14 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
             <div style={{ borderTop: "1px dashed #000", paddingTop: "10px", marginBottom: "10px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 0" }}>
                 <span>Tổng tiền hàng:</span>
-                <span>{Math.round(Number(order?.subTotal || 0) + Number(order?.vatTotal || 0)).toLocaleString()}đ</span>
+                <span>{totalGoodsAndVat.toLocaleString()}đ</span>
               </div>
               
-              {Number(order?.discount || 0) > 0 && (
+              {/* ĐÃ FIX: Tự động in số tiền được trừ từ Ví hoặc Mã giảm giá */}
+              {totalDeduction > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 0" }}>
-                  <span>Chiết khấu/Ví:</span>
-                  <span>-{Math.round(Number(order?.discount || 0)).toLocaleString()}đ</span>
+                  <span>Chiết khấu/Trừ ví:</span>
+                  <span>-{totalDeduction.toLocaleString()}đ</span>
                 </div>
               )}
               
@@ -139,7 +145,6 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
                   <span style={{ fontWeight: "bold" }}>{paymentMethod}</span>
                 </div>
                 
-                {/* XỬ LÝ RIÊNG HÌNH THỨC KẾT HỢP */}
                 {paymentMethod === 'KẾT HỢP' && (
                   <>
                     <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 0" }}>
@@ -153,7 +158,6 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
                   </>
                 )}
 
-                {/* XỬ LÝ RIÊNG HÌNH THỨC TIỀN MẶT */}
                 {paymentMethod === 'TIỀN MẶT' && (
                   <>
                     <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 0" }}>
@@ -169,7 +173,6 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
                   </>
                 )}
                 
-                {/* XỬ LÝ RIÊNG HÌNH THỨC GHI NỢ */}
                 {(isDebtSale || isRefundDebt) && (
                   <div style={{ display: "flex", justifyContent: "space-between", margin: "6px 0", color: "#b91c1c", fontWeight: "bold", borderTop: "1px dashed #b91c1c", paddingTop: "6px" }}>
                     <span>TỔNG DƯ NỢ CỦA KHÁCH:</span>
@@ -186,7 +189,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
         );
       } else {
         // ---------------------------------------------------------
-        // 2. IN HÓA ĐƠN A4 
+        // 2. IN HÓA ĐƠN A4
         // ---------------------------------------------------------
         return (
           <div className="print-a4-container" style={{ width: "210mm", padding: "15mm", fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", color: "#000", background: "#fff", boxSizing: "border-box", margin: "0 auto" }}>
@@ -276,18 +279,21 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
                 <tbody>
                   <tr>
                     <td style={{ padding: "4px 0", textAlign: "left" }}>Cộng tiền hàng hóa (Chưa thuế):</td>
-                    <td style={{ padding: "4px 0", textAlign: "right", fontWeight: "bold" }}>{Math.round(Number(order?.subTotal || 0)).toLocaleString()}đ</td>
+                    <td style={{ padding: "4px 0", textAlign: "right", fontWeight: "bold" }}>{safeSubTotal.toLocaleString()}đ</td>
                   </tr>
                   <tr>
                     <td style={{ padding: "4px 0", textAlign: "left" }}>Thuế giá trị gia tăng VAT (10%):</td>
-                    <td style={{ padding: "4px 0", textAlign: "right", fontWeight: "bold" }}>{Math.round(Number(order?.vatTotal || 0)).toLocaleString()}đ</td>
+                    <td style={{ padding: "4px 0", textAlign: "right", fontWeight: "bold" }}>{safeVatTotal.toLocaleString()}đ</td>
                   </tr>
-                  {Number(order?.discount || 0) > 0 && (
+                  
+                  {/* ĐÃ FIX: Tự động in số tiền được trừ từ Ví hoặc Mã giảm giá */}
+                  {totalDeduction > 0 && (
                     <tr>
-                      <td style={{ padding: "4px 0", textAlign: "left", color: "#ef4444" }}>Chiết khấu ưu đãi / Mã giảm:</td>
-                      <td style={{ padding: "4px 0", textAlign: "right", fontWeight: "bold", color: "#ef4444" }}>-{Math.round(Number(order?.discount || 0)).toLocaleString()}đ</td>
+                      <td style={{ padding: "4px 0", textAlign: "left", color: "#ef4444" }}>Chiết khấu ưu đãi / Trừ ví:</td>
+                      <td style={{ padding: "4px 0", textAlign: "right", fontWeight: "bold", color: "#ef4444" }}>-{totalDeduction.toLocaleString()}đ</td>
                     </tr>
                   )}
+
                   <tr style={{ borderTop: "1px solid #000" }}>
                     <td style={{ padding: "8px 0 4px 0", textAlign: "left", fontSize: "15px", fontWeight: "bold" }}>{orderId === 'PHIẾU_TRẢ_HÀNG' ? "TỔNG TIỀN HOÀN TRẢ:" : "TỔNG TIỀN PHẢI THANH TOÁN:"}</td>
                     <td style={{ padding: "8px 0 4px 0", textAlign: "right", fontSize: "16px", fontWeight: "bold" }}>{Math.round(safeFinalTotal).toLocaleString()}đ</td>
