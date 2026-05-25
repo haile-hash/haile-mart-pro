@@ -23,6 +23,8 @@ export const useCheckoutState = () => {
   };
 
   return {
+    custAddress,
+    setCustAddress,
     cart, setCart, barcodeInput, setBarcodeInput, isCheckoutOpen, setIsCheckoutOpen,
     checkoutStep, setCheckoutStep, customerInput, setCustomerInput, custPhone, setCustPhone,
     custName, setCustName, useWallet, setUseWallet, voucherInput, setVoucherInput,
