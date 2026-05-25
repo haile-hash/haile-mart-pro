@@ -189,83 +189,54 @@
 }
 /* ========================================================= */
 /* ========================================================= */
-/* BIỆN PHÁP CHỐNG VỠ APP: ẨN TUYỆT ĐỐI KHỐI RÁC KHI IN      */
+/* QUẢN LÝ HIỂN THỊ IN ẤN (TRỊ DỨT ĐIỂM LỘ NỀN / RÁC UI)     */
 /* ========================================================= */
-@media print {
-  @media print {
-  /* Chặn đứng lỗi lọt nền ứng dụng vào mép giấy in */
-  html, body, #root {
-    background: #ffffff !important;
-    height: auto !important;
-    overflow: visible !important;
-  }
-  
-  /* Ẩn triệt để các Modal, Menu, Header đang nổi trên web */
-  .checkout-modal-overlay,
-  .toast-container,
-  aside, nav, header {
-    display: none !important;
-  }
-  
-  /* Đảm bảo vùng in được quyền ưu tiên tối thượng */
+
+/* 1. TRÊN MÀN HÌNH MÁY TÍNH: Giấu nhẹm hoàn toàn khu vực in */
+@media screen {
   .print-only-zone {
-    display: block !important;
-    position: relative !important;
-    width: 100% !important;
-    background: #ffffff !important;
-    z-index: 99999 !important;
-    margin: 0 !important;
+    display: none !important;
   }
 }
-  /* Khóa toàn bộ nền và màn hình nền App */
+
+/* 2. TRÊN GIẤY IN: Giấu toàn bộ App, chỉ hiện khu vực in */
+@media print {
   @page {
-    margin: 5mm; 
-  }
-  body, html {
-    background: #ffffff !important;
-    color: #000000 !important;
-    margin: 0 !important;
-    padding: 0 !important;
+    margin: 5mm; /* Bỏ lề thừa (chứa link, ngày tháng) của trình duyệt */
   }
   
-  /* ẨN TRIỆT ĐỂ: Giao diện App chính, Khối Mesh tạo màu, và tất cả Modal nền */
-  #root > div > .no-print,
-  .checkout-modal-overlay,
-  .animated-bg-mesh,
-  #search-barcode,
-  .modal,
-  .toast {
-    display: none !important;
+  /* Ẩn tàng hình tất cả mọi thứ trên web */
+  body * {
     visibility: hidden !important;
-    opacity: 0 !important;
   }
-
-  /* GIẢI PHÓNG VÙNG IN: Đưa vùng in lên cấp cao nhất, chiếm trọn 100% giấy */
-  .print-only-zone {
-    display: block !important;
+  
+  /* Chỉ cấp quyền hiển thị cho vùng in và các phần tử bên trong nó */
+  .print-only-zone, .print-only-zone * {
     visibility: visible !important;
+  }
+  
+  /* Bốc vùng in đặt lên góc trên cùng bên trái của tờ giấy, đè lên mọi thứ */
+  .print-only-zone {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
     width: 100% !important;
+    background-color: #fff !important;
     margin: 0 !important;
     padding: 0 !important;
-    background: #fff !important;
-  }
-  
-  .print-only-zone * {
-    visibility: visible !important;
   }
 
-  /* Định hình chuẩn lưới in tem mã vạch A4 không lệch dòng */
+  /* Định hình lại lưới in mã vạch A4 chuẩn */
   .barcode-print-grid {
     display: grid !important;
     grid-template-columns: repeat(4, 1fr) !important;
     gap: 3mm !important;
     width: 100% !important;
     padding: 0 !important;
+    box-sizing: border-box !important;
   }
 }
+ 
 /* 2. CHECKOUT MODAL - GIAO DIỆN TỐI GIẢN (MINIMALIST ERP)   */
 /* ========================================================= */
 .checkout-modal-overlay {
