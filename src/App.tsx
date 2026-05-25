@@ -1,6 +1,6 @@
 /* eslint-disable */
 // @ts-nocheck
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "./supabaseClient";
 import { 
   styles, formatCategoryStr, parseGift, cleanName, 
@@ -48,7 +48,7 @@ import { POModal } from "./components/modals/POModal";
 // IMPORT KHU VỰC IN ẤN ĐÃ TÁCH
 import { PrintManager } from "./components/print/PrintManager";
 
-// IMPORT CSS ĐÃ TÁCH RIÊNG
+// IMPORT CSS ĐÃ TÁCH RIÊNG KHỎI APP
 import './styles/App.css';
 import './styles/Print.css';
 
@@ -58,15 +58,17 @@ export default function App() {
   }
 
   const VAT_RATE = 0.1;
-  // BẢO MẬT: Đã xóa các key lộ liễu, sử dụng biến môi trường từ file .env
+  // BẢO MẬT: Sử dụng biến môi trường từ file .env
   const EMAILJS_SERVICE_ID = process.env.REACT_APP_EMAILJS_SERVICE_ID;
   const EMAILJS_TEMPLATE_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_ID;
   const EMAILJS_TEMPLATE_VIP_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_VIP_ID;
   const EMAILJS_PUBLIC_KEY = process.env.REACT_APP_EMAILJS_PUBLIC_KEY;
   
   // =====================================================================
-  // 1. STATES CƠ BẢN
+  // 1. STATES CƠ BẢN & BIẾN CỜ KIỂM SOÁT IN ẤN
   // =====================================================================
+  const isPrintingRef = useRef(false); // Biến cờ chặn lệnh in trùng lặp (Fix lỗi Cancel 2 lần)
+
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem("mart_logged_in") === "true");
   const [role, setRole] = useState(() => localStorage.getItem("mart_role") || "staff");
   const [shift, setShift] = useState(() => localStorage.getItem("mart_shift") || "Ca Sáng");
@@ -139,8 +141,7 @@ export default function App() {
   const [printBarcodeProduct, setPrintBarcodeProduct] = useState<Product | null>(null);
   const [printCustomer, setPrintCustomer] = useState<Customer | null>(null);
   const [barcodeCount, setBarcodeCount] = useState<number>(30);
-  const [selectedAuditLog, MapSetSelectedAuditLog] = useState<AuditLog | null>(null);
-  const [selectedAuditLogState, setSelectedAuditLog] = useState<AuditLog | null>(null);
+  const [selectedAuditLog, setSelectedAuditLog] = useState<AuditLog | null>(null);
 
   // States dành riêng cho Phiếu nhập PO
   const [localPOs, setLocalPOs] = useState<any[]>(() => { 
@@ -161,8 +162,6 @@ export default function App() {
 
   const { darkMode, setDarkMode, showSettings, setShowSettings, showInputForm, setShowInputForm, showDebtModal, setShowDebtModal, showStatsModal, setShowStatsModal, showCustomerModal, setShowCustomerModal, showHandoverModal, setShowHandoverModal, showAuditModal, setShowAuditModal, showHoldModal, setShowHoldModal, showExpenseModal, setShowExpenseModal, showSupplierModal, setShowSupplierModal, showMarketingModal, setShowMarketingModal, showInventoryModal, setShowInventoryModal, showMainMenu, setShowMainMenu, cashFlowModalInfo, setCashFlowModalInfo, scannerMode, setScannerMode, printMode, setPrintMode } = useUIState();
   const { newCode, setNewCode, newName, setNewName, newImportPrice, setNewImportPrice, newPrice, setNewPrice, newPromoPrice, setNewPromoPrice, newGiftCondition, setNewGiftCondition, newGiftInfo, setNewGiftInfo, newStock, setNewStock, newExpiry, setNewExpiry, newCategory, setNewCategory, resetProductForm } = useProductInput();
-  // Thêm một biến cờ để chặn việc kích hoạt máy in 2 lần liên tiếp
-  const isPrintingRef = React.useRef(false);
   const { cart, setCart, barcodeInput, custAddress, setCustAddress, setBarcodeInput, isCheckoutOpen, setIsCheckoutOpen, checkoutStep, setCheckoutStep, customerInput, setCustomerInput, custPhone, setCustPhone, custName, setCustName, useWallet, setUseWallet, voucherInput, setVoucherInput, appliedVoucherAmount, setAppliedVoucherAmount, customerGiven, setCustomerGiven, lastOrder, setLastOrder, resetCheckout } = useCheckoutState();
 
   const [customers, setCustomers] = useState<Record<string, Customer>>(() => { const s = localStorage.getItem("mart_customers"); return s ? JSON.parse(s) : {} });
@@ -184,7 +183,7 @@ export default function App() {
   };
 
   // =====================================================================
-  // 2. EFFECTS
+  // 2. EFFECTS (ĐÃ TỐI ƯU LUỒNG ĐIỀU KHIỂN MÁY IN)
   // =====================================================================
   useEffect(() => { 
     if (darkMode) { 
@@ -314,11 +313,10 @@ export default function App() {
     }
   }, [scanQueue, products, scannerMode]);
 
-  // XỬ LÝ SỰ KIỆN SAU KHI ĐÓNG GIAO DIỆN IN (PRINT HOẶC CANCEL)
+  // FIX LỖI: Đóng luồng in mượt mà sau khi Print hoặc Cancel
   useEffect(() => {
     const handleAfterPrint = () => {
-      // Reset lại biến cờ về false để sẵn sàng cho lần in tiếp theo
-      isPrintingRef.current = false;
+      isPrintingRef.current = false; // Mở khóa biến cờ
       setTimeout(() => {
         setPrintMode(null);
       }, 300); 
@@ -327,25 +325,13 @@ export default function App() {
     return () => window.removeEventListener("afterprint", handleAfterPrint);
   }, []);
 
-  // KÍCH HOẠT MÁY IN TỰ ĐỘNG KHÔNG LẶP LẠI
+  // FIX LỖI: Trị dứt điểm bệnh "In Trắng Tinh" & "Bắt bấm Cancel 2 lần" nhờ biến cờ kiểm soát
   useEffect(() => {
-    // Chỉ kích hoạt in nếu có printMode và biến cờ chưa bị chiếm (false)
     if (printMode && !isPrintingRef.current) {
-      isPrintingRef.current = true; // Khóa cờ lại ngay lập tức
-      
+      isPrintingRef.current = true; // Khóa cờ ngay lập tức
       const timer = setTimeout(() => {
         window.print();
-      }, 1200); // Giữ nguyên thời gian chờ 1.2 giây để tải mượt dữ liệu A4
-      
-      return () => clearTimeout(timer);
-    }
-  }, [printMode, printPOData, lastOrder, printCustomer, printBarcodeProduct]);
-  // SỬA ĐỒNG BỘ: Đợi 1.2s dựng xong HTML A4 / Bill rồi mới kích hoạt máy in
-  useEffect(() => {
-    if (printMode) {
-      const timer = setTimeout(() => {
-        window.print();
-      }, 1200);
+      }, 1200); // Trễ 1.2 giây để HTML A4 / Bill nhiệt kịp render đầy đủ dữ liệu
       return () => clearTimeout(timer);
     }
   }, [printMode, printPOData, lastOrder, printCustomer, printBarcodeProduct]);
@@ -540,7 +526,7 @@ export default function App() {
 
 
   // =====================================================================
-  // 4. ACTION FUNCTIONS (HÀM XỬ LÝ SỰ KIỆN)
+  // 4. ACTION FUNCTIONS (HÀM XỬ LÝ SỰ KIỆN - ĐÃ BỎ WINDOW.PRINT() TRÙNG)
   // =====================================================================
   const executeWithAdminCheck = (action: () => void) => { 
     if (role === 'admin') { action(); } else { setPendingAction(() => action); setShowPinModal(true); } 
@@ -963,7 +949,7 @@ export default function App() {
     }
   };
 
-  // SỬA ĐỒNG BỘ: Bỏ window.print() cũ, nhường luồng điều khiển cho useEffect tự lo
+  // ĐÃ SỬA: Luồng gọi máy in chạy tự động qua useEffect, hàm này chỉ setup state
   const handleReprint = (timeStr: string) => {
     const logsInBill = history.filter(h => h.time === timeStr && (h.type === 'BÁN' || h.type === 'GHI NỢ' || h.type === 'TRẢ HÀNG') && h.product_id !== 'DISCOUNT'); 
     const discountLog = history.find(h => h.time === timeStr && h.product_id === 'DISCOUNT');
@@ -1076,7 +1062,7 @@ export default function App() {
     setLoading(false)
   };
 
-  // SỬA ĐỒNG BỘ: Bỏ window.print() nội hàm, nhường luồng cho useEffect tự lo
+  // ĐÃ SỬA: Tách lệnh in ra ngoài, nhường quyền kiểm soát in ấn cho useEffect điều khiển
   const printCustomerCard = (phone: string) => { 
     const cust = customers[phone];
     if(!cust) return toast.error("Không tìm thấy dữ liệu khách!");
@@ -1432,6 +1418,7 @@ export default function App() {
     }); 
   };
 
+  // ĐÃ SỬA: Gỡ bỏ việc ép gọi máy in trực tiếp, đồng bộ theo luồng React
   const handlePrintBarcode = (p: any) => { 
     const q = window.prompt(`SL tem in: ${cleanName(p.name)}`, "30"); 
     if (q && parseInt(q) > 0) { 
@@ -1826,7 +1813,7 @@ export default function App() {
     } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); }
   };
 
-  // SỬA ĐỒNG BỘ: Bỏ window.print(), nhường luồng điều khiển kích hoạt máy in cho useEffect
+  // ĐÃ SỬA: Setup state, điều phối chạy luồng in tự động thông qua useEffect
   const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') => {
     setPrintPOData(po);
     setPrintMode(type);
@@ -1881,7 +1868,7 @@ export default function App() {
         <InventoryModal showInventoryModal={showInventoryModal} setShowInventoryModal={setShowInventoryModal} inventorySearchTerm={inventorySearchTerm} setInventorySearchTerm={setInventorySearchTerm} handleInventorySearchEnter={handleInventorySearchEnter} invFilter={invFilter} setInvFilter={setInvFilter} exportInventoryCSV={exportInventoryCSV} onExport={exportInventoryCSV} handleImportInventoryCSV={handleImportInventoryCSV} onImport={handleImportInventoryCSV} products={products} actualStockInput={actualStockInput} setActualStockInput={setActualStockInput} handleInvInputKeyDown={handleInvInputKeyDown} syncInventoryCheck={syncInventoryCheck} onSync={syncInventoryCheck} loading={loading} />
         <DebtModal showDebtModal={showDebtModal} setShowDebtModal={setShowDebtModal} customers={customers} handlePayDebt={handlePayDebt} />
         <AuditModal showAuditModal={showAuditModal} setShowAuditModal={setShowAuditModal} auditLogs={auditLogs} exportAuditToCSV={exportAuditToCSV} setSelectedAuditLog={setSelectedAuditLog} setSelectedLog={setSelectedAuditLog} onViewDetail={setSelectedAuditLog} onRowClick={setSelectedAuditLog} />
-        <AuditDetailModal selectedAuditLog={selectedAuditLogState} setSelectedAuditLog={setSelectedAuditLog} showModal={!!selectedAuditLogState} setShowModal={(val: boolean) => !val && setSelectedAuditLog(null)} selectedLog={selectedAuditLogState} setSelectedLog={setSelectedAuditLog} />
+        <AuditDetailModal selectedAuditLog={selectedAuditLog} setSelectedAuditLog={setSelectedAuditLog} showModal={!!selectedAuditLog} setShowModal={(val: boolean) => !val && setSelectedAuditLog(null)} selectedLog={selectedAuditLog} setSelectedLog={setSelectedAuditLog} />
         <ScannerModal scannerMode={scannerMode} setScannerMode={setScannerMode} scanMessage={scanMessage} />
         <PinModal showPinModal={showPinModal} setShowPinModal={setShowPinModal} correctPin={adminPin} onSuccess={() => { if (pendingAction) { pendingAction(); setPendingAction(null); } }} />
         <ScannerLinkModal showModal={showScannerLinkModal} setShowModal={setShowScannerLinkModal} />
@@ -1936,7 +1923,7 @@ export default function App() {
   };
 
   // =====================================================================
-  // RENDER GIAO DIỆN CHÍNH (ĐÃ DỌN SẠCH THÊM THẺ <style>)
+  // RENDER GIAO DIỆN CHÍNH (ĐÃ DỌN SẠCH CÁC KHỐI THẺ INTERAL <style>)
   // =====================================================================
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
