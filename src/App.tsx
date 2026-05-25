@@ -161,6 +161,8 @@ export default function App() {
 
   const { darkMode, setDarkMode, showSettings, setShowSettings, showInputForm, setShowInputForm, showDebtModal, setShowDebtModal, showStatsModal, setShowStatsModal, showCustomerModal, setShowCustomerModal, showHandoverModal, setShowHandoverModal, showAuditModal, setShowAuditModal, showHoldModal, setShowHoldModal, showExpenseModal, setShowExpenseModal, showSupplierModal, setShowSupplierModal, showMarketingModal, setShowMarketingModal, showInventoryModal, setShowInventoryModal, showMainMenu, setShowMainMenu, cashFlowModalInfo, setCashFlowModalInfo, scannerMode, setScannerMode, printMode, setPrintMode } = useUIState();
   const { newCode, setNewCode, newName, setNewName, newImportPrice, setNewImportPrice, newPrice, setNewPrice, newPromoPrice, setNewPromoPrice, newGiftCondition, setNewGiftCondition, newGiftInfo, setNewGiftInfo, newStock, setNewStock, newExpiry, setNewExpiry, newCategory, setNewCategory, resetProductForm } = useProductInput();
+  // Thêm một biến cờ để chặn việc kích hoạt máy in 2 lần liên tiếp
+  const isPrintingRef = React.useRef(false);
   const { cart, setCart, barcodeInput, custAddress, setCustAddress, setBarcodeInput, isCheckoutOpen, setIsCheckoutOpen, checkoutStep, setCheckoutStep, customerInput, setCustomerInput, custPhone, setCustPhone, custName, setCustName, useWallet, setUseWallet, voucherInput, setVoucherInput, appliedVoucherAmount, setAppliedVoucherAmount, customerGiven, setCustomerGiven, lastOrder, setLastOrder, resetCheckout } = useCheckoutState();
 
   const [customers, setCustomers] = useState<Record<string, Customer>>(() => { const s = localStorage.getItem("mart_customers"); return s ? JSON.parse(s) : {} });
@@ -312,17 +314,32 @@ export default function App() {
     }
   }, [scanQueue, products, scannerMode]);
 
-  // SỬA ĐỒNG BỘ: Cơ chế đóng luồng in tự động
+  // XỬ LÝ SỰ KIỆN SAU KHI ĐÓNG GIAO DIỆN IN (PRINT HOẶC CANCEL)
   useEffect(() => {
     const handleAfterPrint = () => {
+      // Reset lại biến cờ về false để sẵn sàng cho lần in tiếp theo
+      isPrintingRef.current = false;
       setTimeout(() => {
         setPrintMode(null);
-      }, 1000); 
+      }, 300); 
     };
     window.addEventListener("afterprint", handleAfterPrint);
     return () => window.removeEventListener("afterprint", handleAfterPrint);
   }, []);
 
+  // KÍCH HOẠT MÁY IN TỰ ĐỘNG KHÔNG LẶP LẠI
+  useEffect(() => {
+    // Chỉ kích hoạt in nếu có printMode và biến cờ chưa bị chiếm (false)
+    if (printMode && !isPrintingRef.current) {
+      isPrintingRef.current = true; // Khóa cờ lại ngay lập tức
+      
+      const timer = setTimeout(() => {
+        window.print();
+      }, 1200); // Giữ nguyên thời gian chờ 1.2 giây để tải mượt dữ liệu A4
+      
+      return () => clearTimeout(timer);
+    }
+  }, [printMode, printPOData, lastOrder, printCustomer, printBarcodeProduct]);
   // SỬA ĐỒNG BỘ: Đợi 1.2s dựng xong HTML A4 / Bill rồi mới kích hoạt máy in
   useEffect(() => {
     if (printMode) {
