@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef } from "react";
+import { formatCategoryStr, cleanName } from "../../utils/helpers";
 
 interface CheckoutModalProps {
   isCheckoutOpen: boolean;
@@ -13,14 +14,12 @@ interface CheckoutModalProps {
   setCustPhone: (val: string) => void;
   custName: string;
   setCustName: (val: string) => void;
-  custAddress: string;
-  setCustAddress: (val: string) => void;
   useWallet: boolean;
   setUseWallet: (val: boolean) => void;
   appliedVoucherAmount: number;
   setAppliedVoucherAmount: (val: number) => void;
-  customerGiven: number | string;
-  setCustomerGiven: (val: number | string) => void;
+  customerGiven: string;
+  setCustomerGiven: (val: string) => void;
   finalToPay: number;
   customers: any;
   isOnline: boolean;
@@ -28,212 +27,210 @@ interface CheckoutModalProps {
   bankAcc: string;
   bankNameStr: string;
   loading: boolean;
-  handleVoucherSubmit: (e: React.KeyboardEvent<HTMLInputElement>) => void;
-  handleCustomerInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  setScannerMode: (mode: 'product' | 'voucher' | 'customer' | null) => void;
+  handleVoucherSubmit: (e: any) => void;
+  handleCustomerInputChange: (e: any) => void;
+  setScannerMode: (mode: any) => void;
   handleNextToQR: () => void;
-  confirmCheckout: (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 'GHI NỢ' | 'KẾT HỢP' | 'QUẸT THẺ' | 'ZALO PAY') => void;
-  setPrintMode: (mode: string | null) => void;
+  confirmCheckout: (method: any) => void;
+  setPrintMode: (mode: any) => void;
   sendReceiptEmail: () => void;
   closeCheckout: () => void;
+  custAddress: string;
+  setCustAddress: (val: string) => void;
 }
 
 export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   isCheckoutOpen, setIsCheckoutOpen, checkoutStep, setCheckoutStep,
   voucherInput, setVoucherInput, customerInput, setCustomerInput,
-  custPhone, setCustPhone, custName, setCustName, custAddress, setCustAddress,
+  custPhone, setCustPhone, custName, setCustName,
   useWallet, setUseWallet, appliedVoucherAmount, setAppliedVoucherAmount,
-  customerGiven, setCustomerGiven, finalToPay, customers, isOnline,
-  bankBin, bankAcc, bankNameStr, loading,
+  customerGiven, setCustomerGiven, finalToPay, customers,
+  isOnline, bankBin, bankAcc, bankNameStr, loading,
   handleVoucherSubmit, handleCustomerInputChange, setScannerMode,
-  handleNextToQR, confirmCheckout, setPrintMode, sendReceiptEmail, closeCheckout
+  handleNextToQR, confirmCheckout, setPrintMode, sendReceiptEmail, closeCheckout,
+  custAddress, setCustAddress
 }) => {
-  
-  const [selectedMethod, setSelectedMethod] = useState<'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 'GHI NỢ' | 'KẾT HỢP' | 'QUẸT THẺ' | 'ZALO PAY'>('TIỀN MẶT');
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isCheckoutOpen && checkoutStep === 1) {
+      setTimeout(() => { document.getElementById('co-customer-input')?.focus(); }, 100);
+    }
+  }, [isCheckoutOpen, checkoutStep]);
 
   if (!isCheckoutOpen) return null;
 
-  // Tính toán mảng gợi ý tiền chẵn
-  const suggestAmounts = Array.from(new Set([
-    finalToPay,
-    Math.ceil(finalToPay / 50000) * 50000,
-    Math.ceil(finalToPay / 100000) * 100000,
-    200000,
-    500000
-  ])).filter(v => v >= finalToPay).sort((a, b) => a - b).slice(0, 4);
-
-  // Tính toán số tiền chuyển khoản nếu dùng phương thức "KẾT HỢP"
-  const transferAmount = selectedMethod === 'KẾT HỢP' ? Math.max(0, finalToPay - Number(customerGiven || 0)) : finalToPay;
-
-  // Hàm kích hoạt lệnh in hệ thống (Khắc phục lỗi liệt chức năng in)
-  const triggerSystemPrint = (mode: 'receipt' | 'invoice_a4') => {
-    setPrintMode(mode);
-    // Chờ 500ms để React render kịp HTML hóa đơn ra DOM rồi mới gọi lệnh in
-    setTimeout(() => {
-      window.print();
-    }, 500);
-  };
-
   return (
-    <div className="custom-modal-overlay">
-      <div className="custom-modal-box" style={{ maxWidth: '500px' }}>
+    <div className="checkout-modal-overlay" onClick={closeCheckout}>
+      <div className="checkout-modal-content" onClick={(e) => e.stopPropagation()} ref={modalRef}>
         
         {/* HEADER */}
-        <div className="custom-modal-header">
-          <h2 className="custom-modal-title">
-            {checkoutStep === 1 ? "1. Thông tin thanh toán" : checkoutStep === 2 ? "2. Phương thức TT" : "3. Hoàn tất"}
+        <div className="checkout-header">
+          <h2 className="checkout-title">
+            {checkoutStep === 1 && "1. THÔNG TIN KHÁCH HÀNG"}
+            {checkoutStep === 2 && "2. PHƯƠNG THỨC THANH TOÁN"}
+            {checkoutStep === 3 && "3. HOÀN TẤT ĐƠN HÀNG"}
           </h2>
-          <button className="custom-modal-close" onClick={closeCheckout} disabled={loading}>&times;</button>
+          <button className="checkout-close-btn" onClick={closeCheckout}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
         </div>
 
-        {/* BODY */}
-        <div className="custom-modal-body">
-          
-          {/* ======================= BƯỚC 1: NHẬP THÔNG TIN KHÁCH & VOUCHER ======================= */}
+        {/* BODY (CÓ THỂ CUỘN NẾU DÀI) */}
+        <div className="checkout-body">
           {checkoutStep === 1 && (
-            <div className="checkout-step-1">
-              
-              <div className="custom-input-group">
-                <label className="custom-label">SĐT / Mã Khách Hàng</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input className="custom-input" placeholder="Nhập SĐT hoặc quét mã thẻ..." value={customerInput} onChange={handleCustomerInputChange} />
-                  <button type="button" style={{ padding: '0 15px', background: '#e2e8f0', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => setScannerMode('customer')}>📷 Quét</button>
+            <>
+              {/* SĐT Khách hàng */}
+              <div className="co-group">
+                <label className="co-label">SĐT / Mã Khách Hàng</label>
+                <div className="co-input-wrapper">
+                  <div className="co-icon-box">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                  </div>
+                  <input id="co-customer-input" className="co-input" placeholder="Nhập SĐT hoặc quét mã thẻ..." value={customerInput} onChange={handleCustomerInputChange} />
+                  <button type="button" className="co-btn-scan" onClick={() => setScannerMode('customer')}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="8" y1="12" x2="16" y2="12"></line><line x1="12" y1="8" x2="12" y2="16"></line></svg>
+                    Quét
+                  </button>
                 </div>
               </div>
 
-              <div className="custom-input-group">
-                <label className="custom-label">Tên khách hàng</label>
-                <input className="custom-input" placeholder="Tên khách hàng..." value={custName} onChange={(e) => setCustName(e.target.value)} disabled={customers[custPhone] && customers[custPhone].name} />
-              </div>
-
-              <div className="custom-input-group">
-                <label className="custom-label">Địa chỉ giao hàng (Tùy chọn)</label>
-                <input className="custom-input" placeholder="Số nhà, đường, phường, quận..." value={custAddress} onChange={(e) => setCustAddress(e.target.value)} />
-              </div>
-
-              <div className="custom-input-group">
-                <label className="custom-label">Mã Giảm Giá / Voucher</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input className="custom-input" placeholder="Nhập mã và ấn Enter..." value={voucherInput} onChange={(e) => setVoucherInput(e.target.value)} onKeyDown={handleVoucherSubmit} />
-                  <button type="button" style={{ padding: '0 15px', background: '#e2e8f0', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => setScannerMode('voucher')}>📷 Quét</button>
+              {/* Tên Khách Hàng */}
+              <div className="co-group">
+                <label className="co-label">Tên Khách Hàng</label>
+                <div className="co-input-wrapper">
+                  <div className="co-icon-box">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                  </div>
+                  <input className="co-input" placeholder="Tên khách hàng..." value={custName} onChange={(e) => setCustName(e.target.value)} />
                 </div>
-                {appliedVoucherAmount > 0 && <p style={{ color: '#10b981', fontWeight: 'bold', fontSize: '13px', marginTop: '5px' }}>✅ Đã áp dụng giảm {appliedVoucherAmount.toLocaleString()}đ</p>}
               </div>
 
-              {customers[custPhone] && customers[custPhone].wallet > 0 && (
-                <div style={{ background: '#fef3c7', padding: '12px', borderRadius: '8px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div><span style={{ fontWeight: 'bold', color: '#d97706' }}>Ví VIP tích lũy:</span><br/><span style={{ fontSize: '18px', fontWeight: '900', color: '#b45309' }}>{customers[custPhone].wallet.toLocaleString()}đ</span></div>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 'bold', color: '#b45309' }}>
-                    <input type="checkbox" style={{ transform: 'scale(1.5)' }} checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} /> Dùng ví
-                  </label>
+              {/* Địa Chỉ */}
+              <div className="co-group">
+                <label className="co-label">Địa Chỉ Giao Hàng (Tùy chọn)</label>
+                <div className="co-input-wrapper">
+                  <div className="co-icon-box">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                  </div>
+                  <input className="co-input" placeholder="Số nhà, đường, phường, quận..." value={custAddress} onChange={(e) => setCustAddress(e.target.value)} />
                 </div>
-              )}
-
-              <div style={{ padding: '15px', background: '#f8fafc', borderRadius: '12px', border: '2px dashed #cbd5e1', textAlign: 'center', marginBottom: '20px' }}>
-                <p style={{ margin: '0 0 5px 0', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase' }}>Cần Thanh Toán</p>
-                <h2 style={{ margin: '0', fontSize: '32px', color: '#dc2626', fontWeight: '900' }}>{finalToPay.toLocaleString()}đ</h2>
               </div>
 
-              <button className="gradient-btn" onClick={handleNextToQR}>TIẾP TỤC THANH TOÁN</button>
-            </div>
+              {/* Mã Giảm Giá */}
+              <div className="co-group" style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '20px' }}>
+                <label className="co-label" style={{ color: '#059669' }}>Mã Giảm Giá / Voucher</label>
+                <div className="co-input-wrapper">
+                  <div className="co-icon-box" style={{ color: '#10b981' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+                  </div>
+                  <input className="co-input" placeholder="Nhập mã và ấn Enter..." value={voucherInput} onChange={(e) => setVoucherInput(e.target.value)} onKeyDown={handleVoucherSubmit} />
+                  <button type="button" className="co-btn-scan" onClick={() => setScannerMode('voucher')}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="8" y1="12" x2="16" y2="12"></line><line x1="12" y1="8" x2="12" y2="16"></line></svg>
+                    Quét
+                  </button>
+                </div>
+              </div>
+
+              {/* Tổng Tiền Summary */}
+              <div className="co-summary-box">
+                <div className="co-summary-title">CẦN THANH TOÁN</div>
+                <div className="co-summary-price">{finalToPay.toLocaleString()}đ</div>
+              </div>
+            </>
           )}
 
-          {/* ======================= BƯỚC 2: CHỌN PHƯƠNG THỨC & XÁC NHẬN ======================= */}
           {checkoutStep === 2 && (
-            <div className="checkout-step-2">
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '20px' }}>
-                {['TIỀN MẶT', 'CHUYỂN KHOẢN', 'KẾT HỢP', 'QUẸT THẺ', 'ZALO PAY', 'GHI NỢ'].map(method => (
-                  <button 
-                    key={method} type="button"
-                    style={{
-                      padding: '10px 5px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', border: '2px solid', fontSize: '12px',
-                      background: selectedMethod === method ? '#eff6ff' : '#fff',
-                      borderColor: selectedMethod === method ? '#3b82f6' : '#e2e8f0',
-                      color: selectedMethod === method ? '#1d4ed8' : '#475569'
-                    }}
-                    onClick={() => { setSelectedMethod(method as any); setCustomerGiven(""); }}
-                  >
-                    {method}
-                  </button>
-                ))}
+            <div style={{ textAlign: "center", padding: "10px 0" }}>
+              <div className="co-summary-box" style={{ marginTop: 0, marginBottom: '25px' }}>
+                <div className="co-summary-title">TỔNG TIỀN:</div>
+                <div className="co-summary-price" style={{ fontSize: '40px' }}>{finalToPay.toLocaleString()}đ</div>
               </div>
 
-              {(selectedMethod === 'TIỀN MẶT' || selectedMethod === 'KẾT HỢP') && (
-                <div className="custom-input-group" style={{ background: '#f1f5f9', padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
-                  <label className="custom-label">
-                    {selectedMethod === 'KẾT HỢP' ? 'Tiền mặt khách đưa (Phần còn lại sẽ CK)' : 'Tiền khách đưa (VND)'}
-                  </label>
-                  <input 
-                    type="number" className="custom-input" placeholder="Nhập số tiền..." 
-                    value={customerGiven} onChange={(e) => setCustomerGiven(e.target.value)} 
-                  />
-                  
-                  <div style={{ display: 'flex', gap: '6px', marginTop: '10px', flexWrap: 'wrap' }}>
-                    {suggestAmounts.map((amt, idx) => (
-                      <button 
-                        key={idx} type="button"
-                        style={{ padding: '6px 10px', background: '#e2e8f0', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', color: '#334155' }}
-                        onClick={() => setCustomerGiven(amt)}
-                      >
-                        {amt === finalToPay ? 'Đưa đủ' : `${(amt/1000)}k`}
-                      </button>
-                    ))}
-                  </div>
-
-                  {selectedMethod === 'TIỀN MẶT' && Number(customerGiven) > finalToPay && (
-                    <p style={{ margin: '12px 0 0 0', fontWeight: 'bold', color: '#10b981', fontSize: '15px' }}>
-                      Tiền thối lại: {(Number(customerGiven) - finalToPay).toLocaleString()}đ
-                    </p>
-                  )}
-                </div>
+              {customers[custPhone]?.wallet > 0 && (
+                <label style={{ display: "flex", alignItems: "center", gap: "10px", background: "#f8fafc", padding: "15px", borderRadius: "10px", marginBottom: "20px", cursor: "pointer", border: "1px solid #cbd5e1" }}>
+                  <input type="checkbox" checked={useWallet} onChange={e => setUseWallet(e.target.value === 'true' ? true : (!useWallet))} style={{ width: '20px', height: '20px', accentColor: '#ea580c' }} />
+                  <span style={{ fontSize: "15px", fontWeight: "bold", color: "#0f172a" }}>Trừ Ví VIP: <span style={{ color: "#ea580c" }}>{customers[custPhone].wallet.toLocaleString()}đ</span></span>
+                </label>
               )}
 
-              {(selectedMethod === 'CHUYỂN KHOẢN' || selectedMethod === 'ZALO PAY' || selectedMethod === 'KẾT HỢP') && transferAmount > 0 && (
-                <div style={{ textAlign: 'center', background: '#f8fafc', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px dashed #cbd5e1' }}>
-                  <p style={{ fontWeight: 'bold', marginBottom: '10px', color: '#0f172a' }}>
-                    Quét mã QR để chuyển khoản: <span style={{ color: '#dc2626', fontSize: '18px' }}>{transferAmount.toLocaleString()}đ</span>
-                  </p>
-                  <img 
-                    src={`https://img.vietqr.io/image/${bankBin}-${bankAcc}-compact2.png?amount=${transferAmount}&addInfo=ThanhToan&accountName=${encodeURIComponent(bankNameStr)}`} 
-                    alt="VietQR" style={{ width: '180px', height: '180px', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                  />
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                <button type="button" style={{ flex: 1, padding: '14px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', fontWeight: 'bold', cursor: 'pointer' }} onClick={() => setCheckoutStep(1)} disabled={loading}>
-                  QUAY LẠI
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <button 
+                  onClick={() => confirmCheckout('TIỀN MẶT')} 
+                  disabled={loading}
+                  style={{ width: "100%", padding: "16px", background: "#10b981", color: "white", border: "none", borderRadius: "10px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                >
+                  💵 THANH TOÁN TIỀN MẶT (F2)
                 </button>
                 <button 
-                  className="gradient-btn" style={{ flex: 2 }}
-                  onClick={() => confirmCheckout(selectedMethod)}
-                  disabled={loading || (selectedMethod === 'TIỀN MẶT' && Number(customerGiven) < finalToPay && Number(customerGiven) > 0)}
+                  onClick={() => confirmCheckout('CHUYỂN KHOẢN')} 
+                  disabled={loading}
+                  style={{ width: "100%", padding: "16px", background: "#3b82f6", color: "white", border: "none", borderRadius: "10px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                 >
-                  {loading ? 'ĐANG XỬ LÝ...' : 'XÁC NHẬN HOÀN TẤT'}
+                  🏦 MÃ QR CHUYỂN KHOẢN (F3)
+                </button>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <button 
+                    onClick={() => confirmCheckout('QUẸT THẺ')} 
+                    disabled={loading}
+                    style={{ padding: "14px", background: "#64748b", color: "white", border: "none", borderRadius: "10px", fontSize: "14px", fontWeight: "bold", cursor: "pointer" }}
+                  >
+                    💳 QUẸT THẺ
+                  </button>
+                  <button 
+                    onClick={() => confirmCheckout('GHI NỢ')} 
+                    disabled={loading}
+                    style={{ padding: "14px", background: "#ef4444", color: "white", border: "none", borderRadius: "10px", fontSize: "14px", fontWeight: "bold", cursor: "pointer" }}
+                  >
+                    📓 KHÁCH GHI NỢ
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {checkoutStep === 3 && (
+            <div style={{ textAlign: "center", padding: "20px 0" }}>
+              <div style={{ width: '80px', height: '80px', background: '#dcfce7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: '#10b981' }}>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              </div>
+              <h2 style={{ color: "#059669", marginBottom: "10px", fontSize: '24px', fontWeight: '900' }}>THANH TOÁN THÀNH CÔNG!</h2>
+              <p style={{ color: "#64748b", fontSize: "15px", marginBottom: "30px" }}>Đơn hàng đã được lưu vào hệ thống.</p>
+              
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <button 
+                  onClick={() => setPrintMode('receipt')}
+                  style={{ width: "100%", padding: "16px", background: "#3b82f6", color: "white", border: "none", borderRadius: "10px", fontSize: "16px", fontWeight: "bold", cursor: "pointer" }}
+                >
+                  🖨️ IN HÓA ĐƠN
+                </button>
+                <button 
+                  onClick={sendReceiptEmail}
+                  style={{ width: "100%", padding: "16px", background: "#f1f5f9", color: "#475569", border: "1px solid #cbd5e1", borderRadius: "10px", fontSize: "16px", fontWeight: "bold", cursor: "pointer" }}
+                >
+                  ✉️ GỬI EMAIL HÓA ĐƠN
+                </button>
+                <button 
+                  onClick={closeCheckout}
+                  style={{ width: "100%", padding: "16px", background: "#e2e8f0", color: "#0f172a", border: "none", borderRadius: "10px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", marginTop: '10px' }}
+                >
+                  XONG & ĐÓNG
                 </button>
               </div>
             </div>
           )}
-
-          {/* ======================= BƯỚC 3: THÀNH CÔNG & IN ẤN ======================= */}
-          {checkoutStep === 3 && (
-            <div className="checkout-step-3" style={{ textAlign: 'center', padding: '20px 0' }}>
-              <div style={{ fontSize: '60px', marginBottom: '10px' }}>✅</div>
-              <h2 style={{ color: '#10b981', margin: '0 0 5px 0' }}>THANH TOÁN THÀNH CÔNG!</h2>
-              <p style={{ color: '#64748b', marginBottom: '25px' }}>Đơn hàng đã được lưu vào hệ thống.</p>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {/* ĐÃ SỬA: Thay đổi hàm onClick để kích hoạt lệnh gọi máy in trực tiếp */}
-                <button type="button" style={{ padding: '14px', borderRadius: '8px', border: 'none', background: '#3b82f6', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }} onClick={() => triggerSystemPrint('receipt')}>🖨️ IN BILL MÁY POS (80MM)</button>
-                <button type="button" style={{ padding: '14px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }} onClick={() => triggerSystemPrint('invoice_a4')}>📄 IN HÓA ĐƠN A4</button>
-                
-                {isOnline && <button type="button" style={{ padding: '14px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fef3c7', color: '#d97706', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }} onClick={sendReceiptEmail} disabled={loading}>📧 GỬI HÓA ĐƠN QUA EMAIL</button>}
-                <button className="gradient-btn" style={{ marginTop: '10px' }} onClick={closeCheckout}>ĐÓNG & TẠO ĐƠN MỚI</button>
-              </div>
-            </div>
-          )}
-
         </div>
+
+        {/* FOOTER CỐ ĐỊNH CHỨA NÚT ACTION (Chỉ hiện ở Step 1) */}
+        {checkoutStep === 1 && (
+          <div className="checkout-footer">
+            <button className="co-btn-primary" onClick={handleNextToQR}>
+              TIẾP TỤC THANH TOÁN
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+            </button>
+          </div>
+        )}
+
       </div>
     </div>
   );
