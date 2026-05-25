@@ -187,3 +187,101 @@
 .filter-btn-apply:hover {
   background: #2563eb;
 }
+/* ========================================================= */
+/* CHECKOUT MODAL PRO - GIAO DIỆN THANH TOÁN CHUYÊN NGHIỆP   */
+/* ========================================================= */
+.checkout-modal-overlay {
+  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(5px);
+  display: flex; align-items: center; justify-content: center; z-index: 99999;
+}
+
+.checkout-modal-content {
+  background: #ffffff; width: 90%; max-width: 520px; max-height: 90vh; 
+  border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); 
+  display: flex; flex-direction: column; overflow: hidden; 
+  animation: slideUpFade 0.3s ease-out;
+}
+
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.checkout-header {
+  padding: 16px 24px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; 
+  display: flex; justify-content: space-between; align-items: center;
+}
+
+.checkout-title {
+  margin: 0; font-size: 16px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;
+}
+
+.checkout-close-btn {
+  background: transparent; border: none; color: #94a3b8; cursor: pointer; transition: 0.2s; padding: 4px;
+}
+.checkout-close-btn:hover { color: #ef4444; transform: rotate(90deg); }
+
+/* Vùng thân nội dung (Có thanh cuộn nếu quá dài) */
+.checkout-body {
+  padding: 24px; overflow-y: auto; flex: 1;
+}
+
+/* Vùng chân cố định nút bấm (Không bao giờ bị xén) */
+.checkout-footer {
+  padding: 16px 24px; background: #ffffff; border-top: 1px solid #e2e8f0;
+  box-shadow: 0 -4px 6px -1px rgba(0,0,0,0.05); z-index: 10;
+}
+
+.co-group { margin-bottom: 20px; }
+.co-label { display: block; font-size: 12px; font-weight: 700; color: #64748b; margin-bottom: 8px; text-transform: uppercase; }
+
+/* Ô nhập liệu có Icon */
+.co-input-wrapper {
+  display: flex; align-items: stretch; border: 1.5px solid #cbd5e1; border-radius: 10px; overflow: hidden; transition: all 0.2s; background: #fff;
+}
+.co-input-wrapper:focus-within {
+  border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.co-icon-box {
+  padding: 0 14px; background: #f8fafc; border-right: 1px solid #cbd5e1;
+  display: flex; align-items: center; justify-content: center; color: #64748b;
+}
+
+.co-input {
+  flex: 1; border: none; padding: 12px 14px; outline: none; font-size: 15px; color: #0f172a; font-weight: 500;
+}
+.co-input::placeholder { color: #94a3b8; font-weight: 400; }
+
+/* Nút quét mã vạch */
+.co-btn-scan {
+  background: #f1f5f9; border: none; border-left: 1px solid #cbd5e1; padding: 0 16px;
+  color: #3b82f6; font-weight: 700; font-size: 13px; cursor: pointer; transition: 0.2s;
+  display: flex; align-items: center; gap: 6px;
+}
+.co-btn-scan:hover { background: #e2e8f0; color: #2563eb; }
+
+/* Khối chốt tổng tiền */
+.co-summary-box {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border: 1px solid #bfdbfe; border-radius: 12px; padding: 20px; 
+  text-align: center; margin-top: 24px;
+}
+.co-summary-title {
+  font-size: 13px; color: #1e40af; font-weight: 700; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;
+}
+.co-summary-price {
+  font-size: 36px; font-weight: 900; color: #1d4ed8; margin: 0; letter-spacing: -1px;
+}
+
+/* Nút thanh toán khổng lồ */
+.co-btn-primary {
+  width: 100%; padding: 16px; background: #ea580c; color: white; border: none; border-radius: 10px;
+  font-size: 16px; font-weight: 800; cursor: pointer; transition: all 0.2s; 
+  text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 6px -1px rgba(234, 88, 12, 0.3);
+  display: flex; justify-content: center; align-items: center; gap: 10px;
+}
+.co-btn-primary:hover {
+  background: #c2410c; transform: translateY(-2px); box-shadow: 0 6px 12px -2px rgba(234, 88, 12, 0.4);
+}
+.co-btn-primary:active { transform: translateY(0); }
