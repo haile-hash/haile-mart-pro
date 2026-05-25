@@ -1,6 +1,6 @@
 /* eslint-disable */
 // @ts-nocheck
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { supabase } from "./supabaseClient";
 import { 
   styles, formatCategoryStr, parseGift, cleanName, 
@@ -65,10 +65,8 @@ export default function App() {
   const EMAILJS_PUBLIC_KEY = process.env.REACT_APP_EMAILJS_PUBLIC_KEY;
   
   // =====================================================================
-  // 1. STATES CƠ BẢN & BIẾN CỜ KIỂM SOÁT IN ẤN
+  // 1. STATES CƠ BẢN
   // =====================================================================
-  const isPrintingRef = useRef(false); // Biến cờ chặn lệnh in trùng lặp (Fix lỗi Cancel 2 lần)
-
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem("mart_logged_in") === "true");
   const [role, setRole] = useState(() => localStorage.getItem("mart_role") || "staff");
   const [shift, setShift] = useState(() => localStorage.getItem("mart_shift") || "Ca Sáng");
@@ -183,7 +181,7 @@ export default function App() {
   };
 
   // =====================================================================
-  // 2. EFFECTS (ĐÃ TỐI ƯU LUỒNG ĐIỀU KHIỂN MÁY IN)
+  // 2. EFFECTS
   // =====================================================================
   useEffect(() => { 
     if (darkMode) { 
@@ -313,28 +311,31 @@ export default function App() {
     }
   }, [scanQueue, products, scannerMode]);
 
-  // FIX LỖI: TRỊ DỨT ĐIỂM BỆNH IN TRẮNG & IN ĐÚP LẦN 2
+  // =====================================================================
+  // FIX LỖI: CHẶN ĐỨT ĐIỂM VÒNG LẶP HỘP THOẠI IN (BẤM CANCEL LÀ TẮT HẲN)
+  // =====================================================================
   useEffect(() => {
-    if (printMode) {
-      if (isPrintingRef.current) return;
-      isPrintingRef.current = true;
+    if (!printMode) return;
 
-      const timer = setTimeout(() => {
-        // Đợi 1.2s để đảm bảo mọi bảng biểu A4, mã vạch đã vẽ xong 100%
-        window.print(); 
-        
-        // Ngay khi hộp thoại in vừa đóng lại, lệnh dưới đây mới được chạy để tắt UI in.
-        setPrintMode(null); 
-        
-        // Thời gian làm nguội, chặn re-render thừa
-        setTimeout(() => {
-          isPrintingRef.current = false;
-        }, 500);
-      }, 1200); 
+    let isPrinted = false;
+
+    const executePrint = () => {
+      if (isPrinted) return;
+      isPrinted = true;
       
-      return () => clearTimeout(timer);
-    }
-  }, [printMode]);
+      try {
+        window.print(); 
+      } finally {
+        setPrintMode(null); 
+      }
+    };
+
+    const timer = setTimeout(executePrint, 800);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [printMode, setPrintMode]);
 
   useEffect(() => {
     if (showPOModal && poTab === 'RECEIVE') {
@@ -526,7 +527,7 @@ export default function App() {
 
 
   // =====================================================================
-  // 4. ACTION FUNCTIONS (HÀM XỬ LÝ SỰ KIỆN - ĐÃ BỎ WINDOW.PRINT() TRÙNG)
+  // 4. ACTION FUNCTIONS
   // =====================================================================
   const executeWithAdminCheck = (action: () => void) => { 
     if (role === 'admin') { action(); } else { setPendingAction(() => action); setShowPinModal(true); } 
