@@ -53,7 +53,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   if (!isCheckoutOpen) return null;
 
-  // Tính toán mảng gợi ý tiền chẵn (Tự động đưa ra các mức 50k, 100k... cao hơn tổng bill)
+  // Tính toán mảng gợi ý tiền chẵn
   const suggestAmounts = Array.from(new Set([
     finalToPay,
     Math.ceil(finalToPay / 50000) * 50000,
@@ -64,6 +64,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   // Tính toán số tiền chuyển khoản nếu dùng phương thức "KẾT HỢP"
   const transferAmount = selectedMethod === 'KẾT HỢP' ? Math.max(0, finalToPay - Number(customerGiven || 0)) : finalToPay;
+
+  // Hàm kích hoạt lệnh in hệ thống (Khắc phục lỗi liệt chức năng in)
+  const triggerSystemPrint = (mode: 'receipt' | 'invoice_a4') => {
+    setPrintMode(mode);
+    // Chờ 500ms để React render kịp HTML hóa đơn ra DOM rồi mới gọi lệnh in
+    setTimeout(() => {
+      window.print();
+    }, 500);
+  };
 
   return (
     <div className="custom-modal-overlay">
@@ -132,7 +141,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           {/* ======================= BƯỚC 2: CHỌN PHƯƠNG THỨC & XÁC NHẬN ======================= */}
           {checkoutStep === 2 && (
             <div className="checkout-step-2">
-              {/* LƯỚI CHỌN PHƯƠNG THỨC THANH TOÁN */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '20px' }}>
                 {['TIỀN MẶT', 'CHUYỂN KHOẢN', 'KẾT HỢP', 'QUẸT THẺ', 'ZALO PAY', 'GHI NỢ'].map(method => (
                   <button 
@@ -150,7 +158,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 ))}
               </div>
 
-              {/* Ô NHẬP TIỀN NẾU LÀ "TIỀN MẶT" HOẶC "KẾT HỢP" */}
               {(selectedMethod === 'TIỀN MẶT' || selectedMethod === 'KẾT HỢP') && (
                 <div className="custom-input-group" style={{ background: '#f1f5f9', padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
                   <label className="custom-label">
@@ -161,7 +168,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     value={customerGiven} onChange={(e) => setCustomerGiven(e.target.value)} 
                   />
                   
-                  {/* CÁC NÚT GỢI Ý TIỀN NHANH */}
                   <div style={{ display: 'flex', gap: '6px', marginTop: '10px', flexWrap: 'wrap' }}>
                     {suggestAmounts.map((amt, idx) => (
                       <button 
@@ -182,7 +188,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
               )}
 
-              {/* MÃ QR CODE NẾU LÀ "CHUYỂN KHOẢN", "ZALO PAY" HOẶC "KẾT HỢP" */}
               {(selectedMethod === 'CHUYỂN KHOẢN' || selectedMethod === 'ZALO PAY' || selectedMethod === 'KẾT HỢP') && transferAmount > 0 && (
                 <div style={{ textAlign: 'center', background: '#f8fafc', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px dashed #cbd5e1' }}>
                   <p style={{ fontWeight: 'bold', marginBottom: '10px', color: '#0f172a' }}>
@@ -218,8 +223,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <p style={{ color: '#64748b', marginBottom: '25px' }}>Đơn hàng đã được lưu vào hệ thống.</p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <button type="button" style={{ padding: '14px', borderRadius: '8px', border: 'none', background: '#3b82f6', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }} onClick={() => setPrintMode('receipt')}>🖨️ IN BILL MÁY POS (80MM)</button>
-                <button type="button" style={{ padding: '14px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }} onClick={() => setPrintMode('invoice_a4')}>📄 IN HÓA ĐƠN A4</button>
+                {/* ĐÃ SỬA: Thay đổi hàm onClick để kích hoạt lệnh gọi máy in trực tiếp */}
+                <button type="button" style={{ padding: '14px', borderRadius: '8px', border: 'none', background: '#3b82f6', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }} onClick={() => triggerSystemPrint('receipt')}>🖨️ IN BILL MÁY POS (80MM)</button>
+                <button type="button" style={{ padding: '14px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }} onClick={() => triggerSystemPrint('invoice_a4')}>📄 IN HÓA ĐƠN A4</button>
+                
                 {isOnline && <button type="button" style={{ padding: '14px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fef3c7', color: '#d97706', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }} onClick={sendReceiptEmail} disabled={loading}>📧 GỬI HÓA ĐƠN QUA EMAIL</button>}
                 <button className="gradient-btn" style={{ marginTop: '10px' }} onClick={closeCheckout}>ĐÓNG & TẠO ĐƠN MỚI</button>
               </div>
