@@ -192,6 +192,31 @@
 /* BIỆN PHÁP CHỐNG VỠ APP: ẨN TUYỆT ĐỐI KHỐI RÁC KHI IN      */
 /* ========================================================= */
 @media print {
+  @media print {
+  /* Chặn đứng lỗi lọt nền ứng dụng vào mép giấy in */
+  html, body, #root {
+    background: #ffffff !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  
+  /* Ẩn triệt để các Modal, Menu, Header đang nổi trên web */
+  .checkout-modal-overlay,
+  .toast-container,
+  aside, nav, header {
+    display: none !important;
+  }
+  
+  /* Đảm bảo vùng in được quyền ưu tiên tối thượng */
+  .print-only-zone {
+    display: block !important;
+    position: relative !important;
+    width: 100% !important;
+    background: #ffffff !important;
+    z-index: 99999 !important;
+    margin: 0 !important;
+  }
+}
   /* Khóa toàn bộ nền và màn hình nền App */
   @page {
     margin: 5mm; 
