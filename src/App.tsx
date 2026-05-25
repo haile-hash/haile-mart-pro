@@ -312,28 +312,29 @@ export default function App() {
   }, [scanQueue, products, scannerMode]);
 
   // =====================================================================
-  // FIX LỖI: CHẶN ĐỨT ĐIỂM VÒNG LẶP HỘP THOẠI IN (BẤM CANCEL LÀ TẮT HẲN)
+ // =====================================================================
+  // FIX LỖI: CHẶN ĐỨT ĐIỂM KẸT MÀN HÌNH IN (DÙNG EVENT GỐC CỦA TRÌNH DUYỆT)
   // =====================================================================
   useEffect(() => {
     if (!printMode) return;
 
-    let isPrinted = false;
-
-    const executePrint = () => {
-      if (isPrinted) return;
-      isPrinted = true;
-      
-      try {
-        window.print(); 
-      } finally {
-        setPrintMode(null); 
-      }
+    // Hàm ép React thoát chế độ in, trả lại UI bán hàng
+    const handleAfterPrint = () => {
+      setPrintMode(null);
     };
 
-    const timer = setTimeout(executePrint, 800);
+    // Bắt sự kiện gốc: Hễ hộp thoại in ĐÓNG LẠI (bấm Cancel/Print) là gọi hàm thoát ngay!
+    window.addEventListener('afterprint', handleAfterPrint);
+
+    const timer = setTimeout(() => {
+      window.print();
+      // Lớp bảo vệ thứ 2: Đề phòng trình duyệt bị lag không văng event, ép tắt sau 500ms
+      setTimeout(handleAfterPrint, 500);
+    }, 800);
 
     return () => {
       clearTimeout(timer);
+      window.removeEventListener('afterprint', handleAfterPrint);
     };
   }, [printMode, setPrintMode]);
 
