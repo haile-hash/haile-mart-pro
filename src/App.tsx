@@ -139,7 +139,8 @@ export default function App() {
   const [printBarcodeProduct, setPrintBarcodeProduct] = useState<Product | null>(null);
   const [printCustomer, setPrintCustomer] = useState<Customer | null>(null);
   const [barcodeCount, setBarcodeCount] = useState<number>(30);
-  const [selectedAuditLog, setSelectedAuditLog] = useState<AuditLog | null>(null);
+  const [selectedAuditLog, MapSetSelectedAuditLog] = useState<AuditLog | null>(null);
+  const [selectedAuditLogState, setSelectedAuditLog] = useState<AuditLog | null>(null);
 
   // States dành riêng cho Phiếu nhập PO
   const [localPOs, setLocalPOs] = useState<any[]>(() => { 
@@ -160,7 +161,7 @@ export default function App() {
 
   const { darkMode, setDarkMode, showSettings, setShowSettings, showInputForm, setShowInputForm, showDebtModal, setShowDebtModal, showStatsModal, setShowStatsModal, showCustomerModal, setShowCustomerModal, showHandoverModal, setShowHandoverModal, showAuditModal, setShowAuditModal, showHoldModal, setShowHoldModal, showExpenseModal, setShowExpenseModal, showSupplierModal, setShowSupplierModal, showMarketingModal, setShowMarketingModal, showInventoryModal, setShowInventoryModal, showMainMenu, setShowMainMenu, cashFlowModalInfo, setCashFlowModalInfo, scannerMode, setScannerMode, printMode, setPrintMode } = useUIState();
   const { newCode, setNewCode, newName, setNewName, newImportPrice, setNewImportPrice, newPrice, setNewPrice, newPromoPrice, setNewPromoPrice, newGiftCondition, setNewGiftCondition, newGiftInfo, setNewGiftInfo, newStock, setNewStock, newExpiry, setNewExpiry, newCategory, setNewCategory, resetProductForm } = useProductInput();
-  const { cart, setCart, barcodeInput,custAddress, setCustAddress, setBarcodeInput, isCheckoutOpen, setIsCheckoutOpen, checkoutStep, setCheckoutStep, customerInput, setCustomerInput, custPhone, setCustPhone, custName, setCustName, useWallet, setUseWallet, voucherInput, setVoucherInput, appliedVoucherAmount, setAppliedVoucherAmount, customerGiven, setCustomerGiven, lastOrder, setLastOrder, resetCheckout } = useCheckoutState();
+  const { cart, setCart, barcodeInput, custAddress, setCustAddress, setBarcodeInput, isCheckoutOpen, setIsCheckoutOpen, checkoutStep, setCheckoutStep, customerInput, setCustomerInput, custPhone, setCustPhone, custName, setCustName, useWallet, setUseWallet, voucherInput, setVoucherInput, appliedVoucherAmount, setAppliedVoucherAmount, customerGiven, setCustomerGiven, lastOrder, setLastOrder, resetCheckout } = useCheckoutState();
 
   const [customers, setCustomers] = useState<Record<string, Customer>>(() => { const s = localStorage.getItem("mart_customers"); return s ? JSON.parse(s) : {} });
   const [heldOrders, setHeldOrders] = useState<HeldOrder[]>(() => { const s = localStorage.getItem("mart_held_orders"); return s ? JSON.parse(s) : [] });
@@ -311,6 +312,7 @@ export default function App() {
     }
   }, [scanQueue, products, scannerMode]);
 
+  // SỬA ĐỒNG BỘ: Cơ chế đóng luồng in tự động
   useEffect(() => {
     const handleAfterPrint = () => {
       setTimeout(() => {
@@ -320,6 +322,16 @@ export default function App() {
     window.addEventListener("afterprint", handleAfterPrint);
     return () => window.removeEventListener("afterprint", handleAfterPrint);
   }, []);
+
+  // SỬA ĐỒNG BỘ: Đợi 1.2s dựng xong HTML A4 / Bill rồi mới kích hoạt máy in
+  useEffect(() => {
+    if (printMode) {
+      const timer = setTimeout(() => {
+        window.print();
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [printMode, printPOData, lastOrder, printCustomer, printBarcodeProduct]);
 
   useEffect(() => {
     if (showPOModal && poTab === 'RECEIVE') {
@@ -934,6 +946,7 @@ export default function App() {
     }
   };
 
+  // SỬA ĐỒNG BỘ: Bỏ window.print() cũ, nhường luồng điều khiển cho useEffect tự lo
   const handleReprint = (timeStr: string) => {
     const logsInBill = history.filter(h => h.time === timeStr && (h.type === 'BÁN' || h.type === 'GHI NỢ' || h.type === 'TRẢ HÀNG') && h.product_id !== 'DISCOUNT'); 
     const discountLog = history.find(h => h.time === timeStr && h.product_id === 'DISCOUNT');
@@ -977,7 +990,8 @@ export default function App() {
       custName: cName, 
       custPhone: cPhone 
     };
-    setLastOrder(rOrder); setPrintMode('receipt'); setTimeout(() => window.print(), 500);
+    setLastOrder(rOrder); 
+    setPrintMode('receipt'); 
   };
 
   const sendReceiptEmail = async () => {
@@ -1045,21 +1059,14 @@ export default function App() {
     setLoading(false)
   };
 
+  // SỬA ĐỒNG BỘ: Bỏ window.print() nội hàm, nhường luồng cho useEffect tự lo
   const printCustomerCard = (phone: string) => { 
     const cust = customers[phone];
     if(!cust) return toast.error("Không tìm thấy dữ liệu khách!");
     
-    // Nạp dữ liệu vào state trước
+    toast.loading("Đang dựng cấu trúc thẻ VIP...", { duration: 1200 });
     setPrintCustomer({ phone, ...cust }); 
     setPrintMode('customer_card'); 
-    
-    // Tăng thời gian chờ lên một chút (2000ms) để đảm bảo PrintManager đã ăn khớp dữ liệu và render xong UI
-    const loadingToast = toast.loading("Đang dựng cấu trúc thẻ VIP...", { duration: 2000 });
-    
-    setTimeout(() => {
-      toast.dismiss(loadingToast);
-      window.print();
-    }, 2000); 
   };
 
   const sendCardEmail = async (phone: string) => {
@@ -1414,7 +1421,6 @@ export default function App() {
       setPrintBarcodeProduct(p); 
       setBarcodeCount(parseInt(q)); 
       setPrintMode('barcode'); 
-      setTimeout(() => window.print(), 1500) 
     } 
   };
 
@@ -1802,11 +1808,13 @@ export default function App() {
       setReceiveItems(newPO.items.map((i: any) => ({ ...i, damagedQty: 0 })));
     } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); }
   };
-const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') => {
+
+  // SỬA ĐỒNG BỘ: Bỏ window.print(), nhường luồng điều khiển kích hoạt máy in cho useEffect
+  const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') => {
     setPrintPOData(po);
     setPrintMode(type);
-    setTimeout(() => window.print(), 800);
   };
+
   const handleConfirmReceipt = async () => {
     if (!foundPO || receiveItems.length === 0) return; setLoading(true);
     try {
@@ -1851,13 +1859,12 @@ const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') =
         {showHandoverModal && <HandoverModal role={role} shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onClose={() => setShowHandoverModal(false)} onConfirm={confirmHandover} />}
         <CashFlowModal cashFlowModalInfo={cashFlowModalInfo} setCashFlowModalInfo={setCashFlowModalInfo} shift={shift} todayStrStr={todayStrStr} currentShiftCashFlow={currentShiftCashFlow} currentShiftStats={currentShiftStats} />
         <HoldOrdersModal showHoldModal={showHoldModal} setShowHoldModal={setShowHoldModal} heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={deleteHeldOrder} />
-        <CheckoutModal isCheckoutOpen={isCheckoutOpen} setIsCheckoutOpen={setIsCheckoutOpen} checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} voucherInput={voucherInput} setVoucherInput={setVoucherInput} customerInput={customerInput} setCustomerInput={setCustomerInput} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} useWallet={useWallet} setUseWallet={setUseWallet} appliedVoucherAmount={appliedVoucherAmount} setAppliedVoucherAmount={setAppliedVoucherAmount} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} finalToPay={finalToPay} customers={customers} isOnline={isOnline} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} loading={loading} handleVoucherSubmit={handleVoucherSubmit} handleCustomerInputChange={handleCustomerInputChange} setScannerMode={setScannerMode} handleNextToQR={handleNextToQR} confirmCheckout={confirmCheckout} setPrintMode={setPrintMode} sendReceiptEmail={sendReceiptEmail} closeCheckout={closeCheckout} custAddress={custAddress} 
-setCustAddress={setCustAddress}/>
+        <CheckoutModal isCheckoutOpen={isCheckoutOpen} setIsCheckoutOpen={setIsCheckoutOpen} checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} voucherInput={voucherInput} setVoucherInput={setVoucherInput} customerInput={customerInput} setCustomerInput={setCustomerInput} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} useWallet={useWallet} setUseWallet={setUseWallet} appliedVoucherAmount={appliedVoucherAmount} setAppliedVoucherAmount={setAppliedVoucherAmount} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} finalToPay={finalToPay} customers={customers} isOnline={isOnline} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} loading={loading} handleVoucherSubmit={handleVoucherSubmit} handleCustomerInputChange={handleCustomerInputChange} setScannerMode={setScannerMode} handleNextToQR={handleNextToQR} confirmCheckout={confirmCheckout} setPrintMode={setPrintMode} sendReceiptEmail={sendReceiptEmail} closeCheckout={closeCheckout} custAddress={custAddress} setCustAddress={setCustAddress}/>
         <StatsModal showStatsModal={showStatsModal} setShowStatsModal={setShowStatsModal} reportStartDate={reportStartDate} setReportStartDate={setReportStartDate} reportEndDate={reportEndDate} setReportEndDate={setReportEndDate} exportToCSV={exportToCSV} onExportCSV={exportToCSV} handleExportCSV={exportToCSV} sendInventoryAlertEmail={sendInventoryAlertEmail} onSendAlert={sendInventoryAlertEmail} handleSendEmailReport={handleSendEmailReport} onSendReport={handleSendEmailReport} filteredStats={filteredStats} chartData={chartData} topSelling={topSelling} products={products} />
         <InventoryModal showInventoryModal={showInventoryModal} setShowInventoryModal={setShowInventoryModal} inventorySearchTerm={inventorySearchTerm} setInventorySearchTerm={setInventorySearchTerm} handleInventorySearchEnter={handleInventorySearchEnter} invFilter={invFilter} setInvFilter={setInvFilter} exportInventoryCSV={exportInventoryCSV} onExport={exportInventoryCSV} handleImportInventoryCSV={handleImportInventoryCSV} onImport={handleImportInventoryCSV} products={products} actualStockInput={actualStockInput} setActualStockInput={setActualStockInput} handleInvInputKeyDown={handleInvInputKeyDown} syncInventoryCheck={syncInventoryCheck} onSync={syncInventoryCheck} loading={loading} />
         <DebtModal showDebtModal={showDebtModal} setShowDebtModal={setShowDebtModal} customers={customers} handlePayDebt={handlePayDebt} />
         <AuditModal showAuditModal={showAuditModal} setShowAuditModal={setShowAuditModal} auditLogs={auditLogs} exportAuditToCSV={exportAuditToCSV} setSelectedAuditLog={setSelectedAuditLog} setSelectedLog={setSelectedAuditLog} onViewDetail={setSelectedAuditLog} onRowClick={setSelectedAuditLog} />
-        <AuditDetailModal selectedAuditLog={selectedAuditLog} setSelectedAuditLog={setSelectedAuditLog} showModal={!!selectedAuditLog} setShowModal={(val: boolean) => !val && setSelectedAuditLog(null)} selectedLog={selectedAuditLog} setSelectedLog={setSelectedAuditLog} />
+        <AuditDetailModal selectedAuditLog={selectedAuditLogState} setSelectedAuditLog={setSelectedAuditLog} showModal={!!selectedAuditLogState} setShowModal={(val: boolean) => !val && setSelectedAuditLog(null)} selectedLog={selectedAuditLogState} setSelectedLog={setSelectedAuditLog} />
         <ScannerModal scannerMode={scannerMode} setScannerMode={setScannerMode} scanMessage={scanMessage} />
         <PinModal showPinModal={showPinModal} setShowPinModal={setShowPinModal} correctPin={adminPin} onSuccess={() => { if (pendingAction) { pendingAction(); setPendingAction(null); } }} />
         <ScannerLinkModal showModal={showScannerLinkModal} setShowModal={setShowScannerLinkModal} />
@@ -1912,7 +1919,7 @@ setCustAddress={setCustAddress}/>
   };
 
   // =====================================================================
-  // RENDER GIAO DIỆN CHÍNH (ĐÃ DỌN SẠCH THẺ <style>)
+  // RENDER GIAO DIỆN CHÍNH (ĐÃ DỌN SẠCH THÊM THẺ <style>)
   // =====================================================================
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
