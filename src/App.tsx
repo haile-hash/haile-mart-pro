@@ -341,7 +341,7 @@ export default function App() {
       if (printMode) {
         window.print();
       }
-    }, 500); // Giảm xuống 500ms để hộp thoại in xuất hiện nhanh hơn, tránh lag bám đuôi
+    }, 1500); // Giảm xuống 1500ms để hộp thoại in xuất hiện nhanh hơn, tránh lag bám đuôi
 
     return () => {
       clearTimeout(timer);
