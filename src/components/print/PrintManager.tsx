@@ -217,7 +217,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
                  </tr>
                  {lastOrder.paymentMethod === 'TIỀN MẶT' && (lastOrder.customerGiven - lastOrder.finalTotal) > 0 && (
                    <tr>
-                     <td style={{ padding: "4px 0", textAlign: "left", style: "italic" }}>Tiền thối lại cho khách:</td>
+                     <td style={{ padding: "4px 0", textAlign: "left", fontStyle: "italic" }}>Tiền thối lại cho khách:</td>
                      <td style={{ padding: "4px 0", textAlign: "right" }}>{Math.round(lastOrder.customerGiven - lastOrder.finalTotal).toLocaleString()}đ</td>
                    </tr>
                  )}
