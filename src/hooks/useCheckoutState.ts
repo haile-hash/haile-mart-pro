@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 export const useCheckoutState = () => {
+  const [custAddress, setCustAddress] = useState("");
   const [cart, setCart] = useState<any[]>([]);
   const [barcodeInput, setBarcodeInput] = useState("");
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
