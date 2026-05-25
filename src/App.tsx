@@ -312,37 +312,33 @@ export default function App() {
       setScanQueue(prev => prev.slice(1));
     }
   }, [scanQueue, products, scannerMode]);
-// FIX LỖI 1: Xử lý khi người dùng ấn Print hoặc Cancel
+// FIX LỖI: Luồng quản lý in ấn "Đơn luồng" (Single-thread Print)
+  const printTimerRef = useRef<any>(null);
+
   useEffect(() => {
     const handleAfterPrint = () => {
-      setPrintMode(null); // [QUAN TRỌNG] Phải tắt giao diện in TRƯỚC TIÊN
-      setTimeout(() => {
-        isPrintingRef.current = false; // [QUAN TRỌNG] Đợi UI tắt hẳn rồi mới mở khóa cờ
-      }, 500); 
+      setPrintMode(null); // Chỉ làm 1 việc duy nhất là tắt UI sau khi người dùng đóng hộp thoại in
     };
     window.addEventListener("afterprint", handleAfterPrint);
     return () => window.removeEventListener("afterprint", handleAfterPrint);
   }, []);
 
-  // FIX LỖI 2: Kích hoạt in một lần duy nhất
   useEffect(() => {
-    if (printMode && !isPrintingRef.current) {
-      isPrintingRef.current = true; // Khóa cờ ngay khi bắt đầu
+    if (printMode) {
+      // Hủy bỏ bất kỳ lệnh in nào đang bị "xếp hàng" chờ trước đó
+      if (printTimerRef.current) clearTimeout(printTimerRef.current);
       
-      const timer = setTimeout(() => {
-        window.print(); // Code sẽ khựng lại ở đây chờ bạn ấn In/Cancel
-        
-        // CHỐT CHẶN DỰ PHÒNG: Ngay khi bảng In biến mất, ép buộc tắt UI ngay lập tức
-        setPrintMode(null);
-        setTimeout(() => { isPrintingRef.current = false; }, 500);
-
-      }, 1200); 
-      return () => clearTimeout(timer);
+      // Tạo lệnh in mới và duy nhất
+      printTimerRef.current = setTimeout(() => {
+        window.print();
+      }, 1000); 
     }
-  }, [printMode, printPOData, lastOrder, printCustomer, printBarcodeProduct]);
-  
-  
-
+    
+    // Dọn dẹp timer nếu React vô tình re-render
+    return () => {
+      if (printTimerRef.current) clearTimeout(printTimerRef.current);
+    };
+  }, [printMode]); // CHÌA KHÓA NẰM Ở ĐÂY: Chỉ theo dõi duy nhất biến printMode!
   useEffect(() => {
     if (showPOModal && poTab === 'RECEIVE') {
       const fetchPOs = async () => {
