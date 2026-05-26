@@ -1967,7 +1967,33 @@ export default function App() {
       <style>{styles}</style>
       
       <div className="animated-bg-mesh"></div>
-      <Toaster position="top-right" reverseOrder={false} />
+        <Toaster 
+          position="top-right" 
+          reverseOrder={false}
+          toastOptions={{
+            style: {
+              fontSize: '15px',
+              fontWeight: 'bold',
+              padding: '16px 24px',
+              color: '#0f172a',
+              background: '#ffffff',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+            },
+            success: {
+              iconTheme: { primary: '#10b981', secondary: '#fff' },
+            },
+            error: {
+              iconTheme: { primary: '#ef4444', secondary: '#fff' },
+            },
+          }}
+          containerStyle={{
+            top: 20,
+            right: 20,
+            zIndex: 999999999, 
+          }}
+        />
 
       <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeSubmitAction} />
       
