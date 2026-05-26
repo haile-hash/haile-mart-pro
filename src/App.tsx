@@ -64,7 +64,7 @@ export default function App() {
   const EMAILJS_SERVICE_ID = "service_7ie990l";
   const EMAILJS_TEMPLATE_ID = "template_m1j9i7k";
   const EMAILJS_TEMPLATE_VIP_ID = "template_t91erhg";
-  const EMAILJS_PUBLIC_KEY = "5ric0kxuwNPIUleAv";
+  const EMAILJS_PUBLIC_KEY = "5ric0kxuwNPlUleAv";
 
   // KHỞI TẠO EMAILJS NGAY LẬP TỨC
   useEffect(() => {
