@@ -1,6 +1,6 @@
 /* eslint-disable */
 // @ts-nocheck
-import React from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { cleanName, parseGift } from '../../utils/helpers';
 
 interface ProductTableProps {
@@ -42,6 +42,23 @@ export const ProductTable: React.FC<ProductTableProps> = ({
   uniqueSalePrices,
   uniqueExpiries
 }) => {
+
+  // =====================================================================
+  // STATE & THUẬT TOÁN PHÂN TRANG BẢO VỆ RAM (PAGINATION / LAZY LOAD)
+  // =====================================================================
+  const [visibleCount, setVisibleCount] = useState(50);
+
+  // Mỗi khi bộ lọc, tìm kiếm hoặc data gốc thay đổi -> Reset về 50 dòng để tránh lag
+  useEffect(() => {
+    setVisibleCount(50);
+  }, [sortedAndFilteredProducts, filters, sortConfig]);
+
+  // Cắt mảng dữ liệu thực tế để vẽ ra màn hình
+  const visibleProducts = useMemo(() => {
+    return sortedAndFilteredProducts.slice(0, visibleCount);
+  }, [sortedAndFilteredProducts, visibleCount]);
+
+  const totalProducts = sortedAndFilteredProducts.length;
 
   // =====================================================================
   // HÀM HELPER: RENDER GIAO DIỆN HEADER BỘ LỌC
@@ -151,11 +168,11 @@ export const ProductTable: React.FC<ProductTableProps> = ({
   };
 
   // =====================================================================
-  // RENDER BẢNG CHÍNH
+  // RENDER BẢNG CHÍNH ĐÃ TỐI ƯU
   // =====================================================================
   return (
     <div className="table-responsive" style={{ overflow: 'visible' }}>
-      <table className="mart-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <table className="mart-table" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: "10px" }}>
         <thead>
           <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
             {renderColumnHeader('name', 'name', 'SẢN PHẨM', uniqueNames, (val) => val)}
@@ -168,14 +185,14 @@ export const ProductTable: React.FC<ProductTableProps> = ({
         </thead>
         
         <tbody>
-          {sortedAndFilteredProducts.length === 0 ? (
+          {visibleProducts.length === 0 ? (
             <tr>
               <td colSpan={6} style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>
                 Không tìm thấy sản phẩm nào phù hợp với bộ lọc.
               </td>
             </tr>
           ) : (
-            sortedAndFilteredProducts.map(p => {
+            visibleProducts.map(p => {
               const gift = parseGift(p.gift_info);
               const isUrgent = p.expiry_date && (new Date(p.expiry_date).getTime() - new Date().getTime()) / 86400000 <= 45;
               
@@ -228,13 +245,12 @@ export const ProductTable: React.FC<ProductTableProps> = ({
                     )}
                   </td>
 
-                  {/* CỘT HẠN SỬ DỤNG VÀ THỜI GIAN LƯU KHO ĐÃ ĐƯỢC LẤY LẠI */}
+                  {/* CỘT HẠN SỬ DỤNG VÀ THỜI GIAN LƯU KHO */}
                   <td style={{ padding: '10px 8px', fontSize: '12px' }}>
                     <div style={{ color: isUrgent ? '#ef4444' : '#0f172a', fontWeight: isUrgent ? 'bold' : '600', cursor: role === 'admin' ? 'pointer' : 'default' }} onClick={() => role === 'admin' && handleEdit(p.id, 'expiry_date', p.expiry_date, true)}>
                       {p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('vi-VN') : '---'}
                     </div>
                     
-                    {/* KHÔI PHỤC THỜI GIAN LƯU KHO TẠI ĐÂY */}
                     {p.created_at && (
                       <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
                         {getStorageTime(p.created_at)}
@@ -285,6 +301,30 @@ export const ProductTable: React.FC<ProductTableProps> = ({
           )}
         </tbody>
       </table>
+
+      {/* NÚT TẢI THÊM NẾU VẪN CÒN SẢN PHẨM BỊ ẨN */}
+      {totalProducts > visibleCount && (
+        <button
+          onClick={() => setVisibleCount(prev => prev + 50)}
+          style={{
+            width: "100%",
+            padding: "12px",
+            background: "#f8fafc",
+            border: "1px dashed #cbd5e1",
+            borderRadius: "8px",
+            color: "#3b82f6",
+            fontWeight: "bold",
+            cursor: "pointer",
+            transition: "all 0.2s",
+            display: "block"
+          }}
+          onMouseOver={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+          onMouseOut={(e) => (e.currentTarget.style.background = "#f8fafc")}
+        >
+          ⏬ Tải thêm 50 sản phẩm (Còn {totalProducts - visibleCount} mặt hàng bị ẩn)
+        </button>
+      )}
+
     </div>
   );
 };
