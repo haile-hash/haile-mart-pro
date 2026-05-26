@@ -1914,13 +1914,15 @@ const [supBankAccount, setSupBankAccount] = useState("");
         <ScannerLinkModal showModal={showScannerLinkModal} setShowModal={setShowScannerLinkModal} />
 
         <SupplierModal 
-        showSupplierModal={showSupplierModal} setShowSupplierModal={setShowSupplierModal}
-        supName={supName} setSupName={setSupName} supPhone={supPhone} setSupPhone={setSupPhone}
-        supItem={supItem} setSupItem={setSupItem}
-        supTaxCode={supTaxCode} setSupTaxCode={setSupTaxCode}
-        supBankAccount={supBankAccount} setSupBankAccount={setSupBankAccount}
-        addSupplier={addSupplier} deleteSupplier={deleteSupplier} suppliers={suppliers}
-      />
+          showSupplierModal={showSupplierModal} setShowSupplierModal={setShowSupplierModal}
+          supName={supName} setSupName={setSupName} 
+          supPhone={supPhone} setSupPhone={setSupPhone}
+          supAddress={supAddress} setSupAddress={setSupAddress}
+          supItem={supItem} setSupItem={setSupItem}
+          supTaxCode={supTaxCode} setSupTaxCode={setSupTaxCode}
+          supBankAccount={supBankAccount} setSupBankAccount={setSupBankAccount}
+          addSupplier={addSupplier} deleteSupplier={deleteSupplier} suppliers={suppliers}
+        />
 
         <SettingsModal 
           showSettings={showSettings} setShowSettings={setShowSettings}
