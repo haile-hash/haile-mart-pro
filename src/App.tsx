@@ -126,6 +126,8 @@ export default function App() {
   const [supPhone, setSupPhone] = useState("");
   const [supAddress, setSupAddress] = useState(""); 
   const [supItem, setSupItem] = useState("");
+  const [supTaxCode, setSupTaxCode] = useState("");
+const [supBankAccount, setSupBankAccount] = useState("");
   
   const [marketingTier, setMarketingTier] = useState("Tất cả");
   const [marketingMsg, setMarketingMsg] = useState("");
@@ -661,13 +663,14 @@ export default function App() {
   };
   
   const addSupplier = async () => { 
-    if (!supName || !supPhone) return toast.error("Nhập đủ Tên/SĐT"); 
-    const newId = Date.now();
-    setSuppliers(prev => [{ id: newId, name: supName, phone: supPhone, address: supAddress, item: supItem, debt: 0 }, ...prev]); 
-    if (navigator.onLine) { supabase.from('suppliers').insert([{ id: newId, name: supName, phone: supPhone, address: supAddress, item: supItem, debt: 0 }]).then(); }
-    setSupName(""); setSupPhone(""); setSupAddress(""); setSupItem(""); 
-    toast.success("Thêm NCC thành công!"); 
-  };
+  if (!supName || !supPhone) return toast.error("Nhập đủ Tên/SĐT"); 
+  const newId = Date.now();
+  const newSupData = { id: newId, name: supName, phone: supPhone, address: supAddress, item: supItem, taxCode: supTaxCode, bankAccount: supBankAccount, debt: 0 };
+  setSuppliers(prev => [newSupData, ...prev]); 
+  if (navigator.onLine) { supabase.from('suppliers').insert([newSupData]).then(); }
+  setSupName(""); setSupPhone(""); setSupAddress(""); setSupItem(""); setSupTaxCode(""); setSupBankAccount("");
+  toast.success("Thêm NCC thành công!"); 
+};
 
   const deleteSupplier = async (id: any) => { 
     setSuppliers(prev => prev.filter(s => s.id !== id)); 
@@ -1911,11 +1914,13 @@ export default function App() {
         <ScannerLinkModal showModal={showScannerLinkModal} setShowModal={setShowScannerLinkModal} />
 
         <SupplierModal 
-          showSupplierModal={showSupplierModal} setShowSupplierModal={setShowSupplierModal}
-          supName={supName} setSupName={setSupName} supPhone={supPhone} setSupPhone={setSupPhone}
-          supItem={supItem} setSupItem={setSupItem}
-          addSupplier={addSupplier} deleteSupplier={deleteSupplier} suppliers={suppliers}
-        />
+        showSupplierModal={showSupplierModal} setShowSupplierModal={setShowSupplierModal}
+        supName={supName} setSupName={setSupName} supPhone={supPhone} setSupPhone={setSupPhone}
+        supItem={supItem} setSupItem={setSupItem}
+        supTaxCode={supTaxCode} setSupTaxCode={setSupTaxCode}
+        supBankAccount={supBankAccount} setSupBankAccount={setSupBankAccount}
+        addSupplier={addSupplier} deleteSupplier={deleteSupplier} suppliers={suppliers}
+      />
 
         <SettingsModal 
           showSettings={showSettings} setShowSettings={setShowSettings}
