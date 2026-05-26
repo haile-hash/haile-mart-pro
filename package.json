@@ -10,6 +10,7 @@
   "main": "src/index.tsx",
   "dependencies": {
     "react-hot-toast": "^2.4.1",
+    "@emailjs/browser": "^4.3.3",
     "loader-utils": "3.2.1",
     "react": "18.2.0",
     "react-dom": "18.2.0",
