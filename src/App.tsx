@@ -122,10 +122,19 @@ export default function App() {
   }, []);
   
   // =====================================================================
+  // =====================================================================
   // KHO STATES CƠ BẢN
   // =====================================================================
   const [isStorageLoading, setIsStorageLoading] = useState(true); 
-// --- HỆ THỐNG AUTO-LOCK BẢO MẬT ---
+
+  // KHOẢN NÀY PHẢI ĐƯỢC KHAI BÁO TRƯỚC
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [role, setRole] = useState("staff");
+  const [shift, setShift] = useState("Ca Sáng");
+  const [authUsername, setAuthUsername] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+
+  // --- HỆ THỐNG AUTO-LOCK BẢO MẬT (ĐẶT Ở ĐÂY LÀ CHUẨN BÀI) ---
   const [isLocked, setIsLocked] = useState(false);
   const [unlockPin, setUnlockPin] = useState("");
   const IDLE_TIMEOUT = 5 * 60 * 1000; // 5 Phút không bấm chuột/phím sẽ tự khóa
@@ -148,11 +157,6 @@ export default function App() {
       window.removeEventListener('click', resetTimer);
     };
   }, [isLoggedIn, isLocked]);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [role, setRole] = useState("staff");
-  const [shift, setShift] = useState("Ca Sáng");
-  const [authUsername, setAuthUsername] = useState("");
-  const [authPassword, setAuthPassword] = useState("");
   
   const [startingCash, setStartingCash] = useState<number>(5000000);
   
