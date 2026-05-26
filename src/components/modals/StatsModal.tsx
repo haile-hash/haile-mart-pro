@@ -1,73 +1,88 @@
+// @ts-nocheck
 import React from 'react';
-import { cleanName } from '../../utils/helpers';
 
-interface StatsModalProps {
-  showStatsModal: boolean; setShowStatsModal: (val: boolean) => void;
-  reportStartDate: string; setReportStartDate: (val: string) => void;
-  reportEndDate: string; setReportEndDate: (val: string) => void;
-  exportToCSV: () => void; sendInventoryAlertEmail: () => void; handleSendEmailReport: () => void;
-  filteredStats: any; chartData: any[]; topSelling: any[]; products: any[];
-}
+export const StatsModal = ({
+  showStatsModal, setShowStatsModal,
+  reportStartDate, setReportStartDate, reportEndDate, setReportEndDate,
+  handleExportCSV, onSendAlert, onSendReport,
+  filteredStats, chartData, topSelling
+}) => {
+  if (!showStatsModal) return null;
 
-export const StatsModal: React.FC<StatsModalProps> = (props) => {
-  if (!props.showStatsModal) return null;
   return (
     <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
-      <div className="glass" style={{ padding: "25px", width: "600px", maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid var(--border-glass)", paddingBottom: "10px", marginBottom: "15px", flexWrap: "wrap", gap: "10px" }}>
-          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-            <h2 style={{ margin: 0, color: "#3b82f6" }}>📊 BÁO CÁO</h2>
-            <input type="date" value={props.reportStartDate} onChange={e => props.setReportStartDate(e.target.value)} style={{ padding: "4px 8px", borderRadius: "4px", fontSize: "11px", border: "1px solid var(--border-glass)" }}/> 
-            <span style={{fontSize: "12px", fontWeight:"bold", color: "var(--text-muted)"}}>đến</span> 
-            <input type="date" value={props.reportEndDate} onChange={e => props.setReportEndDate(e.target.value)} style={{ padding: "4px 8px", borderRadius: "4px", fontSize: "11px", border: "1px solid var(--border-glass)" }}/>
-          </div>
-          <div style={{ display: "flex", gap: "6px" }}>
-            <button onClick={props.exportToCSV} style={{ fontSize: "10px", padding: "6px 10px", background: "#10b981", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>📥 XUẤT EXCEL</button>
-            <button onClick={props.sendInventoryAlertEmail} style={{ fontSize: "10px", padding: "6px 10px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }} title="Gửi mail cảnh báo">🚨 CẢNH BÁO KHO</button>
-            <button onClick={props.handleSendEmailReport} style={{ fontSize: "10px", padding: "6px 10px", background: "#8b5cf6", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>📧 GỬI MAIL BC</button>
-            <button onClick={() => props.setShowStatsModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer", color: "var(--text-main)", marginLeft: "5px" }}>✖</button>
-          </div>
+      <div className="glass" style={{ padding: "25px", width: "900px", maxHeight: "90vh", display: "flex", flexDirection: "column", background: "#ffffff", borderRadius: "12px", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #e2e8f0", paddingBottom: "10px", marginBottom: "15px" }}>
+          <h2 style={{ margin: 0, color: "#3b82f6" }}>📊 BÁO CÁO KINH DOANH</h2>
+          <button onClick={() => setShowStatsModal(false)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer", color: "#64748b" }}>✖</button>
         </div>
         
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", marginBottom: "15px" }}>
-          <div style={{ background: "#eff6ff", padding: "10px", borderRadius: "8px", border: "1px solid #bfdbfe", textAlign: "center" }}><div style={{ fontSize: "10px", color: "#3b82f6", fontWeight: "bold" }}>DOANH THU KỲ</div><div style={{ fontSize: "14px", fontWeight: "bold", color: "#1e3a8a", marginTop: "4px" }}>{props.filteredStats.totalSales.toLocaleString()}đ</div></div>
-          <div style={{ background: "#fef2f2", padding: "10px", borderRadius: "8px", border: "1px solid #fecaca", textAlign: "center" }}><div style={{ fontSize: "10px", color: "#ef4444", fontWeight: "bold" }}>CHI PHÍ KỲ</div><div style={{ fontSize: "14px", fontWeight: "bold", color: "#b91c1c", marginTop: "4px" }}>-{props.filteredStats.expenses.toLocaleString()}đ</div></div>
-          <div style={{ background: "#f0fdf4", padding: "10px", borderRadius: "8px", border: "1px solid #bbf7d0", textAlign: "center" }}><div style={{ fontSize: "10px", color: "#16a34a", fontWeight: "bold" }}>LỢI NHUẬN RÒNG</div><div style={{ fontSize: "14px", fontWeight: "bold", color: "#14532d", marginTop: "4px" }}>{props.filteredStats.netProfit.toLocaleString()}đ</div></div>
-        </div>
-
-        <div style={{ marginBottom: "20px" }}>
-          <h3 style={{ fontSize: "12px", color: "var(--text-muted)", margin: "0 0 5px 0" }}>📈 Doanh thu 30 ngày qua</h3>
-          <div className="chart-container-scroll">
-            {props.chartData.map((d, i) => (
-              <div key={i} className="chart-bar-group">
-                <div className="chart-val" style={{ visibility: d.showLabel && d.total > 0 ? 'visible' : 'hidden' }}>{(d.total / 1000).toFixed(0)}k</div>
-                <div className="chart-bar" style={{ height: d.height }}></div>
-                <div className="chart-label" style={{ visibility: d.showLabel ? 'visible' : 'hidden' }}>{d.label}</div>
-              </div>
-            ))}
+        {/* BỘ LỌC THỜI GIAN */}
+        <div style={{ display: "flex", gap: "10px", marginBottom: "20px", background: "#f8fafc", padding: "15px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: "12px", fontWeight: "bold", color: "#64748b", display: "block", marginBottom: "4px" }}>Từ ngày</label>
+            <input type="date" value={reportStartDate} onChange={(e) => setReportStartDate(e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", outline: "none" }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: "12px", fontWeight: "bold", color: "#64748b", display: "block", marginBottom: "4px" }}>Đến ngày</label>
+            <input type="date" value={reportEndDate} onChange={(e) => setReportEndDate(e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", outline: "none" }} />
+          </div>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: "8px" }}>
+            <button onClick={handleExportCSV} style={{ padding: "10px 15px", background: "#10b981", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer", boxShadow: "0 2px 4px rgba(16,185,129,0.3)" }}>⬇️ Excel</button>
+            <button onClick={onSendReport} style={{ padding: "10px 15px", background: "#3b82f6", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer", boxShadow: "0 2px 4px rgba(59,130,246,0.3)" }}>📧 Báo cáo Email</button>
+            <button onClick={onSendAlert} style={{ padding: "10px 15px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer", boxShadow: "0 2px 4px rgba(239,68,68,0.3)" }}>🚨 Cảnh báo Tồn/HSD</button>
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: "20px" }}>
-          <div style={{ flex: 1 }}>
-            <h3 style={{ fontSize: "12px", margin: "0 0 8px 0", color: "var(--text-main)" }}>🏆 Top Bán Chạy</h3>
-            {props.topSelling.map((item, idx) => (
-              <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px dashed var(--border-glass)", fontSize: "11px" }}>
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "120px" }}>{idx + 1}. {item[0]}</span>
-                <span style={{ fontWeight: "bold", color: "#10b981" }}>{item[1]}</span>
-              </div>
-            ))}
+        {/* CÁC THẺ CHỈ SỐ */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px", marginBottom: "25px" }}>
+          <div style={{ padding: "15px", background: "#eff6ff", borderRadius: "8px", border: "1px solid #bfdbfe" }}>
+            <div style={{ fontSize: "12px", color: "#3b82f6", fontWeight: "bold", marginBottom: "5px" }}>TỔNG DOANH THU</div>
+            <div style={{ fontSize: "20px", fontWeight: "900", color: "#1e3a8a" }}>{Number(filteredStats?.rev || 0).toLocaleString()}đ</div>
           </div>
-          <div style={{ flex: 1 }}>
-            <h3 style={{ fontSize: "12px", color: "#b91c1c", margin: "0 0 8px 0" }}>📉 Sắp hết hàng</h3>
-            {props.products.filter((p: any) => p.stock > 0 && p.stock < 10).slice(0, 5).map((p: any, idx: number) => (
-              <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px dashed var(--border-glass)", fontSize: "11px" }}>
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "120px" }}>{cleanName(p.name)}</span>
-                <span style={{ fontWeight: "bold", color: "#ef4444" }}>Còn {p.stock}</span>
-              </div>
-            ))}
+          <div style={{ padding: "15px", background: "#f0fdf4", borderRadius: "8px", border: "1px solid #bbf7d0" }}>
+            <div style={{ fontSize: "12px", color: "#10b981", fontWeight: "bold", marginBottom: "5px" }}>LỢI NHUẬN GỘP</div>
+            <div style={{ fontSize: "20px", fontWeight: "900", color: "#065f46" }}>{Number(filteredStats?.prof || 0).toLocaleString()}đ</div>
+          </div>
+          <div style={{ padding: "15px", background: "#fef2f2", borderRadius: "8px", border: "1px solid #fecaca" }}>
+            <div style={{ fontSize: "12px", color: "#ef4444", fontWeight: "bold", marginBottom: "5px" }}>TỔNG CHI PHÍ</div>
+            <div style={{ fontSize: "20px", fontWeight: "900", color: "#991b1b" }}>{Number(filteredStats?.expenses || 0).toLocaleString()}đ</div>
+          </div>
+          <div style={{ padding: "15px", background: "#fffbeb", borderRadius: "8px", border: "1px solid #fde68a" }}>
+            <div style={{ fontSize: "12px", color: "#d97706", fontWeight: "bold", marginBottom: "5px" }}>LỢI NHUẬN RÒNG</div>
+            <div style={{ fontSize: "20px", fontWeight: "900", color: "#92400e" }}>{Number(filteredStats?.netProfit || 0).toLocaleString()}đ</div>
           </div>
         </div>
+
+        {/* BIỂU ĐỒ & TOP SẢN PHẨM (TỐI ƯU HIỂN THỊ) */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "25px" }}>
+          <div>
+            <h3 style={{ fontSize: "16px", color: "#334155", borderBottom: "2px solid #e2e8f0", paddingBottom: "8px", marginTop: 0 }}>🏆 Top 5 Bán chạy</h3>
+            {topSelling.length === 0 ? <div style={{ color: "#94a3b8", fontSize: "14px", marginTop: "10px" }}>Chưa có giao dịch</div> : (
+              <ul style={{ listStyle: "none", padding: 0, margin: "10px 0 0 0" }}>
+                {topSelling.map(([name, qty], idx) => (
+                  <li key={name} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px dashed #e2e8f0" }}>
+                    <span style={{ fontWeight: "bold", color: "#475569", fontSize: "14px" }}>#{idx + 1} {name}</span>
+                    <span style={{ color: "#10b981", fontWeight: "900", fontSize: "14px" }}>{qty} SP</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          
+          <div>
+            <h3 style={{ fontSize: "16px", color: "#334155", borderBottom: "2px solid #e2e8f0", paddingBottom: "8px", marginTop: 0 }}>📈 Doanh thu 30 ngày qua</h3>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '160px', marginTop: '15px', paddingBottom: '25px', borderBottom: '1px solid #e2e8f0', position: 'relative' }}>
+              {chartData.map((d: any, idx: number) => (
+                <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%' }}>
+                  <div style={{ width: '100%', background: 'linear-gradient(to top, #60a5fa, #3b82f6)', height: d.height, borderRadius: '4px 4px 0 0', minHeight: '2px' }} title={`${d.label}: ${d.total.toLocaleString()}đ`}></div>
+                  {d.showLabel && <div style={{ fontSize: '9px', color: '#64748b', transform: 'rotate(-45deg)', marginTop: '12px', whiteSpace: 'nowrap' }}>{d.label}</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   );
