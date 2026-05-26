@@ -21,6 +21,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
 }) => {
   if (!printMode) return null;
 
+  const dateObj = new Date(); // Khai báo thời gian dùng chung cho các mẫu chứng từ
   const getCustomerDetail = (phone: string) => phone ? (customers[phone] || null) : null;
 
   // =====================================================================
@@ -71,7 +72,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
   };
 
   // =====================================================================
-  // 1A. IN BILL NHIỆT (MÁY POS K80 - 78mm)
+  // 1A. IN BILL NHIỆT (MÁY POS K80 - ĐỘ RỘNG 78mm)
   // =====================================================================
   if (printMode === 'receipt_thermal') {
     if (!lastOrder) return null;
@@ -162,6 +163,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
               <h1 style={{ margin: '0 0 6px 0', fontSize: '20px', fontWeight: 'bold', textTransform: 'uppercase' }}>HỆ THỐNG HẢI LÊ MART</h1>
               <p style={{ margin: '3px 0', fontSize: '14px' }}><strong>Địa chỉ:</strong> 123 Đường ABC, Quận XYZ, TP. Hà Nội</p>
               <p style={{ margin: '3px 0', fontSize: '14px' }}><strong>Điện thoại:</strong> 0902 613 899</p>
+              <p style={{ margin: '3px 0', fontSize: '14px' }}><strong>Mã số thuế:</strong> 0101234567</p>
             </div>
             <div style={{ width: '45%', textAlign: 'center' }}>
               <h2 style={{ margin: '0 0 8px 0', fontSize: '26px', fontWeight: 'bold' }}>HÓA ĐƠN BÁN HÀNG</h2>
@@ -229,7 +231,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px' }}>
-            <div style={{ textalign: 'center', width: '250px' }}>
+            <div style={{ textAlign: 'center', width: '250px' }}>
               <p style={{ margin: '0 0 5px 0', fontSize: '16px', fontWeight: 'bold' }}>Người mua hàng</p>
               <p style={{ margin: '0 0 100px 0', fontSize: '14px', fontStyle: 'italic' }}>(Ký, ghi rõ họ tên)</p>
             </div>
@@ -246,7 +248,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
   }
 
   // =====================================================================
-  // 2. IN MÃ VẠCH SẢN PHẨM (BARCODE - GRID NHIỀU TEM)
+  // 2. IN MÃ VẠCH SẢN PHẨM (BARCODE - TỰ ĐỘNG DÀN TEM NHÃN GIẤY CUỘN)
   // =====================================================================
   if (printMode === 'barcode') {
     if (!printBarcodeProduct) return null;
@@ -272,7 +274,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
   }
 
   // =====================================================================
-  // 3. IN THẺ VIP ĐẶC QUYỀN KHÁCH HÀNG (ĐÃ SỬA LỖI TÀNG HÌNH CHROME)
+  // 3. IN THẺ VIP ĐẶC QUYỀN KHÁCH HÀNG (ĐÃ FIX LỖI ẨN NỀN CHROME)
   // =====================================================================
   if (printMode === 'customer_card') {
     if (!printCustomer) return null;
@@ -321,33 +323,34 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
   }
 
   // =====================================================================
-  // 4. IN PHIẾU ĐẶT HÀNG / NHẬP KHO / ĐỔI TRẢ NCC (PO - FORM KẾ TOÁN A4)
+  // 4. IN PHIẾU ĐẶT HÀNG / NHẬP KHO / ĐỔI TRẢ NCC (PO - CHUẨN KẾ TOÁN A4)
   // =====================================================================
   if (printMode === 'po_order' || printMode === 'po_receipt' || printMode === 'po_return') {
     if (!printPOData) return null;
     const isReceipt = printMode === 'po_receipt';
     const isReturn = printMode === 'po_return';
     let title = isReceipt ? "PHIẾU NHẬP KHO" : isReturn ? "PHIẾU ĐỔI TRẢ HÀNG LỖI" : "PHIẾU ĐẶT HÀNG (PO)";
-    const dateObj = new Date();
 
     return (
       <div className="print-only-zone" style={{ width: '100%', backgroundColor: '#fff' }}>
         <div style={{ width: '100%', maxWidth: '210mm', margin: '0 auto', padding: '15mm 20mm', fontFamily: '"Times New Roman", Times, serif', color: '#000', boxSizing: 'border-box' }}>
           
-          {/* HEADER CHỨNG TỪ */}
+          {/* HEADER CHỨNG TỪ - ĐẦY ĐỦ ĐỊA CHỈ & MÃ SỐ THUẾ */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #000', paddingBottom: '15px', marginBottom: '20px' }}>
-            <div style={{ width: '50%' }}>
+            <div style={{ width: '55%' }}>
               <h1 style={{ margin: '0 0 6px 0', fontSize: '20px', fontWeight: 'bold', textTransform: 'uppercase' }}>HỆ THỐNG HẢI LÊ MART</h1>
+              <p style={{ margin: '3px 0', fontSize: '14px' }}><strong>Địa chỉ:</strong> 123 Đường ABC, Quận XYZ, TP. Hà Nội</p>
               <p style={{ margin: '3px 0', fontSize: '14px' }}><strong>Điện thoại:</strong> 0902 613 899</p>
+              <p style={{ margin: '3px 0', fontSize: '14px' }}><strong>Mã số thuế:</strong> 0101234567</p>
             </div>
-            <div style={{ width: '50%', textAlign: 'center' }}>
+            <div style={{ width: '45%', textAlign: 'center' }}>
               <h2 style={{ margin: '0 0 8px 0', fontSize: '24px', fontWeight: 'bold' }}>{title}</h2>
               <p style={{ margin: '3px 0', fontSize: '14px', fontStyle: 'italic' }}>Ngày {dateObj.getDate()} tháng {dateObj.getMonth() + 1} năm {dateObj.getFullYear()}</p>
               <p style={{ margin: '3px 0', fontSize: '14px' }}>Mã số: <strong>{printPOData.po_code}</strong></p>
             </div>
           </div>
 
-          {/* THÔNG TIN CHI TIẾT NHÀ CUNG CẤP */}
+          {/* THÔNG TIN CHI TIẾT ĐỐI TÁC NCC */}
           <div style={{ marginBottom: '20px', fontSize: '15px', lineHeight: '1.8' }}>
             <div style={{ display: 'flex' }}><span style={{ width: '150px' }}>Nhà cung cấp:</span><strong>{printPOData.supplier?.name || "................................................"}</strong></div>
             <div style={{ display: 'flex' }}><span style={{ width: '150px' }}>Số điện thoại:</span><span>{printPOData.supplier?.phone || "................................................"}</span></div>
@@ -355,7 +358,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
             <div style={{ display: 'flex' }}><span style={{ width: '150px' }}>Ghi chú phiếu:</span><span>{printPOData.note || "................................................"}</span></div>
           </div>
 
-          {/* BẢNG LIỆK KÊ DANH SÁCH SẢN PHẨM PHIẾU PO */}
+          {/* BẢNG LIỆK KÊ SẢN PHẨM PHIẾU PO */}
           <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px', fontSize: '15px' }}>
             <thead>
               <tr style={{ backgroundColor: '#f1f5f9' }}>
