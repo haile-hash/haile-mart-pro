@@ -5,16 +5,17 @@ export const SupplierModal = ({
   showSupplierModal, setShowSupplierModal,
   supName, setSupName,
   supPhone, setSupPhone,
+  supAddress, setSupAddress,            // BIẾN ĐỊA CHỈ
   supItem, setSupItem,
-  supTaxCode, setSupTaxCode,            // NHẬN BIẾN MỚI TỪ APP
-  supBankAccount, setSupBankAccount,    // NHẬN BIẾN MỚI TỪ APP
+  supTaxCode, setSupTaxCode,            
+  supBankAccount, setSupBankAccount,    
   addSupplier, suppliers, deleteSupplier
 }) => {
   if (!showSupplierModal) return null;
 
   return (
     <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
-      <div className="glass" style={{ padding: "25px", width: "500px", maxHeight: "80vh", display: "flex", flexDirection: "column", background: "#ffffff", borderRadius: "12px" }} onClick={e => e.stopPropagation()}>
+      <div className="glass" style={{ padding: "25px", width: "550px", maxHeight: "85vh", display: "flex", flexDirection: "column", background: "#ffffff", borderRadius: "12px" }} onClick={e => e.stopPropagation()}>
         
         {/* HEADER MODAL */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #e2e8f0", paddingBottom: "10px", marginBottom: "15px" }}>
@@ -32,8 +33,9 @@ export const SupplierModal = ({
           <input placeholder="Mã số thuế..." value={supTaxCode} onChange={e => setSupTaxCode(e.target.value)} style={{ flex: 1, padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", outline: "none" }} />
           <input placeholder="Số tài khoản..." value={supBankAccount} onChange={e => setSupBankAccount(e.target.value)} style={{ flex: 1, padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", outline: "none" }} />
           
-          {/* Hàng 3: Ghi chú mặt hàng */}
-          <input placeholder="Mặt hàng cung cấp..." value={supItem} onChange={e => setSupItem(e.target.value)} style={{ flex: "1 1 100%", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", outline: "none" }} />
+          {/* Hàng 3: Địa chỉ & Ghi chú mặt hàng */}
+          <input placeholder="Địa chỉ..." value={supAddress} onChange={e => setSupAddress(e.target.value)} style={{ flex: 2, padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", outline: "none" }} />
+          <input placeholder="Mặt hàng..." value={supItem} onChange={e => setSupItem(e.target.value)} style={{ flex: 1, padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1", outline: "none" }} />
           
           {/* Nút Lưu */}
           <button onClick={addSupplier} style={{ width: "100%", padding: "10px", background: "#3b82f6", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer", marginTop: "5px" }}>LƯU THÔNG TIN</button>
@@ -46,7 +48,10 @@ export const SupplierModal = ({
               <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold", fontSize: "15px", color: "#0f172a" }}>
                 <span>{s.name}</span> <span style={{ color: "#3b82f6" }}>📞 {s.phone}</span>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "5px", marginTop: "8px", fontSize: "13px", color: "#475569" }}>
+              <div style={{ fontSize: "13px", color: "#475569", marginTop: "4px" }}>
+                <span>📍 {s.address || "---"}</span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "5px", marginTop: "6px", fontSize: "13px", color: "#475569" }}>
                 <span><strong>MST:</strong> {s.taxCode || s.tax_code || "---"}</span>
                 <span><strong>STK:</strong> {s.bankAccount || s.bank_account || "---"}</span>
               </div>
