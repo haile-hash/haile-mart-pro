@@ -1,6 +1,7 @@
 /* eslint-disable */
 // @ts-nocheck
 import React, { useEffect, useState, useMemo } from "react";
+import emailjs from '@emailjs/browser';
 import { supabase } from "./supabaseClient";
 import { 
   styles, formatCategoryStr, parseGift, cleanName, 
