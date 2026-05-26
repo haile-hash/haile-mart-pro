@@ -1088,13 +1088,9 @@ export default function App() {
     setPrintMode('customer_card'); 
   };
 
-  const sendCardEmail = async (phone: string) => {
+ const sendCardEmail = async (phone: string) => {
     const cust = customers[phone]; 
     if(!cust) return toast.error("Không tìm thấy dữ liệu khách!");
-
-    if (!(window as any).emailjs) {
-      return toast.error("Hệ thống EmailJS chưa tải xong, vui lòng thử lại sau!");
-    }
 
     let email = cust.email || window.prompt(`Nhập Email của ${cust.name}:`, ""); 
     if (!email) return; 
@@ -1133,14 +1129,17 @@ export default function App() {
       </div>`;
       
     try { 
-      await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { 
-        to_email: email, subject: `💳 Thẻ VIP Đặc Quyền - ${cust.name}`, html_message: htmlContent, order_id: "", time: "", items_list: "", total_amount: "", payment_method: "", change_amount: "", barcode_url: ""
+      // Đã đổi thành emailjs chuẩn
+      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { 
+        to_email: email, 
+        subject: `💳 Thẻ VIP Đặc Quyền - ${cust.name}`, 
+        html_message: htmlContent
       }); 
       toast.success("Đã gửi Thẻ VIP thành công!", { id: "sending_email" }); 
       logAudit("GỬI THẺ VIP", `Gửi tới ${email}`); 
     } catch (error: any) { 
       console.error("Lỗi EmailJS:", error); 
-      toast.error(`Gửi mail thất bại! Kiểm tra lại cấu hình EmailJS.`, { id: "sending_email" }); 
+      toast.error(`Gửi mail thất bại! Kiểm tra lại thông số EmailJS.`, { id: "sending_email" }); 
     } 
     setLoading(false);
   };
@@ -1543,8 +1542,11 @@ export default function App() {
       </div>`;
       
     try { 
-      await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { 
-        to_email: adminEmail, subject: `📊 Báo cáo doanh thu kỳ ${reportStartDate} - ${reportEndDate}`, html_message: htmlContent, order_id: "", time: "", items_list: "", total_amount: "", payment_method: "", change_amount: "" 
+      // Đã đổi thành emailjs chuẩn
+      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { 
+        to_email: adminEmail, 
+        subject: `📊 Báo cáo doanh thu kỳ ${reportStartDate} - ${reportEndDate}`, 
+        html_message: htmlContent
       }); 
       logAudit("GỬI BÁO CÁO", `Đã gửi báo cáo tới ${adminEmail}`); 
       toast.success("Đã gửi Báo cáo thành công!"); 
@@ -1588,8 +1590,11 @@ export default function App() {
     htmlContent += `</ul></div><div style="background: #f8fafc; padding: 15px; text-align: center; border-top: 1px solid #e2e8f0;"><p style="margin: 0; font-size: 12px; color: #94a3b8;">Hệ thống quản lý kho Hải Lê ERP</p></div></div>`;
     
     try { 
-      await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { 
-        to_email: adminEmail, subject: `🚨 Cảnh báo Tồn Kho & Hạn Sử Dụng - Hải Lê Mart`, html_message: htmlContent, order_id: "", time: "", items_list: "", total_amount: "", payment_method: "", change_amount: "" 
+      // Đã đổi thành emailjs chuẩn
+      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { 
+        to_email: adminEmail, 
+        subject: `🚨 Cảnh báo Tồn Kho & Hạn Sử Dụng - Hải Lê Mart`, 
+        html_message: htmlContent
       }); 
       toast.success("Đã gửi cảnh báo kho thành công!"); 
       logAudit("CẢNH BÁO KHO", "Gửi email báo cáo tồn kho"); 
@@ -1798,7 +1803,15 @@ export default function App() {
     for (const phone of targetCustomers) { 
       const c = customers[phone]; 
       const htmlContent = `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"><div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 20px; text-align: center;"><h1 style="margin: 0; font-size: 24px;">HẢI LÊ MART</h1><p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">THÔNG BÁO ƯU ĐÃI ĐẶC QUYỀN</p></div><div style="padding: 30px 20px; background: #ffffff;"><h2 style="margin: 0 0 15px 0; color: #0f172a; font-size: 20px;">Chào ${c.name},</h2><div style="color: #475569; font-size: 16px; line-height: 1.6; white-space: pre-wrap;">${marketingMsg}</div></div><div style="background: #f8fafc; padding: 15px; text-align: center; border-top: 1px solid #e2e8f0;"><p style="margin: 0; font-size: 12px; color: #94a3b8;">Hải Lê Mart © 2026 - Hotline: 0902 613 899</p></div></div>`;
-      try { await (window as any).emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { to_email: c.email, subject: "💌 Ưu Đãi Đặc Quyền Từ Hải Lê Mart", html_message: htmlContent, order_id: "", time: "", items_list: "", total_amount: "", payment_method: "", change_amount: "", barcode_url: "" }); successCount++; } catch (error: any) { console.error("EmailJS Error", error); } 
+      try { 
+        // Đã đổi thành emailjs chuẩn
+        await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { 
+          to_email: c.email, 
+          subject: "💌 Ưu Đãi Đặc Quyền Từ Hải Lê Mart", 
+          html_message: htmlContent 
+        }); 
+        successCount++; 
+      } catch (error: any) { console.error("EmailJS Error", error); } 
     }
     logAudit("GỬI MAIL MKT", `Gửi ${successCount} mail cho tập ${marketingTier}`); setLoading(false); setShowMarketingModal(false); toast.success(`Đã gửi ${successCount} mail!`);
   };
