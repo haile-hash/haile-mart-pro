@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { cleanName } from "../../utils/helpers";
 
 // ==========================================
@@ -29,7 +29,7 @@ interface HistoryPanelProps {
   exportToCSV: () => void;
   groupedHistory: Record<string, TransactionLog[]>;
   handleRefund: (logId: string | number) => void;
-  handleReprint: (timeStr: string) => void; // Giữ lại cho tương thích (nếu có dùng ở đâu khác)
+  handleReprint: (timeStr: string) => void; 
 }
 
 // ==========================================
@@ -52,6 +52,37 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   handleRefund,
 }) => {
   const [localExpanded, setLocalExpanded] = useState<Record<string, boolean>>({});
+  
+  // STATE KIỂM SOÁT SỐ LƯỢNG HIỂN THỊ (PHÂN TRANG RAM)
+  const [visibleCount, setVisibleCount] = useState(50);
+
+  // Reset về 50 mỗi khi người dùng gõ tìm kiếm hoặc đổi bộ lọc (groupedHistory thay đổi)
+  useEffect(() => {
+    setVisibleCount(50);
+  }, [groupedHistory]);
+
+  // THUẬT TOÁN ÉP PHẲNG & CẮT TỈA 50 DÒNG (BẢO VỆ RAM)
+  const { visibleGrouped, totalLogs } = useMemo(() => {
+    // 1. Trải phẳng mảng để dễ dàng cắt đúng số lượng
+    const flatLogs: { dateStr: string; log: TransactionLog }[] = [];
+    Object.entries(groupedHistory).forEach(([dateStr, logs]) => {
+      logs.forEach(log => flatLogs.push({ dateStr, log }));
+    });
+
+    const total = flatLogs.length;
+    // 2. Cắt lấy số lượng được phép hiển thị
+    const slicedLogs = flatLogs.slice(0, visibleCount);
+
+    // 3. Đóng gói lại thành cấu trúc Group theo Ngày để vẽ UI
+    const regrouped: Record<string, TransactionLog[]> = {};
+    slicedLogs.forEach(({ dateStr, log }) => {
+      if (!regrouped[dateStr]) regrouped[dateStr] = [];
+      regrouped[dateStr].push(log);
+    });
+
+    return { visibleGrouped: regrouped, totalLogs: total };
+  }, [groupedHistory, visibleCount]);
+
 
   const toggleGroup = (dateStr: string) => {
     setLocalExpanded(prev => ({
@@ -120,7 +151,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
             </button>
           )}
 
-          {/* 2 NÚT IN HÓA ĐƠN MỚI TÍCH HỢP VÀO ĐÂY */}
+          {/* NÚT IN HÓA ĐƠN */}
           {(log.type === "BÁN" || log.type === "GHI NỢ" || log.type === "TRẢ HÀNG") && log.time && (
             <>
               <button 
@@ -199,14 +230,14 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
         </button>
       </div>
 
-      {/* KHU VỰC DANH SÁCH GIAO DỊCH */}
+      {/* KHU VỰC DANH SÁCH GIAO DỊCH TỐI ƯU HÓA */}
       <div style={{ maxHeight: "400px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px", paddingRight: "2px" }}>
-        {Object.keys(groupedHistory).length === 0 ? (
+        {Object.keys(visibleGrouped).length === 0 ? (
           <div style={{ textAlign: "center", padding: "30px", color: "#94a3b8", fontSize: "14px", fontStyle: "italic" }}>
             Không tìm thấy lịch sử giao dịch phù hợp
           </div>
         ) : (
-          Object.entries(groupedHistory).map(([dateStr, logs]) => {
+          Object.entries(visibleGrouped).map(([dateStr, logs]) => {
             const isExpanded = localExpanded[dateStr] ?? true; 
             
             return (
@@ -243,6 +274,28 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
               </div>
             );
           })
+        )}
+
+        {/* NÚT XEM THÊM (LOAD MORE) BẢO VỆ RAM */}
+        {totalLogs > visibleCount && (
+          <button
+            onClick={() => setVisibleCount(prev => prev + 50)}
+            style={{
+              marginTop: "10px",
+              padding: "12px",
+              background: "#f1f5f9",
+              border: "1px dashed #cbd5e1",
+              borderRadius: "8px",
+              color: "#3b82f6",
+              fontWeight: "bold",
+              cursor: "pointer",
+              transition: "all 0.2s"
+            }}
+            onMouseOver={(e) => (e.currentTarget.style.background = "#e2e8f0")}
+            onMouseOut={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+          >
+            ⏬ Xem thêm 50 giao dịch (Còn {totalLogs - visibleCount})
+          </button>
         )}
       </div>
     </div>
