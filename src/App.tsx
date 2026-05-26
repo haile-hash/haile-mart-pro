@@ -1128,25 +1128,28 @@ export default function App() {
             <img src="${barcodeUrl}" alt="Barcode" style="max-width: 100%; height: auto;" />
             <p style="margin: 10px 0 0 0; font-family: monospace; font-size: 18px; letter-spacing: 2px; font-weight: bold; color: #0f172a;">${code}</p>
           </div>
-          <p style="color: #64748b; font-size: 13px; margin-top: 25px; font-style: italic;">(Vui lòng xuất trình mã vạch này cho thu ngân khi thanh toán để nhận ưu đãi Đặc Quyền VIP)</p>
-        </div>
-        <div style="background: #f8fafc; padding: 15px; text-align: center; border-top: 1px solid #e2e8f0;">
-          <p style="margin: 0; font-size: 12px; color: #94a3b8;">Hải Lê Mart © 2026 - Hotline: 0902 613 899</p>
         </div>
       </div>`;
       
     try { 
-      // Đã đổi thành emailjs chuẩn
-      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { 
-        to_email: email, 
-        subject: `💳 Thẻ VIP Đặc Quyền - ${cust.name}`, 
-        html_message: htmlContent
-      }); 
+      // TRUYỀN THẲNG PUBLIC KEY VÀO ĐÂY (Tham số thứ 4) - Đảm bảo 100% không trượt!
+      await emailjs.send(
+        EMAILJS_SERVICE_ID, 
+        EMAILJS_TEMPLATE_VIP_ID, 
+        { 
+          to_email: email, 
+          subject: `💳 Thẻ VIP Đặc Quyền - ${cust.name}`, 
+          html_message: htmlContent 
+        },
+        EMAILJS_PUBLIC_KEY 
+      ); 
+
       toast.success("Đã gửi Thẻ VIP thành công!", { id: "sending_email" }); 
       logAudit("GỬI THẺ VIP", `Gửi tới ${email}`); 
     } catch (error: any) { 
-      console.error("Lỗi EmailJS:", error); 
-      toast.error(`Gửi mail thất bại! Kiểm tra lại thông số EmailJS.`, { id: "sending_email" }); 
+      // In lỗi chi tiết ra để bắt đúng bệnh nếu vẫn xịt
+      console.error("CHI TIẾT LỖI EMAILJS:", error); 
+      toast.error(`Lỗi: ${error.text || error.message || "Sai thông số"}`, { id: "sending_email" }); 
     } 
     setLoading(false);
   };
