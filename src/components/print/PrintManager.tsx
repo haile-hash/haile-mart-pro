@@ -21,7 +21,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
 }) => {
   if (!printMode) return null;
 
-  const dateObj = new Date(); // Khai báo thời gian dùng chung cho các mẫu chứng từ
+  const dateObj = new Date(); 
   const getCustomerDetail = (phone: string) => phone ? (customers[phone] || null) : null;
 
   // =====================================================================
@@ -248,7 +248,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
   }
 
   // =====================================================================
-  // 2. IN MÃ VẠCH SẢN PHẨM (BARCODE - TỰ ĐỘNG DÀN TEM NHÃN GIẤY CUỘN)
+  // 2. IN MẠ VẠCH SẢN PHẨM (BARCODE)
   // =====================================================================
   if (printMode === 'barcode') {
     if (!printBarcodeProduct) return null;
@@ -274,7 +274,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
   }
 
   // =====================================================================
-  // 3. IN THẺ VIP ĐẶC QUYỀN KHÁCH HÀNG (ĐÃ FIX LỖI ẨN NỀN CHROME)
+  // 3. IN THẺ VIP ĐẶC QUYỀN KHÁCH HÀNG 
   // =====================================================================
   if (printMode === 'customer_card') {
     if (!printCustomer) return null;
@@ -335,7 +335,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
       <div className="print-only-zone" style={{ width: '100%', backgroundColor: '#fff' }}>
         <div style={{ width: '100%', maxWidth: '210mm', margin: '0 auto', padding: '15mm 20mm', fontFamily: '"Times New Roman", Times, serif', color: '#000', boxSizing: 'border-box' }}>
           
-          {/* HEADER CHỨNG TỪ - ĐẦY ĐỦ ĐỊA CHỈ & MÃ SỐ THUẾ */}
+          {/* HEADER CHỨNG TỪ - ĐẦY ĐỦ ĐỊA CHỈ & MÃ SỐ THUẾ CỦA HẢI LÊ MART */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #000', paddingBottom: '15px', marginBottom: '20px' }}>
             <div style={{ width: '55%' }}>
               <h1 style={{ margin: '0 0 6px 0', fontSize: '20px', fontWeight: 'bold', textTransform: 'uppercase' }}>HỆ THỐNG HẢI LÊ MART</h1>
@@ -350,15 +350,17 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
             </div>
           </div>
 
-          {/* THÔNG TIN CHI TIẾT ĐỐI TÁC NCC */}
+          {/* THÔNG TIN CHI TIẾT ĐỐI TÁC NHÀ CUNG CẤP */}
           <div style={{ marginBottom: '20px', fontSize: '15px', lineHeight: '1.8' }}>
             <div style={{ display: 'flex' }}><span style={{ width: '150px' }}>Nhà cung cấp:</span><strong>{printPOData.supplier?.name || "................................................"}</strong></div>
-            <div style={{ display: 'flex' }}><span style={{ width: '150px' }}>Số điện thoại:</span><span>{printPOData.supplier?.phone || "................................................"}</span></div>
+            <div style={{ display: 'flex' }}><span style={{ width: '150px' }}>Mã số thuế (MST):</span><span>{printPOData.supplier?.taxCode || printPOData.supplier?.tax_code || "................................................"}</span></div>
             <div style={{ display: 'flex' }}><span style={{ width: '150px' }}>Địa chỉ:</span><span>{printPOData.supplier?.address || "................................................"}</span></div>
+            <div style={{ display: 'flex' }}><span style={{ width: '150px' }}>Số điện thoại:</span><span>{printPOData.supplier?.phone || "................................................"}</span></div>
+            <div style={{ display: 'flex' }}><span style={{ width: '150px' }}>Số tài khoản:</span><span>{printPOData.supplier?.bankAccount || printPOData.supplier?.bank_account || "................................................"}</span></div>
             <div style={{ display: 'flex' }}><span style={{ width: '150px' }}>Ghi chú phiếu:</span><span>{printPOData.note || "................................................"}</span></div>
           </div>
 
-          {/* BẢNG LIỆK KÊ SẢN PHẨM PHIẾU PO */}
+          {/* BẢNG LIỆT KÊ SẢN PHẨM PHIẾU PO */}
           <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px', fontSize: '15px' }}>
             <thead>
               <tr style={{ backgroundColor: '#f1f5f9' }}>
