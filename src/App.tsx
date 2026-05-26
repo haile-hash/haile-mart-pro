@@ -125,7 +125,29 @@ export default function App() {
   // KHO STATES CƠ BẢN
   // =====================================================================
   const [isStorageLoading, setIsStorageLoading] = useState(true); 
+// --- HỆ THỐNG AUTO-LOCK BẢO MẬT ---
+  const [isLocked, setIsLocked] = useState(false);
+  const [unlockPin, setUnlockPin] = useState("");
+  const IDLE_TIMEOUT = 5 * 60 * 1000; // 5 Phút không bấm chuột/phím sẽ tự khóa
 
+  useEffect(() => {
+    if (!isLoggedIn || isLocked) return;
+    let timeout: any;
+    const resetTimer = () => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => setIsLocked(true), IDLE_TIMEOUT);
+    };
+    window.addEventListener('mousemove', resetTimer);
+    window.addEventListener('keydown', resetTimer);
+    window.addEventListener('click', resetTimer);
+    resetTimer(); // Kích hoạt ngay lần đầu
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener('mousemove', resetTimer);
+      window.removeEventListener('keydown', resetTimer);
+      window.removeEventListener('click', resetTimer);
+    };
+  }, [isLoggedIn, isLocked]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [role, setRole] = useState("staff");
   const [shift, setShift] = useState("Ca Sáng");
@@ -957,6 +979,29 @@ export default function App() {
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
       <style>{styles}</style>
+      {/* MÀN HÌNH KHÓA AUTO-LOCK */}
+      {isLocked && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999999999, background: 'rgba(15,23,42,0.95)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+          <h1 style={{ fontSize: '32px', marginBottom: '10px', color: '#ef4444' }}>🔒 MÀN HÌNH ĐÃ KHÓA</h1>
+          <p style={{ marginBottom: '20px', color: '#94a3b8' }}>Hệ thống tự động khóa do không có tương tác. Vui lòng nhập mã PIN.</p>
+          <input 
+            type="password" autoFocus placeholder="Nhập PIN..." 
+            value={unlockPin} onChange={e => setUnlockPin(e.target.value)} 
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                if (unlockPin === adminPin || unlockPin === "0000") { // Mã sơ cua là 0000
+                  setIsLocked(false); setUnlockPin("");
+                } else { playSound('error'); toast.error("Mã PIN không đúng!"); }
+              }
+            }} 
+            style={{ padding: '12px 20px', fontSize: '24px', borderRadius: '8px', border: '2px solid #3b82f6', outline: 'none', textAlign: 'center', width: '200px', letterSpacing: '8px', color: '#0f172a' }} 
+          />
+          <button 
+            onClick={() => { if (unlockPin === adminPin || unlockPin === "0000") { setIsLocked(false); setUnlockPin(""); } else { playSound('error'); toast.error("PIN sai!"); } }} 
+            style={{ marginTop: '20px', padding: '12px 40px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}
+          >MỞ KHÓA</button>
+        </div>
+      )}
       <div className="animated-bg-mesh"></div>
         <Toaster position="top-right" reverseOrder={false} toastOptions={{ style: { fontSize: '15px', fontWeight: 'bold', padding: '16px 24px', color: '#0f172a', background: '#ffffff', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', border: '1px solid #e2e8f0', borderRadius: '8px' } }} containerStyle={{ top: 20, right: 20, zIndex: 999999999 }} />
       <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeSubmitAction} />
