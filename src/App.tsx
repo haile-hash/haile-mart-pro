@@ -104,16 +104,13 @@ export default function App() {
   const VAT_RATE = 0.1;
   const IDLE_TIMEOUT = 5 * 60 * 1000; 
 
-  // ĐÃ VÁ LỖI EMAIL: Để trực tiếp key CÔNG KHAI tại đây, gửi mail mượt 100% không lo lỗi Vercel
-  const EMAILJS_SERVICE_ID = "service_7ie990l";
-  const EMAILJS_TEMPLATE_ID = "template_m1j9i7k";
-  const EMAILJS_TEMPLATE_VIP_ID = "template_t91erhg";
-  const EMAILJS_PUBLIC_KEY = "5ric0kxuwNPlUleAv";
+  const EMAILJS_SERVICE_ID = process.env.REACT_APP_EMAILJS_SERVICE_ID || "";
+  const EMAILJS_TEMPLATE_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_ID || "";
+  const EMAILJS_TEMPLATE_VIP_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_VIP_ID || "";
+  const EMAILJS_PUBLIC_KEY = process.env.REACT_APP_EMAILJS_PUBLIC_KEY || "";
 
   useEffect(() => { 
-    if (EMAILJS_PUBLIC_KEY) {
-      emailjs.init(EMAILJS_PUBLIC_KEY); 
-    }
+    if (EMAILJS_PUBLIC_KEY) emailjs.init(EMAILJS_PUBLIC_KEY); 
   }, [EMAILJS_PUBLIC_KEY]);
 
   const [isStorageLoading, setIsStorageLoading] = useState(true); 
@@ -400,7 +397,6 @@ export default function App() {
           if (localData) setProducts(localData);
         }
       } else {
-        console.log("Đang tải sản phẩm từ bộ nhớ Offline...");
         const localData = await dbGet("mart_products_cache");
         if (localData) setProducts(localData);
       }
@@ -429,25 +425,25 @@ export default function App() {
     if (!navigator.onLine) return toast.error("Mất mạng! Không thể lưu Cài đặt lên Cloud."); setLoading(true);
     try {
       const { error } = await supabase.from("settings").update({ bank_bin: bin, bank_acc: acc, bank_name_str: nameStr, zalopay_id: zaloId, happy_hour_start: hStart, happy_hour_end: hEnd, admin_pin: pin, updated_at: new Date().toISOString() }).eq("id", 1);
-      if (!error) { setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr); setZaloPayId(zaloId); setHappyStart(hStart); setHappyEnd(hEnd); setAdminPin(pin); toast.success("Lưu Cài đặt thành công!"); setShowSettings(false); }
+      if (!error) { setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr); setZaloPayId(zaloId); setHappyStart(hStart); setHappyEnd(hEnd); setAdminPin(pin); toast.success("Lưu Cài đặt thành công!"); setShowSettings(false); logAudit("CÀI ĐẶT", "Cập nhật hệ thống"); }
     } catch (err) {} finally { setLoading(false); }
   };
 
   const saveSettings = () => { const bin = newBankBin.trim(); const acc = newBankAcc.trim(); const nameStr = newBankNameStr.trim().toUpperCase(); const zaloId = newZaloPayId.trim(); const pin = newAdminPinInput.trim(); if (!bin || !acc || !nameStr || !pin) return toast.error("Vui lòng điền đủ thông tin & Mã PIN!"); updateSettingsToCloud(bin, acc, nameStr, zaloId, newHappyStart, newHappyEnd, pin); };
   
-  const handleLogoutClick = () => setShowHandoverModal(true);
+  const handleLogoutClick = () => { logAudit("ĐĂNG XUẤT", `Thoát ca ${shift}`); setShowHandoverModal(true); };
   const confirmHandover = async () => { try { if (navigator.onLine) { await supabase.auth.signOut(); } } catch (error) {} finally { await dbRemove("mart_logged_in"); await dbRemove("mart_role"); await dbRemove("mart_shift"); localStorage.removeItem("mart_was_logged_in"); setIsLoggedIn(false); window.location.reload(); } };
-  const handleEditPhone = async (oldPhone: string) => { executeWithAdminCheck(() => { const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customers[newPhone]) return toast.error("SĐT đã tồn tại!"); const cData = customers[oldPhone]; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = { ...cData, phone: newPhone }; delete updated[oldPhone]; return updated }); toast.success("Cập nhật thành công!"); } }); };
-  const addSupplier = async () => { if (!supName || !supPhone) return toast.error("Nhập đủ Tên/SĐT"); const newId = Date.now(); const newSupData = { id: newId, name: supName, phone: supPhone, address: supAddress, item: supItem, taxCode: supTaxCode, bankAccount: supBankAccount, debt: 0 }; setSuppliers(prev => [newSupData, ...prev]); if (navigator.onLine) { supabase.from('suppliers').insert([newSupData]).then(); } setSupName(""); setSupPhone(""); setSupAddress(""); setSupItem(""); setSupTaxCode(""); setSupBankAccount(""); toast.success("Thêm NCC thành công!"); };
-  const deleteSupplier = async (id: any) => { setSuppliers(prev => prev.filter(s => s.id !== id)); if (navigator.onLine) await supabase.from('suppliers').delete().eq('id', id); };
+  const handleEditPhone = async (oldPhone: string) => { executeWithAdminCheck(() => { const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customers[newPhone]) return toast.error("SĐT đã tồn tại!"); const cData = customers[oldPhone]; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = { ...cData, phone: newPhone }; delete updated[oldPhone]; return updated }); logAudit("SỬA KHÁCH HÀNG", `Đổi SĐT ${oldPhone} -> ${newPhone}`); toast.success("Cập nhật thành công!"); } }); };
+  const addSupplier = async () => { if (!supName || !supPhone) return toast.error("Nhập đủ Tên/SĐT"); const newId = Date.now(); const newSupData = { id: newId, name: supName, phone: supPhone, address: supAddress, item: supItem, taxCode: supTaxCode, bankAccount: supBankAccount, debt: 0 }; setSuppliers(prev => [newSupData, ...prev]); if (navigator.onLine) { supabase.from('suppliers').insert([newSupData]).then(); } setSupName(""); setSupPhone(""); setSupAddress(""); setSupItem(""); setSupTaxCode(""); setSupBankAccount(""); toast.success("Thêm NCC thành công!"); logAudit("THÊM NCC", supName); };
+  const deleteSupplier = async (id: any) => { setSuppliers(prev => prev.filter(s => s.id !== id)); if (navigator.onLine) await supabase.from('suppliers').delete().eq('id', id); logAudit("XÓA NCC", `ID: ${id}`); };
   
-  const addExpense = async () => { if (!expName || !expAmount) return toast.error("Nhập chi phiếu!"); setExpenses(prev => [{ id: Date.now(), date: new Date().toLocaleDateString('vi-VN'), name: expName, amount: Number(expAmount) }, ...prev]); setExpName(""); setExpAmount(""); toast.success("Đã ghi nhận chi phí!"); };
-  const deleteExpense = async (id: any) => { setExpenses(prev => prev.filter(e => e.id !== id)); if (navigator.onLine) await supabase.from('expenses').delete().eq('id', id); };
+  const addExpense = async () => { if (!expName || !expAmount) return toast.error("Nhập chi phiếu!"); setExpenses(prev => [{ id: Date.now(), date: new Date().toLocaleDateString('vi-VN'), name: expName, amount: Number(expAmount) }, ...prev]); logAudit("CHI TIỀN", `${expName}: ${expAmount}đ`); setExpName(""); setExpAmount(""); toast.success("Đã ghi nhận chi phí!"); };
+  const deleteExpense = async (id: any) => { setExpenses(prev => prev.filter(e => e.id !== id)); if (navigator.onLine) await supabase.from('expenses').delete().eq('id', id); logAudit("XÓA CHI PHÍ", `ID: ${id}`); };
   
   const closeCheckout = () => { resetCheckout() };
   const handleHoldOrder = async () => { if (cart.length === 0) return; const newO = { id: Date.now(), time: new Date().toLocaleTimeString('vi-VN'), cart: [...cart] }; setHeldOrders(prev => [...prev, newO]); logAudit("LƯU TẠM", `Lưu giỏ ${cart.length} món`); resetCheckout(); toast.success("Đã lưu tạm đơn hàng!"); };
-  const restoreOrder = async (order: any) => { if (cart.length > 0) return toast.error("Vui lòng thanh toán giỏ hiện tại trước!"); setCart(order.cart); setHeldOrders(prev => prev.filter(o => o.id !== order.id)); if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', order.id); setShowHoldModal(false); toast.success("Đã mở lại đơn tạm!"); };
-  const deleteHeldOrder = async (id: any) => { setHeldOrders(prev => prev.filter(o => o.id !== id)); logAudit("XÓA ĐƠN", `Xóa đơn lưu tạm`); if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', id); toast.success("Đã xóa đơn tạm!"); };
+  const restoreOrder = async (order: any) => { if (cart.length > 0) return toast.error("Vui lòng thanh toán giỏ hiện tại trước!"); setCart(order.cart); setHeldOrders(prev => prev.filter(o => o.id !== order.id)); if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', order.id); logAudit("MỞ ĐƠN TẠM", `ID: ${order.id}`); setShowHoldModal(false); toast.success("Đã mở lại đơn tạm!"); };
+  const deleteHeldOrder = async (id: any) => { setHeldOrders(prev => prev.filter(o => o.id !== id)); logAudit("XÓA ĐƠN TẠM", `ID: ${id}`); if (navigator.onLine) await supabase.from('held_orders').delete().eq('id', id); toast.success("Đã xóa đơn tạm!"); };
 
   const handleVoucherSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -485,6 +481,7 @@ export default function App() {
       }
       setHistory(prev => [...newLogs, ...prev]); if (navigator.onLine) { try { await supabase.from("history").insert(newLogs); } catch(err) { console.log(err); } }
       setLastOrder({ orderId: orderIdStr, shift, cart: [...cart], subTotal, vatTotal, finalTotal, debtAmount: payMethod === 'GHI NỢ' ? finalTotal : 0, discount: appliedVoucherAmount + tierDiscountAmount, time: new Date().toLocaleString('vi-VN'), paymentMethod: payMethod, customerGiven: Number(customerGiven) || 0, custPhone, custName });
+      logAudit("THANH TOÁN", `${orderIdStr} - ${payMethod} - ${finalTotal.toLocaleString()}đ`);
       setCheckoutStep(3); fetchProducts(); 
     } catch (err) { toast.error("Lỗi thanh toán: " + err.message); } finally { setLoading(false); }
   };
@@ -505,17 +502,13 @@ export default function App() {
       const alreadyRefundedQty = existingRefunds.reduce((sum, h) => sum + Math.abs(h.qty || 0), 0);
       const remainingQtyToRefund = (log.qty || 0) - alreadyRefundedQty;
 
-      if (remainingQtyToRefund <= 0) {
-        return toast.error("Đơn này đã được hoàn trả toàn bộ số lượng rồi!");
-      }
+      if (remainingQtyToRefund <= 0) return toast.error("Đơn này đã được hoàn trả toàn bộ số lượng!");
 
       const qtyInput = window.prompt(`Sản phẩm: ${safeLogName}\nSố lượng CÓ THỂ hoàn trả: ${remainingQtyToRefund}\n\nNhập SỐ LƯỢNG khách muốn trả lại:`, remainingQtyToRefund.toString()); 
       if (qtyInput === null) return; 
       
       const refundQty = parseInt(qtyInput); 
-      if (isNaN(refundQty) || refundQty <= 0 || refundQty > remainingQtyToRefund) { 
-        return toast.error("Số lượng hoàn trả không hợp lệ hoặc vượt quá số lượng đã mua!"); 
-      }
+      if (isNaN(refundQty) || refundQty <= 0 || refundQty > remainingQtyToRefund) return toast.error("Số lượng hoàn trả không hợp lệ!"); 
 
       const singlePrice = log.total / log.qty; 
       const refundTotal = Math.round(singlePrice * refundQty); 
@@ -549,6 +542,7 @@ export default function App() {
       
       const lg = { id: Date.now(), shift, type: "TRẢ HÀNG", name: `HOÀN: ${safeLogName}`, qty: refundQty, total: -refundTotal, profit: -refundProfit, customer: log.customer, product_id: log.product_id, paymentMethod: selectedMethod, time: new Date().toLocaleString('vi-VN') };
       await addTransactionAndSync(lg); 
+      logAudit("HOÀN ĐƠN", `Trả ${refundQty} x ${safeLogName} (${selectedMethod})`);
       toast.success(`Đã hoàn đơn thành công!`); 
     }); 
   };
@@ -560,7 +554,8 @@ export default function App() {
     const methodChoice = window.prompt(`Hình thức:\n1. TIỀN MẶT\n2. CHUYỂN KHOẢN`, "1"); if (methodChoice === null) return; const selectedMethod = methodChoice === "2" ? "CHUYỂN KHOẢN" : "TIỀN MẶT";
     const remainingDebt = currentDebt - paidAmount; setCustomers(prev => ({ ...prev, [phone]: { ...prev[phone], debt: remainingDebt } })); 
     if (navigator.onLine) { await supabase.from("customers").update({ debt: remainingDebt }).eq("phone", phone); }
-    const lg = { id: Date.now(), shift, type: "THU NỢ", name: remainingDebt === 0 ? "Thành toán hết nợ" : `Trả bớt nợ (Còn nợ: ${remainingDebt.toLocaleString()}đ)`, qty: 1, total: paidAmount, profit: 0, customer: `${customers[phone].name} (${phone})`, paymentMethod: selectedMethod, time: new Date().toLocaleString('vi-VN') }; addTransactionAndSync(lg); toast.success(`Thu nợ thành công!`);
+    const lg = { id: Date.now(), shift, type: "THU NỢ", name: remainingDebt === 0 ? "Thành toán hết nợ" : `Trả bớt nợ (Còn nợ: ${remainingDebt.toLocaleString()}đ)`, qty: 1, total: paidAmount, profit: 0, customer: `${customers[phone].name} (${phone})`, paymentMethod: selectedMethod, time: new Date().toLocaleString('vi-VN') }; addTransactionAndSync(lg); 
+    logAudit("THU NỢ", `${customers[phone].name} trả ${paidAmount.toLocaleString()}đ`); toast.success(`Thu nợ thành công!`);
   };
 
   const handleReprint = (timeStr: string, mode: 'receipt_thermal' | 'receipt_a4') => {
@@ -569,25 +564,120 @@ export default function App() {
     const subTotal = reconstructedCart.reduce((s, i) => s + (i.qty * (i.priceIncludingVat / (1 + VAT_RATE))), 0); const vatTotal = Math.round(subTotal * VAT_RATE); const discount = discountLog ? Math.abs(discountLog.total) : 0; const finalTotal = logsInBill.reduce((sum, l) => sum + Math.abs(l.total), 0) - discount; 
     let cPhone = ""; let cName = logsInBill[0].customer; if (cName && cName !== "Khách lẻ") { const match = cName.match(/\((.*?)\)/); if (match && match[1]) { cPhone = match[1]; cName = cName.replace(` (${cPhone})`, "").trim(); } else { cPhone = cName; } }
     const rOrder = { orderId: logsInBill[0].order_id || (isRefundSlip ? "PHIẾU_TRẢ_HÀNG" : "HD_COPY"), shift: logsInBill[0].shift, cart: reconstructedCart, subTotal, vatTotal, finalTotal, debtAmount: logsInBill[0].type === 'GHI NỢ' ? finalTotal : 0, discount, time: timeStr, paymentMethod: logsInBill[0].paymentMethod, customerGiven: 0, custName: cName || "Khách lẻ", custPhone: cPhone };
-    setLastOrder(rOrder); setPrintMode(mode); 
+    setLastOrder(rOrder); setPrintMode(mode); logAudit("IN LẠI HÓA ĐƠN", `HĐ lúc ${timeStr}`);
   };
 
   const sendReceiptEmail = async () => {
     if (!lastOrder) return; let savedEmail = (lastOrder.custPhone && customers[lastOrder.custPhone] && customers[lastOrder.custPhone].email) ? customers[lastOrder.custPhone].email : ""; let email = window.prompt("Nhập Email khách hàng:", savedEmail); if (!email) return; email = email.trim(); 
     if (lastOrder.custPhone) { setCustomers((prev: any) => ({ ...prev, [lastOrder.custPhone]: { ...prev[lastOrder.custPhone], email: email } })); }
-    setLoading(true); let itemsHtml = ""; lastOrder.cart.forEach((item: any) => { const priceToUse = item.priceIncludingVat !== undefined ? item.priceIncludingVat : Math.round(getActualPrice(item.product) * (1 + VAT_RATE)); itemsHtml += `<tr><td style="padding: 10px; border-bottom: 1px solid #f1f5f9;">${cleanName(item.product.name)}</td><td style="padding: 10px; text-align: center; border-bottom: 1px solid #f1f5f9;">${item.qty}</td><td style="padding: 10px; text-align: right; border-bottom: 1px solid #f1f5f9;">${(priceToUse * item.qty).toLocaleString()}đ</td></tr>`; }); 
-    const htmlContent = `<div style="font-family: Arial; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0;"><div style="background: #1e293b; color: white; padding: 20px; text-align: center;"><h1>HẢI LÊ MART</h1></div><div style="padding: 20px; background: #ffffff;"><p><strong>Mã HĐ:</strong> ${lastOrder.orderId}</p><table style="width: 100%; border-collapse: collapse;"><thead><tr style="background: #f8fafc;"><th>Sản phẩm</th><th>SL</th><th>Thành tiền</th></tr></thead><tbody>${itemsHtml}</tbody></table><h2>TỔNG CỘNG: ${Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</h2></div></div>`;
-    try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_email: email, subject: `🧾 Hóa đơn mua hàng #${lastOrder.orderId}`, html_message: htmlContent }); toast.success("Đã gửi Hóa đơn thành công!"); } catch (error: any) { toast.error(`Lỗi gửi Email`); } setLoading(false)
+    setLoading(true); 
+    
+    let itemsHtml = ""; 
+    lastOrder.cart.forEach((item: any) => { 
+      const priceToUse = item.priceIncludingVat !== undefined ? item.priceIncludingVat : Math.round(getActualPrice(item.product) * (1 + VAT_RATE)); 
+      itemsHtml += `
+        <tr>
+          <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; color: #1e293b;">${cleanName(item.product.name)}</td>
+          <td style="padding: 12px; text-align: center; border-bottom: 1px solid #f1f5f9; color: #1e293b; font-weight: bold;">${item.qty}</td>
+          <td style="padding: 12px; text-align: right; border-bottom: 1px solid #f1f5f9; color: #1e293b;">${(priceToUse * item.qty).toLocaleString()}đ</td>
+        </tr>`; 
+    }); 
+
+    // GIAO DIỆN EMAIL HÓA ĐƠN ĐẸP MẮT
+    const htmlContent = `
+      <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; background: #ffffff;">
+        <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 30px 20px; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 26px; letter-spacing: 2px; text-transform: uppercase;">HẢI LÊ MART</h1>
+          <p style="color: #94a3b8; margin: 8px 0 0 0; font-size: 14px;">Hóa Đơn Mua Hàng Điện Tử</p>
+        </div>
+        <div style="padding: 25px;">
+          <div style="display: flex; justify-content: space-between; border-bottom: 2px dashed #cbd5e1; padding-bottom: 15px; margin-bottom: 15px;">
+            <div>
+              <p style="margin: 0 0 5px 0; color: #64748b; font-size: 13px;">Mã Đơn Hàng:</p>
+              <p style="margin: 0; color: #0f172a; font-weight: bold; font-size: 16px;">${lastOrder.orderId}</p>
+            </div>
+            <div style="text-align: right;">
+              <p style="margin: 0 0 5px 0; color: #64748b; font-size: 13px;">Ngày mua:</p>
+              <p style="margin: 0; color: #0f172a; font-weight: bold; font-size: 14px;">${lastOrder.time}</p>
+            </div>
+          </div>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <thead>
+              <tr style="background: #f8fafc;">
+                <th style="padding: 12px; text-align: left; color: #64748b; font-size: 13px; border-bottom: 2px solid #e2e8f0;">Sản phẩm</th>
+                <th style="padding: 12px; text-align: center; color: #64748b; font-size: 13px; border-bottom: 2px solid #e2e8f0;">SL</th>
+                <th style="padding: 12px; text-align: right; color: #64748b; font-size: 13px; border-bottom: 2px solid #e2e8f0;">Thành tiền</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
+          <div style="background: #f8fafc; padding: 15px; border-radius: 8px; text-align: right;">
+            <h2 style="margin: 0; color: #0f172a; font-size: 22px;">
+              <span style="font-size: 14px; color: #64748b; font-weight: normal; margin-right: 10px;">TỔNG THANH TOÁN:</span> 
+              <span style="color: #dc2626;">${Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</span>
+            </h2>
+            <p style="margin: 5px 0 0 0; color: #64748b; font-size: 13px;">Phương thức: ${lastOrder.paymentMethod}</p>
+          </div>
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+            <p style="margin: 0; color: #64748b; font-size: 14px;">Cảm ơn quý khách đã mua sắm tại Hải Lê Mart!</p>
+            <p style="margin: 5px 0 0 0; color: #94a3b8; font-size: 12px;">Hotline hỗ trợ: 09xx.xxx.xxx</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_email: email, subject: `🧾 Hóa đơn mua hàng #${lastOrder.orderId}`, html_message: htmlContent }); logAudit("GỬI HÓA ĐƠN EMAIL", `Mã HĐ: ${lastOrder.orderId}`); toast.success("Đã gửi Hóa đơn thành công!"); } catch (error: any) { toast.error(`Lỗi gửi Email`); } setLoading(false)
   };
 
-  const printCustomerCard = (phone: string) => { const cust = customers[phone]; if(!cust) return toast.error("Không tìm thấy dữ liệu khách!"); setPrintCustomer({ phone, ...cust }); setPrintMode('customer_card'); };
+  const printCustomerCard = (phone: string) => { const cust = customers[phone]; if(!cust) return toast.error("Không tìm thấy dữ liệu khách!"); setPrintCustomer({ phone, ...cust }); setPrintMode('customer_card'); logAudit("IN THẺ VIP", phone); };
   const sendCardEmail = async (phone: string) => {
     const font = customers[phone]; if(!font) return toast.error("Không tìm thấy dữ liệu khách!");
     let email = font.email || window.prompt(`Nhập Email của ${font.name}:`, ""); if (!email) return; email = email.trim(); 
     if (!font.email) { setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], email } })); } setLoading(true);
-    const code = font.cardCode || phone; const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=10&includetext=false`; 
-    const htmlContent = `<div style="font-family: Arial; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0;"><div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; padding: 20px; text-align: center;"><h1>HẢI LÊ MART</h1></div><div style="padding: 30px 20px; background: #fff7ed; text-align: center;"><h2>Xin chào, ${font.name}!</h2><img src="${barcodeUrl}" alt="Barcode" /><p>${code}</p></div></div>`;
-    try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { to_email: email, subject: `💳 Thẻ VIP Đặc Quyền - ${font.name}`, html_message: htmlContent }, EMAILJS_PUBLIC_KEY); toast.success("Đã gửi Thẻ VIP thành công!"); } catch (error: any) { toast.error(`Lỗi gửi Email`); } setLoading(false);
+    
+    const code = font.cardCode || phone; 
+    const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=10&includetext=false`; 
+    
+    // GIAO DIỆN EMAIL THẺ VIP ĐẸP MẮT NHƯ THẺ THẬT
+    const htmlContent = `
+      <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f1f5f9; padding: 30px; border-radius: 12px;">
+        <div style="text-align: center; margin-bottom: 25px;">
+          <h2 style="color: #0f172a; margin: 0;">Xin chào, ${font.name}!</h2>
+          <p style="color: #64748b; margin: 5px 0 0 0;">Chào mừng bạn đến với chương trình Khách hàng thân thiết.</p>
+        </div>
+        
+        <div style="background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); border-radius: 16px; padding: 25px; color: white; box-shadow: 0 10px 25px rgba(220, 38, 38, 0.3); position: relative; overflow: hidden; max-width: 400px; margin: 0 auto;">
+          <div style="position: absolute; top: -50px; right: -50px; width: 150px; height: 150px; background: rgba(255,255,255,0.1); border-radius: 50%;"></div>
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
+            <h3 style="margin: 0; font-size: 20px; letter-spacing: 1px;">HẢI LÊ MART</h3>
+            <span style="background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; letter-spacing: 1px;">VIP MEMBER</span>
+          </div>
+          
+          <div style="background: #ffffff; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
+            <img src="${barcodeUrl}" alt="Barcode" style="max-width: 100%; height: 50px;" />
+          </div>
+          
+          <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+            <div>
+              <p style="margin: 0; font-size: 10px; opacity: 0.8; text-transform: uppercase;">Mã Thành Viên</p>
+              <p style="margin: 5px 0 0 0; font-size: 18px; letter-spacing: 2px; font-family: monospace;">${code}</p>
+            </div>
+            <div style="text-align: right;">
+              <p style="margin: 0; font-size: 10px; opacity: 0.8; text-transform: uppercase;">Chủ thẻ</p>
+              <p style="margin: 5px 0 0 0; font-size: 16px; font-weight: bold; text-transform: uppercase;">${font.name}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px;">
+          <p style="color: #64748b; font-size: 14px; line-height: 1.5;">Vui lòng xuất trình mã vạch này tại quầy thu ngân để tích điểm và nhận các ưu đãi đặc quyền dành riêng cho bạn.</p>
+        </div>
+      </div>
+    `;
+
+    try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { to_email: email, subject: `💳 Thẻ VIP Đặc Quyền - ${font.name}`, html_message: htmlContent }, EMAILJS_PUBLIC_KEY); logAudit("GỬI THẺ VIP EMAIL", phone); toast.success("Đã gửi Thẻ VIP thành công!"); } catch (error: any) { toast.error(`Lỗi gửi Email`); } setLoading(false);
   };
   
   const shareToZalo = (phone: string) => { const cust = customers[phone]; const code = cust.cardCode || phone; navigator.clipboard.writeText(`Chào ${cust.name},\nMã Thẻ VIP của bạn là: ${code}`).then(() => { toast.success(`Đang mở Zalo...`); window.open(`https://zalo.me/${phone}`, '_blank') }).catch(() => { window.open(`https://zalo.me/${phone}`, '_blank') }) };
@@ -673,7 +763,6 @@ export default function App() {
         toast.success(`Đã lưu lên hệ thống Cloud!`);
         fetchProducts();
       } else {
-        console.log("Đang mất mạng -> Lưu tạm vào Két sắt Nhập Kho...");
         const pendingImports = await dbGet("mart_pending_imports") || [];
         let actionType = exist ? "UPDATE_STOCK" : "INSERT_NEW";
         let targetId = exist ? exist.id : null;
@@ -769,9 +858,9 @@ export default function App() {
     }); 
   };
 
-  const handlePrintBarcode = (p: any) => { const q = window.prompt(`SL tem in:`, "30"); if (q && parseInt(q) > 0) { setPrintBarcodeProduct(p); setBarcodeCount(parseInt(q)); setPrintMode('barcode'); } };
+  const handlePrintBarcode = (p: any) => { const q = window.prompt(`SL tem in:`, "30"); if (q && parseInt(q) > 0) { setPrintBarcodeProduct(p); setBarcodeCount(parseInt(q)); setPrintMode('barcode'); logAudit("IN TEM", p.name); } };
   const downloadSampleCSV = () => { try { const csv = "\uFEFFMã SP,Tên SP,Danh Mục,Giá Nhập,Giá Bán,Giá KM,ĐK Tặng,Quà Tặng,Số Lượng,Hạn Sử Dụng\nSP001,Mì Hảo Hảo,Đồ ăn liền,3000,5000,0,1,,100,2026-12-31"; const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Mau_Nhap_Kho.csv`; document.body.appendChild(link); link.click(); document.body.removeChild(link); } catch(e) {} };
-  const exportToCSV = () => { let csv = "\uFEFFGiờ,Ca,Loại,Hình thức,Khách,Sản phẩm,SL,Tổng,Lợi nhuận\n"; history.forEach(log => { csv += `${new Date(Math.floor(log.id)).toLocaleString('vi-VN')},${log.shift || ""},${log.type},${log.paymentMethod || ""},${log.customer || "Khách lẻ"},${log.name},${log.qty},${Math.round(log.total)},${Math.round(log.profit || 0)}\n`; }); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Bao_Cao_Ban_Hang.csv`; link.click(); };
+  const exportToCSV = () => { let csv = "\uFEFFGiờ,Ca,Loại,Hình thức,Khách,Sản phẩm,SL,Tổng,Lợi nhuận\n"; history.forEach(log => { csv += `${new Date(Math.floor(log.id)).toLocaleString('vi-VN')},${log.shift || ""},${log.type},${log.paymentMethod || ""},${log.customer || "Khách lẻ"},${log.name},${log.qty},${Math.round(log.total)},${Math.round(log.profit || 0)}\n`; }); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Bao_Cao_Ban_Hang.csv`; link.click(); logAudit("XUẤT EXCEL", "Lịch sử bán hàng"); };
   const exportAuditToCSV = () => { let csv = "\uFEFFThời gian,Người dùng,Ca,Hành động,Chi tiết\n"; auditLogs.forEach(log => { csv += `${log.time},${log.user_name},${log.shift},${log.action},"${(log.detail || "")}"\n`; }); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Nhat_Ky.csv`; link.click(); };
   
   const handleInventorySearchEnter = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); const term = String(inventorySearchTerm || "").trim().toLowerCase(); if (!term) return; const exactMatch = products.find(p => String(p.product_code || "").toLowerCase() === term); if (exactMatch) { const inputEl = document.getElementById(`inv-input-${exactMatch.id}`); if (inputEl) { inputEl.focus(); } } } };
@@ -830,7 +919,7 @@ export default function App() {
   const handleDirectQtyChange = (productId: any, val: string) => { 
     setCart(prev => { 
       if (val === '') return prev.map(i => i.product.id === productId ? { ...i, qty: '' as any, total: 0 } : i); let num = parseInt(val); if (isNaN(num) || num < 0) return prev; let exceedStock = false; 
-      const updated = prev.map(i => { if (i.product.id === productId) { const baseCode = String(item.product.product_code).split('-')[0]; const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); if (num > totalStock) { exceedStock = true; num = totalStock; } const price = getActualPrice(i.product); return { ...i, qty: num, total: Math.round(num * price * (1 + VAT_RATE)) }; } return i; });
+      const updated = prev.map(i => { if (i.product.id === productId) { const baseCode = String(i.product.product_code).split('-')[0]; const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); if (num > totalStock) { exceedStock = true; num = totalStock; } const price = getActualPrice(i.product); return { ...i, qty: num, total: Math.round(num * price * (1 + VAT_RATE)) }; } return i; });
       if (exceedStock) playSound('error'); return updated; 
     }); 
   };
@@ -838,61 +927,42 @@ export default function App() {
   const removeFromCart = (productId: any) => { setCart(cart.filter(item => item.product.id !== productId)) };
   const clearCart = () => { if (window.confirm("Hủy toàn bộ?")) { resetCheckout(); } };
 
-  const handleSendMarketingEmail = async () => {
-    if (!marketingMsg) return toast.error("Nhập nội dung!"); if (!window.confirm("Gửi?")) return; setLoading(true); 
-    const targetCustomers = Object.keys(customers || {}).filter(phone => { const c = customers[phone]; if (!c || !c.email) return false; if (marketingTier === "Tất cả") return true; return getCustomerTier(c.totalSpent || 0).name.includes(marketingTier); });
-    if (targetCustomers.length === 0) { setLoading(false); return toast.error("Không tìm thấy khách hàng!"); }
-    let successCount = 0;
-    for (const phone of targetCustomers) { const c = customers[phone]; const htmlContent = `<div><h1>HẢI LÊ MART</h1><p>${marketingMsg}</p></div>`; try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { to_email: c.email, subject: "💌 Ưu Đãi Đặc Quyền Từ Hải Lê Mart", html_message: htmlContent }); successCount++; } catch (error: any) {} }
-    logAudit("GỬI MAIL MKT", `Gửi ${successCount} mail`); setLoading(false); setShowMarketingModal(false); toast.success(`Đã gửi thành công!`);
-  };
-
-  const handleSaveNewPO = async () => {
-    if (!selectedSupplierId) return toast.error("Chọn Nhà Cung Cấp!"); if (poItems.length === 0) return toast.error("Phiếu trống!");
-    const supplier = suppliers.find(s => s.id.toString() === selectedSupplierId); if (!supplier) return; setLoading(true);
-    try {
-      const totalPOAmount = poItems.reduce((sum, item) => sum + (item.qty * item.importPrice), 0); const debtAmount = totalPOAmount - paidAmount; const poCode = "PO" + Date.now().toString().slice(-6);
-      const newPO = { id: Date.now().toString(), po_code: poCode, supplier: supplier, items: poItems, total_amount: totalPOAmount, paid_amount: paidAmount, debt_amount: debtAmount, status: 'PENDING', note: poNote, created_at: new Date().toISOString() };
-      setLocalPOs(prev => [newPO, ...prev]); setPoItems([]); setPoNote(""); setSelectedSupplierId(""); setPaidAmount(0); toast.success(`Đã lưu Phiếu ${poCode}!`);
-      setPoTab('RECEIVE'); setSearchPoCode(poCode); setFoundPO(newPO); setReceiveItems(newPO.items.map((i: any) => ({ ...i, damagedQty: 0 })));
-    } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); }
-  };
-
-  const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') => { setPrintPOData(po); setPrintMode(type); };
-
-  const handleConfirmReceipt = async () => {
-    if (!foundPO || receiveItems.length === 0) return; setLoading(true);
-    try {
-      let actualTotal = 0; let logs: any[] = [];
-      for (const item of receiveItems) {
-          const actualQty = item.qty - (item.damagedQty || 0); actualTotal += actualQty * item.importPrice;
-          if (actualQty > 0) { const p = products.find(x => x.id === item.product.id); if (p) { await supabase.from('products').update({ stock: p.stock + actualQty, import_price: item.importPrice }).eq('id', p.id); logs.push({ id: Date.now() + Math.random(), shift, type: "NHẬP PO", name: p.name, qty: actualQty, total: actualQty * item.importPrice, time: new Date().toLocaleString('vi-VN') }); } }
-          if (item.damagedQty > 0) { logs.push({ id: Date.now() + Math.random(), shift, type: "TRẢ HÀNG NCC", name: item.product.name, qty: item.damagedQty, total: 0, time: new Date().toLocaleString('vi-VN') }); }
-      }
-      const finalDebt = actualTotal - foundPO.paid_amount;
-      if (finalDebt > 0 && foundPO.supplier) { const supplierId = foundPO.supplier.id; const s = suppliers.find(x => x.id === supplierId); if (s) { const newD = (s.debt || 0) + finalDebt; await supabase.from('suppliers').update({ debt: newD }).eq("id", supplierId); setSuppliers(prev => prev.map(x => x.id === supplierId ? { ...x, debt: newD } : x)); } }
-      setLocalPOs(prev => prev.map(p => p.id === foundPO.id ? { ...p, status: 'COMPLETED', items: receiveItems, total_amount: actualTotal } : p));
-      logs.forEach(lg => addTransactionAndSync(lg)); logAudit("NHẬN HÀNG PO", `Mã ${foundPO.po_code}`); toast.success("Nhập Kho thành công!"); fetchProducts(); setFoundPO(prev => ({ ...prev, status: 'COMPLETED', items: receiveItems, total_amount: actualTotal }));
-    } catch (err: any) { toast.error("Lỗi"); } finally { setLoading(false); }
-  };
-
+  // ==========================================
   // VÁ LỖI CÔNG THỨC TIỀN MẶT CHUẨN BAN ĐẦU
+  // ==========================================
   const todayStrStr = new Date().toLocaleDateString('vi-VN');
+  
   const currentShiftStats = useMemo(() => {
     const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStrStr && h.shift === shift);
-    let cash = 0; let transfer = 0; let prof = 0; let totalSales = 0;
+    let cash = Number(startingCash) || 0; 
+    let transfer = 0; 
+    let prof = 0; 
+    let totalSales = 0;
+    
     shiftLogs.forEach(h => {
-      if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += h.total;
+      if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += Number(h.total) || 0;
       if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') {
-        if (h.paymentMethod === 'CHUYỂN KHOẢN' || h.paymentMethod === 'QUẸT THẺ' || h.paymentMethod === 'ZALO PAY') { transfer += h.total; }
-        else if (h.paymentMethod === 'TIỀN MẶT' || h.paymentMethod === 'KẾT HỢP') {
-          if(h.paymentMethod === 'KẾT HỢP' && h.split_cash) { cash += h.split_cash; transfer += (h.total - h.split_cash); } else { cash += h.total; }
+        if (h.paymentMethod === 'CHUYỂN KHOẢN' || h.paymentMethod === 'QUẸT THẺ' || h.paymentMethod === 'ZALO PAY') { 
+          transfer += Number(h.total) || 0; 
+        }
+        else if (h.paymentMethod === 'TIỀN MẶT' || h.paymentMethod === 'KẾT HỢP' || h.paymentMethod === 'TRỪ NỢ' || h.paymentMethod === 'VÍ WALLET') {
+          let amountToAdd = Number(h.total) || 0;
+          if(h.paymentMethod === 'KẾT HỢP' && h.split_cash) { 
+             amountToAdd = Number(h.split_cash) || 0; 
+             transfer += (Number(h.total) - Number(h.split_cash)) || 0; 
+          }
+          cash += amountToAdd; 
         }
       }
-      prof += (h.profit || 0)
+      prof += Number(h.profit) || 0;
     });
-    return { rev: cash + transfer, cash, transfer, prof, totalSales }
-  }, [history, shift, todayStrStr]);
+    
+    const shiftExpenses = expenses.filter(e => e.date === todayStrStr);
+    const totalExpenses = shiftExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    cash -= totalExpenses;
+
+    return { rev: cash + transfer - (Number(startingCash) || 0), cash, transfer, prof, totalSales }
+  }, [history, expenses, shift, todayStrStr, startingCash]);
 
   const currentShiftCashFlow = useMemo(() => {
     if (!cashFlowModalInfo) return { thu: [], chi: [] };
@@ -998,38 +1068,6 @@ export default function App() {
     }
     return filtered
   }, [products, debouncedSearchTerm, selectedCategory, sortConfig, filters]);
-
-  const handleSendEmailReport = async () => {
-    const start = new Date(reportStartDate + "T00:00:00").getTime(); const end = new Date(reportEndDate + "T23:59:59").getTime(); 
-    const logs = history.filter(log => { const t = new Date(Math.floor(log.id)).getTime(); return t >= start && t <= end; });
-    if (logs.length === 0) return toast.error("Chưa có giao dịch!"); 
-    let cash = 0, transfer = 0, prof = 0, sold = 0; 
-    logs.forEach(l => { 
-      if (l.type === 'BÁN') sold += l.qty; 
-      if (l.type === 'BÁN' || l.type === 'THU NỢ' || l.type === 'TRẢ HÀNG') { 
-        if (l.paymentMethod === 'CHUYỂN KHOẢN' || l.paymentMethod === 'QUẸT THẺ' || l.paymentMethod === 'ZALO PAY') { transfer += l.total; } 
-        else if (l.paymentMethod === 'TIỀN MẶT' || l.paymentMethod === 'KẾT HỢP') { 
-          if(l.paymentMethod === 'KẾT HỢP' && l.split_cash) { cash += l.split_cash; transfer += (l.total - l.split_cash); } else { cash += l.total; } 
-        } 
-      } 
-      prof += (l.profit || 0); 
-    });
-    let adminEmail = window.prompt("Nhập Email Quản lý:", ""); if(!adminEmail) return; adminEmail = adminEmail.trim(); 
-    setLoading(true); 
-    const htmlContent = `<div style="font-family: Arial; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0;"><div style="background: #3b82f6; color: white; padding: 20px; text-align: center;"><h1>HẢI LÊ MART</h1><p>BÁO CÁO DOANH THU</p></div><div style="padding: 20px; background: #ffffff;"><h2>Kỳ: ${reportStartDate} đến ${reportEndDate}</h2><table style="width: 100%; border-collapse: collapse;"><tbody><tr><td style="padding: 10px;">Tổng SP đã bán:</td><td style="padding: 10px; text-align: right;">${sold} món</td></tr><tr><td style="padding: 10px;">Doanh thu Tiền Mặt:</td><td style="padding: 10px; text-align: right; color: #10b981;">${Math.round(cash).toLocaleString()}đ</td></tr><tr><td style="padding: 10px;">Doanh thu CK/Thẻ:</td><td style="padding: 10px; text-align: right; color: #3b82f6;">${Math.round(transfer).toLocaleString()}đ</td></tr><tr><td style="padding: 10px; font-weight: bold;">TỔNG LỢI NHUẬN:</td><td style="padding: 10px; text-align: right; font-weight: bold; color: #ef4444;">${Math.round(prof).toLocaleString()}đ</td></tr></tbody></table></div></div>`;
-    try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_email: adminEmail, subject: `📊 Báo cáo doanh thu ${reportStartDate} - ${reportEndDate}`, html_message: htmlContent }); logAudit("GỬI BÁO CÁO", `Tới ${adminEmail}`); toast.success("Đã gửi Báo cáo!"); } catch (error: any) { toast.error(`Lỗi gửi Email`); } setLoading(false);
-  };
-
-  const sendInventoryAlertEmail = async () => {
-    let adminEmail = window.prompt("Nhập Email Quản lý:", ""); if(!adminEmail) return; setLoading(true); 
-    const lowStock = products.filter(p => p.stock > 0 && p.stock < 10).length; const today = new Date().getTime(); const expiring = products.filter(p => p.expiry_date && (new Date(p.expiry_date).getTime() - today) / 86400000 <= 15);
-    let htmlContent = `<div style="font-family: Arial; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0;"><div style="background: #ef4444; color: white; padding: 20px; text-align: center;"><h1>🚨 CẢNH BÁO KHO HÀNG</h1></div><div style="padding: 20px; background: #ffffff;"><h3>📦 SẮP HẾT HÀNG (${lowStock} món):</h3><ul>`;
-    products.filter(p => p.stock > 0 && p.stock < 10).forEach(p => { htmlContent += `<li><strong>${cleanName(p.name)}:</strong> Còn ${p.stock} sp</li>`; });
-    htmlContent += `</ul><h3>⏳ SẮP HẾT HẠN TRONG 15 NGÀY TỚI (${expiring.length} món):</h3><ul>`;
-    expiring.forEach(p => { htmlContent += `<li><strong>${cleanName(p.name)}:</strong> HSD ${new Date(p.expiry_date).toLocaleDateString('vi-VN')}</li>`; });
-    htmlContent += `</ul></div></div>`;
-    try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_email: adminEmail, subject: `🚨 Cảnh báo Tồn Kho & Hạn Sử Dụng`, html_message: htmlContent }); toast.success("Đã gửi cảnh báo kho!"); logAudit("CẢNH BÁO KHO", "Gửi email tồn kho"); } catch (error: any) { toast.error(`Lỗi gửi Email`); } setLoading(false);
-  };
 
   const renderModals = () => {
     return (
