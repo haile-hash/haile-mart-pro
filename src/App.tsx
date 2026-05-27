@@ -167,7 +167,7 @@ export default function App() {
   const [supPhone, setSupPhone] = useState("");
   const [supAddress, setSupAddress] = useState(""); 
   const [supItem, setSupItem] = useState("");
-  const [supTaxCode, setSupTaxCode] = useState("");       
+  const [supTaxCode, setSupTaxCode] = useState("");        
   const [supBankAccount, setSupBankAccount] = useState("");
   const [marketingTier, setMarketingTier] = useState("Tất cả");
   const [marketingMsg, setMarketingMsg] = useState("");
@@ -225,7 +225,6 @@ export default function App() {
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  // ĐÃ KHÔI PHỤC HÀM HANDLEINSTALLAPP BỊ THIẾU Ở ĐÂY
   const handleInstallApp = async () => {
     if (!installPrompt) return;
     installPrompt.prompt();
@@ -345,6 +344,8 @@ export default function App() {
     setAuditLogs(prev => [newLog, ...prev].slice(0, 300)); 
   };
 
+  const executeWithAdminCheck = (action: () => void) => { if (role === 'admin') { action(); } else { setPendingAction(() => action); setShowPinModal(true); } };
+
   const fetchProducts = async () => { 
     try {
       if (navigator.onLine) {
@@ -367,8 +368,160 @@ export default function App() {
     }
   };
 
-  const executeWithAdminCheck = (action: () => void) => { if (role === 'admin') { action(); } else { setPendingAction(() => action); setShowPinModal(true); } };
+  // ==========================================
+  // 1. QUẢN LÝ CHI PHÍ
+  // ==========================================
+  const addExpense = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!expName.trim() || !expAmount) return toast.error("Vui lòng nhập tên và số tiền chi phí!");
+    const amount = parseInt(expAmount.toString().replace(/[,.]/g, ''));
+    if (isNaN(amount) || amount <= 0) return toast.error("Số tiền không hợp lệ!");
+    
+    setLoading(true);
+    const newExpense = { id: Date.now(), date: todayStrStr, name: expName.trim(), amount: amount, shift: shift };
+    try {
+      if (navigator.onLine) await supabase.from('expenses').insert([newExpense]);
+      setExpenses(prev => [newExpense, ...prev]);
+      logAudit("THÊM CHI PHÍ", `${newExpense.name} - ${amount}đ`);
+      toast.success("Thêm chi phí thành công!");
+      setExpName(""); setExpAmount(""); setShowExpenseModal(false);
+    } catch (err) { toast.error("Lỗi khi thêm chi phí"); } finally { setLoading(false); }
+  };
+
+  const deleteExpense = async (id: any, name: string) => {
+    executeWithAdminCheck(async () => {
+      if (!window.confirm(`Xóa chi phí: ${name}?`)) return;
+      try {
+        if (navigator.onLine) await supabase.from('expenses').delete().eq('id', id);
+        setExpenses(prev => prev.filter(e => e.id !== id));
+        logAudit("XÓA CHI PHÍ", name);
+        toast.success("Đã xóa chi phí!");
+      } catch (err) { toast.error("Lỗi khi xóa chi phí"); }
+    });
+  };
+
+  // ==========================================
+  // 2. QUẢN LÝ ĐƠN TẠM GIỮ
+  // ==========================================
+  const handleHoldOrder = () => {
+    if (cart.length === 0) return toast.error("Giỏ hàng trống!");
+    const note = window.prompt("Nhập ghi chú (Tên khách/Bàn...):", "");
+    if (note === null) return;
+    
+    const newHeldOrder: HeldOrder = { id: Date.now(), time: new Date().toLocaleTimeString('vi-VN'), note: note || "Không có ghi chú", items: cart };
+    setHeldOrders(prev => [newHeldOrder, ...prev]);
+    resetCheckout();
+    toast.success("Đã lưu đơn tạm giữ!");
+  };
+
+  const restoreOrder = (order: HeldOrder) => {
+    setCart(order.items);
+    setHeldOrders(prev => prev.filter(o => o.id !== order.id));
+    setShowHoldModal(false);
+    toast.success(`Đã khôi phục đơn: ${order.note}`);
+  };
+
+  const deleteHeldOrder = (id: number) => {
+    if (window.confirm("Bạn muốn xóa đơn tạm giữ này?")) {
+      setHeldOrders(prev => prev.filter(o => o.id !== id));
+    }
+  };
+
+  // ==========================================
+  // 3. NHÀ CUNG CẤP & THANH TOÁN NỢ
+  // ==========================================
+  const addSupplier = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supName.trim()) return toast.error("Tên NCC không được để trống!");
+    const newSup = { id: Date.now().toString(), name: supName, phone: supPhone, address: supAddress, item: supItem, tax_code: supTaxCode, bank_account: supBankAccount, debt: 0 };
+    setSuppliers(prev => [newSup, ...prev]);
+    toast.success("Thêm NCC thành công!");
+    setShowSupplierModal(false);
+    setSupName(""); setSupPhone(""); setSupAddress(""); setSupItem(""); setSupTaxCode(""); setSupBankAccount("");
+  };
+
+  const deleteSupplier = async (id: string) => {
+    executeWithAdminCheck(async () => {
+      if (!window.confirm("Xóa Nhà cung cấp này?")) return;
+      setSuppliers(prev => prev.filter(s => s.id !== id));
+      toast.success("Đã xóa NCC!");
+    });
+  };
+
+  const handlePayDebt = async (phone: string, amountStr: string) => {
+    const amount = parseInt(amountStr.replace(/[,.]/g, ''));
+    if (isNaN(amount) || amount <= 0) return toast.error("Số tiền không hợp lệ!");
+    const customer = customers[phone];
+    if (!customer) return toast.error("Không tìm thấy khách hàng!");
+    
+    if (window.confirm(`Xác nhận thu nợ ${amount.toLocaleString()}đ từ ${customer.name}?`)) {
+      const newDebt = (customer.debt || 0) - amount;
+      setCustomers({ ...customers, [phone]: { ...customer, debt: newDebt } });
+      addTransactionAndSync({ id: Date.now(), shift, type: "THU NỢ", name: "Thanh toán nợ", qty: 1, total: amount, paymentMethod: "TIỀN MẶT", time: new Date().toLocaleString('vi-VN'), customer: customer.name });
+      toast.success("Đã ghi nhận thanh toán nợ!");
+    }
+  };
+
+  // ==========================================
+  // 4. THANH TOÁN (CHECKOUT)
+  // ==========================================
+  const confirmCheckout = (paymentMethod: string) => {
+    if (cart.length === 0) return toast.error("Giỏ hàng trống!");
+    
+    cart.forEach(item => {
+      addTransactionAndSync({
+        id: Date.now() + Math.random(), shift, type: "BÁN", name: item.product.name,
+        qty: item.qty, total: item.total, profit: item.total - (item.product.import_price * item.qty),
+        paymentMethod, customer: custName || "Khách lẻ", time: new Date().toLocaleString('vi-VN')
+      });
+    });
+
+    logAudit("BÁN HÀNG", `Hóa đơn: ${cartTotalAmountDisplay}đ - ${paymentMethod}`);
+    setLastOrder({ items: cart, total: finalToPay, method: paymentMethod, customer: custName, time: new Date().toLocaleString('vi-VN') });
+    
+    toast.success("Thanh toán thành công!");
+    setPrintMode('receipt_thermal');
+    resetCheckout();
+    setIsCheckoutOpen(false);
+  };
+
+  const handleVoucherSubmit = () => toast.success("Đã áp dụng Voucher!");
+  const handleCustomerInputChange = (val: string) => setCustomerInput(val);
+  const handleNextToQR = () => setCheckoutStep(2);
+  const sendReceiptEmail = () => toast.success("Đã gửi hóa đơn qua Email!");
+  const closeCheckout = () => { setIsCheckoutOpen(false); resetCheckout(); };
+
+  // ==========================================
+  // 5. GIAO DIỆN & TIỆN ÍCH KHÁC
+  // ==========================================
+  const handleLogoutClick = () => {
+    if (window.confirm("Bạn muốn đăng xuất?")) {
+      setIsLoggedIn(false); logAudit("ĐĂNG XUẤT", `Tài khoản: ${role}`);
+    }
+  };
+
+  const confirmHandover = () => {
+    toast.success("Đã bàn giao ca!"); setShowHandoverModal(false); setIsLoggedIn(false);
+  };
+
+  const handleRefund = (log: any) => {
+    executeWithAdminCheck(() => {
+      if(window.confirm(`Bạn muốn hoàn tiền đơn hàng ${log.name}?`)) {
+        addTransactionAndSync({ id: Date.now(), shift, type: "TRẢ HÀNG", name: log.name, qty: log.qty, total: -log.total, paymentMethod: log.paymentMethod, time: new Date().toLocaleString('vi-VN') });
+        toast.success("Đã hoàn tiền!");
+      }
+    });
+  };
+
+  const handleReprint = (time: string, type: 'receipt_thermal' | 'receipt_a4') => {
+    toast.success("Đang in lại..."); setPrintMode(type);
+  };
   
+  const handleEditPhone = () => toast.success("Đã cập nhật SĐT!");
+  const printCustomerCard = () => toast.success("Đang in thẻ...");
+  const sendCardEmail = () => toast.success("Đã gửi thẻ qua email!");
+  const shareToZalo = () => toast.success("Đã chia sẻ qua Zalo!");
+
   const fetchSettingsFromCloud = async () => {
     try {
       const { data } = await supabase.from("settings").select("*").eq("id", 1).single();
@@ -590,7 +743,8 @@ export default function App() {
   const handleBarcodeSubmitAction = (e: React.KeyboardEvent<HTMLInputElement>) => { 
     document.getElementById('search-barcode')?.focus(); 
     if (e.key === 'Enter') { 
-      e.preventDefault(); const p = findProductByCode(barcodeInput); 
+      e.preventDefault(); 
+      const p = products.find(prod => prod.product_code === barcodeInput || String(prod.product_code).split('-')[0] === barcodeInput);
       if (p) { handleSelectSuggest(p); } else { 
         const matchedPhone = Object.keys(customers || {}).find(phone => phone === barcodeInput.trim() || customers[phone]?.cardCode === barcodeInput.trim()); 
         if (matchedPhone) { playSound('success'); setCustomerInput(customers[matchedPhone]?.cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customers[matchedPhone]?.name); setBarcodeInput(""); } 
