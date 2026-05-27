@@ -103,13 +103,25 @@ export default function App() {
     return <MobileScanner />;
   }
 
+  const VAT_RATE = 0.1;
+  const EMAILJS_SERVICE_ID = "service_7ie990l";
+  const EMAILJS_TEMPLATE_ID = "template_m1j9i7k";
+  const EMAILJS_TEMPLATE_VIP_ID = "template_t91erhg";
+  const EMAILJS_PUBLIC_KEY = "5ric0kxuwNPlUleAv";
+  const IDLE_TIMEOUT = 5 * 60 * 1000; 
+
+  // KHỞI TẠO EMAILJS
+  useEffect(() => { emailjs.init(EMAILJS_PUBLIC_KEY); }, []);
+
   // =====================================================================
-  // 1. TẤT CẢ STATES VÀ HOOKS (SẮP XẾP CHUẨN ĐỂ KHÔNG BAO GIỜ BỊ LỖI TDZ)
+  // 1. TẤT CẢ STATES VÀ HOOKS
   // =====================================================================
   const [isStorageLoading, setIsStorageLoading] = useState(true); 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [unlockPin, setUnlockPin] = useState("");
+  const [installPrompt, setInstallPrompt] = useState<any>(null); // PWA Install Prompt State
+
   const [role, setRole] = useState("staff");
   const [shift, setShift] = useState("Ca Sáng");
   const [authUsername, setAuthUsername] = useState("");
@@ -132,6 +144,7 @@ export default function App() {
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [showScannerLinkModal, setShowScannerLinkModal] = useState(false);
   const [showPOModal, setShowPOModal] = useState(false); 
+
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
@@ -141,9 +154,11 @@ export default function App() {
   const [openFilter, setOpenFilter] = useState<string | null>(null);
   const [filters, setFilters] = useState<Record<string, any[]>>({});
   const [showSuggestions, setShowSuggestions] = useState(false);
+  
   const [actualStockInput, setActualStockInput] = useState<Record<string, number>>({});
   const [inventorySearchTerm, setInventorySearchTerm] = useState("");
   const [invFilter, setInvFilter] = useState('ALL');
+  
   const [expName, setExpName] = useState("");
   const [expAmount, setExpAmount] = useState("");
   const [supName, setSupName] = useState("");
@@ -155,22 +170,19 @@ export default function App() {
   const [marketingTier, setMarketingTier] = useState("Tất cả");
   const [marketingMsg, setMarketingMsg] = useState("");
   
-  const [reportStartDate, setReportStartDate] = useState(() => { 
-    const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0]; 
-  });
-  const [reportEndDate, setReportEndDate] = useState(() => { 
-    return new Date().toISOString().split('T')[0]; 
-  });
-  
+  const [reportStartDate, setReportStartDate] = useState(() => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0]; });
+  const [reportEndDate, setReportEndDate] = useState(() => { return new Date().toISOString().split('T')[0]; });
   const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
   const [logSearchTerm, setLogSearchTerm] = useState("");
   const [logTypeFilter, setLogTypeFilter] = useState("Tất cả");
+  
   const [scanQueue, setScanQueue] = useState<string[]>([]);
   const [scanMessage, setScanMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
   const [printBarcodeProduct, setPrintBarcodeProduct] = useState<Product | null>(null);
   const [printCustomer, setPrintCustomer] = useState<Customer | null>(null);
   const [barcodeCount, setBarcodeCount] = useState<number>(30);
   const [selectedAuditLog, setSelectedAuditLog] = useState<AuditLog | null>(null);
+
   const [localPOs, setLocalPOs] = useState<any[]>([]);
   const [poTab, setPoTab] = useState<'NEW' | 'RECEIVE'>('NEW');
   const [selectedSupplierId, setSelectedSupplierId] = useState("");
@@ -183,6 +195,11 @@ export default function App() {
   const [receiveItems, setReceiveItems] = useState<any[]>([]);
   const [allPOs, setAllPOs] = useState<any[]>([]);
   const [printPOData, setPrintPOData] = useState<any>(null);
+
+  const { darkMode, setDarkMode, showSettings, setShowSettings, showInputForm, setShowInputForm, showDebtModal, setShowDebtModal, showStatsModal, setShowStatsModal, showCustomerModal, setShowCustomerModal, showHandoverModal, setShowHandoverModal, showAuditModal, setShowAuditModal, showHoldModal, setShowHoldModal, showExpenseModal, setShowExpenseModal, showSupplierModal, setShowSupplierModal, showMarketingModal, setShowMarketingModal, showInventoryModal, setShowInventoryModal, showMainMenu, setShowMainMenu, cashFlowModalInfo, setCashFlowModalInfo, scannerMode, setScannerMode, printMode, setPrintMode } = useUIState();
+  const { newCode, setNewCode, newName, setNewName, newImportPrice, setNewImportPrice, newPrice, setNewPrice, newPromoPrice, setNewPromoPrice, newGiftCondition, setNewGiftCondition, newGiftInfo, setNewGiftInfo, newStock, setNewStock, newExpiry, setNewExpiry, newCategory, setNewCategory, resetProductForm } = useProductInput();
+  const { cart, setCart, barcodeInput, custAddress, setCustAddress, setBarcodeInput, isCheckoutOpen, setIsCheckoutOpen, checkoutStep, setCheckoutStep, customerInput, setCustomerInput, custPhone, setCustPhone, custName, setCustName, useWallet, setUseWallet, voucherInput, setVoucherInput, appliedVoucherAmount, setAppliedVoucherAmount, customerGiven, setCustomerGiven, lastOrder, setLastOrder, resetCheckout } = useCheckoutState();
+
   const [customers, setCustomers] = useState<Record<string, Customer>>({});
   const [heldOrders, setHeldOrders] = useState<HeldOrder[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
@@ -190,24 +207,226 @@ export default function App() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [history, setHistory] = useState<TransactionLog[]>([]);
 
-  // HOOKS TỰ TẠO
-  const { darkMode, setDarkMode, showSettings, setShowSettings, showInputForm, setShowInputForm, showDebtModal, setShowDebtModal, showStatsModal, setShowStatsModal, showCustomerModal, setShowCustomerModal, showHandoverModal, setShowHandoverModal, showAuditModal, setShowAuditModal, showHoldModal, setShowHoldModal, showExpenseModal, setShowExpenseModal, showSupplierModal, setShowSupplierModal, showMarketingModal, setShowMarketingModal, showInventoryModal, setShowInventoryModal, showMainMenu, setShowMainMenu, cashFlowModalInfo, setCashFlowModalInfo, scannerMode, setScannerMode, printMode, setPrintMode } = useUIState();
-  const { newCode, setNewCode, newName, setNewName, newImportPrice, setNewImportPrice, newPrice, setNewPrice, newPromoPrice, setNewPromoPrice, newGiftCondition, setNewGiftCondition, newGiftInfo, setNewGiftInfo, newStock, setNewStock, newExpiry, setNewExpiry, newCategory, setNewCategory, resetProductForm } = useProductInput();
-  const { cart, setCart, barcodeInput, custAddress, setCustAddress, setBarcodeInput, isCheckoutOpen, setIsCheckoutOpen, checkoutStep, setCheckoutStep, customerInput, setCustomerInput, custPhone, setCustPhone, custName, setCustName, useWallet, setUseWallet, voucherInput, setVoucherInput, appliedVoucherAmount, setAppliedVoucherAmount, customerGiven, setCustomerGiven, lastOrder, setLastOrder, resetCheckout } = useCheckoutState();
   const { isOnline, syncStatus, syncAllOfflineData, loadCloudData } = useOfflineSync({ isLoggedIn, history, setHistory, customers, setCustomers, heldOrders, setHeldOrders, auditLogs, setAuditLogs, expenses, setExpenses, suppliers, setSuppliers });
-
   const isPrintingRef = useRef(false);
 
   // =====================================================================
-  // 2. CONSTANTS (CÁC HẰNG SỐ & BIẾN CỐ ĐỊNH)
+  // 2. EFFECTS (VÒNG ĐỜI VÀ EVENT CHẠY NGẦM)
   // =====================================================================
-  const VAT_RATE = 0.1;
-  const EMAILJS_SERVICE_ID = "service_7ie990l";
-  const EMAILJS_TEMPLATE_ID = "template_m1j9i7k";
-  const EMAILJS_TEMPLATE_VIP_ID = "template_t91erhg";
-  const EMAILJS_PUBLIC_KEY = "5ric0kxuwNPlUleAv";
-  const IDLE_TIMEOUT = 5 * 60 * 1000; 
-  const todayStrStr = new Date().toLocaleDateString('vi-VN');
+
+  // PWA: Bắt sự kiện cài đặt App
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setInstallPrompt(null);
+      toast.success("Cài đặt App thành công!");
+    }
+  };
+
+  // AUTO-LOCK MÀN HÌNH SAU 5 PHÚT
+  useEffect(() => {
+    if (!isLoggedIn || isLocked) return;
+    let timeout: any;
+    const resetTimer = () => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => setIsLocked(true), IDLE_TIMEOUT);
+    };
+    window.addEventListener('mousemove', resetTimer);
+    window.addEventListener('keydown', resetTimer);
+    window.addEventListener('click', resetTimer);
+    resetTimer(); 
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener('mousemove', resetTimer);
+      window.removeEventListener('keydown', resetTimer);
+      window.removeEventListener('click', resetTimer);
+    };
+  }, [isLoggedIn, isLocked]);
+
+  // DEBOUNCE SEARCH
+  useEffect(() => {
+    const handler = setTimeout(() => { setDebouncedSearchTerm(searchTerm); }, 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  // KHỞI TẠO INDEXEDDB
+  useEffect(() => {
+    const initializeEnterpriseStorage = async () => {
+      try {
+        let isMigrated = await dbGet("mart_storage_migrated") === "true";
+        if (!isMigrated) {
+          const keysToMigrate = [
+            "mart_logged_in", "mart_role", "mart_shift", "mart_starting_cash",
+            "mart_pos", "mart_customers", "mart_held_orders", "mart_audit",
+            "mart_expenses", "mart_suppliers", "mart_history"
+          ];
+          for (const key of keysToMigrate) {
+            const localData = localStorage.getItem(key);
+            if (localData !== null) {
+              try {
+                if (localData.startsWith("[") || localData.startsWith("{")) { await dbSet(key, JSON.parse(localData)); } 
+                else { await dbSet(key, localData); }
+              } catch (e) { await dbSet(key, localData); }
+              localStorage.removeItem(key);
+            }
+          }
+          await dbSet("mart_storage_migrated", "true");
+        }
+        const loggedIn = await dbGet("mart_logged_in") === "true";
+        const savedRole = await dbGet("mart_role") || "staff";
+        const savedShift = await dbGet("mart_shift") || "Ca Sáng";
+        const savedCash = Number(await dbGet("mart_starting_cash") || 5000000);
+        const savedPOs = await dbGet("mart_pos") || [];
+        const savedCustomers = await dbGet("mart_customers") || {};
+        const savedHeld = await dbGet("mart_held_orders") || [];
+        const savedAudit = await dbGet("mart_audit") || [];
+        const savedExpenses = await dbGet("mart_expenses") || [];
+        const savedSuppliers = await dbGet("mart_suppliers") || [];
+        const savedHistory = await dbGet("mart_history") || [];
+
+        setIsLoggedIn(loggedIn); setRole(savedRole); setShift(savedShift); setStartingCash(savedCash);
+        setLocalPOs(savedPOs); setCustomers(savedCustomers); setHeldOrders(savedHeld);
+        setAuditLogs(savedAudit); setExpenses(savedExpenses); setSuppliers(savedSuppliers); setHistory(savedHistory);
+      } catch (err) { console.error(err); } finally { setIsStorageLoading(false); }
+    };
+    initializeEnterpriseStorage();
+  }, []);
+
+  // ĐỒNG BỘ INDEXEDDB
+  useEffect(() => { if (!isStorageLoading) dbSet("mart_logged_in", isLoggedIn ? "true" : "false"); }, [isLoggedIn, isStorageLoading]);
+  useEffect(() => { if (!isStorageLoading) dbSet("mart_role", role); }, [role, isStorageLoading]);
+  useEffect(() => { if (!isStorageLoading) dbSet("mart_shift", shift); }, [shift, isStorageLoading]);
+  useEffect(() => { if (!isStorageLoading) dbSet("mart_starting_cash", startingCash.toString()); }, [startingCash, isStorageLoading]);
+  useEffect(() => { if (!isStorageLoading) dbSet("mart_pos", localPOs); }, [localPOs, isStorageLoading]);
+  useEffect(() => { if (!isStorageLoading) dbSet("mart_customers", customers); }, [customers, isStorageLoading]);
+  useEffect(() => { if (!isStorageLoading) dbSet("mart_held_orders", heldOrders); }, [heldOrders, isStorageLoading]);
+  useEffect(() => { if (!isStorageLoading) dbSet("mart_audit", auditLogs); }, [auditLogs, isStorageLoading]);
+  useEffect(() => { if (!isStorageLoading) dbSet("mart_expenses", expenses); }, [expenses, isStorageLoading]);
+  useEffect(() => { if (!isStorageLoading) dbSet("mart_suppliers", suppliers); }, [suppliers, isStorageLoading]);
+  useEffect(() => { if (!isStorageLoading) dbSet("mart_history", history); }, [history, isStorageLoading]);
+
+  // CÁC EFFECTS HỆ THỐNG KHÁC
+  useEffect(() => { 
+    if (darkMode) { document.documentElement.setAttribute('data-theme', 'dark'); localStorage.setItem("mart_theme", "dark"); } 
+    else { document.documentElement.removeAttribute('data-theme'); localStorage.setItem("mart_theme", "light"); } 
+  }, [darkMode]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isLoggedIn || isCheckoutOpen || showPinModal || showAuditModal || showCustomerModal || showSettings || showInputForm || showInventoryModal || cashFlowModalInfo || showPOModal) return;
+      if (e.key === 'F1') { e.preventDefault(); document.getElementById('search-barcode')?.focus(); }
+      if (e.key === 'F2') { e.preventDefault(); if (cart.length > 0) confirmCheckout('TIỀN MẶT'); }
+      if (e.key === 'F3') { e.preventDefault(); if (cart.length > 0) confirmCheckout('CHUYỂN KHOẢN'); }
+      if (e.key === 'F4') { e.preventDefault(); handleHoldOrder(); }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isLoggedIn, isCheckoutOpen, showPinModal, cart, showAuditModal, showCustomerModal, showSettings, showInputForm, showInventoryModal, cashFlowModalInfo, showPOModal]);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetchProducts(); loadCloudData(); fetchSettingsFromCloud(); 
+      const channel = supabase.channel("db_changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts())
+        .on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData())
+        .on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData())
+        .on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData())
+        .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData())
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload) => { 
+          setScanQueue(prev => [...prev, payload.new.code]); 
+        }).subscribe();
+        
+      const script = document.createElement("script"); script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"; 
+      script.onload = () => { if(EMAILJS_PUBLIC_KEY) { emailjs.init(EMAILJS_PUBLIC_KEY); } }; document.head.appendChild(script);
+      const xlsxScript = document.createElement("script"); xlsxScript.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; document.head.appendChild(xlsxScript);
+      return () => { supabase.removeChannel(channel) };
+    }
+  }, [isLoggedIn, EMAILJS_PUBLIC_KEY]);
+
+  useEffect(() => {
+    if (scannerMode !== null) {
+      let scanner: any; let lastScanTime = 0;
+      const loadScanner = () => { 
+        if ((window as any).Html5QrcodeScanner) { 
+          scanner = new (window as any).Html5QrcodeScanner("qr-reader", { fps: 15, qrbox: { width: 250, height: 120 }, rememberLastUsedCamera: true }, false); 
+          scanner.render((text: string) => { 
+            const now = Date.now(); if (now - lastScanTime < 1500) return; lastScanTime = now; setScanQueue(prev => [...prev, text]); 
+          }, undefined) 
+        } 
+      };
+      if (!(window as any).Html5QrcodeScanner) { 
+        const script = document.createElement("script"); script.src = "https://unpkg.com/html5-qrcode"; script.onload = loadScanner; document.head.appendChild(script) 
+      } else { loadScanner(); }
+      return () => { if (scanner) scanner.clear().catch(() => { }) }
+    }
+  }, [scannerMode]);
+
+  useEffect(() => {
+    if (scanQueue.length > 0) {
+      const currentCode = scanQueue[0];
+      if (scannerMode === 'product' || scannerMode === null) { 
+        const p = findProductByCode(currentCode); 
+        if (p) { handleSelectSuggest(p); playSound('success'); } 
+        else { 
+          const matchedPhone = Object.keys(customers || {}).find(phone => phone === currentCode.trim() || customers[phone]?.cardCode === currentCode.trim()); 
+          if (matchedPhone) { playSound('success'); setCustomerInput(customers[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setScanMessage({ text: `✅ KH VIP: ${customers[matchedPhone].name}`, type: 'success' }) } 
+          else { playSound('error'); setScanMessage({ text: `❌ Lỗi mã`, type: 'error' }) } 
+        } 
+      }
+      else if (scannerMode === 'voucher') { 
+        const code = currentCode.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; 
+        if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); setVoucherInput(code); playSound('success'); setScanMessage({ text: `✅ Giảm ${VOUCHERS[code].toLocaleString()}đ`, type: 'success' }) } 
+        else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); setVoucherInput(code); playSound('success'); setScanMessage({ text: `✅ Giảm ${Number(code).toLocaleString()}đ`, type: 'success' }) } 
+        else { playSound('error'); toast.error("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0) } 
+      }
+      else if (scannerMode === 'customer') { 
+        const val = currentCode.trim(); setCustomerInput(val); 
+        const matchedPhone = Object.keys(customers || {}).find(phone => phone === val || customers[phone]?.cardCode === val); 
+        if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setCustAddress(customers[matchedPhone].address || ""); playSound('success'); setScanMessage({ text: `✅ Nhận diện VIP: ${customers[matchedPhone].name}`, type: 'success' }) } 
+        else { setCustPhone(val); setCustName(""); setCustAddress(""); playSound('success'); setScanMessage({ text: `✅ Đã quét mã (Khách mới)`, type: 'success' }) } 
+      }
+      setTimeout(() => setScannerMode(null), 1000); setTimeout(() => setScanMessage(null), 1500); setScanQueue(prev => prev.slice(1));
+    }
+  }, [scanQueue, products, scannerMode]);
+
+  useEffect(() => {
+    if (!printMode) { isPrintingRef.current = false; return; }
+    if (isPrintingRef.current) return; isPrintingRef.current = true;
+    const handleAfterPrint = () => { setPrintMode(null); isPrintingRef.current = false; };
+    window.addEventListener('afterprint', handleAfterPrint);
+    const timer = setTimeout(() => { if (printMode) { window.print(); } }, 1500);
+    return () => { clearTimeout(timer); window.removeEventListener('afterprint', handleAfterPrint); };
+  }, [printMode, setPrintMode]);
+
+  useEffect(() => {
+    if (showPOModal && poTab === 'RECEIVE') {
+      const fetchPOs = async () => {
+        setLoading(true);
+        try {
+          if (navigator.onLine) {
+            const { data } = await supabase.from('purchase_orders_v2').select('*').order('created_at', { ascending: false }).limit(50);
+            if (data) {
+               const merged = [...localPOs]; data.forEach(d => { if (!merged.find(m => m.id === d.id)) merged.push(d); });
+               merged.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()); setAllPOs(merged);
+            } else { setAllPOs(localPOs); }
+          } else { setAllPOs(localPOs); }
+        } catch(e) { setAllPOs(localPOs); }
+        setLoading(false);
+      };
+      fetchPOs();
+    }
+  }, [showPOModal, poTab, localPOs]);
 
   // =====================================================================
   // 3. ACTION FUNCTIONS (HÀM XỬ LÝ)
@@ -227,13 +446,8 @@ export default function App() {
     if (data) setProducts(data) 
   };
 
-  const findProductByCode = (code: string) => { 
-    const rawCode = code.trim(); let matches = products.filter(prod => prod.product_code === rawCode || String(prod.product_code).startsWith(`${rawCode}-`)); let available = matches.filter(p => p.stock > 0); 
-    if (available.length > 0) { available.sort((a, b) => { if (!a.expiry_date) return 1; if (!b.expiry_date) return -1; return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime() }); return available[0] } 
-    return matches.length > 0 ? matches[0] : null 
-  };
-
   const executeWithAdminCheck = (action: () => void) => { if (role === 'admin') { action(); } else { setPendingAction(() => action); setShowPinModal(true); } };
+  
   const fetchSettingsFromCloud = async () => {
     try {
       const { data } = await supabase.from("settings").select("*").eq("id", 1).single();
@@ -256,6 +470,7 @@ export default function App() {
   };
 
   const saveSettings = () => { const bin = newBankBin.trim(); const acc = newBankAcc.trim(); const nameStr = newBankNameStr.trim().toUpperCase(); const zaloId = newZaloPayId.trim(); if (!bin || !acc || !nameStr) return toast.error("Vui lòng điền đủ thông tin Ngân hàng!"); updateSettingsToCloud(bin, acc, nameStr, zaloId, newHappyStart, newHappyEnd); };
+  
   const handleLogin = async (e: React.FormEvent) => { e.preventDefault(); let u = authUsername.trim().toLowerCase(); const p = authPassword.trim(); if (!u.includes('@')) { u = u + '@hailemart.com'; } setLoading(true); const { error } = await supabase.auth.signInWithPassword({ email: u, password: p }); if (error) { toast.error(`Đăng nhập thất bại.`); setLoading(false); return; } const userRole = u.includes('admin') ? 'admin' : 'staff'; setRole(userRole); setShift(shift); setStartingCash(startingCash); setIsLoggedIn(true); };
   const handleLogoutClick = () => setShowHandoverModal(true);
   const confirmHandover = async () => { try { if (navigator.onLine) { await supabase.auth.signOut(); } } catch (error) {} finally { await dbRemove("mart_logged_in"); await dbRemove("mart_role"); await dbRemove("mart_shift"); setIsLoggedIn(false); window.location.reload(); } };
@@ -559,7 +774,7 @@ export default function App() {
   };
 
   // =====================================================================
-  // 4. MEMOS (TÍNH TOÁN CÔNG THỨC)
+  // 4. MEMOS & TÍNH TOÁN CÔNG THỨC (CÓ CÁC HÀM KHÔI PHỤC)
   // =====================================================================
   const currentShiftStats = useMemo(() => { 
     const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStrStr && h.shift === shift); 
@@ -683,199 +898,8 @@ export default function App() {
   }, [products, debouncedSearchTerm, selectedCategory, sortConfig, filters]);
 
   // =====================================================================
-  // 5. EFFECTS (QUẢN LÝ VÒNG ĐỜI VÀ EVENT CHẠY NGẦM)
+  // 5. CÁC HÀM GỬI EMAIL BÁO CÁO
   // =====================================================================
-  useEffect(() => {
-    const handler = setTimeout(() => { setDebouncedSearchTerm(searchTerm); }, 300);
-    return () => clearTimeout(handler);
-  }, [searchTerm]);
-
-  useEffect(() => {
-    if (!isLoggedIn || isLocked) return;
-    let timeout: any;
-    const resetTimer = () => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => setIsLocked(true), IDLE_TIMEOUT);
-    };
-    window.addEventListener('mousemove', resetTimer);
-    window.addEventListener('keydown', resetTimer);
-    window.addEventListener('click', resetTimer);
-    resetTimer(); 
-    return () => {
-      clearTimeout(timeout);
-      window.removeEventListener('mousemove', resetTimer);
-      window.removeEventListener('keydown', resetTimer);
-      window.removeEventListener('click', resetTimer);
-    };
-  }, [isLoggedIn, isLocked]);
-
-  useEffect(() => {
-    const initializeEnterpriseStorage = async () => {
-      try {
-        let isMigrated = await dbGet("mart_storage_migrated") === "true";
-        if (!isMigrated) {
-          const keysToMigrate = [
-            "mart_logged_in", "mart_role", "mart_shift", "mart_starting_cash",
-            "mart_pos", "mart_customers", "mart_held_orders", "mart_audit",
-            "mart_expenses", "mart_suppliers", "mart_history"
-          ];
-          for (const key of keysToMigrate) {
-            const localData = localStorage.getItem(key);
-            if (localData !== null) {
-              try {
-                if (localData.startsWith("[") || localData.startsWith("{")) { await dbSet(key, JSON.parse(localData)); } 
-                else { await dbSet(key, localData); }
-              } catch (e) { await dbSet(key, localData); }
-              localStorage.removeItem(key);
-            }
-          }
-          await dbSet("mart_storage_migrated", "true");
-        }
-        const loggedIn = await dbGet("mart_logged_in") === "true";
-        const savedRole = await dbGet("mart_role") || "staff";
-        const savedShift = await dbGet("mart_shift") || "Ca Sáng";
-        const savedCash = Number(await dbGet("mart_starting_cash") || 5000000);
-        const savedPOs = await dbGet("mart_pos") || [];
-        const savedCustomers = await dbGet("mart_customers") || {};
-        const savedHeld = await dbGet("mart_held_orders") || [];
-        const savedAudit = await dbGet("mart_audit") || [];
-        const savedExpenses = await dbGet("mart_expenses") || [];
-        const savedSuppliers = await dbGet("mart_suppliers") || [];
-        const savedHistory = await dbGet("mart_history") || [];
-
-        setIsLoggedIn(loggedIn); setRole(savedRole); setShift(savedShift); setStartingCash(savedCash);
-        setLocalPOs(savedPOs); setCustomers(savedCustomers); setHeldOrders(savedHeld);
-        setAuditLogs(savedAudit); setExpenses(savedExpenses); setSuppliers(savedSuppliers); setHistory(savedHistory);
-      } catch (err) { console.error(err); } finally { setIsStorageLoading(false); }
-    };
-    initializeEnterpriseStorage();
-  }, []);
-
-  // LỚP LƯU TRỮ INDEXEDDB ĐỊNH KỲ
-  useEffect(() => { if (!isStorageLoading) dbSet("mart_logged_in", isLoggedIn ? "true" : "false"); }, [isLoggedIn, isStorageLoading]);
-  useEffect(() => { if (!isStorageLoading) dbSet("mart_role", role); }, [role, isStorageLoading]);
-  useEffect(() => { if (!isStorageLoading) dbSet("mart_shift", shift); }, [shift, isStorageLoading]);
-  useEffect(() => { if (!isStorageLoading) dbSet("mart_starting_cash", startingCash.toString()); }, [startingCash, isStorageLoading]);
-  useEffect(() => { if (!isStorageLoading) dbSet("mart_pos", localPOs); }, [localPOs, isStorageLoading]);
-  useEffect(() => { if (!isStorageLoading) dbSet("mart_customers", customers); }, [customers, isStorageLoading]);
-  useEffect(() => { if (!isStorageLoading) dbSet("mart_held_orders", heldOrders); }, [heldOrders, isStorageLoading]);
-  useEffect(() => { if (!isStorageLoading) dbSet("mart_audit", auditLogs); }, [auditLogs, isStorageLoading]);
-  useEffect(() => { if (!isStorageLoading) dbSet("mart_expenses", expenses); }, [expenses, isStorageLoading]);
-  useEffect(() => { if (!isStorageLoading) dbSet("mart_suppliers", suppliers); }, [suppliers, isStorageLoading]);
-  useEffect(() => { if (!isStorageLoading) dbSet("mart_history", history); }, [history, isStorageLoading]);
-
-  // CÁC EFFECTS HỆ THỐNG KHÁC
-  useEffect(() => { 
-    if (darkMode) { document.documentElement.setAttribute('data-theme', 'dark'); localStorage.setItem("mart_theme", "dark"); } 
-    else { document.documentElement.removeAttribute('data-theme'); localStorage.setItem("mart_theme", "light"); } 
-  }, [darkMode]);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isLoggedIn || isCheckoutOpen || showPinModal || showAuditModal || showCustomerModal || showSettings || showInputForm || showInventoryModal || cashFlowModalInfo || showPOModal) return;
-      if (e.key === 'F1') { e.preventDefault(); document.getElementById('search-barcode')?.focus(); }
-      if (e.key === 'F2') { e.preventDefault(); if (cart.length > 0) confirmCheckout('TIỀN MẶT'); }
-      if (e.key === 'F3') { e.preventDefault(); if (cart.length > 0) confirmCheckout('CHUYỂN KHOẢN'); }
-      if (e.key === 'F4') { e.preventDefault(); handleHoldOrder(); }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isLoggedIn, isCheckoutOpen, showPinModal, cart, showAuditModal, showCustomerModal, showSettings, showInputForm, showInventoryModal, cashFlowModalInfo, showPOModal]);
-
-  useEffect(() => {
-    if (isLoggedIn) {
-      fetchProducts(); loadCloudData(); fetchSettingsFromCloud(); 
-      const channel = supabase.channel("db_changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts())
-        .on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData())
-        .on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData())
-        .on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData())
-        .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData())
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload) => { 
-          setScanQueue(prev => [...prev, payload.new.code]); 
-        }).subscribe();
-        
-      const script = document.createElement("script"); script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"; 
-      script.onload = () => { if(EMAILJS_PUBLIC_KEY) { emailjs.init(EMAILJS_PUBLIC_KEY); } }; document.head.appendChild(script);
-      const xlsxScript = document.createElement("script"); xlsxScript.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; document.head.appendChild(xlsxScript);
-      return () => { supabase.removeChannel(channel) };
-    }
-  }, [isLoggedIn, EMAILJS_PUBLIC_KEY]);
-
-  useEffect(() => {
-    if (scannerMode !== null) {
-      let scanner: any; let lastScanTime = 0;
-      const loadScanner = () => { 
-        if ((window as any).Html5QrcodeScanner) { 
-          scanner = new (window as any).Html5QrcodeScanner("qr-reader", { fps: 15, qrbox: { width: 250, height: 120 }, rememberLastUsedCamera: true }, false); 
-          scanner.render((text: string) => { 
-            const now = Date.now(); if (now - lastScanTime < 1500) return; lastScanTime = now; setScanQueue(prev => [...prev, text]); 
-          }, undefined) 
-        } 
-      };
-      if (!(window as any).Html5QrcodeScanner) { 
-        const script = document.createElement("script"); script.src = "https://unpkg.com/html5-qrcode"; script.onload = loadScanner; document.head.appendChild(script) 
-      } else { loadScanner(); }
-      return () => { if (scanner) scanner.clear().catch(() => { }) }
-    }
-  }, [scannerMode]);
-
-  useEffect(() => {
-    if (scanQueue.length > 0) {
-      const currentCode = scanQueue[0];
-      if (scannerMode === 'product' || scannerMode === null) { 
-        const p = findProductByCode(currentCode); 
-        if (p) { handleSelectSuggest(p); playSound('success'); } 
-        else { 
-          const matchedPhone = Object.keys(customers || {}).find(phone => phone === currentCode.trim() || customers[phone]?.cardCode === currentCode.trim()); 
-          if (matchedPhone) { playSound('success'); setCustomerInput(customers[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setScanMessage({ text: `✅ KH VIP: ${customers[matchedPhone].name}`, type: 'success' }) } 
-          else { playSound('error'); setScanMessage({ text: `❌ Lỗi mã`, type: 'error' }) } 
-        } 
-      }
-      else if (scannerMode === 'voucher') { 
-        const code = currentCode.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; 
-        if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); setVoucherInput(code); playSound('success'); setScanMessage({ text: `✅ Giảm ${VOUCHERS[code].toLocaleString()}đ`, type: 'success' }) } 
-        else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); setVoucherInput(code); playSound('success'); setScanMessage({ text: `✅ Giảm ${Number(code).toLocaleString()}đ`, type: 'success' }) } 
-        else { playSound('error'); toast.error("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0) } 
-      }
-      else if (scannerMode === 'customer') { 
-        const val = currentCode.trim(); setCustomerInput(val); 
-        const matchedPhone = Object.keys(customers || {}).find(phone => phone === val || customers[phone]?.cardCode === val); 
-        if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setCustAddress(customers[matchedPhone].address || ""); playSound('success'); setScanMessage({ text: `✅ Nhận diện VIP: ${customers[matchedPhone].name}`, type: 'success' }) } 
-        else { setCustPhone(val); setCustName(""); setCustAddress(""); playSound('success'); setScanMessage({ text: `✅ Đã quét mã (Khách mới)`, type: 'success' }) } 
-      }
-      setTimeout(() => setScannerMode(null), 1000); setTimeout(() => setScanMessage(null), 1500); setScanQueue(prev => prev.slice(1));
-    }
-  }, [scanQueue, products, scannerMode]);
-
-  useEffect(() => {
-    if (!printMode) { isPrintingRef.current = false; return; }
-    if (isPrintingRef.current) return; isPrintingRef.current = true;
-    const handleAfterPrint = () => { setPrintMode(null); isPrintingRef.current = false; };
-    window.addEventListener('afterprint', handleAfterPrint);
-    const timer = setTimeout(() => { if (printMode) { window.print(); } }, 1500);
-    return () => { clearTimeout(timer); window.removeEventListener('afterprint', handleAfterPrint); };
-  }, [printMode, setPrintMode]);
-
-  useEffect(() => {
-    if (showPOModal && poTab === 'RECEIVE') {
-      const fetchPOs = async () => {
-        setLoading(true);
-        try {
-          if (navigator.onLine) {
-            const { data } = await supabase.from('purchase_orders_v2').select('*').order('created_at', { ascending: false }).limit(50);
-            if (data) {
-               const merged = [...localPOs]; data.forEach(d => { if (!merged.find(m => m.id === d.id)) merged.push(d); });
-               merged.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()); setAllPOs(merged);
-            } else { setAllPOs(localPOs); }
-          } else { setAllPOs(localPOs); }
-        } catch(e) { setAllPOs(localPOs); }
-        setLoading(false);
-      };
-      fetchPOs();
-    }
-  }, [showPOModal, poTab, localPOs]);
-// KHÔI PHỤC 2 HÀM GỬI EMAIL BÁO CÁO BỊ THIẾU
   const handleSendEmailReport = async () => {
     const start = new Date(reportStartDate + "T00:00:00").getTime(); const end = new Date(reportEndDate + "T23:59:59").getTime(); 
     const logs = history.filter(log => { const t = new Date(Math.floor(log.id)).getTime(); return t >= start && t <= end; });
@@ -907,6 +931,7 @@ export default function App() {
     htmlContent += `</ul></div></div>`;
     try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_email: adminEmail, subject: `🚨 Cảnh báo Tồn Kho & Hạn Sử Dụng`, html_message: htmlContent }); toast.success("Đã gửi cảnh báo kho!"); logAudit("CẢNH BÁO KHO", "Gửi email tồn kho"); } catch (error: any) { toast.error(`Lỗi gửi Email`); } setLoading(false);
   };
+
   // =====================================================================
   // 6. RENDER GIAO DIỆN (UI RENDER)
   // =====================================================================
@@ -972,6 +997,7 @@ export default function App() {
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
       <style>{styles}</style>
+      
       {/* MÀN HÌNH KHÓA AUTO-LOCK */}
       {isLocked && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999999999, background: 'rgba(15,23,42,0.95)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
@@ -995,8 +1021,9 @@ export default function App() {
           >MỞ KHÓA</button>
         </div>
       )}
+
       <div className="animated-bg-mesh"></div>
-        <Toaster position="top-right" reverseOrder={false} toastOptions={{ style: { fontSize: '15px', fontWeight: 'bold', padding: '16px 24px', color: '#0f172a', background: '#ffffff', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', border: '1px solid #e2e8f0', borderRadius: '8px' } }} containerStyle={{ top: 20, right: 20, zIndex: 999999999 }} />
+      <Toaster position="top-right" reverseOrder={false} toastOptions={{ style: { fontSize: '15px', fontWeight: 'bold', padding: '16px 24px', color: '#0f172a', background: '#ffffff', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', border: '1px solid #e2e8f0', borderRadius: '8px' } }} containerStyle={{ top: 20, right: 20, zIndex: 999999999 }} />
       <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeSubmitAction} />
       
       <PrintManager printMode={printMode} lastOrder={lastOrder} shift={shift} role={role} customers={customers} VAT_RATE={VAT_RATE} printBarcodeProduct={printBarcodeProduct} barcodeCount={barcodeCount} printCustomer={printCustomer} printPOData={printPOData} />
@@ -1005,7 +1032,22 @@ export default function App() {
       {!isLoggedIn ? (
         <div className="login-wrapper">
           <form className="glass-login" onSubmit={handleLogin}>
-            <div className="login-header"><h2 className="login-title">HẢI LÊ <span>MART</span></h2><p className="login-subtitle">Hệ thống Quản lý ERP & POS</p></div>
+            <div className="login-header">
+              <h2 className="login-title">HẢI LÊ <span>MART</span></h2>
+              <p className="login-subtitle">Hệ thống Quản lý ERP & POS</p>
+            </div>
+
+            {/* NÚT CÀI ĐẶT APP (PWA) CHỈ HIỆN KHI TRÌNH DUYỆT HỖ TRỢ */}
+            {installPrompt && (
+              <button 
+                type="button" 
+                onClick={handleInstallApp} 
+                style={{ width: '100%', marginBottom: '15px', padding: '10px', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+              >
+                ⬇️ CÀI ĐẶT APP CHO MÁY NÀY
+              </button>
+            )}
+
             <div className="login-input-group"><input className="login-input" placeholder="Tên đăng nhập (Email)..." value={authUsername} onChange={e => setAuthUsername(e.target.value)} required /></div>
             <div className="login-input-group"><input className="login-input" type="password" placeholder="Mật khẩu..." value={authPassword} onChange={e => setAuthPassword(e.target.value)} required /></div>
             <div className="login-input-group">
