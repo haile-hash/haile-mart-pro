@@ -543,11 +543,33 @@ export default function App() {
 
   const handleRefund = async (logId: any) => { 
     executeWithAdminCheck(async () => { 
-      const log = history.find(l => l.id === logId); if (!log || (log.type !== 'BÁN' && log.type !== 'GHI NỢ')) return;
-      const qtyInput = window.prompt(`Sản phẩm: ${cleanName(log.name)}\nSố lượng đã mua: ${log.qty}\n\nNhập SỐ LƯỢNG khách muốn trả lại:`, log.qty.toString()); if (qtyInput === null) return; 
-      const refundQty = parseInt(qtyInput); if (isNaN(refundQty) || refundQty <= 0 || refundQty > log.qty) { return toast.error("Số lượng hoàn trả không hợp lệ!"); }
-      const singlePrice = log.total / log.qty; const refundTotal = Math.round(singlePrice * refundQty); const singleProfit = (log.profit || 0) / log.qty; const refundProfit = Math.round(singleProfit * refundQty);
+      const log = history.find(l => l.id === logId); 
+      if (!log || (log.type !== 'BÁN' && log.type !== 'GHI NỢ')) return;
+
+      // CHẶN 1: Kiểm tra xem đơn này đã từng bị hoàn chưa
+      const existingRefunds = history.filter(h => h.type === 'TRẢ HÀNG' && h.time > log.time && h.name.includes(cleanName(log.name)));
+      const alreadyRefundedQty = existingRefunds.reduce((sum, h) => sum + Math.abs(h.qty), 0);
+      const remainingQtyToRefund = log.qty - alreadyRefundedQty;
+
+      if (remainingQtyToRefund <= 0) {
+        return toast.error("Đơn này đã được hoàn trả toàn bộ số lượng rồi!");
+      }
+
+      const qtyInput = window.prompt(`Sản phẩm: ${cleanName(log.name)}\nSố lượng CÓ THỂ hoàn trả: ${remainingQtyToRefund}\n\nNhập SỐ LƯỢNG khách muốn trả lại:`, remainingQtyToRefund.toString()); 
+      if (qtyInput === null) return; 
+      
+      const refundQty = parseInt(qtyInput); 
+      // CHẶN 2: Không cho nhập vớ vẩn hoặc lớn hơn số lượng còn lại
+      if (isNaN(refundQty) || refundQty <= 0 || refundQty > remainingQtyToRefund) { 
+        return toast.error("Số lượng hoàn trả không hợp lệ hoặc vượt quá số lượng đã mua!"); 
+      }
+
+      const singlePrice = log.total / log.qty; 
+      const refundTotal = Math.round(singlePrice * refundQty); 
+      const singleProfit = (log.profit || 0) / log.qty; 
+      const refundProfit = Math.round(singleProfit * refundQty);
       let selectedMethod = "TIỀN MẶT";
+
       if (log.type === 'GHI NỢ') {
         if (!window.confirm(`Đơn mua nợ. Hệ thống tự trừ ${refundTotal.toLocaleString()}đ dư nợ?`)) return; selectedMethod = "TRỪ NỢ";
         const phoneMatch = log.customer.match(/\((.*?)\)/); const customerPhone = phoneMatch ? phoneMatch[1] : null;
@@ -560,6 +582,27 @@ export default function App() {
           const custData = customers[customerPhone]; setCustomers(prev => ({ ...prev, [customerPhone]: { ...custData, wallet: Math.round((custData.wallet || 0) + refundTotal) } })); if (navigator.onLine) { await supabase.from("customers").update({ wallet: Math.round((custData.wallet || 0) + refundTotal) }).eq("phone", customerPhone); }
         }
       }
+      
+      // CHẶN 3: Cộng lại (hoàn trả) số lượng vào TỒN KHO
+      if (log.product_id) { 
+        const currentProd = products.find(p => p.id === log.product_id); 
+        if (currentProd) { 
+          const updatedStock = (currentProd.stock || 0) + refundQty; 
+          // Cập nhật ngay trên giao diện
+          setProducts(prev => prev.map(p => p.id === log.product_id ? { ...p, stock: updatedStock } : p));
+          // Cập nhật lên Cloud
+          if (navigator.onLine) { 
+            try { await supabase.from("products").update({ stock: updatedStock }).eq("id", log.product_id); } catch (e) {} 
+          } 
+        } 
+      }
+      
+      const lg = { id: Date.now(), shift, type: "TRẢ HÀNG", name: `HOÀN: ${cleanName(log.name)}`, qty: refundQty, total: -refundTotal, profit: -refundProfit, customer: log.customer, product_id: log.product_id, paymentMethod: selectedMethod, time: new Date().toLocaleString('vi-VN') };
+      await addTransactionAndSync(lg); 
+      // await fetchProducts(); // Bỏ dòng này đi để app chạy mượt hơn, không bị giật
+      toast.success(`Đã hoàn đơn thành công!`); 
+    }); 
+  };
       if (log.product_id) { const currentProd = products.find(p => p.id === log.product_id); if (currentProd) { const updatedStock = (currentProd.stock || 0) + refundQty; if (navigator.onLine) { try { await supabase.from("products").update({ stock: updatedStock }).eq("id", log.product_id); } catch (e) {} } } }
       const lg = { id: Date.now(), shift, type: "TRẢ HÀNG", name: `HOÀN: ${cleanName(log.name)}`, qty: refundQty, total: -refundTotal, profit: -refundProfit, customer: log.customer, product_id: log.product_id, paymentMethod: selectedMethod, time: new Date().toLocaleString('vi-VN') };
       await addTransactionAndSync(lg); await fetchProducts(); toast.success(`Đã hoàn đơn thành công!`); 
