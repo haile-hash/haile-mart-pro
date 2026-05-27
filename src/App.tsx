@@ -104,10 +104,10 @@ export default function App() {
   const VAT_RATE = 0.1;
   const IDLE_TIMEOUT = 5 * 60 * 1000; 
 
-  const EMAILJS_SERVICE_ID = process.env.REACT_APP_EMAILJS_SERVICE_ID || "";
-  const EMAILJS_TEMPLATE_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_ID || "";
-  const EMAILJS_TEMPLATE_VIP_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_VIP_ID || "";
-  const EMAILJS_PUBLIC_KEY = process.env.REACT_APP_EMAILJS_PUBLIC_KEY || "";
+  const EMAILJS_SERVICE_ID = "service_7ie990l";
+  const EMAILJS_TEMPLATE_ID = "template_m1j9i7k";
+  const EMAILJS_TEMPLATE_VIP_ID = "template_t91erhg";
+  const EMAILJS_PUBLIC_KEY = "5ric0kxuwNPlUleAv";
 
   useEffect(() => { 
     if (EMAILJS_PUBLIC_KEY) emailjs.init(EMAILJS_PUBLIC_KEY); 
@@ -216,7 +216,7 @@ export default function App() {
     if (!installPrompt) return;
     installPrompt.prompt();
     const { outcome } = await installPrompt.userChoice;
-    if (outcome === 'accepted') { setInstallPrompt(null); toast.success("Cài đặt App thành công!"); }
+    if (outcome === 'accepted') { setInstallPrompt(null); toast.success("Cài đặt App thành công!"); logAudit("HỆ THỐNG", "Cài đặt ứng dụng PWA"); }
   };
 
   useEffect(() => {
@@ -448,8 +448,8 @@ export default function App() {
   const handleVoucherSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault(); const code = voucherInput.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 };
-      if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); playSound('success'); toast.success(`Đã áp dụng mã giảm ${VOUCHERS[code].toLocaleString()}đ`); } 
-      else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); playSound('success'); toast.success(`Đã giảm trực tiếp ${Number(code).toLocaleString()}đ`); } 
+      if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); playSound('success'); toast.success(`Đã áp dụng mã giảm ${VOUCHERS[code].toLocaleString()}đ`); logAudit("MÃ GIẢM GIÁ", `Áp dụng ${code}`); } 
+      else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); playSound('success'); toast.success(`Đã giảm trực tiếp ${Number(code).toLocaleString()}đ`); logAudit("GIẢM TRỰC TIẾP", `${Number(code).toLocaleString()}đ`); } 
       else { playSound('error'); toast.error("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0); }
     }
   };
@@ -494,10 +494,7 @@ export default function App() {
       const safeLogName = log.name ? cleanName(log.name) : "";
       const existingRefunds = history.filter(h => {
         const safeHName = h.name ? h.name : "";
-        return h.type === 'TRẢ HÀNG' && 
-               h.time > log.time && 
-               safeLogName !== "" && 
-               safeHName.includes(safeLogName);
+        return h.type === 'TRẢ HÀNG' && h.time > log.time && safeLogName !== "" && safeHName.includes(safeLogName);
       });
       const alreadyRefundedQty = existingRefunds.reduce((sum, h) => sum + Math.abs(h.qty || 0), 0);
       const remainingQtyToRefund = (log.qty || 0) - alreadyRefundedQty;
@@ -534,9 +531,7 @@ export default function App() {
         if (currentProd) { 
           const updatedStock = (currentProd.stock || 0) + refundQty; 
           setProducts(prev => prev.map(p => p.id === log.product_id ? { ...p, stock: updatedStock } : p));
-          if (navigator.onLine) { 
-            try { await supabase.from("products").update({ stock: updatedStock }).eq("id", log.product_id); } catch (e) {} 
-          } 
+          if (navigator.onLine) { try { await supabase.from("products").update({ stock: updatedStock }).eq("id", log.product_id); } catch (e) {} } 
         } 
       }
       
@@ -583,7 +578,6 @@ export default function App() {
         </tr>`; 
     }); 
 
-    // GIAO DIỆN EMAIL HÓA ĐƠN ĐẸP MẮT
     const htmlContent = `
       <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; background: #ffffff;">
         <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 30px 20px; text-align: center;">
@@ -640,7 +634,6 @@ export default function App() {
     const code = font.cardCode || phone; 
     const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=10&includetext=false`; 
     
-    // GIAO DIỆN EMAIL THẺ VIP ĐẸP MẮT NHƯ THẺ THẬT
     const htmlContent = `
       <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f1f5f9; padding: 30px; border-radius: 12px;">
         <div style="text-align: center; margin-bottom: 25px;">
@@ -680,7 +673,7 @@ export default function App() {
     try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { to_email: email, subject: `💳 Thẻ VIP Đặc Quyền - ${font.name}`, html_message: htmlContent }, EMAILJS_PUBLIC_KEY); logAudit("GỬI THẺ VIP EMAIL", phone); toast.success("Đã gửi Thẻ VIP thành công!"); } catch (error: any) { toast.error(`Lỗi gửi Email`); } setLoading(false);
   };
   
-  const shareToZalo = (phone: string) => { const cust = customers[phone]; const code = cust.cardCode || phone; navigator.clipboard.writeText(`Chào ${cust.name},\nMã Thẻ VIP của bạn là: ${code}`).then(() => { toast.success(`Đang mở Zalo...`); window.open(`https://zalo.me/${phone}`, '_blank') }).catch(() => { window.open(`https://zalo.me/${phone}`, '_blank') }) };
+  const shareToZalo = (phone: string) => { const cust = customers[phone]; const code = cust.cardCode || phone; navigator.clipboard.writeText(`Chào ${cust.name},\nMã Thẻ VIP của bạn là: ${code}`).then(() => { toast.success(`Đang mở Zalo...`); logAudit("CHIA SẺ ZALO", phone); window.open(`https://zalo.me/${phone}`, '_blank') }).catch(() => { window.open(`https://zalo.me/${phone}`, '_blank') }) };
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => { const code = e.target.value; setNewCode(code); const p = products.find((x: any) => x.product_code === code); if (p) { setNewName(cleanName(p.name)); setNewCategory(formatCategoryStr(p.category)); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewExpiry(p.expiry_date || ""); const gift = parseGift(p.gift_info); setNewGiftCondition(gift.cond.toString()); setNewGiftInfo(gift.text) } };
 
   const syncPendingImports = async () => {
@@ -713,6 +706,7 @@ export default function App() {
     toast.dismiss();
     if (successCount > 0) {
       toast.success(`Đã đồng bộ ${successCount} lệnh Nhập Kho lên hệ thống!`);
+      logAudit("ĐỒNG BỘ KHO", `Đẩy ${successCount} lệnh lên Cloud`);
       fetchProducts(); 
     }
   };
@@ -760,6 +754,7 @@ export default function App() {
           await supabase.from("products").insert([newProductData]); 
         }
         if (added > 0) addTransactionAndSync({ id: Date.now(), shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }); 
+        logAudit("THÊM/SỬA SP", `Mã: ${baseCode}`);
         toast.success(`Đã lưu lên hệ thống Cloud!`);
         fetchProducts();
       } else {
@@ -788,6 +783,7 @@ export default function App() {
           const currentHistory = await dbGet("mart_history") || [];
           await dbSet("mart_history", [offlineLog, ...currentHistory]);
         }
+        logAudit("NHẬP KHO OFFLINE", `Mã: ${baseCode}`);
         toast.success(`Đã lưu Tạm! Sẽ tự động đẩy lên khi có mạng.`);
       }
       resetProductForm(); 
@@ -819,7 +815,7 @@ export default function App() {
           if (pStock > 0) { importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "NHẬP", name: cleanName(pName), qty: pStock, total: 0, time: new Date().toLocaleString('vi-VN') } as any); successCount++; }
         }
         if (importLogs.length > 0) { if(navigator.onLine) await supabase.from("history").insert(importLogs); setHistory(prev => [...importLogs, ...prev]); } 
-        logAudit("NHẬP FILE", `Nhập ${successCount} mã`); toast.success(`Nhập thành công từ file!`); fetchProducts();
+        logAudit("NHẬP EXCEL", `Nhập ${successCount} mã`); toast.success(`Nhập thành công từ file!`); fetchProducts();
       } catch (err) { toast.error("Lỗi đọc file."); } setLoading(false);
     }; 
     const fileNameStr = file.name.toLowerCase();
@@ -838,7 +834,7 @@ export default function App() {
         const cols = lines[i]; if (!cols || !Array.isArray(cols) || cols.join('').trim() === '') continue; const pCode = String(cols[0] || "").trim(); const actualVal = parseInt(String(cols[3] || "0").replace(/[,.]/g, '')); 
         if (!isNaN(actualVal) && pCode) { const matchedProd = products.find(p => p.product_code === pCode); if (matchedProd && matchedProd.stock !== actualVal) { updatedStock[matchedProd.id] = actualVal; count++; } } 
       } 
-      setActualStockInput(updatedStock); toast.success(`Đã nạp số liệu thực tế!`); 
+      setActualStockInput(updatedStock); toast.success(`Đã nạp số liệu thực tế!`); logAudit("KIỂM KHO BẰNG EXCEL", `Nạp ${count} mã`);
     };
     const fileNameStr = file.name.toLowerCase();
     if (fileNameStr.endsWith('.xlsx') || fileNameStr.endsWith('.xls')) { 
@@ -854,7 +850,7 @@ export default function App() {
     executeWithAdminCheck(async () => { 
       if (!navigator.onLine) return toast.error("Mạng yếu!"); let label = field; if (field === 'category') label = 'Danh mục'; if (field === 'sale_price') label = 'Giá bán'; if (field === 'promo_price') label = 'Giá KM'; if (field === 'gift_info') label = 'Quà tặng'; if (field === 'expiry_date') label = 'HSD'; 
       const val = window.prompt(`Sửa ${label}:`, old || ""); 
-      if (val !== null) { let updateData: any = isText ? (field === 'category' ? formatCategoryStr(val) : val) : (parseInt(val) || 0); if (field === 'gift_info' && val.trim() === '') updateData = null; await supabase.from("products").update({ [field]: updateData }).eq("id", id); logAudit("SỬA SP", `ID ${id}`); fetchProducts() } 
+      if (val !== null) { let updateData: any = isText ? (field === 'category' ? formatCategoryStr(val) : val) : (parseInt(val) || 0); if (field === 'gift_info' && val.trim() === '') updateData = null; await supabase.from("products").update({ [field]: updateData }).eq("id", id); logAudit("SỬA SP", `ID ${id} - Đổi ${label}`); fetchProducts() } 
     }); 
   };
 
@@ -865,12 +861,12 @@ export default function App() {
   
   const handleInventorySearchEnter = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); const term = String(inventorySearchTerm || "").trim().toLowerCase(); if (!term) return; const exactMatch = products.find(p => String(p.product_code || "").toLowerCase() === term); if (exactMatch) { const inputEl = document.getElementById(`inv-input-${exactMatch.id}`); if (inputEl) { inputEl.focus(); } } } };
   const handleInvInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); const searchBox = document.getElementById('inv-search-box'); if (searchBox) { searchBox.focus(); setInventorySearchTerm(""); } } };
-  const exportInventoryCSV = () => { let csv = "\uFEFFMã SP,Tên SP,Tồn hệ thống,Tồn thực tế\n"; products.forEach(p => { const actual = actualStockInput[p.id] !== undefined ? actualStockInput[p.id] : p.stock; csv += `${p.product_code},"${cleanName(p.name)}",${p.stock},${actual}\n`; }); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `KiemKho.csv`; link.click(); };
+  const exportInventoryCSV = () => { let csv = "\uFEFFMã SP,Tên SP,Tồn hệ thống,Tồn thực tế\n"; products.forEach(p => { const actual = actualStockInput[p.id] !== undefined ? actualStockInput[p.id] : p.stock; csv += `${p.product_code},"${cleanName(p.name)}",${p.stock},${actual}\n`; }); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `KiemKho.csv`; link.click(); logAudit("XUẤT KHO EXCEL", "File kiểm kho"); };
   
   const syncInventoryCheck = async () => {
     if(!navigator.onLine) return toast.error("Mạng yếu!"); if(!window.confirm("Xác nhận ghi đè?")) return;
     setLoading(true); let count = 0;
-    try { for (const [id, actualQty] of Object.entries(actualStockInput)) { const p = products.find(x => String(x.id) === String(id)); if(p && p.stock !== actualQty) { await supabase.from("products").update({ stock: actualQty }).eq("id", p.id); logAudit("KIỂM KHO", `${p.name}`); count++; } } toast.success(`Đồng bộ thành công!`); setShowInventoryModal(false); setActualStockInput({}); fetchProducts(); } 
+    try { for (const [id, actualQty] of Object.entries(actualStockInput)) { const p = products.find(x => String(x.id) === String(id)); if(p && p.stock !== actualQty) { await supabase.from("products").update({ stock: actualQty }).eq("id", p.id); logAudit("KIỂM KHO", `${p.name} -> ${actualQty}`); count++; } } toast.success(`Đồng bộ thành công!`); setShowInventoryModal(false); setActualStockInput({}); fetchProducts(); } 
     catch(err) {} finally { setLoading(false); }
   };
   
@@ -925,11 +921,42 @@ export default function App() {
   };
   const handleDirectQtyBlur = (productId: any, val: string) => { if (val === '' || parseInt(val) <= 0 || isNaN(parseInt(val))) { setCart(prev => prev.map(i => { if (i.product.id === productId) { const price = getActualPrice(i.product); return { ...i, qty: 1, total: Math.round(1 * price * (1 + VAT_RATE)) } } return i })) } };
   const removeFromCart = (productId: any) => { setCart(cart.filter(item => item.product.id !== productId)) };
-  const clearCart = () => { if (window.confirm("Hủy toàn bộ?")) { resetCheckout(); } };
+  const clearCart = () => { if (window.confirm("Hủy toàn bộ?")) { resetCheckout(); logAudit("HỦY GIỎ HÀNG", "Xóa sạch giỏ hiện tại"); } };
 
-  // ==========================================
-  // VÁ LỖI CÔNG THỨC TIỀN MẶT CHUẨN BAN ĐẦU
-  // ==========================================
+  // ĐÃ KHÔI PHỤC HÀM GỬI MAIL CẢNH BÁO KHO (VÁ LỖI MÀN TRẮNG)
+  const sendInventoryAlertEmail = async () => {
+    let adminEmail = window.prompt("Nhập Email Quản lý:", ""); if(!adminEmail) return; setLoading(true); 
+    const lowStock = products.filter(p => p.stock > 0 && p.stock < 10).length; const today = new Date().getTime(); const expiring = products.filter(p => p.expiry_date && (new Date(p.expiry_date).getTime() - today) / 86400000 <= 15);
+    let htmlContent = `<div style="font-family: Arial; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0;"><div style="background: #ef4444; color: white; padding: 20px; text-align: center;"><h1>🚨 CẢNH BÁO KHO HÀNG</h1></div><div style="padding: 20px; background: #ffffff;"><h3>📦 SẮP HẾT HÀNG (${lowStock} món):</h3><ul>`;
+    products.filter(p => p.stock > 0 && p.stock < 10).forEach(p => { htmlContent += `<li><strong>${cleanName(p.name)}:</strong> Còn ${p.stock} sp</li>`; });
+    htmlContent += `</ul><h3>⏳ SẮP HẾT HẠN TRONG 15 NGÀY TỚI (${expiring.length} món):</h3><ul>`;
+    expiring.forEach(p => { htmlContent += `<li><strong>${cleanName(p.name)}:</strong> HSD ${new Date(p.expiry_date).toLocaleDateString('vi-VN')}</li>`; });
+    htmlContent += `</ul></div></div>`;
+    try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_email: adminEmail, subject: `🚨 Cảnh báo Tồn Kho & Hạn Sử Dụng`, html_message: htmlContent }); toast.success("Đã gửi cảnh báo kho!"); logAudit("CẢNH BÁO KHO", "Gửi email tồn kho"); } catch (error: any) { toast.error(`Lỗi gửi Email`); } setLoading(false);
+  };
+
+  const handleSendEmailReport = async () => {
+    const start = new Date(reportStartDate + "T00:00:00").getTime(); const end = new Date(reportEndDate + "T23:59:59").getTime(); 
+    const logs = history.filter(log => { const t = new Date(Math.floor(log.id)).getTime(); return t >= start && t <= end; });
+    if (logs.length === 0) return toast.error("Chưa có giao dịch!"); 
+    let cash = 0, transfer = 0, prof = 0, sold = 0; 
+    logs.forEach(l => { 
+      if (l.type === 'BÁN') sold += l.qty; 
+      if (l.type === 'BÁN' || l.type === 'THU NỢ' || l.type === 'TRẢ HÀNG') { 
+        if (l.paymentMethod === 'CHUYỂN KHOẢN' || l.paymentMethod === 'QUẸT THẺ' || l.paymentMethod === 'ZALO PAY') { transfer += l.total; } 
+        else if (l.paymentMethod === 'TIỀN MẶT' || l.paymentMethod === 'KẾT HỢP') { 
+          if(l.paymentMethod === 'KẾT HỢP' && l.split_cash) { cash += l.split_cash; transfer += (l.total - l.split_cash); } else { cash += l.total; } 
+        } 
+      } 
+      prof += (l.profit || 0); 
+    });
+    let adminEmail = window.prompt("Nhập Email Quản lý:", ""); if(!adminEmail) return; adminEmail = adminEmail.trim(); 
+    setLoading(true); 
+    const htmlContent = `<div style="font-family: Arial; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0;"><div style="background: #3b82f6; color: white; padding: 20px; text-align: center;"><h1>HẢI LÊ MART</h1><p>BÁO CÁO DOANH THU</p></div><div style="padding: 20px; background: #ffffff;"><h2>Kỳ: ${reportStartDate} đến ${reportEndDate}</h2><table style="width: 100%; border-collapse: collapse;"><tbody><tr><td style="padding: 10px;">Tổng SP đã bán:</td><td style="padding: 10px; text-align: right;">${sold} món</td></tr><tr><td style="padding: 10px;">Doanh thu Tiền Mặt:</td><td style="padding: 10px; text-align: right; color: #10b981;">${Math.round(cash).toLocaleString()}đ</td></tr><tr><td style="padding: 10px;">Doanh thu CK/Thẻ:</td><td style="padding: 10px; text-align: right; color: #3b82f6;">${Math.round(transfer).toLocaleString()}đ</td></tr><tr><td style="padding: 10px; font-weight: bold;">TỔNG LỢI NHUẬN:</td><td style="padding: 10px; text-align: right; font-weight: bold; color: #ef4444;">${Math.round(prof).toLocaleString()}đ</td></tr></tbody></table></div></div>`;
+    try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_email: adminEmail, subject: `📊 Báo cáo doanh thu ${reportStartDate} - ${reportEndDate}`, html_message: htmlContent }); logAudit("GỬI BÁO CÁO", `Tới ${adminEmail}`); toast.success("Đã gửi Báo cáo!"); } catch (error: any) { toast.error(`Lỗi gửi Email`); } setLoading(false);
+  };
+
+  // TÍNH TOÁN CÔNG THỨC TIỀN MẶT ĐÃ FIX CHUẨN
   const todayStrStr = new Date().toLocaleDateString('vi-VN');
   
   const currentShiftStats = useMemo(() => {
@@ -1075,7 +1102,10 @@ export default function App() {
         <ExpenseModal showExpenseModal={showExpenseModal} setShowExpenseModal={setShowExpenseModal} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} expenses={expenses} addExpense={addExpense} deleteExpense={deleteExpense} />
         {showHandoverModal && <HandoverModal role={role} shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onClose={() => setShowHandoverModal(false)} onConfirm={confirmHandover} />}
         <CashFlowModal cashFlowModalInfo={cashFlowModalInfo} setCashFlowModalInfo={setCashFlowModalInfo} shift={shift} todayStrStr={todayStrStr} currentShiftCashFlow={currentShiftCashFlow} currentShiftStats={currentShiftStats} />
+        
+        {/* ĐÃ FIX MODAL LƯU TẠM */}
         <HoldOrdersModal showHoldModal={showHoldModal} setShowHoldModal={setShowHoldModal} heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={deleteHeldOrder} />
+        
         <CheckoutModal isCheckoutOpen={isCheckoutOpen} setIsCheckoutOpen={setIsCheckoutOpen} checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} voucherInput={voucherInput} setVoucherInput={setVoucherInput} customerInput={customerInput} setCustomerInput={setCustomerInput} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} useWallet={useWallet} setUseWallet={setUseWallet} appliedVoucherAmount={appliedVoucherAmount} setAppliedVoucherAmount={setAppliedVoucherAmount} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} finalToPay={finalToPay} customers={customers} isOnline={isOnline} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} loading={loading} handleVoucherSubmit={handleVoucherSubmit} handleCustomerInputChange={handleCustomerInputChange} setScannerMode={setScannerMode} handleNextToQR={handleNextToQR} confirmCheckout={confirmCheckout} setPrintMode={setPrintMode} sendReceiptEmail={sendReceiptEmail} closeCheckout={closeCheckout} custAddress={custAddress} setCustAddress={setCustAddress}/>
         <StatsModal showStatsModal={showStatsModal} setShowStatsModal={setShowStatsModal} reportStartDate={reportStartDate} setReportStartDate={setReportStartDate} reportEndDate={reportEndDate} setReportEndDate={setReportEndDate} exportToCSV={exportToCSV} onExportCSV={exportToCSV} handleExportCSV={exportToCSV} sendInventoryAlertEmail={sendInventoryAlertEmail} onSendAlert={sendInventoryAlertEmail} handleSendEmailReport={handleSendEmailReport} onSendReport={handleSendEmailReport} filteredStats={filteredStats} chartData={chartData} topSelling={topSelling} products={products} />
         <InventoryModal showInventoryModal={showInventoryModal} setShowInventoryModal={setShowInventoryModal} inventorySearchTerm={inventorySearchTerm} setInventorySearchTerm={setInventorySearchTerm} handleInventorySearchEnter={handleInventorySearchEnter} invFilter={invFilter} setInvFilter={setInvFilter} exportInventoryCSV={exportInventoryCSV} onExport={exportInventoryCSV} handleImportInventoryCSV={handleImportInventoryCSV} onImport={handleImportInventoryCSV} products={products} actualStockInput={actualStockInput} setActualStockInput={setActualStockInput} handleInvInputKeyDown={handleInvInputKeyDown} syncInventoryCheck={syncInventoryCheck} onSync={syncInventoryCheck} loading={loading} />
