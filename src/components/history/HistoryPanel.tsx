@@ -56,24 +56,28 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   // STATE KIỂM SOÁT SỐ LƯỢNG HIỂN THỊ (PHÂN TRANG RAM)
   const [visibleCount, setVisibleCount] = useState(50);
 
-  // Reset về 50 mỗi khi người dùng gõ tìm kiếm hoặc đổi bộ lọc (groupedHistory thay đổi)
+  // Reset về 50 mỗi khi người dùng gõ tìm kiếm hoặc đổi bộ lọc
   useEffect(() => {
     setVisibleCount(50);
   }, [groupedHistory]);
 
+  // Gom toàn bộ lịch sử thành 1 mảng phẳng để dễ truy vấn số lượng hoàn
+  const allLogs = useMemo(() => {
+    const flat: TransactionLog[] = [];
+    Object.values(groupedHistory).forEach(logs => flat.push(...logs));
+    return flat;
+  }, [groupedHistory]);
+
   // THUẬT TOÁN ÉP PHẲNG & CẮT TỈA 50 DÒNG (BẢO VỆ RAM)
   const { visibleGrouped, totalLogs } = useMemo(() => {
-    // 1. Trải phẳng mảng để dễ dàng cắt đúng số lượng
     const flatLogs: { dateStr: string; log: TransactionLog }[] = [];
     Object.entries(groupedHistory).forEach(([dateStr, logs]) => {
       logs.forEach(log => flatLogs.push({ dateStr, log }));
     });
 
     const total = flatLogs.length;
-    // 2. Cắt lấy số lượng được phép hiển thị
     const slicedLogs = flatLogs.slice(0, visibleCount);
 
-    // 3. Đóng gói lại thành cấu trúc Group theo Ngày để vẽ UI
     const regrouped: Record<string, TransactionLog[]> = {};
     slicedLogs.forEach(({ dateStr, log }) => {
       if (!regrouped[dateStr]) regrouped[dateStr] = [];
@@ -97,10 +101,27 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
     const logTime = log.t || log.time?.split(" ")[1] || log.time;
     
     // Logic lấy màu sắc
-    let typeColor = "#2563eb"; // Mặc định cho "BÁN"
+    let typeColor = "#2563eb"; 
     if (isRefund) typeColor = "#dc2626"; 
     if (log.type.includes("NHẬP")) typeColor = "#7c3aed"; 
     if (log.type === "GHI NỢ" || log.type === "THU NỢ") typeColor = "#d97706";
+
+    // ============================================================
+    // THUẬT TOÁN TÍNH SỐ LƯỢNG CÒN LẠI ĐỂ ẨN/HIỆN NÚT HOÀN ĐƠN
+    // ============================================================
+    let remainingQtyToRefund = log.qty || 0;
+    if (log.type === "BÁN" || log.type === "GHI NỢ") {
+      // Tìm các bill TRẢ HÀNG diễn ra SAU bill bán này và có cùng TÊN sản phẩm
+      const existingRefunds = allLogs.filter(h => 
+        h.type === 'TRẢ HÀNG' && 
+        Number(h.id) > Number(log.id) && 
+        h.name.includes(cleanName(log.name))
+      );
+      // Cộng dồn số lượng đã hoàn
+      const alreadyRefundedQty = existingRefunds.reduce((sum, h) => sum + Math.abs(h.qty || 0), 0);
+      remainingQtyToRefund = (log.qty || 0) - alreadyRefundedQty;
+    }
+    // ============================================================
 
     return (
       <div 
@@ -112,7 +133,8 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
           display: "flex", 
           flexDirection: "column", 
           gap: "6px", 
-          background: isRefund ? "#fff5f5" : "transparent" 
+          background: isRefund ? "#fff5f5" : "transparent",
+          opacity: (log.type === "BÁN" || log.type === "GHI NỢ") && remainingQtyToRefund <= 0 ? 0.6 : 1 // Đơn hoàn hết sẽ mờ đi xíu
         }}
       >
         {/* Dòng 1: Khách hàng & Thời gian */}
@@ -128,8 +150,8 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
 
         {/* Dòng 2: Tên mặt hàng & Số tiền */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
-          <span style={{ fontSize: "13px", fontWeight: "600", color: "#1e293b", lineHeight: "1.4" }}>
-            <span style={{ color: typeColor, marginRight: "6px", fontWeight: "bold" }}>[{log.type}]</span>
+          <span style={{ fontSize: "13px", fontWeight: "600", color: "#1e293b", lineHeight: "1.4", textDecoration: remainingQtyToRefund <= 0 && !isRefund ? "line-through" : "none" }}>
+            <span style={{ color: typeColor, marginRight: "6px", fontWeight: "bold", textDecoration: "none" }}>[{log.type}]</span>
             {cleanName(log.name)}
           </span>
           <span style={{ fontSize: "13px", fontWeight: "700", color: isRefund ? "#dc2626" : "#10b981", whiteSpace: "nowrap" }}>
@@ -141,13 +163,13 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
         {/* Dòng 3: Các nút thao tác */}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "4px" }}>
           
-          {/* Nút Hoàn Đơn */}
-          {(log.type === "BÁN" || log.type === "GHI NỢ") && (
+          {/* NÚT HOÀN ĐƠN (SẼ BIẾN MẤT NẾU REMAINING = 0) */}
+          {(log.type === "BÁN" || log.type === "GHI NỢ") && remainingQtyToRefund > 0 && (
             <button 
               onClick={(e) => { e.stopPropagation(); handleRefund(log.id); }} 
               style={{ padding: "4px 10px", background: "#fee2e2", color: "#dc2626", border: "1px solid #fca5a5", borderRadius: "4px", fontSize: "11px", fontWeight: "bold", cursor: "pointer" }}
             >
-              <span role="img" aria-label="refund">↩️</span> Hoàn đơn ({log.qty || 0})
+              <span role="img" aria-label="refund">↩️</span> Hoàn đơn ({remainingQtyToRefund})
             </button>
           )}
 
