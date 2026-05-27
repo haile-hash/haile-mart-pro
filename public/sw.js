@@ -45,7 +45,16 @@ self.addEventListener('fetch', (event) => {
     // Ưu tiên tải từ mạng (để luôn có giao diện mới nhất nếu bạn sửa code)
     fetch(event.request)
       .then((response) => {
-        // Nếu tải thành công, nhân bản file đó và lưu lén vào ổ cứng (Cache)
+        
+        // =====================================================================
+        // SỬA TẠI ĐÂY: Ngăn chặn lưu cache các file dạng phản hồi từng phần (Status 206)
+        // Thường gặp khi tải file âm thanh/video (như playSound trong app của bạn)
+        // =====================================================================
+        if (response.status === 206) {
+          return response; 
+        }
+
+        // Nếu tải thành công và không phải status 206, nhân bản file đó và lưu vào ổ cứng (Cache)
         const responseClone = response.clone();
         caches.open(CACHE_NAME).then((cache) => {
           cache.put(event.request, responseClone);
