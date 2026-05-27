@@ -368,7 +368,49 @@ export default function App() {
   };
 
   const executeWithAdminCheck = (action: () => void) => { if (role === 'admin') { action(); } else { setPendingAction(() => action); setShowPinModal(true); } };
-  
+
+
+  // =====================================================================
+  // HÀM QUẢN LÝ CHI PHÍ (EXPENSES) - BỔ SUNG ĐỂ SỬA LỖI REFERENCEERROR
+  // =====================================================================
+  const addExpense = () => {
+    if (!expName.trim() || !expAmount.trim()) {
+      return toast.error("Vui lòng nhập đầy đủ tên và số tiền chi phí!");
+    }
+
+    // Xóa dấu phẩy/chấm nếu người dùng nhập định dạng tiền tệ trước khi parse số
+    const amountNum = parseInt(expAmount.replace(/[,.]/g, '')) || 0;
+    if (amountNum <= 0) return toast.error("Số tiền chi phí phải lớn hơn 0!");
+
+    const newExpense = {
+      id: Date.now(),
+      name: expName.trim(),
+      amount: amountNum,
+      date: new Date().toLocaleDateString('vi-VN'),
+      time: new Date().toLocaleTimeString('vi-VN'),
+      shift: shift
+    };
+
+    setExpenses(prev => [newExpense, ...prev]);
+    logAudit("THÊM CHI PHÍ", `${expName.trim()}: ${amountNum.toLocaleString()}đ`);
+    
+    // Reset form nhập liệu
+    setExpName("");
+    setExpAmount("");
+    toast.success("Đã thêm khoản chi thành công!");
+  };
+
+  const deleteExpense = (id: any) => {
+    if (window.confirm("Bạn có chắc chắn muốn xóa khoản chi phí này?")) {
+      const expenseToDelete = expenses.find(e => e.id === id);
+      setExpenses(prev => prev.filter(e => e.id !== id));
+      
+      if (expenseToDelete) {
+        logAudit("XÓA CHI PHÍ", `Xóa khoản: ${expenseToDelete.name}`);
+      }
+      toast.success("Đã xóa chi phí!");
+    }
+  };
   const fetchSettingsFromCloud = async () => {
     try {
       const { data } = await supabase.from("settings").select("*").eq("id", 1).single();
