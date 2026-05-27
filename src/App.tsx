@@ -46,7 +46,7 @@ import { MarketingModal } from "./components/modals/MarketingModal";
 import { POModal } from "./components/modals/POModal";
 
 import { PrintManager } from "./components/print/PrintManager";
-import { Login } from "./components/auth/Login"; // ĐÃ IMPORT COMPONENT LOGIN MỚI
+import { Login } from "./components/auth/Login"; 
 
 import './styles/App.css';
 import './styles/Print.css';
@@ -121,7 +121,7 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [unlockPin, setUnlockPin] = useState("");
-  const [installPrompt, setInstallPrompt] = useState<any>(null); // PWA Install Prompt State
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
 
   const [role, setRole] = useState("staff");
   const [shift, setShift] = useState("Ca Sáng");
@@ -213,7 +213,6 @@ export default function App() {
   // 2. EFFECTS (VÒNG ĐỜI VÀ EVENT CHẠY NGẦM)
   // =====================================================================
 
-  // PWA: Bắt sự kiện cài đặt App
   useEffect(() => {
     const handler = (e: any) => {
       e.preventDefault();
@@ -233,7 +232,6 @@ export default function App() {
     }
   };
 
-  // AUTO-LOCK MÀN HÌNH SAU 5 PHÚT
   useEffect(() => {
     if (!isLoggedIn || isLocked) return;
     let timeout: any;
@@ -253,13 +251,11 @@ export default function App() {
     };
   }, [isLoggedIn, isLocked]);
 
-  // DEBOUNCE SEARCH
   useEffect(() => {
     const handler = setTimeout(() => { setDebouncedSearchTerm(searchTerm); }, 300);
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  // KHỞI TẠO INDEXEDDB
   useEffect(() => {
     const initializeEnterpriseStorage = async () => {
       try {
@@ -302,7 +298,6 @@ export default function App() {
     initializeEnterpriseStorage();
   }, []);
 
-  // ĐỒNG BỘ INDEXEDDB
   useEffect(() => { if (!isStorageLoading) dbSet("mart_logged_in", isLoggedIn ? "true" : "false"); }, [isLoggedIn, isStorageLoading]);
   useEffect(() => { if (!isStorageLoading) dbSet("mart_role", role); }, [role, isStorageLoading]);
   useEffect(() => { if (!isStorageLoading) dbSet("mart_shift", shift); }, [shift, isStorageLoading]);
@@ -315,7 +310,6 @@ export default function App() {
   useEffect(() => { if (!isStorageLoading) dbSet("mart_suppliers", suppliers); }, [suppliers, isStorageLoading]);
   useEffect(() => { if (!isStorageLoading) dbSet("mart_history", history); }, [history, isStorageLoading]);
 
-  // CÁC EFFECTS HỆ THỐNG KHÁC
   useEffect(() => { 
     if (darkMode) { document.documentElement.setAttribute('data-theme', 'dark'); localStorage.setItem("mart_theme", "dark"); } 
     else { document.documentElement.removeAttribute('data-theme'); localStorage.setItem("mart_theme", "light"); } 
@@ -430,6 +424,7 @@ export default function App() {
   // =====================================================================
   // 3. ACTION FUNCTIONS (HÀM XỬ LÝ)
   // =====================================================================
+
   const addTransactionAndSync = async (logData: any) => {
     setHistory(prev => [logData, ...prev]);
     if (navigator.onLine) { try { await supabase.from("history").insert([logData]); } catch (err) {} }
@@ -456,7 +451,7 @@ export default function App() {
           if (localData) setProducts(localData);
         }
       } else {
-        // KHI MẤT MẠNG HÀN TOÀN: Bốc thẳng từ ổ cứng ra
+        // KHI MẤT MẠNG HOÀN TOÀN: Bốc thẳng từ ổ cứng ra
         console.log("Đang tải sản phẩm từ bộ nhớ Offline...");
         const localData = await dbGet("mart_products_cache");
         if (localData) setProducts(localData);
@@ -467,6 +462,22 @@ export default function App() {
       if (localData) setProducts(localData);
     }
   };
+
+  const executeWithAdminCheck = (action: () => void) => { if (role === 'admin') { action(); } else { setPendingAction(() => action); setShowPinModal(true); } };
+  
+  const fetchSettingsFromCloud = async () => {
+    try {
+      const { data } = await supabase.from("settings").select("*").eq("id", 1).single();
+      if (data) { 
+        setBankBin(data.bank_bin); setBankAcc(data.bank_acc); setBankNameStr(data.bank_name_str); setZaloPayId(data.zalopay_id || "");
+        setNewBankBin(data.bank_bin); setNewBankAcc(data.bank_acc); setNewBankNameStr(data.bank_name_str); setNewZaloPayId(data.zalopay_id || "");
+        if (data.admin_pin) setAdminPin(data.admin_pin); 
+        if (data.happy_hour_start) { setHappyStart(data.happy_hour_start); setNewHappyStart(data.happy_hour_start); } 
+        if (data.happy_hour_end) { setHappyEnd(data.happy_hour_end); setNewHappyEnd(data.happy_hour_end); } 
+      }
+    } catch (err) {}
+  };
+
   const updateSettingsToCloud = async (bin: string, acc: string, nameStr: string, zaloId: string, hStart: string, hEnd: string) => {
     if (!navigator.onLine) return toast.error("Mất mạng! Không thể lưu cài đặt lên Cloud."); setLoading(true);
     try {
@@ -593,7 +604,7 @@ export default function App() {
   
   const shareToZalo = (phone: string) => { const cust = customers[phone]; const code = cust.cardCode || phone; navigator.clipboard.writeText(`Chào ${cust.name},\nMã Thẻ VIP của bạn là: ${code}`).then(() => { toast.success(`Đang mở Zalo...`); window.open(`https://zalo.me/${phone}`, '_blank') }).catch(() => { window.open(`https://zalo.me/${phone}`, '_blank') }) };
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => { const code = e.target.value; setNewCode(code); const p = products.find((x: any) => x.product_code === code); if (p) { setNewName(cleanName(p.name)); setNewCategory(formatCategoryStr(p.category)); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewExpiry(p.expiry_date || ""); const gift = parseGift(p.gift_info); setNewGiftCondition(gift.cond.toString()); setNewGiftInfo(gift.text) } };
-  
+
   // ==========================================
   // CỖ MÁY ĐỒNG BỘ KÉT SẮT NHẬP KHO OFFLINE
   // ==========================================
@@ -608,18 +619,15 @@ export default function App() {
     for (const item of pendingImports) {
       try {
         if (item.action === "UPDATE_STOCK") {
-          // Lấy tồn kho THỰC TẾ TRÊN MẠNG lúc này
           const { data: cloudProd } = await supabase.from("products").select("stock").eq("id", item.targetId).single();
           const currentCloudStock = cloudProd ? cloudProd.stock : 0;
           
-          // CỘNG DỒN số lượng đã nhập lúc mất mạng vào số trên mạng
           await supabase.from("products").update({ 
             stock: currentCloudStock + item.addedStock,
             updated_at: new Date().toISOString()
           }).eq("id", item.targetId);
           
         } else if (item.action === "INSERT_NEW") {
-          // Đẩy sản phẩm tạo mới lên mạng
           await supabase.from("products").insert([item.data]);
         }
         successCount++;
@@ -628,16 +636,14 @@ export default function App() {
       }
     }
 
-    // Xóa sạch két sắt sau khi đã đẩy lên mây thành công
     await dbSet("mart_pending_imports", []);
     toast.dismiss();
     if (successCount > 0) {
       toast.success(`Đã đồng bộ ${successCount} lệnh Nhập Kho lên hệ thống!`);
-      fetchProducts(); // Tải lại kho chuẩn
+      fetchProducts(); 
     }
   };
 
-  // Tự động chạy cỗ máy này ngay khi có mạng trở lại
   useEffect(() => {
     if (isOnline && isLoggedIn) {
       syncPendingImports();
@@ -732,6 +738,7 @@ export default function App() {
       setLoading(false); 
     }
   };
+
   const handleFileUpload = async (e: any) => {
     const file = e?.target?.files?.[0] || e; if (!file || !file.name) { if (e?.target) e.target.value = ''; return; }
     if (!navigator.onLine) { toast.error("Cần mạng để tải lên!"); if (e?.target) e.target.value = ''; return; }
