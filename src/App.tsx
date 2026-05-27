@@ -244,7 +244,7 @@ export default function App() {
     return result;
   }, [products, debouncedSearchTerm, selectedCategory, sortConfig]);
 
-  const cartTotalAmountDisplay = useMemo(() => cart.reduce((sum, item) => sum + item.total, 0), [cart]);
+  const cartTotalAmountDisplay = useMemo(() => cart.reduce((sum, item) => sum + (item.total || 0), 0), [cart]);
 
   const tierDiscountAmount = useMemo(() => {
     if (!custPhone || !customers[custPhone]) return 0;
@@ -264,19 +264,21 @@ export default function App() {
   const lowStockCount = useMemo(() => products.filter(p => (p.stock || 0) <= 5).length, [products]);
   const todayStrStr = useMemo(() => new Date().toLocaleDateString("vi-VN"), []);
 
-  // Đã sửa tính năng crash Tiền mặt/Chuyển khoản
+  // BẢO VỆ CHỈ SỐ: Tính toán đầy đủ revenue, profit, prof, cash, transfer
   const currentShiftStats = useMemo(() => {
     const shiftLogs = history.filter(h => h.shift === shift);
-    const revenue = shiftLogs.filter(l => l.type === "BAN").reduce((s, l) => s + (l.total || 0), 0);
-    const profit = shiftLogs.filter(l => l.type === "BAN").reduce((s, l) => s + (l.profit || 0), 0);
-    const cash = shiftLogs.filter(l => l.type === "BAN" && l.paymentMethod === "TIỀN MẶT").reduce((s, l) => s + (l.total || 0), 0);
-    const transfer = shiftLogs.filter(l => l.type === "BAN" && l.paymentMethod === "CHUYỂN KHOẢN").reduce((s, l) => s + (l.total || 0), 0);
-    return { revenue, profit, cash, transfer, count: shiftLogs.length };
+    const revenue = shiftLogs.filter(l => l.type === "BAN" || l.type === "GHI NỢ").reduce((s, l) => s + (l.total || 0), 0);
+    const profit = shiftLogs.filter(l => l.type === "BAN" || l.type === "GHI NỢ").reduce((s, l) => s + (l.profit || 0), 0);
+    const cash = shiftLogs.filter(l => (l.type === "BAN" || l.type === "GHI NỢ") && l.paymentMethod === "TIỀN MẶT").reduce((s, l) => s + (l.total || 0), 0);
+    const transfer = shiftLogs.filter(l => (l.type === "BAN" || l.type === "GHI NỢ") && l.paymentMethod === "CHUYỂN KHOẢN").reduce((s, l) => s + (l.total || 0), 0);
+    
+    // Cung cấp cả 'profit' và 'prof' phòng trường hợp Modal cũ gọi sai tên biến
+    return { revenue, profit, prof: profit, cash, transfer, count: shiftLogs.length };
   }, [history, shift]);
 
   const currentShiftCashFlow = useMemo(() => {
-    const cashIn = currentShiftStats.cash;
-    const totalExp = expenses.filter(e => e.shift === shift).reduce((s, e) => s + e.amount, 0);
+    const cashIn = currentShiftStats.cash || 0;
+    const totalExp = expenses.filter(e => e.shift === shift).reduce((s, e) => s + (e.amount || 0), 0);
     return startingCash + cashIn - totalExp;
   }, [currentShiftStats, expenses, shift, startingCash]);
 
@@ -285,10 +287,10 @@ export default function App() {
     const end = new Date(reportEndDate).getTime() + 86399999;
     const filteredLogs = history.filter(l => {
       const logTime = new Date(Math.floor(l.id)).getTime();
-      return logTime >= start && logTime <= end && l.type === "BAN";
+      return logTime >= start && logTime <= end && (l.type === "BAN" || l.type === "GHI NỢ");
     });
-    const rev = filteredLogs.reduce((s, l) => s + l.total, 0);
-    const prof = filteredLogs.reduce((s, l) => s + l.profit, 0);
+    const rev = filteredLogs.reduce((s, l) => s + (l.total || 0), 0);
+    const prof = filteredLogs.reduce((s, l) => s + (l.profit || 0), 0);
     return { revenue: rev, cost: rev - prof, netProfit: prof };
   }, [history, reportStartDate, reportEndDate]);
 
@@ -301,7 +303,6 @@ export default function App() {
   const uniqueSalePrices = useMemo(() => Array.from(new Set(products.map(p => p.sale_price))), [products]);
   const uniqueExpiries = useMemo(() => Array.from(new Set(products.map(p => p.expiry_date).filter(Boolean))), [products]);
 
-  // Đã sửa tính năng gộp ngày Lịch sử không bị trống
   const groupedHistory = useMemo(() => {
     const groups: Record<string, TransactionLog[]> = {};
     history.forEach(log => {
@@ -507,7 +508,29 @@ export default function App() {
 
   const handlePrintBarcode = (p: any) => { const q = window.prompt("SL tem in:", "30"); if (q && parseInt(q) > 0) { setPrintBarcodeProduct(p); setBarcodeCount(parseInt(q)); setPrintMode("barcode"); } };
 
-  // Đã sửa xuất File Kiểm Kho
+  // ĐÃ FIX: Chức năng thêm Chi Phí (Expense) an toàn
+  const addExpense = () => {
+    if (!expName.trim() || !expAmount) return toast.error("Vui lòng nhập đầy đủ tên và số tiền!");
+    const amount = parseInt(expAmount);
+    if (isNaN(amount) || amount <= 0) return toast.error("Số tiền không hợp lệ!");
+    const newExp = { id: Date.now(), name: expName.trim(), amount, date: new Date().toLocaleDateString("vi-VN"), shift };
+    setExpenses((prev) => [newExp, ...prev]);
+    setExpName(""); setExpAmount("");
+    logAudit("CHI PHÍ", `${expName.trim()}: ${amount.toLocaleString()}đ`);
+    toast.success("Đã thêm chi phí!");
+  };
+
+  const deleteExpense = (id: number) => {
+    executeWithAdminCheck(() => {
+      if (window.confirm("Bạn có chắc chắn muốn xóa chi phí này?")) {
+        setExpenses((prev) => prev.filter((e) => e.id !== id));
+        logAudit("XÓA CHI PHÍ", `ID ${id}`);
+        toast.success("Đã xóa chi phí!");
+      }
+    });
+  };
+
+  // ĐÃ FIX: Tính năng tải file kiểm kho hoạt động 100%
   const exportInventoryCSV = () => {
     let csv = "\uFEFFMã SP,Tên SP,Tồn hệ thống,Tồn thực tế\n";
     products.forEach((p) => {
@@ -522,7 +545,7 @@ export default function App() {
     toast.success("Đã tải xuống file Kiểm kho!");
   };
 
-  // Đã sửa đồng bộ ghi đè Kiểm Kho
+  // ĐÃ FIX: Tính năng ghi đè dữ liệu kiểm kho hoạt động 100%
   const syncInventoryCheck = async () => {
     if (!navigator.onLine) return toast.error("Mạng yếu!");
     if (Object.keys(actualStockInput).length === 0) return toast.error("Chưa có số liệu thực tế nào được nhập!");
@@ -543,9 +566,15 @@ export default function App() {
     } catch (err) { toast.error("Lỗi đồng bộ kiểm kho!"); } finally { setLoading(false); }
   };
 
+  // ĐÃ FIX: Chống Crash màn hình khi gõ mã sai hoặc rỗng
   const handleSelectSuggest = (p_input: any) => {
+    if (!p_input) {
+      playSound("error");
+      return toast.error("Mã không hợp lệ hoặc không tìm thấy sản phẩm!");
+    }
     const baseCode = String(p_input.product_code).split("-")[0];
     const totalStock = products.filter((p) => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0);
+    
     if (totalStock <= 0) { playSound("error"); return toast.error("Sản phẩm đã hết hàng!"); }
 
     let itemToCart = { ...p_input };
@@ -562,6 +591,33 @@ export default function App() {
       }
     });
     setBarcodeInput(""); playSound("success");
+  };
+
+  // ĐÃ FIX: Chống trình duyệt tự Refresh (F5) khi bấm phím Enter ở khung tìm kiếm
+  const handleBarcodeSubmitAction = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault(); 
+      const p = findProductByCode(barcodeInput);
+      if (p) {
+        handleSelectSuggest(p);
+      } else {
+        // Fallback tìm Khách Hàng VIP
+        const matchedPhone = Object.keys(customers || {}).find(
+          (phone) => phone === barcodeInput.trim() || customers[phone]?.cardCode === barcodeInput.trim()
+        );
+        if (matchedPhone) {
+          playSound("success");
+          setCustomerInput(customers[matchedPhone]?.cardCode || matchedPhone);
+          setCustPhone(matchedPhone);
+          setCustName(customers[matchedPhone]?.name);
+          setBarcodeInput("");
+          toast.success(`Đã nhận diện KH: ${customers[matchedPhone]?.name}`);
+        } else {
+          playSound("error");
+          toast.error("Mã không hợp lệ!");
+        }
+      }
+    }
   };
 
   const adjustCartQty = (productId: any, delta: number) => {
@@ -581,15 +637,26 @@ export default function App() {
     setCart((prev) => prev.map((i) => i.product.id === productId ? { ...i, qty: num, total: Math.round(num * getActualPrice(i.product) * (1 + VAT_RATE)) } : i));
   };
 
+  const handleDirectQtyBlur = (productId: any, val: string) => {
+    if (val === "" || parseInt(val) <= 0 || isNaN(parseInt(val))) {
+      setCart((prev) => prev.map((i) => {
+        if (i.product.id === productId) {
+          const price = getActualPrice(i.product);
+          return { ...i, qty: 1, total: Math.round(1 * price * (1 + VAT_RATE)) };
+        }
+        return i;
+      }));
+    }
+  };
+
   const removeFromCart = (productId: any) => setCart(cart.filter((item) => item.product.id !== productId));
-  const clearCart = () => { if (window.confirm("Hủy toàn bộ?")) resetCheckout(); };
+  const clearCart = () => { if (window.confirm("Hủy toàn bộ giỏ hàng?")) resetCheckout(); };
   
   const handleCustomerInputChange = (val: string) => {
     setCustomerInput(val);
     if (customers[val]) { setCustPhone(val); setCustName(customers[val].name); }
   };
 
-  // Đã sửa lỗi crash Hold Order
   const handleHoldOrder = () => {
     if (cart.length === 0) return toast.error("Giỏ hàng đang trống!");
     const holdId = `HOLD-${Date.now()}`;
@@ -610,7 +677,6 @@ export default function App() {
     setShowHoldModal(false);
   };
 
-  // Đã sửa lại logic Confirm Checkout Full tính năng
   const confirmCheckout = async (paymentMethod: string, splitCash?: number) => {
     if (cart.length === 0) return toast.error("Giỏ hàng trống!");
     setLoading(true);
@@ -713,7 +779,6 @@ export default function App() {
     toast.success(`Đã đổi SĐT từ ${oldPhone} sang ${newPhone}`);
   }, []);
 
-  // Đã sửa In thẻ VIP
   const printCustomerCard = useCallback((customer: Customer) => {
     if (!customer) return toast.error("Không tìm thấy thông tin khách hàng!");
     setPrintCustomer(customer);
@@ -748,6 +813,14 @@ export default function App() {
     setPrintPOData(po);
     setPrintMode('po');
   }, []);
+
+  const requestSort = (key: string) => {
+    if (sortConfig && sortConfig.key === key) {
+      setSortConfig(sortConfig.direction === "asc" ? { key, direction: "desc" } : null);
+    } else {
+      setSortConfig({ key, direction: "asc" });
+    }
+  };
 
   // Bắt phím tắt bàn phím
   useEffect(() => {
@@ -788,11 +861,11 @@ export default function App() {
       )}
 
       <Toaster position="top-right" />
-      <input type="text" id="search-barcode" style={{ position: 'absolute', opacity: 0, height: 0, width: 0 }} value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleSelectSuggest(findProductByCode(barcodeInput)); }} />
+      <input type="text" id="search-barcode" style={{ position: 'absolute', opacity: 0, height: 0, width: 0 }} value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeSubmitAction} />
 
       <PrintManager printMode={printMode} lastOrder={lastOrder} shift={shift} role={role} customers={customers} VAT_RATE={VAT_RATE} printBarcodeProduct={printBarcodeProduct} barcodeCount={barcodeCount} printCustomer={printCustomer} printPOData={printPOData} />
 
-      <ExpenseModal showExpenseModal={showExpenseModal} setShowExpenseModal={setShowExpenseModal} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} expenses={expenses} addExpense={() => { setExpenses(p => [{ id: Date.now(), name: expName, amount: Number(expAmount), shift }, ...p]); setExpName(""); setExpAmount(""); }} deleteExpense={(id) => setExpenses(p => p.filter(e => e.id !== id))} />
+      <ExpenseModal showExpenseModal={showExpenseModal} setShowExpenseModal={setShowExpenseModal} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} expenses={expenses} addExpense={addExpense} deleteExpense={deleteExpense} />
       <CashFlowModal cashFlowModalInfo={cashFlowModalInfo} setCashFlowModalInfo={setCashFlowModalInfo} shift={shift} todayStrStr={todayStrStr} currentShiftCashFlow={currentShiftCashFlow} currentShiftStats={currentShiftStats} />
       <HoldOrdersModal showHoldModal={showHoldModal} setShowHoldModal={setShowHoldModal} heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={(id) => setHeldOrders(p => p.filter(h => h.id !== id))} />
       <CheckoutModal isCheckoutOpen={isCheckoutOpen} setIsCheckoutOpen={setIsCheckoutOpen} checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} voucherInput={voucherInput} setVoucherInput={setVoucherInput} customerInput={customerInput} setCustomerInput={setCustomerInput} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} useWallet={useWallet} setUseWallet={setUseWallet} appliedVoucherAmount={appliedVoucherAmount} setAppliedVoucherAmount={setAppliedVoucherAmount} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} finalToPay={finalToPay} customers={customers} isOnline={isOnline} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} loading={loading} handleVoucherSubmit={() => toast.success("Đã áp dụng Voucher!")} handleCustomerInputChange={handleCustomerInputChange} setScannerMode={setScannerMode} handleNextToQR={() => setCheckoutStep(2)} confirmCheckout={confirmCheckout} setPrintMode={setPrintMode} sendReceiptEmail={() => toast.success("Đã gửi email!")} closeCheckout={() => { setIsCheckoutOpen(false); setCheckoutStep(1); }} custAddress={custAddress} setCustAddress={setCustAddress} />
@@ -819,7 +892,7 @@ export default function App() {
             
             <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: "10px" }}>
               <div className="glass" style={{ padding: "12px" }}>
-                <ProductSearchAndActions searchTerm={searchTerm} setSearchTerm={setSearchTerm} role={role} barcodeInput={barcodeInput} setBarcodeInput={setBarcodeInput} showSuggestions={showSuggestions} setShowSuggestions={setShowSuggestions} handleBarcodeSubmit={(e) => { if(e.key === 'Enter') handleSelectSuggest(findProductByCode(barcodeInput)); }} setScannerMode={setScannerMode} products={products} handleSelectSuggest={handleSelectSuggest} showInputForm={showInputForm} setShowInputForm={setShowInputForm} onAddProduct={() => setShowInputForm(true)} handleFileUpload={() => toast.success("Đang xử lý File!")} downloadSampleCSV={() => toast.success("Đã tải File mẫu!")} />
+                <ProductSearchAndActions searchTerm={searchTerm} setSearchTerm={setSearchTerm} role={role} barcodeInput={barcodeInput} setBarcodeInput={setBarcodeInput} showSuggestions={showSuggestions} setShowSuggestions={setShowSuggestions} handleBarcodeSubmit={handleBarcodeSubmitAction} setScannerMode={setScannerMode} products={products} handleSelectSuggest={handleSelectSuggest} showInputForm={showInputForm} setShowInputForm={setShowInputForm} onAddProduct={() => setShowInputForm(true)} handleFileUpload={() => toast.success("Đang xử lý File!")} downloadSampleCSV={() => toast.success("Đã tải File mẫu!")} />
                 
                 {showInputForm && (
                   <ProductInputForm newCode={newCode} handleCodeChange={handleCodeChange} newName={newName} setNewName={setNewName} newCategory={newCategory} setNewCategory={setNewCategory} categories={categories} newImportPrice={newImportPrice} setNewImportPrice={setNewImportPrice} newPrice={newPrice} setNewPrice={setNewPrice} newPromoPrice={newPromoPrice} setNewPromoPrice={setNewPromoPrice} newGiftCondition={newGiftCondition} setNewGiftCondition={setNewGiftCondition} newGiftInfo={newGiftInfo} setNewGiftInfo={setNewGiftInfo} newStock={newStock} setNewStock={setNewStock} newExpiry={newExpiry} setNewExpiry={setNewExpiry} handleAddProduct={handleAddProduct} setShowInputForm={setShowInputForm} loading={loading} />
@@ -831,11 +904,11 @@ export default function App() {
                   ))}
                 </div>
                 
-                <ProductTable role={role} sortedAndFilteredProducts={sortedAndFilteredProducts} requestSort={(key) => setSortConfig(sortConfig?.direction === "asc" ? { key, direction: "desc" } : { key, direction: "asc" })} handleEdit={handleEdit} addToCart={(p) => handleSelectSuggest(p)} handlePrintBarcode={handlePrintBarcode} handleDelete={handleDelete} sortConfig={sortConfig} filters={filters} setFilters={setFilters} openFilter={openFilter} setOpenFilter={setOpenFilter} uniqueNames={uniqueNames} uniqueStocks={uniqueStocks} uniqueImportPrices={uniqueImportPrices} uniqueSalePrices={uniqueSalePrices} uniqueExpiries={uniqueExpiries} />
+                <ProductTable role={role} sortedAndFilteredProducts={sortedAndFilteredProducts} requestSort={requestSort} handleEdit={handleEdit} addToCart={(p) => handleSelectSuggest(p)} handlePrintBarcode={handlePrintBarcode} handleDelete={handleDelete} sortConfig={sortConfig} filters={filters} setFilters={setFilters} openFilter={openFilter} setOpenFilter={setOpenFilter} uniqueNames={uniqueNames} uniqueStocks={uniqueStocks} uniqueImportPrices={uniqueImportPrices} uniqueSalePrices={uniqueSalePrices} uniqueExpiries={uniqueExpiries} />
               </div>
               
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                <CartPanel cart={cart} custName={custName} heldOrders={heldOrders} cartTotalAmountDisplay={cartTotalAmountDisplay} setShowHoldModal={setShowHoldModal} handleHoldOrder={handleHoldOrder} clearCart={clearCart} setCustName={setCustName} setCustPhone={setCustPhone} setCustomerInput={setCustomerInput} setIsCheckoutOpen={setIsCheckoutOpen} setCheckoutStep={setCheckoutStep} adjustCartQty={adjustCartQty} handleDirectQtyChange={handleDirectQtyChange} handleDirectQtyBlur={() => {}} removeFromCart={removeFromCart} />
+                <CartPanel cart={cart} custName={custName} heldOrders={heldOrders} cartTotalAmountDisplay={cartTotalAmountDisplay} setShowHoldModal={setShowHoldModal} handleHoldOrder={handleHoldOrder} clearCart={clearCart} setCustName={setCustName} setCustPhone={setCustPhone} setCustomerInput={setCustomerInput} setIsCheckoutOpen={setIsCheckoutOpen} setCheckoutStep={setCheckoutStep} adjustCartQty={adjustCartQty} handleDirectQtyChange={handleDirectQtyChange} handleDirectQtyBlur={handleDirectQtyBlur} removeFromCart={removeFromCart} />
                 <HistoryPanel logSearchTerm={logSearchTerm} setLogSearchTerm={setLogSearchTerm} logTypeFilter={logTypeFilter} setLogTypeFilter={setLogTypeFilter} exportToCSV={() => toast.success("Đã xuất Báo cáo Bán hàng!")} groupedHistory={groupedHistory} expandedDates={expandedDates} toggleDateGroup={(d) => setExpandedDates(p => ({ ...p, [d]: !p[d] }))} handleRefund={handleRefund} onPrintK80={(log) => handleReprint(log.time, 'receipt_thermal')} onPrintA4={(log) => handleReprint(log.time, 'receipt_a4')} />
               </div>
             </div>
