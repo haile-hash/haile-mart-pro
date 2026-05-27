@@ -105,10 +105,11 @@ export default function App() {
   }
 
   const VAT_RATE = 0.1;
-const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-  const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
-  const EMAILJS_TEMPLATE_VIP_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_VIP_ID;
-  const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+// Kéo API Key từ Vercel. Nếu Vercel lỗi chưa kịp tải, tạm thời để trống ("") chứ TUYỆT ĐỐI KHÔNG ghi mã thật vào đây!
+  const EMAILJS_SERVICE_ID = import.meta.env?.VITE_EMAILJS_SERVICE_ID || "";
+  const EMAILJS_TEMPLATE_ID = import.meta.env?.VITE_EMAILJS_TEMPLATE_ID || "";
+  const EMAILJS_TEMPLATE_VIP_ID = import.meta.env?.VITE_EMAILJS_TEMPLATE_VIP_ID || "";
+  const EMAILJS_PUBLIC_KEY = import.meta.env?.VITE_EMAILJS_PUBLIC_KEY || "";
   const IDLE_TIMEOUT = 5 * 60 * 1000; 
 
   // KHỞI TẠO EMAILJS
