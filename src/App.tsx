@@ -961,14 +961,26 @@ export default function App() {
       if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += h.total; 
       if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') { 
         if (h.paymentMethod === 'CHUYỂN KHOẢN' || h.paymentMethod === 'QUẸT THẺ' || h.paymentMethod === 'ZALO PAY') { transfer += h.total; } 
-        else if (h.paymentMethod === 'TIỀN MẶT' || h.paymentMethod === 'KẾT HỢP') {
-          if(h.paymentMethod === 'KẾT HỢP' && h.split_cash) { cash += h.split_cash; transfer += (h.total - h.split_cash); } else { cash += h.total; }
+        else if (h.paymentMethod === 'TIỀN MẶT' || h.paymentMethod === 'KẾT HỢP' || h.paymentMethod === 'TRỪ NỢ' || h.paymentMethod === 'VÍ WALLET') {
+          // Xử lý dòng tiền mặt: Bán thì cộng, Trả hàng thì trừ
+          let amountToAdd = h.total;
+          if(h.paymentMethod === 'KẾT HỢP' && h.split_cash) { 
+             amountToAdd = h.split_cash; 
+             transfer += (h.total - h.split_cash); 
+          }
+          cash += amountToAdd; 
         }
       } 
       prof += (h.profit || 0) 
     }); 
+    
+    // TRỪ ĐI CHI PHÍ (EXPENSES) TRONG CA
+    const shiftExpenses = expenses.filter(e => e.date === todayStrStr);
+    const totalExpenses = shiftExpenses.reduce((sum, e) => sum + e.amount, 0);
+    cash -= totalExpenses;
+
     return { rev: cash + transfer - startingCash, cash, transfer, prof, totalSales } 
-  }, [history, shift, todayStrStr, startingCash]);
+  }, [history, expenses, shift, todayStrStr, startingCash]);
 
   const currentShiftCashFlow = useMemo(() => {
     if (!cashFlowModalInfo) return { thu: [], chi: [] };
