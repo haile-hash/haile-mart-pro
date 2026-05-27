@@ -46,6 +46,7 @@ import { MarketingModal } from "./components/modals/MarketingModal";
 import { POModal } from "./components/modals/POModal";
 
 import { PrintManager } from "./components/print/PrintManager";
+import { Login } from "./components/auth/Login"; // ĐÃ IMPORT COMPONENT LOGIN MỚI
 
 import './styles/App.css';
 import './styles/Print.css';
@@ -124,8 +125,6 @@ export default function App() {
 
   const [role, setRole] = useState("staff");
   const [shift, setShift] = useState("Ca Sáng");
-  const [authUsername, setAuthUsername] = useState("");
-  const [authPassword, setAuthPassword] = useState("");
   const [startingCash, setStartingCash] = useState<number>(5000000);
   const [bankBin, setBankBin] = useState("");
   const [bankAcc, setBankAcc] = useState("");
@@ -165,7 +164,7 @@ export default function App() {
   const [supPhone, setSupPhone] = useState("");
   const [supAddress, setSupAddress] = useState(""); 
   const [supItem, setSupItem] = useState("");
-  const [supTaxCode, setSupTaxCode] = useState("");        
+  const [supTaxCode, setSupTaxCode] = useState("");       
   const [supBankAccount, setSupBankAccount] = useState("");
   const [marketingTier, setMarketingTier] = useState("Tất cả");
   const [marketingMsg, setMarketingMsg] = useState("");
@@ -471,9 +470,8 @@ export default function App() {
 
   const saveSettings = () => { const bin = newBankBin.trim(); const acc = newBankAcc.trim(); const nameStr = newBankNameStr.trim().toUpperCase(); const zaloId = newZaloPayId.trim(); if (!bin || !acc || !nameStr) return toast.error("Vui lòng điền đủ thông tin Ngân hàng!"); updateSettingsToCloud(bin, acc, nameStr, zaloId, newHappyStart, newHappyEnd); };
   
-  const handleLogin = async (e: React.FormEvent) => { e.preventDefault(); let u = authUsername.trim().toLowerCase(); const p = authPassword.trim(); if (!u.includes('@')) { u = u + '@hailemart.com'; } setLoading(true); const { error } = await supabase.auth.signInWithPassword({ email: u, password: p }); if (error) { toast.error(`Đăng nhập thất bại.`); setLoading(false); return; } const userRole = u.includes('admin') ? 'admin' : 'staff'; setRole(userRole); setShift(shift); setStartingCash(startingCash); setIsLoggedIn(true); };
   const handleLogoutClick = () => setShowHandoverModal(true);
-  const confirmHandover = async () => { try { if (navigator.onLine) { await supabase.auth.signOut(); } } catch (error) {} finally { await dbRemove("mart_logged_in"); await dbRemove("mart_role"); await dbRemove("mart_shift"); setIsLoggedIn(false); window.location.reload(); } };
+  const confirmHandover = async () => { try { if (navigator.onLine) { await supabase.auth.signOut(); } } catch (error) {} finally { await dbRemove("mart_logged_in"); await dbRemove("mart_role"); await dbRemove("mart_shift"); localStorage.removeItem("mart_was_logged_in"); setIsLoggedIn(false); window.location.reload(); } };
   const handleEditPhone = async (oldPhone: string) => { executeWithAdminCheck(() => { const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customers[newPhone]) return toast.error("SĐT đã tồn tại!"); const cData = customers[oldPhone]; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = { ...cData, phone: newPhone }; delete updated[oldPhone]; return updated }); toast.success("Cập nhật thành công!"); } }); };
   const addSupplier = async () => { if (!supName || !supPhone) return toast.error("Nhập đủ Tên/SĐT"); const newId = Date.now(); const newSupData = { id: newId, name: supName, phone: supPhone, address: supAddress, item: supItem, taxCode: supTaxCode, bankAccount: supBankAccount, debt: 0 }; setSuppliers(prev => [newSupData, ...prev]); if (navigator.onLine) { supabase.from('suppliers').insert([newSupData]).then(); } setSupName(""); setSupPhone(""); setSupAddress(""); setSupItem(""); setSupTaxCode(""); setSupBankAccount(""); toast.success("Thêm NCC thành công!"); };
   const deleteSupplier = async (id: any) => { setSuppliers(prev => prev.filter(s => s.id !== id)); if (navigator.onLine) await supabase.from('suppliers').delete().eq('id', id); };
@@ -1031,34 +1029,16 @@ export default function App() {
       {renderModals()}
 
       {!isLoggedIn ? (
-        <div className="login-wrapper">
-          <form className="glass-login" onSubmit={handleLogin}>
-            <div className="login-header">
-              <h2 className="login-title">HẢI LÊ <span>MART</span></h2>
-              <p className="login-subtitle">Hệ thống Quản lý ERP & POS</p>
-            </div>
-
-            {/* NÚT CÀI ĐẶT APP (PWA) CHỈ HIỆN KHI TRÌNH DUYỆT HỖ TRỢ */}
-            {installPrompt && (
-              <button 
-                type="button" 
-                onClick={handleInstallApp} 
-                style={{ width: '100%', marginBottom: '15px', padding: '10px', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-              >
-                ⬇️ CÀI ĐẶT APP CHO MÁY NÀY
-              </button>
-            )}
-
-            <div className="login-input-group"><input className="login-input" placeholder="Tên đăng nhập (Email)..." value={authUsername} onChange={e => setAuthUsername(e.target.value)} required /></div>
-            <div className="login-input-group"><input className="login-input" type="password" placeholder="Mật khẩu..." value={authPassword} onChange={e => setAuthPassword(e.target.value)} required /></div>
-            <div className="login-input-group">
-              <select className="login-input" value={shift} onChange={e => setShift(e.target.value)} required>
-                <option value="Ca Sáng">🌅 Ca Sáng (06:00 - 14:00)</option><option value="Ca Chiều">☀️ Ca Chiều (14:00 - 22:00)</option><option value="Ca Tối">🌙 Ca Tối (22:00 - 06:00)</option>
-              </select>
-            </div>
-            <button className="login-btn-submit" type="submit" disabled={loading}>{loading ? "ĐANG TẢI..." : "ĐĂNG NHẬP"}</button>
-          </form>
-        </div>
+        <Login 
+          setIsLoggedIn={setIsLoggedIn} 
+          setRole={setRole} 
+          shift={shift} 
+          setShift={setShift} 
+          startingCash={startingCash} 
+          setStartingCash={setStartingCash} 
+          installPrompt={installPrompt} 
+          handleInstallApp={handleInstallApp} 
+        />
       ) : (
         <div className="no-print" style={{ padding: "15px", position: "relative", minHeight: "100vh" }}>
           <div style={{ maxWidth: "1500px", margin: "0 auto", minWidth: "1000px" }}>
