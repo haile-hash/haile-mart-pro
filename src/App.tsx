@@ -776,6 +776,7 @@ export default function App() {
   // =====================================================================
   // 4. MEMOS & TÍNH TOÁN CÔNG THỨC (CÓ CÁC HÀM KHÔI PHỤC)
   // =====================================================================
+  const todayStrStr = new Date().toLocaleDateString('vi-VN');
   const currentShiftStats = useMemo(() => { 
     const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStrStr && h.shift === shift); 
     let cash = startingCash; let transfer = 0; let prof = 0; let totalSales = 0; 
