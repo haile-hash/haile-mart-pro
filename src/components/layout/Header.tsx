@@ -20,9 +20,9 @@ interface HeaderProps {
   setShowExpenseModal: (val: boolean) => void;
   setShowSupplierModal: (val: boolean) => void;
   setShowMarketingModal: (val: boolean) => void;
-  setNewBankBin: (val: string) => void;
-  setNewBankAcc: (val: string) => void;
-  setNewBankNameStr: (val: string) => void;
+  setNewBankBin?: (val: string) => void;
+  setNewBankAcc?: (val: string) => void;
+  setNewBankNameStr?: (val: string) => void;
   bankBin: string;
   bankAcc: string;
   bankNameStr: string;
@@ -121,7 +121,7 @@ export const Header: React.FC<HeaderProps> = ({
           background-image: linear-gradient(115deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.15) 25%, rgba(0,0,0,0.2) 50%, rgba(255,255,255,0.15) 75%, rgba(255,255,255,0) 100%);
           background-size: 400px 100%;
           animation: flagFlutter 3s ease-in-out infinite, satinWave 3s linear infinite;
-          will-change: transform, background-position;
+          幕will-change: transform, background-position;
           box-shadow: 0 6px 15px rgba(218, 37, 29, 0.35);
           border: 1px solid rgba(255,255,255,0.15);
         }
@@ -157,7 +157,6 @@ export const Header: React.FC<HeaderProps> = ({
         
         <div className="national-flag-container" onClick={toggleMusic} style={{ display: "flex", alignItems: "center", gap: "12px", cursor: "pointer", padding: "10px 20px", borderRadius: "12px", minWidth: "300px", overflow: "hidden" }} title={getMusicTooltip()}>
           
-          {/* ĐÃ FIX LỖI USERSELECT Ở ĐÂY */}
           <div style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "60px", color: "#ffff00", opacity: 0.4, pointerEvents: "none", userSelect: "none" }}>★</div>
           
           <div style={{ position: "relative" }}>
@@ -188,15 +187,32 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Chỉ số tài chính */}
+        {/* --- KHU VỰC THÀNH PHẦN THỐNG KÊ TÀI CHÍNH (ĐÃ FIX LỖI CRASH CHUẨN) --- */}
         <div style={{ display: "flex", alignItems: "center", gap: "25px" }}>
            <div style={{ background: "#fef08a", color: "#b45309", padding: "4px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: "bold" }}>🌙 HAPPY HOUR</div>
            <div style={{ borderLeft: "1px solid #cbd5e1", height: "30px" }}></div>
-           <div style={{ textAlign: "center" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>VỐN</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#475569" }}>{totalValue.toLocaleString()}đ</div></div>
-           <div style={{ textAlign: "center", cursor: "pointer" }} onClick={() => setCashFlowModalInfo('TIỀN MẶT')}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>TIỀN MẶT 👆</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#10b981" }}>{currentShiftStats.cash.toLocaleString()}đ</div></div>
-           <div style={{ textAlign: "center", cursor: "pointer" }} onClick={() => setCashFlowModalInfo('CHUYỂN KHOẢN')}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>CHUYỂN KHOẢN 👆</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#3b82f6" }}>{currentShiftStats.transfer.toLocaleString()}đ</div></div>
+           
+           <div style={{ textAlign: "center" }}>
+             <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>VỐN</div>
+             <div style={{ fontSize: "15px", fontWeight: "900", color: "#475569" }}>{(totalValue || 0).toLocaleString()}đ</div>
+           </div>
+           
+           <div style={{ textAlign: "center", cursor: "pointer" }} onClick={() => setCashFlowModalInfo('TIỀN MẶT')}>
+             <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>TIỀN MẶT 👆</div>
+             <div style={{ fontSize: "15px", fontWeight: "900", color: "#10b981" }}>{(currentShiftStats?.revenue || 0).toLocaleString()}đ</div>
+           </div>
+           
+           <div style={{ textAlign: "center", cursor: "pointer" }} onClick={() => setCashFlowModalInfo('CHUYỂN KHOẢN')}>
+             <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>CHUYỂN KHOẢN 👆</div>
+             <div style={{ fontSize: "15px", fontWeight: "900", color: "#3b82f6" }}>{(currentShiftStats?.transfer || 0).toLocaleString()}đ</div>
+           </div>
+           
            <div style={{ borderLeft: "1px solid #cbd5e1", height: "30px" }}></div>
-           <div style={{ textAlign: "center" }}><div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>LÃI</div><div style={{ fontSize: "15px", fontWeight: "900", color: "#ea580c" }}>{currentShiftStats.prof.toLocaleString()}đ</div></div>
+           
+           <div style={{ textAlign: "center" }}>
+             <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>LÃI</div>
+             <div style={{ fontSize: "15px", fontWeight: "900", color: "#ea580c" }}>{(currentShiftStats?.profit || 0).toLocaleString()}đ</div>
+           </div>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
