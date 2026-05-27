@@ -107,14 +107,14 @@ export default function App() {
   const VAT_RATE = 0.1;
   const IDLE_TIMEOUT = 5 * 60 * 1000; 
 
-  // Gọi API Key từ két sắt bảo mật của Vercel (F12 đố nhìn thấy được)
-  const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-  const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
-  const EMAILJS_TEMPLATE_VIP_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_VIP_ID;
-  const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY; 
+  // BẢO MẬT TUYỆT ĐỐI: Móc API Key mật từ két sắt Vercel thông qua định dạng REACT_APP_
+  const EMAILJS_SERVICE_ID = process.env.REACT_APP_EMAILJS_SERVICE_ID;
+  const EMAILJS_TEMPLATE_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_ID;
+  const EMAILJS_TEMPLATE_VIP_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_VIP_ID;
+  const EMAILJS_PUBLIC_KEY = process.env.REACT_APP_EMAILJS_PUBLIC_KEY;
 
-  // KHỞI TẠO EMAILJS
-  useEffect(() => { emailjs.init(EMAILJS_PUBLIC_KEY); }, []);
+  // KHỞI TẠO EMAILJS CHẠY NGẦM
+  useEffect(() => { if (EMAILJS_PUBLIC_KEY) emailjs.init(EMAILJS_PUBLIC_KEY); }, [EMAILJS_PUBLIC_KEY]);
 
   // =====================================================================
   // 1. TẤT CẢ STATES VÀ HOOKS
@@ -141,7 +141,7 @@ export default function App() {
   const [newHappyStart, setNewHappyStart] = useState("11:00");
   const [newHappyEnd, setNewHappyEnd] = useState("13:00");
   const [adminPin, setAdminPin] = useState("1234");
-  const [newAdminPinInput, setNewAdminPinInput] = useState(""); // BAO MAT: De trong luc dau
+  const [newAdminPinInput, setNewAdminPinInput] = useState(""); // Bảo mật ô nhập đổi PIN
   const [showPinModal, setShowPinModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [showScannerLinkModal, setShowScannerLinkModal] = useState(false);
@@ -224,16 +224,6 @@ export default function App() {
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
-
-  const handleInstallApp = async () => {
-    if (!installPrompt) return;
-    installPrompt.prompt();
-    const { outcome } = await installPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setInstallPrompt(null);
-      toast.success("Cài đặt App thành công!");
-    }
-  };
 
   useEffect(() => {
     if (!isLoggedIn || isLocked) return;
@@ -331,44 +321,6 @@ export default function App() {
   }, [isLoggedIn, isCheckoutOpen, showPinModal, cart, showAuditModal, showCustomerModal, showSettings, showInputForm, showInventoryModal, cashFlowModalInfo, showPOModal]);
 
   useEffect(() => {
-    if (isLoggedIn) {
-      fetchProducts(); loadCloudData(); fetchSettingsFromCloud(); 
-      const channel = supabase.channel("db_changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts())
-        .on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData())
-        .on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData())
-        .on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData())
-        .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData())
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload) => { 
-          setScanQueue(prev => [...prev, payload.new.code]); 
-        }).subscribe();
-        
-      const script = document.createElement("script"); script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"; 
-      script.onload = () => { if(EMAILJS_PUBLIC_KEY) { emailjs.init(EMAILJS_PUBLIC_KEY); } }; document.head.appendChild(script);
-      const xlsxScript = document.createElement("script"); xlsxScript.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; document.head.appendChild(xlsxScript);
-      return () => { supabase.removeChannel(channel) };
-    }
-  }, [isLoggedIn, EMAILJS_PUBLIC_KEY]);
-
-  useEffect(() => {
-    if (scannerMode !== null) {
-      let scanner: any; let lastScanTime = 0;
-      const loadScanner = () => { 
-        if ((window as any).Html5QrcodeScanner) { 
-          scanner = new (window as any).Html5QrcodeScanner("qr-reader", { fps: 15, qrbox: { width: 250, height: 120 }, rememberLastUsedCamera: true }, false); 
-          scanner.render((text: string) => { 
-            const now = Date.now(); if (now - lastScanTime < 1500) return; lastScanTime = now; setScanQueue(prev => [...prev, text]); 
-          }, undefined) 
-        } 
-      };
-      if (!(window as any).Html5QrcodeScanner) { 
-        const script = document.createElement("script"); script.src = "https://unpkg.com/html5-qrcode"; script.onload = loadScanner; document.head.appendChild(script) 
-      } else { loadScanner(); }
-      return () => { if (scanner) scanner.clear().catch(() => { }) }
-    }
-  }, [scannerMode]);
-
-  useEffect(() => {
     if (scanQueue.length > 0) {
       const currentCode = scanQueue[0];
       if (scannerMode === 'product' || scannerMode === null) { 
@@ -395,15 +347,6 @@ export default function App() {
       setTimeout(() => setScannerMode(null), 1000); setTimeout(() => setScanMessage(null), 1500); setScanQueue(prev => prev.slice(1));
     }
   }, [scanQueue, products, scannerMode]);
-
-  useEffect(() => {
-    if (!printMode) { isPrintingRef.current = false; return; }
-    if (isPrintingRef.current) return; isPrintingRef.current = true;
-    const handleAfterPrint = () => { setPrintMode(null); isPrintingRef.current = false; };
-    window.addEventListener('afterprint', handleAfterPrint);
-    const timer = setTimeout(() => { if (printMode) { window.print(); } }, 1500);
-    return () => { clearTimeout(timer); window.removeEventListener('afterprint', handleAfterPrint); };
-  }, [printMode, setPrintMode]);
 
   useEffect(() => {
     if (showPOModal && poTab === 'RECEIVE') {
@@ -438,7 +381,6 @@ export default function App() {
     setAuditLogs(prev => [newLog, ...prev].slice(0, 300)); 
   };
 
-  // FETCH SAN PHAM: CHAY DUOC KHI MAT MANG
   const fetchProducts = async () => { 
     try {
       if (navigator.onLine) {
@@ -463,7 +405,6 @@ export default function App() {
 
   const executeWithAdminCheck = (action: () => void) => { if (role === 'admin') { action(); } else { setPendingAction(() => action); setShowPinModal(true); } };
   
-  // HE THONG CAI DAT CO BAO MAT MA PIN
   const fetchSettingsFromCloud = async () => {
     try {
       const { data } = await supabase.from("settings").select("*").eq("id", 1).single();
@@ -487,7 +428,6 @@ export default function App() {
 
   const saveSettings = () => { const bin = newBankBin.trim(); const acc = newBankAcc.trim(); const nameStr = newBankNameStr.trim().toUpperCase(); const zaloId = newZaloPayId.trim(); const pin = newAdminPinInput.trim(); if (!bin || !acc || !nameStr || !pin) return toast.error("Vui lòng điền đủ thông tin & Mã PIN!"); updateSettingsToCloud(bin, acc, nameStr, zaloId, newHappyStart, newHappyEnd, pin); };
 
-  // CỖ MÁY ĐỒNG BỘ KÉT SẮT NHẬP KHO OFFLINE
   const syncPendingImports = async () => {
     if (!navigator.onLine) return;
     const pendingImports = await dbGet("mart_pending_imports") || [];
@@ -528,7 +468,6 @@ export default function App() {
     }
   }, [isOnline, isLoggedIn]);
 
-  // HÀM XỬ LÝ NHẬP KHO BẤT TỬ
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault(); 
     setLoading(true);
@@ -726,7 +665,7 @@ export default function App() {
   const handleDirectQtyChange = (productId: any, val: string) => { 
     setCart(prev => { 
       if (val === '') return prev.map(i => i.product.id === productId ? { ...i, qty: '' as any, total: 0 } : i); let num = parseInt(val); if (isNaN(num) || num < 0) return prev; let exceedStock = false; 
-      const updated = prev.map(i => { if (i.product.id === productId) { const baseCode = String(i.product.product_code).split('-')[0]; const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); if (num > totalStock) { exceedStock = true; num = totalStock; } const price = getActualPrice(i.product); return { ...i, qty: num, total: Math.round(num * price * (1 + VAT_RATE)) }; } return i; });
+      const updated = prev.map(i => { if (i.product.id === productId) { const baseCode = String(item.product.product_code).split('-')[0]; const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); if (num > totalStock) { exceedStock = true; num = totalStock; } const price = getActualPrice(i.product); return { ...i, qty: num, total: Math.round(num * price * (1 + VAT_RATE)) }; } return i; });
       if (exceedStock) playSound('error'); return updated; 
     }); 
   };
@@ -740,7 +679,7 @@ export default function App() {
     const targetCustomers = Object.keys(customers || {}).filter(phone => { const c = customers[phone]; if (!c || !c.email) return false; if (marketingTier === "Tất cả") return true; return getCustomerTier(c.totalSpent || 0).name.includes(marketingTier); });
     if (targetCustomers.length === 0) { setLoading(false); return toast.error("Không tìm thấy khách hàng!"); }
     let successCount = 0;
-    for (const phone of targetCustomers) { const c = customers[phone]; const htmlContent = `<div><h1>HẢI LÊ MART</h1><p>${marketingMsg}</p></div>`; try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { to_email: c.email, subject: "💌 Ưu Đãi Đặc Quyền Từ Hải Lê Mart", html_message: htmlContent }); successCount++; } catch (error: any) {} }
+    for (const phone of targetCustomers) { const c = customers[phone]; const htmlContent = `<div><h1>HẢI LÊ MART</h1><p>${marketingMsg}</p></div>`; try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_email: c.email, subject: "💌 Ưu Đãi Đặc Quyền Từ Hải Lê Mart", html_message: htmlContent }); successCount++; } catch (error: any) {} }
     logAudit("GỬI MAIL MKT", `Gửi ${successCount} mail`); setLoading(false); setShowMarketingModal(false); toast.success(`Đã gửi thành công!`);
   };
 
@@ -767,7 +706,7 @@ export default function App() {
           if (item.damagedQty > 0) { logs.push({ id: Date.now() + Math.random(), shift, type: "TRẢ HÀNG NCC", name: item.product.name, qty: item.damagedQty, total: 0, time: new Date().toLocaleString('vi-VN') }); }
       }
       const finalDebt = actualTotal - foundPO.paid_amount;
-      if (finalDebt > 0 && foundPO.supplier) { const supplierId = foundPO.supplier.id; const s = suppliers.find(x => x.id === supplierId); if (s) { const newD = (s.debt || 0) + finalDebt; await supabase.from('suppliers').update({ debt: newD }).eq('id', supplierId); setSuppliers(prev => prev.map(x => x.id === supplierId ? { ...x, debt: newD } : x)); } }
+      if (finalDebt > 0 && foundPO.supplier) { const supplierId = foundPO.supplier.id; const s = suppliers.find(x => x.id === supplierId); if (s) { const newD = (s.debt || 0) + finalDebt; await supabase.from('suppliers').update({ debt: newD }).eq("id", supplierId); setSuppliers(prev => prev.map(x => x.id === supplierId ? { ...x, debt: newD } : x)); } }
       setLocalPOs(prev => prev.map(p => p.id === foundPO.id ? { ...p, status: 'COMPLETED', items: receiveItems, total_amount: actualTotal } : p));
       logs.forEach(lg => addTransactionAndSync(lg)); logAudit("NHẬN HÀNG PO", `Mã ${foundPO.po_code}`); toast.success("Nhập Kho thành công!"); fetchProducts(); setFoundPO(prev => ({ ...prev, status: 'COMPLETED', items: receiveItems, total_amount: actualTotal }));
     } catch (err: any) { toast.error("Lỗi"); } finally { setLoading(false); }
@@ -961,7 +900,7 @@ export default function App() {
           addSupplier={addSupplier} deleteSupplier={deleteSupplier} suppliers={suppliers}
         />
 
-        {/* MODAL SETTINGS TRUYỀN THÊM QUYỀN PIN BẢO MẬT */}
+        {/* MODAL SETTINGS ĐÃ TÍCH HỢP ĐỔI PIN MÃ HÓA */}
         <SettingsModal 
           showSettings={showSettings} setShowSettings={setShowSettings}
           newBankBin={newBankBin} setNewBankBin={setNewBankBin} newBankAcc={newBankAcc} setNewBankAcc={setNewBankAcc} newBankNameStr={newBankNameStr} setNewBankNameStr={setNewBankNameStr} newHappyStart={newHappyStart} setNewHappyStart={setNewHappyStart} newHappyEnd={newHappyEnd} setNewHappyEnd={setNewHappyEnd} 
