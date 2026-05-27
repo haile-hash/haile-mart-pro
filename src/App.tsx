@@ -626,6 +626,7 @@ export default function App() {
   };
 
   const printCustomerCard = (phone: string) => { const cust = customers[phone]; if(!cust) return toast.error("Không tìm thấy dữ liệu khách!"); setPrintCustomer({ phone, ...cust }); setPrintMode('customer_card'); logAudit("IN THẺ VIP", phone); };
+  
   const sendCardEmail = async (phone: string) => {
     const font = customers[phone]; if(!font) return toast.error("Không tìm thấy dữ liệu khách!");
     let email = font.email || window.prompt(`Nhập Email của ${font.name}:`, ""); if (!email) return; email = email.trim(); 
@@ -670,7 +671,7 @@ export default function App() {
       </div>
     `;
 
-    try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { to_email: email, subject: `💳 Thẻ VIP Đặc Quyền - ${font.name}`, html_message: htmlContent }, EMAILJS_PUBLIC_KEY); logAudit("GỬI THẺ VIP EMAIL", phone); toast.success("Đã gửi Thẻ VIP thành công!"); } catch (error: any) { toast.error(`Lỗi gửi Email`); } setLoading(false);
+    try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { to_email: email, subject: `💳 Thẻ VIP Đặc Quyền - ${font.name}`, html_message: htmlContent }); logAudit("GỬI THẺ VIP EMAIL", phone); toast.success("Đã gửi Thẻ VIP thành công!"); } catch (error: any) { toast.error(`Lỗi gửi Email`); } setLoading(false);
   };
   
   const shareToZalo = (phone: string) => { const cust = customers[phone]; const code = cust.cardCode || phone; navigator.clipboard.writeText(`Chào ${cust.name},\nMã Thẻ VIP của bạn là: ${code}`).then(() => { toast.success(`Đang mở Zalo...`); logAudit("CHIA SẺ ZALO", phone); window.open(`https://zalo.me/${phone}`, '_blank') }).catch(() => { window.open(`https://zalo.me/${phone}`, '_blank') }) };
@@ -915,7 +916,7 @@ export default function App() {
   const handleDirectQtyChange = (productId: any, val: string) => { 
     setCart(prev => { 
       if (val === '') return prev.map(i => i.product.id === productId ? { ...i, qty: '' as any, total: 0 } : i); let num = parseInt(val); if (isNaN(num) || num < 0) return prev; let exceedStock = false; 
-      const updated = prev.map(i => { if (i.product.id === productId) { const baseCode = String(i.product.product_code).split('-')[0]; const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); if (num > totalStock) { exceedStock = true; num = totalStock; } const price = getActualPrice(i.product); return { ...i, qty: num, total: Math.round(num * price * (1 + VAT_RATE)) }; } return i; });
+      const updated = prev.map(i => { if (i.product.id === productId) { const baseCode = String(item.product.product_code).split('-')[0]; const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); if (num > totalStock) { exceedStock = true; num = totalStock; } const price = getActualPrice(i.product); return { ...i, qty: num, total: Math.round(num * price * (1 + VAT_RATE)) }; } return i; });
       if (exceedStock) playSound('error'); return updated; 
     }); 
   };
@@ -923,7 +924,6 @@ export default function App() {
   const removeFromCart = (productId: any) => { setCart(cart.filter(item => item.product.id !== productId)) };
   const clearCart = () => { if (window.confirm("Hủy toàn bộ?")) { resetCheckout(); logAudit("HỦY GIỎ HÀNG", "Xóa sạch giỏ hiện tại"); } };
 
-  // ĐÃ KHÔI PHỤC HÀM GỬI MAIL CẢNH BÁO KHO (VÁ LỖI MÀN TRẮNG)
   const sendInventoryAlertEmail = async () => {
     let adminEmail = window.prompt("Nhập Email Quản lý:", ""); if(!adminEmail) return; setLoading(true); 
     const lowStock = products.filter(p => p.stock > 0 && p.stock < 10).length; const today = new Date().getTime(); const expiring = products.filter(p => p.expiry_date && (new Date(p.expiry_date).getTime() - today) / 86400000 <= 15);
@@ -956,145 +956,44 @@ export default function App() {
     try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_email: adminEmail, subject: `📊 Báo cáo doanh thu ${reportStartDate} - ${reportEndDate}`, html_message: htmlContent }); logAudit("GỬI BÁO CÁO", `Tới ${adminEmail}`); toast.success("Đã gửi Báo cáo!"); } catch (error: any) { toast.error(`Lỗi gửi Email`); } setLoading(false);
   };
 
-  // TÍNH TOÁN CÔNG THỨC TIỀN MẶT ĐÃ FIX CHUẨN
-  const todayStrStr = new Date().toLocaleDateString('vi-VN');
-  
-  const currentShiftStats = useMemo(() => {
-    const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStrStr && h.shift === shift);
-    let cash = Number(startingCash) || 0; 
-    let transfer = 0; 
-    let prof = 0; 
-    let totalSales = 0;
-    
-    shiftLogs.forEach(h => {
-      if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += Number(h.total) || 0;
-      if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') {
-        if (h.paymentMethod === 'CHUYỂN KHOẢN' || h.paymentMethod === 'QUẸT THẺ' || h.paymentMethod === 'ZALO PAY') { 
-          transfer += Number(h.total) || 0; 
-        }
-        else if (h.paymentMethod === 'TIỀN MẶT' || h.paymentMethod === 'KẾT HỢP' || h.paymentMethod === 'TRỪ NỢ' || h.paymentMethod === 'VÍ WALLET') {
-          let amountToAdd = Number(h.total) || 0;
-          if(h.paymentMethod === 'KẾT HỢP' && h.split_cash) { 
-             amountToAdd = Number(h.split_cash) || 0; 
-             transfer += (Number(h.total) - Number(h.split_cash)) || 0; 
-          }
-          cash += amountToAdd; 
-        }
+  const handleSendMarketingEmail = async () => {
+    if (!marketingMsg) return toast.error("Nhập nội dung!"); if (!window.confirm("Gửi?")) return; setLoading(true); 
+    const targetCustomers = Object.keys(customers || {}).filter(phone => { const c = customers[phone]; if (!c || !c.email) return false; if (marketingTier === "Tất cả") return true; return getCustomerTier(c.totalSpent || 0).name.includes(marketingTier); });
+    if (targetCustomers.length === 0) { setLoading(false); return toast.error("Không tìm thấy khách hàng!"); }
+    let successCount = 0;
+    for (const phone of targetCustomers) { const c = customers[phone]; const htmlContent = `<div><h1>HẢI LÊ MART</h1><p>${marketingMsg}</p></div>`; try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { to_email: c.email, subject: "💌 Ưu Đãi Đặc Quyền Từ Hải Lê Mart", html_message: htmlContent }); successCount++; } catch (error: any) {} }
+    logAudit("GỬI MAIL MKT", `Gửi ${successCount} mail`); setLoading(false); setShowMarketingModal(false); toast.success(`Đã gửi thành công!`);
+  };
+
+  const handleSaveNewPO = async () => {
+    if (!selectedSupplierId) return toast.error("Chọn Nhà Cung Cấp!"); if (poItems.length === 0) return toast.error("Phiếu trống!");
+    const supplier = suppliers.find(s => s.id.toString() === selectedSupplierId); if (!supplier) return; setLoading(true);
+    try {
+      const totalPOAmount = poItems.reduce((sum, item) => sum + (item.qty * item.importPrice), 0); const debtAmount = totalPOAmount - paidAmount; const poCode = "PO" + Date.now().toString().slice(-6);
+      const newPO = { id: Date.now().toString(), po_code: poCode, supplier: supplier, items: poItems, total_amount: totalPOAmount, paid_amount: paidAmount, debt_amount: debtAmount, status: 'PENDING', note: poNote, created_at: new Date().toISOString() };
+      setLocalPOs(prev => [newPO, ...prev]); setPoItems([]); setPoNote(""); setSelectedSupplierId(""); setPaidAmount(0); toast.success(`Đã lưu Phiếu ${poCode}!`);
+      setPoTab('RECEIVE'); setSearchPoCode(poCode); setFoundPO(newPO); setReceiveItems(newPO.items.map((i: any) => ({ ...i, damagedQty: 0 })));
+      logAudit("TẠO PO", `Mã: ${poCode}`);
+    } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); }
+  };
+
+  const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') => { setPrintPOData(po); setPrintMode(type); logAudit("IN PHIẾU PO", po.po_code); };
+
+  const handleConfirmReceipt = async () => {
+    if (!foundPO || receiveItems.length === 0) return; setLoading(true);
+    try {
+      let actualTotal = 0; let logs: any[] = [];
+      for (const item of receiveItems) {
+          const actualQty = item.qty - (item.damagedQty || 0); actualTotal += actualQty * item.importPrice;
+          if (actualQty > 0) { const p = products.find(x => x.id === item.product.id); if (p) { await supabase.from('products').update({ stock: p.stock + actualQty, import_price: item.importPrice }).eq('id', p.id); logs.push({ id: Date.now() + Math.random(), shift, type: "NHẬP PO", name: p.name, qty: actualQty, total: actualQty * item.importPrice, time: new Date().toLocaleString('vi-VN') }); } }
+          if (item.damagedQty > 0) { logs.push({ id: Date.now() + Math.random(), shift, type: "TRẢ HÀNG NCC", name: item.product.name, qty: item.damagedQty, total: 0, time: new Date().toLocaleString('vi-VN') }); }
       }
-      prof += Number(h.profit) || 0;
-    });
-    
-    const shiftExpenses = expenses.filter(e => e.date === todayStrStr);
-    const totalExpenses = shiftExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-    cash -= totalExpenses;
-
-    return { rev: cash + transfer - (Number(startingCash) || 0), cash, transfer, prof, totalSales }
-  }, [history, expenses, shift, todayStrStr, startingCash]);
-
-  const currentShiftCashFlow = useMemo(() => {
-    if (!cashFlowModalInfo) return { thu: [], chi: [] };
-    const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStrStr && h.shift === shift);
-    const thu: any[] = []; const chi: any[] = [];
-    shiftLogs.forEach(h => {
-      if (h.paymentMethod === cashFlowModalInfo || (cashFlowModalInfo === 'CHUYỂN KHOẢN' && (h.paymentMethod === 'QUẸT THẺ' || h.paymentMethod === 'ZALO PAY')) || h.paymentMethod === 'KẾT HỢP') {
-        let amount = h.total; if (h.paymentMethod === 'KẾT HỢP') { amount = cashFlowModalInfo === 'TIỀN MẶT' ? (h.split_cash || 0) : (h.total - (h.split_cash || 0)); }
-        if (amount === 0) return;
-        if (h.type === 'BÁN' || h.type === 'THU NỢ') { if (amount > 0) thu.push({ time: h.time, note: `${h.type} - ${cleanName(h.name)}`, amount: amount }); } 
-        else if (h.type === 'TRẢ HÀNG') { chi.push({ time: h.time, note: `HOÀN TIỀN - ${cleanName(h.name)}`, amount: Math.abs(amount) }); }
-      }
-    });
-    if (cashFlowModalInfo === 'TIỀN MẶT') { 
-      if (startingCash > 0) thu.unshift({ time: "Đầu ca", note: "Tiền lẻ đầu ca", amount: startingCash }); 
-      const shiftExpenses = expenses.filter(e => e.date === todayStrStr); shiftExpenses.forEach(e => chi.push({ time: "Trong ca", note: `CHI PHÍ - ${e.name}`, amount: e.amount })); 
-    }
-    return { thu, chi };
-  }, [history, expenses, cashFlowModalInfo, shift, todayStrStr, startingCash]);
-
-  const filteredStats = useMemo(() => { 
-    const start = new Date(reportStartDate + "T00:00:00").getTime(); const end = new Date(reportEndDate + "T23:59:59").getTime();
-    const filteredHistory = history.filter(h => { const logTime = new Date(Math.floor(h.id)).getTime(); return logTime >= start && logTime <= end; });
-    let cash = 0; let transfer = 0; let prof = 0; let totalSales = 0; 
-    filteredHistory.forEach(h => { 
-      if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += h.total; 
-      if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') { 
-        if (h.paymentMethod === 'CHUYỂN KHOẢN' || h.paymentMethod === 'QUẸT THẺ' || h.paymentMethod === 'ZALO PAY') { transfer += h.total; } 
-        else if (h.paymentMethod === 'TIỀN MẶT' || h.paymentMethod === 'KẾT HỢP') { 
-          if(h.paymentMethod === 'KẾT HỢP' && h.split_cash) { cash += h.split_cash; transfer += (h.total - h.split_cash); } else { cash += h.total; } 
-        } 
-      } 
-      prof += (h.profit || 0) 
-    }); 
-    const filteredExp = expenses.filter(e => { const parts = e.date.split('/'); if(parts.length !== 3) return false; const expTime = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`).getTime(); return expTime >= start && expTime <= end; }).reduce((sum, e) => sum + e.amount, 0); 
-    return { rev: cash + transfer, cash, transfer, prof, totalSales, expenses: filteredExp, netProfit: prof - filteredExp } 
-  }, [history, expenses, reportStartDate, reportEndDate]);
-
-  const chartData = useMemo(() => { 
-    const data = []; 
-    for (let i = 29; i >= 0; i--) { 
-      const d = new Date(); d.setDate(d.getDate() - i); const dStr = d.toLocaleDateString('vi-VN'); 
-      const dayTotal = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === dStr && (h.type === 'BÁN' || h.type === 'GHI NỢ')).reduce((s, h) => s + h.total, 0); 
-      data.push({ label: `${d.getDate()}/${d.getMonth() + 1}`, total: dayTotal, showLabel: (i % 3 === 0 || i === 0) }) 
-    } 
-    const maxVal = Math.max(...data.map(d => d.total), 1); return data.map(d => ({ ...d, height: `${(d.total / maxVal) * 100}%` })) 
-  }, [history]);
-  
-  const topSelling = useMemo(() => { 
-    const sales: Record<string, number> = {}; 
-    history.forEach(log => { if ((log.type === 'BÁN' || log.type === 'GHI NỢ') && log.product_id !== 'DISCOUNT') { const baseName = cleanName(log.name); sales[baseName] = (sales[baseName] || 0) + log.qty } }); 
-    return Object.entries(sales).sort((a, b) => b[1] - a[1]).slice(0, 5) 
-  }, [history]);
-  
-  const groupedHistory = useMemo(() => { 
-    let filtered = history; if (logTypeFilter !== "Tất cả") filtered = filtered.filter(log => log.type === logTypeFilter); 
-    if (logSearchTerm.trim() !== "") { 
-      const term = String(logSearchTerm || "").toLowerCase(); 
-      filtered = filtered.filter(log => (log.name && String(log.name).toLowerCase().includes(term)) || (log.customer && String(log.customer).toLowerCase().includes(term)) || (log.id.toString().includes(term)) || (log.order_id && String(log.order_id).toLowerCase().includes(term))) 
-    } 
-    return filtered.reduce((groups: any, log: any) => { const date = new Date(Math.floor(log.id)).toLocaleDateString('vi-VN'); if (!groups[date]) groups[date] = []; groups[date].push({ ...log, t: new Date(Math.floor(log.id)).toLocaleTimeString('vi-VN') }); return groups }, {}) 
-  }, [history, logSearchTerm, logTypeFilter]);
-
-  const totalValue = Math.round(products.reduce((sum, p) => sum + ((Number(p.import_price) || 0) * (Number(p.stock) || 0)), 0));
-  const lowStockCount = products.filter(p => p.stock > 0 && p.stock < 10).length;
-  const categories = ["Tất cả", ...Array.from(new Set(products.map(p => formatCategoryStr(p.category))))];
-  const cartTotalAmountDisplay = cart.reduce((sum, item) => sum + item.total, 0);
-  const currentTier = getCustomerTier(customers[custPhone]?.totalSpent || 0);
-  const tierDiscountAmount = custPhone ? Math.round(cartTotalAmountDisplay * currentTier.discountRate) : 0;
-  const amountAfterTierAndVoucher = Math.max(0, cartTotalAmountDisplay - appliedVoucherAmount - tierDiscountAmount);
-  const walletUsedAmount = useWallet ? Math.min(customers[custPhone]?.wallet || 0, amountAfterTierAndVoucher) : 0;
-  const finalToPay = amountAfterTierAndVoucher - walletUsedAmount;
-
-  const uniqueNames = useMemo(() => Array.from(new Set(products.map(p => cleanName(p.name)))).sort(), [products]);
-  const uniqueStocks = useMemo(() => Array.from(new Set(products.map(p => p.stock))).sort((a, b) => a - b), [products]);
-  const uniqueImportPrices = useMemo(() => Array.from(new Set(products.map(p => p.import_price || 0))).sort((a, b) => a - b), [products]);
-  const uniqueSalePrices = useMemo(() => Array.from(new Set(products.map(p => p.sale_price))).sort((a, b) => a - b), [products]);
-  const uniqueExpiries = useMemo(() => Array.from(new Set(products.map(p => p.expiry_date).filter(Boolean))).sort(), [products]);
-  
-  const sortedAndFilteredProducts = useMemo(() => {
-    const todayTime = new Date().getTime(); const safeSearch = String(debouncedSearchTerm || "").toLowerCase();
-    let filtered = products.filter(p => (selectedCategory === "Tất cả" || formatCategoryStr(p.category) === selectedCategory)).filter(p => String(p.name || "").toLowerCase().includes(safeSearch) || String(p.product_code || "").toLowerCase().includes(safeSearch));
-    if (filters['name']?.length > 0) filtered = filtered.filter(p => filters['name'].includes(cleanName(p.name)));
-    if (filters['stock']?.length > 0) filtered = filtered.filter(p => filters['stock'].includes(p.stock));
-    if (filters['import_price']?.length > 0) filtered = filtered.filter(p => filters['import_price'].includes(p.import_price || 0));
-    if (filters['sale_price']?.length > 0) filtered = filtered.filter(p => filters['sale_price'].includes(p.sale_price));
-    if (filters['expiry_date']?.length > 0) filtered = filtered.filter(p => filters['expiry_date'].includes(p.expiry_date));
-    if (sortConfig !== null) {
-      filtered.sort((a, b) => { 
-        let valA = a[sortConfig.key]; let valB = b[sortConfig.key]; 
-        if (sortConfig.key === 'expiry_date') { valA = a.expiry_date ? new Date(a.expiry_date).getTime() : Infinity; valB = b.expiry_date ? new Date(b.expiry_date).getTime() : Infinity } 
-        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
-        return 0 
-      })
-    } else {
-      filtered.sort((a, b) => { 
-        const daysA = a.expiry_date ? (new Date(a.expiry_date).getTime() - todayTime) / 86400000 : Infinity; 
-        const daysB = b.expiry_date ? (new Date(b.expiry_date).getTime() - todayTime) / 86400000 : Infinity; 
-        const aIsUrgent = daysA <= 45; const bIsUrgent = daysB <= 45; 
-        if (aIsUrgent && !bIsUrgent) return -1; if (!aIsUrgent && bIsUrgent) return 1; if (aIsUrgent && bIsUrgent) return daysA - daysB; return 0 
-      })
-    }
-    return filtered
-  }, [products, debouncedSearchTerm, selectedCategory, sortConfig, filters]);
+      const finalDebt = actualTotal - foundPO.paid_amount;
+      if (finalDebt > 0 && foundPO.supplier) { const supplierId = foundPO.supplier.id; const s = suppliers.find(x => x.id === supplierId); if (s) { const newD = (s.debt || 0) + finalDebt; await supabase.from('suppliers').update({ debt: newD }).eq("id", supplierId); setSuppliers(prev => prev.map(x => x.id === supplierId ? { ...x, debt: newD } : x)); } }
+      setLocalPOs(prev => prev.map(p => p.id === foundPO.id ? { ...p, status: 'COMPLETED', items: receiveItems, total_amount: actualTotal } : p));
+      logs.forEach(lg => addTransactionAndSync(lg)); logAudit("NHẬN HÀNG PO", `Mã ${foundPO.po_code}`); toast.success("Nhập Kho thành công!"); fetchProducts(); setFoundPO(prev => ({ ...prev, status: 'COMPLETED', items: receiveItems, total_amount: actualTotal }));
+    } catch (err: any) { toast.error("Lỗi"); } finally { setLoading(false); }
+  };
 
   const renderModals = () => {
     return (
@@ -1103,7 +1002,6 @@ export default function App() {
         {showHandoverModal && <HandoverModal role={role} shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onClose={() => setShowHandoverModal(false)} onConfirm={confirmHandover} />}
         <CashFlowModal cashFlowModalInfo={cashFlowModalInfo} setCashFlowModalInfo={setCashFlowModalInfo} shift={shift} todayStrStr={todayStrStr} currentShiftCashFlow={currentShiftCashFlow} currentShiftStats={currentShiftStats} />
         
-        {/* ĐÃ FIX MODAL LƯU TẠM */}
         <HoldOrdersModal showHoldModal={showHoldModal} setShowHoldModal={setShowHoldModal} heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={deleteHeldOrder} />
         
         <CheckoutModal isCheckoutOpen={isCheckoutOpen} setIsCheckoutOpen={setIsCheckoutOpen} checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} voucherInput={voucherInput} setVoucherInput={setVoucherInput} customerInput={customerInput} setCustomerInput={setCustomerInput} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} useWallet={useWallet} setUseWallet={setUseWallet} appliedVoucherAmount={appliedVoucherAmount} setAppliedVoucherAmount={setAppliedVoucherAmount} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} finalToPay={finalToPay} customers={customers} isOnline={isOnline} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} loading={loading} handleVoucherSubmit={handleVoucherSubmit} handleCustomerInputChange={handleCustomerInputChange} setScannerMode={setScannerMode} handleNextToQR={handleNextToQR} confirmCheckout={confirmCheckout} setPrintMode={setPrintMode} sendReceiptEmail={sendReceiptEmail} closeCheckout={closeCheckout} custAddress={custAddress} setCustAddress={setCustAddress}/>
