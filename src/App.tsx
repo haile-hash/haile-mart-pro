@@ -411,6 +411,65 @@ export default function App() {
       toast.success("Đã xóa chi phí!");
     }
   };
+
+  // =====================================================================
+  // BỘ 3 HÀM QUẢN LÝ ĐƠN HÀNG CHỜ (HELD ORDERS) - SỬA LỖI RESTOREORDER
+  // =====================================================================
+  const handleHoldOrder = () => {
+    if (cart.length === 0) {
+      return toast.error("Giỏ hàng đang trống, không thể giữ đơn!");
+    }
+    
+    const newHeldOrder = {
+      id: Date.now().toString(),
+      customerName: custName || "Khách lẻ",
+      customerPhone: custPhone || "",
+      items: [...cart],
+      totalAmount: cartTotalAmountDisplay,
+      createdAt: new Date().toISOString()
+    };
+
+    setHeldOrders(prev => [newHeldOrder, ...prev]);
+    logAudit("GIỮ ĐƠN", `Lưu tạm đơn hàng trị giá ${cartTotalAmountDisplay.toLocaleString()}đ`);
+    
+    // Reset toàn bộ giỏ hàng và thông tin khách hiện tại để đón khách mới
+    resetCheckout();
+    toast.success("Đã giữ đơn hàng tạm thời!");
+  };
+
+  const restoreOrder = (orderId: string) => {
+    const orderToRestore = heldOrders.find(o => o.id === orderId);
+    if (!orderToRestore) return toast.error("Không tìm thấy đơn hàng cần khôi phục!");
+
+    if (cart.length > 0 && !window.confirm("Giỏ hàng hiện tại đang có sản phẩm. Bạn có muốn ghi đè bằng đơn hàng chờ này không?")) {
+      return;
+    }
+
+    // Nạp lại dữ liệu cũ vào giỏ hàng và checkout state
+    setCart(orderToRestore.items);
+    setCustName(orderToRestore.customerName);
+    setCustPhone(orderToRestore.customerPhone);
+    setCustomerInput(orderToRestore.customerPhone || orderToRestore.customerName);
+
+    // Xóa đơn này ra khỏi danh sách hàng chờ
+    setHeldOrders(prev => prev.filter(o => o.id !== orderId));
+    
+    logAudit("KHÔI PHỤC ĐƠN", `Khôi phục đơn hàng chờ của ${orderToRestore.customerName}`);
+    setShowHoldModal(false);
+    toast.success("Đã khôi phục đơn hàng thành công!");
+  };
+
+  const deleteHeldOrder = (orderId: string) => {
+    if (window.confirm("Bạn có chắc chắn muốn xóa đơn hàng đang chờ này không?")) {
+      const orderToDelete = heldOrders.find(o => o.id === orderId);
+      setHeldOrders(prev => prev.filter(o => o.id !== orderId));
+      
+      if (orderToDelete) {
+        logAudit("XÓA ĐƠN CHỜ", `Xóa đơn chờ của ${orderToDelete.customerName}`);
+      }
+      toast.success("Đã xóa đơn hàng chờ!");
+    }
+  };
   const fetchSettingsFromCloud = async () => {
     try {
       const { data } = await supabase.from("settings").select("*").eq("id", 1).single();
