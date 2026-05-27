@@ -256,6 +256,10 @@ export default function App() {
 
   useEffect(() => {
     const handler = setTimeout(() => { setDebouncedSearchTerm(searchTerm); }, 300);
+    useEffect(() => {
+    fetchProducts();
+    fetchSettingsFromCloud();
+  }, []);
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
@@ -517,10 +521,40 @@ export default function App() {
     toast.success("Đang in lại..."); setPrintMode(type);
   };
   
-  const handleEditPhone = () => toast.success("Đã cập nhật SĐT!");
-  const printCustomerCard = () => toast.success("Đang in thẻ...");
-  const sendCardEmail = () => toast.success("Đã gửi thẻ qua email!");
-  const shareToZalo = () => toast.success("Đã chia sẻ qua Zalo!");
+const handleCodeChange = (e: any) => setNewCode(e.target.value);
+
+  const handleEditPhone = (oldPhone: string, newPhone: string) => {
+    if(!newPhone) return;
+    const c = customers[oldPhone];
+    if(c) {
+      const updated = {...customers};
+      updated[newPhone] = {...c, phone: newPhone};
+      delete updated[oldPhone];
+      setCustomers(updated);
+      toast.success("Đã cập nhật SĐT thành công!");
+    }
+  };
+  
+  const printCustomerCard = (customer: any) => { 
+      setPrintCustomer(customer); 
+      setPrintMode('customer'); 
+  };
+
+  const sendCardEmail = async (customer: any) => { 
+      if (!customer || !customer.email) return toast.error("Khách hàng này chưa có email!");
+      setLoading(true);
+      const htmlContent = `<div><h1>HẢI LÊ MART</h1><p>Xin chào ${customer.name}, mã thẻ VIP của bạn là: <b>${customer.cardCode}</b></p><p>Vui lòng đọc hoặc xuất trình mã này khi thanh toán để nhận ưu đãi!</p></div>`;
+      try {
+          await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_email: customer.email, subject: `Thẻ VIP Hải Lê Mart - ${customer.name}`, html_message: htmlContent });
+          toast.success("Đã gửi thẻ VIP qua email!");
+      } catch(err) { toast.error("Lỗi gửi email! Kiểm tra lại cấu hình EmailJS."); }
+      setLoading(false);
+  };
+
+  const shareToZalo = (customer: any) => { 
+      const text = `Thẻ VIP Hải Lê Mart của bạn. Mã thẻ: ${customer.cardCode}`;
+      window.open(`https://zalo.me/share?text=${encodeURIComponent(text)}`, '_blank');
+  };
 
   const fetchSettingsFromCloud = async () => {
     try {
