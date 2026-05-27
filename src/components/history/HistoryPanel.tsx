@@ -108,14 +108,15 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
 
     // ============================================================
     // THUẬT TOÁN TÍNH SỐ LƯỢNG CÒN LẠI ĐỂ ẨN/HIỆN NÚT HOÀN ĐƠN
+    // Đã vá lỗi "Cannot read properties of undefined (reading 'includes')"
     // ============================================================
     let remainingQtyToRefund = log.qty || 0;
     if (log.type === "BÁN" || log.type === "GHI NỢ") {
-      // Tìm các bill TRẢ HÀNG diễn ra SAU bill bán này và có cùng TÊN sản phẩm
+      // Dùng h.name?.includes để tránh sập app nếu h.name bị rỗng/null
       const existingRefunds = allLogs.filter(h => 
         h.type === 'TRẢ HÀNG' && 
         Number(h.id) > Number(log.id) && 
-        h.name.includes(cleanName(log.name))
+        (h.name && log.name ? h.name.includes(cleanName(log.name)) : false)
       );
       // Cộng dồn số lượng đã hoàn
       const alreadyRefundedQty = existingRefunds.reduce((sum, h) => sum + Math.abs(h.qty || 0), 0);
@@ -152,7 +153,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
           <span style={{ fontSize: "13px", fontWeight: "600", color: "#1e293b", lineHeight: "1.4", textDecoration: remainingQtyToRefund <= 0 && !isRefund ? "line-through" : "none" }}>
             <span style={{ color: typeColor, marginRight: "6px", fontWeight: "bold", textDecoration: "none" }}>[{log.type}]</span>
-            {cleanName(log.name)}
+            {log.name ? cleanName(log.name) : "Giao dịch không tên"}
           </span>
           <span style={{ fontSize: "13px", fontWeight: "700", color: isRefund ? "#dc2626" : "#10b981", whiteSpace: "nowrap" }}>
             {isRefund ? "" : "+"}{log.total.toLocaleString('vi-VN')}đ
