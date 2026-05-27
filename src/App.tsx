@@ -537,20 +537,47 @@ export default function App() {
     );
   };
 
-  if (isStorageLoading) return <div>Đang nạp dữ liệu...</div>;
+  if (isStorageLoading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: '#ffffff', fontFamily: 'Arial, sans-serif' }}>
+        <div style={{ width: '40px', height: '40px', border: '4px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+        <h2 style={{ margin: '20px 0 5px 0', fontSize: '18px', fontWeight: 'bold' }}>HẢI LÊ MART ERP</h2>
+        <p style={{ margin: 0, fontSize: '14px', color: '#94a3b8' }}>Đang nạp cấu trúc bộ nhớ vô hạn IndexedDB...</p>
+        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
 
   return (
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
       <style>{styles}</style>
       
+      {/* MÀN HÌNH KHÓA AUTO-LOCK */}
       {isLocked && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.9)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-          <h1>🔒 ĐÃ KHÓA</h1>
-          <input type="password" autoFocus placeholder="PIN" value={unlockPin} onChange={e => setUnlockPin(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { if (unlockPin === adminPin || unlockPin === "0000") { setIsLocked(false); setUnlockPin(""); } else toast.error("PIN sai!"); } }} style={{ padding: '10px', fontSize: '20px', textAlign: 'center' }} />
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999999999, background: 'rgba(15,23,42,0.95)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+          <h1 style={{ fontSize: '32px', marginBottom: '10px', color: '#ef4444' }}>🔒 MÀN HÌNH ĐÃ KHÓA</h1>
+          <p style={{ marginBottom: '20px', color: '#94a3b8' }}>Hệ thống tự động khóa do không có tương tác. Vui lòng nhập mã PIN.</p>
+          <input 
+            type="password" autoFocus placeholder="Nhập PIN..." 
+            value={unlockPin} onChange={e => setUnlockPin(e.target.value)} 
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                if (unlockPin === adminPin || unlockPin === "0000") { 
+                  setIsLocked(false); setUnlockPin("");
+                } else { playSound('error'); toast.error("Mã PIN không đúng!"); }
+              }
+            }} 
+            style={{ padding: '12px 20px', fontSize: '24px', borderRadius: '8px', border: '2px solid #3b82f6', outline: 'none', textAlign: 'center', width: '200px', letterSpacing: '8px', color: '#0f172a' }} 
+          />
+          <button 
+            onClick={() => { if (unlockPin === adminPin || unlockPin === "0000") { setIsLocked(false); setUnlockPin(""); } else { playSound('error'); toast.error("PIN sai!"); } }} 
+            style={{ marginTop: '20px', padding: '12px 40px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}
+          >MỞ KHÓA</button>
         </div>
       )}
 
-      <Toaster position="top-right" />
+      <div className="animated-bg-mesh"></div>
+      <Toaster position="top-right" reverseOrder={false} toastOptions={{ style: { fontSize: '15px', fontWeight: 'bold', padding: '16px 24px', color: '#0f172a', background: '#ffffff', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', border: '1px solid #e2e8f0', borderRadius: '8px' } }} containerStyle={{ top: 20, right: 20, zIndex: 999999999 }} />
       <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeSubmitAction} />
       
       <PrintManager printMode={printMode} lastOrder={lastOrder} shift={shift} role={role} customers={customers} VAT_RATE={VAT_RATE} printBarcodeProduct={printBarcodeProduct} barcodeCount={barcodeCount} printCustomer={printCustomer} printPOData={printPOData} />
@@ -558,21 +585,40 @@ export default function App() {
       {renderModals()}
 
       {!isLoggedIn ? (
-        <Login setIsLoggedIn={setIsLoggedIn} setRole={setRole} shift={shift} setShift={setShift} startingCash={startingCash} setStartingCash={setStartingCash} installPrompt={installPrompt} handleInstallApp={handleInstallApp} />
+        <Login 
+          setIsLoggedIn={setIsLoggedIn} 
+          setRole={setRole} 
+          shift={shift} 
+          setShift={setShift} 
+          startingCash={startingCash} 
+          setStartingCash={setStartingCash} 
+          installPrompt={installPrompt} 
+          handleInstallApp={handleInstallApp} 
+        />
       ) : (
         <div className="no-print" style={{ padding: "15px", position: "relative", minHeight: "100vh" }}>
-          <Header role={role} shift={shift} totalValue={0} currentShiftStats={{rev:0, cash:0, transfer:0, prof:0, totalSales:0}} setCashFlowModalInfo={setCashFlowModalInfo} darkMode={darkMode} setDarkMode={setDarkMode} handleLogoutClick={handleLogoutClick} showMainMenu={showMainMenu} setShowMainMenu={setShowMainMenu} setShowStatsModal={setShowStatsModal} setShowCustomerModal={setShowCustomerModal} setShowInventoryModal={setShowInventoryModal} setShowDebtModal={setShowDebtModal} setShowAuditModal={setShowAuditModal} setShowExpenseModal={setShowExpenseModal} setShowSupplierModal={setShowSupplierModal} setShowMarketingModal={setShowMarketingModal} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} setShowSettings={setShowSettings} lowStockCount={0} isOnline={isOnline} syncStatus={syncStatus} syncAllOfflineData={syncAllOfflineData} setShowScannerLinkModal={setShowScannerLinkModal} setShowPOModal={setShowPOModal} />
-          
-          <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: "10px" }}>
-            <div className="glass" style={{ padding: "12px" }}>
-              <ProductSearchAndActions searchTerm={searchTerm} setSearchTerm={setSearchTerm} role={role} barcodeInput={barcodeInput} setBarcodeInput={setBarcodeInput} showSuggestions={showSuggestions} setShowSuggestions={setShowSuggestions} handleBarcodeSubmit={handleBarcodeSubmitAction} setScannerMode={setScannerMode} products={products} handleSelectSuggest={handleSelectSuggest} showInputForm={showInputForm} setShowInputForm={setShowInputForm} onAddProduct={() => setShowInputForm(true)} handleFileUpload={()=>{}} downloadSampleCSV={()=>{}} />
-              <ProductTable role={role} sortedAndFilteredProducts={products} requestSort={()=>{}} handleEdit={()=>{}} addToCart={()=>{}} handlePrintBarcode={()=>{}} handleDelete={()=>{}} sortConfig={null} filters={{}} setFilters={()=>{}} openFilter={null} setOpenFilter={()=>{}} uniqueNames={[]} uniqueStocks={[]} uniqueImportPrices={[]} uniqueSalePrices={[]} uniqueExpiries={[]} />
-            </div>
+          <div style={{ maxWidth: "1500px", margin: "0 auto", minWidth: "1000px" }}>
             
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <CartPanel cart={cart} custName={custName} heldOrders={heldOrders} cartTotalAmountDisplay={cartTotalAmountDisplay} setShowHoldModal={setShowHoldModal} handleHoldOrder={handleHoldOrder} clearCart={clearCart} setCustName={setCustName} setCustPhone={setCustPhone} setCustomerInput={setCustomerInput} setIsCheckoutOpen={setIsCheckoutOpen} setCheckoutStep={setCheckoutStep} adjustCartQty={adjustCartQty} handleDirectQtyChange={handleDirectQtyChange} handleDirectQtyBlur={handleDirectQtyBlur} removeFromCart={removeFromCart} />
-              <HistoryPanel logSearchTerm={logSearchTerm} setLogSearchTerm={setLogSearchTerm} logTypeFilter={logTypeFilter} setLogTypeFilter={setLogTypeFilter} exportToCSV={()=>{}} groupedHistory={{}} expandedDates={{}} toggleDateGroup={()=>{}} handleRefund={handleRefund} onPrintK80={(log) => handleReprint(log.time, 'receipt_thermal')} onPrintA4={(log) => handleReprint(log.time, 'receipt_a4')} />
+            <Header role={role} shift={shift} totalValue={totalValue} currentShiftStats={currentShiftStats} setCashFlowModalInfo={setCashFlowModalInfo} darkMode={darkMode} setDarkMode={setDarkMode} handleLogoutClick={handleLogoutClick} showMainMenu={showMainMenu} setShowMainMenu={setShowMainMenu} setShowStatsModal={setShowStatsModal} setShowCustomerModal={setShowCustomerModal} setShowInventoryModal={setShowInventoryModal} setShowDebtModal={setShowDebtModal} setShowAuditModal={setShowAuditModal} setShowExpenseModal={setShowExpenseModal} setShowSupplierModal={setShowSupplierModal} setShowMarketingModal={setShowMarketingModal} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} setShowSettings={setShowSettings} lowStockCount={lowStockCount} isOnline={isOnline} syncStatus={syncStatus} syncAllOfflineData={syncAllOfflineData} setShowScannerLinkModal={setShowScannerLinkModal} setShowPOModal={setShowPOModal} />
+            
+            <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: "10px" }}>
+              <div className="glass" style={{ padding: "12px" }}>
+                <ProductSearchAndActions searchTerm={searchTerm} setSearchTerm={setSearchTerm} role={role} barcodeInput={barcodeInput} setBarcodeInput={setBarcodeInput} showSuggestions={showSuggestions} setShowSuggestions={setShowSuggestions} handleBarcodeSubmit={handleBarcodeSubmitAction} setScannerMode={setScannerMode} products={products} handleSelectSuggest={handleSelectSuggest} showInputForm={showInputForm} setShowInputForm={setShowInputForm} onAddProduct={() => setShowInputForm(true)} handleFileUpload={handleFileUpload} downloadSampleCSV={downloadSampleCSV} />
+                
+                {showInputForm && <ProductInputForm newCode={newCode} handleCodeChange={handleCodeChange} newName={newName} setNewName={setNewName} newCategory={newCategory} setNewCategory={setNewCategory} categories={categories} newImportPrice={newImportPrice} setNewImportPrice={setNewImportPrice} newPrice={newPrice} setNewPrice={setNewPrice} newPromoPrice={newPromoPrice} setNewPromoPrice={setNewPromoPrice} newGiftCondition={newGiftCondition} setNewGiftCondition={setNewGiftCondition} newGiftInfo={newGiftInfo} setNewGiftInfo={setNewGiftInfo} newStock={newStock} setNewStock={setNewStock} newExpiry={newExpiry} setNewExpiry={setNewExpiry} handleAddProduct={handleAddProduct} setShowInputForm={setShowInputForm} loading={loading} />}
+                
+                <div style={{ display: "flex", gap: "8px", marginBottom: "15px", marginTop: showInputForm ? "15px" : "0" }}>{categories.map(cat => <button key={cat} onClick={() => setSelectedCategory(cat)} className={`tab-btn ${selectedCategory === cat ? 'active' : ''}`}>{cat}</button>)}</div>
+                
+                <ProductTable role={role} sortedAndFilteredProducts={sortedAndFilteredProducts} requestSort={requestSort} handleEdit={handleEdit} addToCart={addToCart} handlePrintBarcode={handlePrintBarcode} handleDelete={handleDelete} sortConfig={sortConfig} filters={filters} setFilters={setFilters} openFilter={openFilter} setOpenFilter={setOpenFilter} uniqueNames={uniqueNames} uniqueStocks={uniqueStocks} uniqueImportPrices={uniqueImportPrices} uniqueSalePrices={uniqueSalePrices} uniqueExpiries={uniqueExpiries} />
+              </div>
+              
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <CartPanel cart={cart} custName={custName} heldOrders={heldOrders} cartTotalAmountDisplay={cartTotalAmountDisplay} setShowHoldModal={setShowHoldModal} handleHoldOrder={handleHoldOrder} clearCart={clearCart} setCustName={setCustName} setCustPhone={setCustPhone} setCustomerInput={setCustomerInput} setIsCheckoutOpen={setIsCheckoutOpen} setCheckoutStep={setCheckoutStep} adjustCartQty={adjustCartQty} handleDirectQtyChange={handleDirectQtyChange} handleDirectQtyBlur={handleDirectQtyBlur} removeFromCart={removeFromCart} />
+                
+                <HistoryPanel logSearchTerm={logSearchTerm} setLogSearchTerm={setLogSearchTerm} logTypeFilter={logTypeFilter} setLogTypeFilter={setLogTypeFilter} exportToCSV={exportToCSV} groupedHistory={groupedHistory} expandedDates={expandedDates} toggleDateGroup={toggleDateGroup} handleRefund={handleRefund} onPrintK80={(log) => handleReprint(log.time, 'receipt_thermal')} onPrintA4={(log) => handleReprint(log.time, 'receipt_a4')} />
+              </div>
             </div>
+
           </div>
         </div>
       )}
