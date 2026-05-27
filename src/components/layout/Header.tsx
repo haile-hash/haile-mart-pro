@@ -20,9 +20,6 @@ interface HeaderProps {
   setShowExpenseModal: (val: boolean) => void;
   setShowSupplierModal: (val: boolean) => void;
   setShowMarketingModal: (val: boolean) => void;
-  setNewBankBin?: (val: string) => void;
-  setNewBankAcc?: (val: string) => void;
-  setNewBankNameStr?: (val: string) => void;
   bankBin: string;
   bankAcc: string;
   bankNameStr: string;
@@ -35,73 +32,18 @@ interface HeaderProps {
   setShowPOModal?: (val: boolean) => void;
 }
 
-// 🏦 Danh sách toàn bộ hệ thống Ngân hàng (Mã BIN chuẩn Napas) & Ví điện tử tại Việt Nam
-export const BANK_AND_WALLET_LIST = [
-  { group: "Ví Điện Tử Phổ Biến", items: [
-    { name: "Ví MoMo", bin: "MOMO" },
-    { name: "Ví ZaloPay", bin: "ZALOPAY" },
-    { name: "Ví Viettel Money", bin: "VIETTELMONEY" },
-    { name: "Ví ShopeePay", bin: "SHOPEEPAY" },
-    { name: "Ví VNPay", bin: "VNPAY" }
-  ]},
-  { group: "Ngân Hàng Lớn (Big 4)", items: [
-    { name: "Vietcombank (VCB)", bin: "970436" },
-    { name: "VietinBank (CTG)", bin: "970415" },
-    { name: "BIDV", bin: "970418" },
-    { name: "Agribank", bin: "970405" }
-  ]},
-  { group: "Ngân Hàng Thương Mại Cổ Phần", items: [
-    { name: "MBBank (Quân Đội)", bin: "970422" },
-    { name: "Techcombank (TCB)", bin: "970403" },
-    { name: "ACB (Á Châu)", bin: "970416" },
-    { name: "VPBank", bin: "970432" },
-    { name: "Sacombank", bin: "970403" },
-    { name: "HDBank", bin: "970437" },
-    { name: "SHB", bin: "970443" },
-    { name: "VIB (Quốc Tế)", bin: "970441" },
-    { name: "TPBank (Tiên Phong)", bin: "970423" },
-    { name: "MSB (Hàng Hải)", bin: "970426" },
-    { name: "SeABank", bin: "970440" },
-    { name: "LienVietPostBank (LPBank)", bin: "970449" },
-    { name: "Eximbank", bin: "970431" },
-    { name: "OCB (Phương Đông)", bin: "970448" },
-    { name: "BAC A BANK", bin: "970409" },
-    { name: "PVcomBank", bin: "970412" },
-    { name: "Đông Á Bank (DAB)", bin: "970406" },
-    { name: "Nam A Bank", bin: "970428" },
-    { name: "NCB (Quốc Dân)", bin: "970419" },
-    { name: "BVBank (Bản Việt)", bin: "970454" },
-    { name: "VietBank", bin: "970442" },
-    { name: "VietCapitalBank", bin: "970454" },
-    { name: "Saigonbank", bin: "970400" },
-    { name: "Kiên Long Bank", bin: "970452" },
-    { name: "PG Bank", bin: "970430" },
-    { name: "OceanBank", bin: "970408" },
-    { name: "GPBank", bin: "970408" },
-    { name: "SCB (Sài Gòn)", bin: "970429" }
-  ]},
-  { group: "Ngân Hàng Số & Ngân Hàng Nước Ngoài", items: [
-    { name: "Cake by VPBank", bin: "546034" },
-    { name: "Timo Digital Bank", bin: "963388" },
-    { name: "HSBC Việt Nam", bin: "970447" },
-    { name: "Standard Chartered", bin: "970410" },
-    { name: "Shinhan Bank Việt Nam", bin: "970424" },
-    { name: "Woori Bank Việt Nam", bin: "970457" },
-    { name: "UOB Việt Nam", bin: "970458" },
-    { name: "CIMB Việt Nam", bin: "422589" }
-  ]}
-];
-
 export const Header: React.FC<HeaderProps> = ({
   role, shift, totalValue, currentShiftStats, setCashFlowModalInfo,
   darkMode, setDarkMode, handleLogoutClick, showMainMenu, setShowMainMenu,
   setShowStatsModal, setShowCustomerModal, setShowInventoryModal, setShowDebtModal,
   setShowAuditModal, setShowExpenseModal, setShowSupplierModal, setShowMarketingModal,
   setShowSettings, lowStockCount, isOnline, syncStatus, syncAllOfflineData,
-  setShowScannerLinkModal, setShowPOModal, setNewBankBin, bankBin
+  setShowScannerLinkModal, setShowPOModal
 }) => {
   const [timeStr, setTimeStr] = useState("");
   const audioRef = useRef<HTMLAudioElement>(null);
+  
+  // 🎵 Quản lý 3 trạng thái nhạc: 0 (Tắt), 1 (Đang phát), 2 (Tạm ngừng)
   const [musicState, setMusicState] = useState<0 | 1 | 2>(0);
 
   useEffect(() => {
@@ -120,6 +62,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const toggleMusic = () => {
     if (!audioRef.current) return;
+    
     if (musicState === 0) {
       audioRef.current.play().then(() => {
         setMusicState(1);
@@ -201,20 +144,6 @@ export const Header: React.FC<HeaderProps> = ({
           animation: floatNotes 1.8s linear infinite;
           z-index: 100;
         }
-        .header-bank-select {
-          padding: 6px 10px;
-          font-size: 13px;
-          font-weight: 600;
-          border-radius: 6px;
-          border: 1px solid #cbd5e1;
-          background-color: #ffffff;
-          color: #1e293b;
-          outline: none;
-          max-width: 220px;
-        }
-        .header-bank-select:focus {
-          border-color: #3b82f6;
-        }
       `}</style>
 
       <audio ref={audioRef} src="/Windy%20Hill.mp3" preload="auto" loop />
@@ -224,6 +153,7 @@ export const Header: React.FC<HeaderProps> = ({
         
         <div className="national-flag-container" onClick={toggleMusic} style={{ display: "flex", alignItems: "center", gap: "12px", cursor: "pointer", padding: "10px 20px", borderRadius: "12px", minWidth: "300px", overflow: "hidden" }} title={getMusicTooltip()}>
           <div style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "60px", color: "#ffff00", opacity: 0.4, pointerEvents: "none", userSelect: "none" }}>★</div>
+          
           <div style={{ position: "relative" }}>
             <div style={{ background: "#ffff00", color: "#da251d", padding: "8px", borderRadius: "10px", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", transition: "all 0.2s", opacity: musicState === 2 ? 0.7 : 1 }}>
               {musicState === 2 ? (
@@ -252,7 +182,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Thống kê tài chính */}
+        {/* --- KHU VỰC THỐNG KÊ TÀI CHÍNH --- */}
         <div style={{ display: "flex", alignItems: "center", gap: "25px" }}>
            <div style={{ background: "#fef08a", color: "#b45309", padding: "4px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: "bold" }}>🌙 HAPPY HOUR</div>
            <div style={{ borderLeft: "1px solid #cbd5e1", height: "30px" }}></div>
@@ -281,27 +211,6 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-           {/* 🏦 THANH LỰA CHỌN NGÂN HÀNG/VÍ NHANH NGAY TRÊN HEADER */}
-           {setNewBankBin && (
-             <select 
-               className="header-bank-select" 
-               value={bankBin} 
-               onChange={(e) => {
-                 setNewBankBin(e.target.value);
-                 toast.success(`Đã đổi cổng thanh toán QR sang mã BIN: ${e.target.value}`);
-               }}
-             >
-               <option value="">-- Cổng Nhận QR --</option>
-               {BANK_AND_WALLET_LIST.map((group, gIdx) => (
-                 <optgroup key={gIdx} label={group.group}>
-                   {group.items.map((b, bIdx) => (
-                     <option key={bIdx} value={b.bin}>{b.name}</option>
-                   ))}
-                 </optgroup>
-               ))}
-             </select>
-           )}
-
            <button onClick={() => setDarkMode(!darkMode)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer" }}>{darkMode ? "☀️" : "🌙"}</button>
            <div style={{ textAlign: "right" }}><div style={{ fontSize: "13px", fontWeight: "bold", color: "#1e293b" }}>{role === 'admin' ? 'Quản lý' : 'Thu ngân'}</div><div style={{ fontSize: "11px", color: "#64748b" }}>{shift}</div></div>
            <button onClick={handleLogoutClick} style={{ background: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", padding: "8px 12px", cursor: "pointer" }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg></button>
