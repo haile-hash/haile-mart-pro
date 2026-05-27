@@ -107,13 +107,11 @@ export default function App() {
   const VAT_RATE = 0.1;
   const IDLE_TIMEOUT = 5 * 60 * 1000; 
 
-  // Gọi API Key từ két sắt bảo mật của Vercel (F12 đố nhìn thấy được)
   const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
   const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
   const EMAILJS_TEMPLATE_VIP_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_VIP_ID;
   const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY; 
 
-  // KHỞI TẠO EMAILJS
   useEffect(() => { emailjs.init(EMAILJS_PUBLIC_KEY); }, []);
 
   // =====================================================================
@@ -141,7 +139,7 @@ export default function App() {
   const [newHappyStart, setNewHappyStart] = useState("11:00");
   const [newHappyEnd, setNewHappyEnd] = useState("13:00");
   const [adminPin, setAdminPin] = useState("1234");
-  const [newAdminPinInput, setNewAdminPinInput] = useState(""); // BAO MAT: De trong luc dau
+  const [newAdminPinInput, setNewAdminPinInput] = useState(""); 
   const [showPinModal, setShowPinModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [showScannerLinkModal, setShowScannerLinkModal] = useState(false);
@@ -213,14 +211,10 @@ export default function App() {
   const isPrintingRef = useRef(false);
 
   // =====================================================================
-  // 2. EFFECTS (VÒNG ĐỜI VÀ EVENT CHẠY NGẦM)
+  // 2. EFFECTS
   // =====================================================================
-
   useEffect(() => {
-    const handler = (e: any) => {
-      e.preventDefault();
-      setInstallPrompt(e);
-    };
+    const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e); };
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
@@ -229,10 +223,7 @@ export default function App() {
     if (!installPrompt) return;
     installPrompt.prompt();
     const { outcome } = await installPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setInstallPrompt(null);
-      toast.success("Cài đặt App thành công!");
-    }
+    if (outcome === 'accepted') { setInstallPrompt(null); toast.success("Cài đặt App thành công!"); }
   };
 
   useEffect(() => {
@@ -425,9 +416,8 @@ export default function App() {
   }, [showPOModal, poTab, localPOs]);
 
   // =====================================================================
-  // 3. ACTION FUNCTIONS (HÀM XỬ LÝ LOGIC ERP)
+  // 3. ACTION FUNCTIONS
   // =====================================================================
-
   const findProductByCode = (code: string) => {
     const cleanCode = String(code || "").trim().toLowerCase();
     return products.find(p => String(p.product_code).toLowerCase() === cleanCode);
@@ -455,7 +445,6 @@ export default function App() {
           if (localData) setProducts(localData);
         }
       } else {
-        console.log("Đang tải sản phẩm từ bộ nhớ Offline...");
         const localData = await dbGet("mart_products_cache");
         if (localData) setProducts(localData);
       }
@@ -524,87 +513,39 @@ export default function App() {
     }
   };
 
-  useEffect(() => {
-    if (isOnline && isLoggedIn) {
-      syncPendingImports();
-    }
-  }, [isOnline, isLoggedIn]);
+  useEffect(() => { if (isOnline && isLoggedIn) { syncPendingImports(); } }, [isOnline, isLoggedIn]);
 
   const handleAddProduct = async (e: React.FormEvent) => {
-    e.preventDefault(); 
-    setLoading(true);
+    e.preventDefault(); setLoading(true);
     try {
-      const added = parseInt(newStock || "0"); 
-      const impPrice = parseInt(newImportPrice); 
-      const salePrice = parseInt(newPrice); 
-      const promo = parseInt(newPromoPrice) || 0; 
-      const finalGiftInfo = newGiftInfo.trim() !== "" ? `${newGiftCondition};;;${newGiftInfo}` : null; 
-      const baseCode = newCode.trim(); 
-      const formattedCat = formatCategoryStr(newCategory);
-      
-      const allVariants = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)); 
-      const exist = allVariants.find(p => p.product_code === baseCode); 
-      
-      const newProductData = { 
-        product_code: baseCode, name: newName, category: formattedCat, 
-        import_price: impPrice, sale_price: salePrice, promo_price: promo, 
-        gift_info: finalGiftInfo, stock: exist ? (exist.stock + added) : added, 
-        expiry_date: newExpiry || null 
-      };
+      const added = parseInt(newStock || "0"); const impPrice = parseInt(newImportPrice); const salePrice = parseInt(newPrice); const promo = parseInt(newPromoPrice) || 0; const finalGiftInfo = newGiftInfo.trim() !== "" ? `${newGiftCondition};;;${newGiftInfo}` : null; const baseCode = newCode.trim(); const formattedCat = formatCategoryStr(newCategory);
+      const allVariants = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)); const exist = allVariants.find(p => p.product_code === baseCode); 
+      const newProductData = { product_code: baseCode, name: newName, category: formattedCat, import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: exist ? (exist.stock + added) : added, expiry_date: newExpiry || null };
 
       if (navigator.onLine) {
         if (exist) {
           if (exist.import_price !== impPrice || (exist.expiry_date || "") !== (newExpiry || "")) { 
-            const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}`; 
-            const batchName = `${newName} [Lô mới]`; 
-            if (window.confirm(`Tạo LÔ MỚI (${batchCode})?`)) { 
-              await supabase.from("products").insert([{ ...newProductData, product_code: batchCode, name: batchName }]); 
-            } else { setLoading(false); return; } 
-          } else { 
-            await supabase.from("products").update({ stock: exist.stock + added, updated_at: new Date().toISOString() }).eq("id", exist.id); 
-          }
-        } else { 
-          await supabase.from("products").insert([newProductData]); 
-        }
+            const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}`; const batchName = `${newName} [Lô mới]`; 
+            if (window.confirm(`Tạo LÔ MỚI (${batchCode})?`)) { await supabase.from("products").insert([{ ...newProductData, product_code: batchCode, name: batchName }]); } else { setLoading(false); return; } 
+          } else { await supabase.from("products").update({ stock: exist.stock + added, updated_at: new Date().toISOString() }).eq("id", exist.id); }
+        } else { await supabase.from("products").insert([newProductData]); }
         if (added > 0) addTransactionAndSync({ id: Date.now(), shift, type: "NHẬP", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }); 
-        toast.success(`Đã lưu lên hệ thống Cloud!`);
-        fetchProducts();
+        toast.success(`Đã lưu lên hệ thống Cloud!`); fetchProducts();
       } else {
-        console.log("Đang mất mạng -> Lưu tạm vào Két sắt Nhập Kho...");
         const pendingImports = await dbGet("mart_pending_imports") || [];
-        let actionType = exist ? "UPDATE_STOCK" : "INSERT_NEW";
-        let targetId = exist ? exist.id : null;
-
-        pendingImports.push({
-          id: Date.now(),
-          action: actionType,
-          targetId: targetId,
-          data: newProductData,
-          addedStock: added
-        });
+        let actionType = exist ? "UPDATE_STOCK" : "INSERT_NEW"; let targetId = exist ? exist.id : null;
+        pendingImports.push({ id: Date.now(), action: actionType, targetId: targetId, data: newProductData, addedStock: added });
         await dbSet("mart_pending_imports", pendingImports);
-
-        if (exist) {
-          setProducts(prev => prev.map(p => p.id === exist.id ? { ...p, stock: p.stock + added } : p));
-        } else {
-          setProducts(prev => [{ id: `temp-${Date.now()}`, ...newProductData, created_at: new Date().toISOString() }, ...prev]);
-        }
-
+        if (exist) { setProducts(prev => prev.map(p => p.id === exist.id ? { ...p, stock: p.stock + added } : p)); } 
+        else { setProducts(prev => [{ id: `temp-${Date.now()}`, ...newProductData, created_at: new Date().toISOString() }, ...prev]); }
         if (added > 0) {
           const offlineLog = { id: Date.now(), shift, type: "NHẬP (OFFLINE)", name: newName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') };
-          setHistory(prev => [offlineLog, ...prev]);
-          const currentHistory = await dbGet("mart_history") || [];
-          await dbSet("mart_history", [offlineLog, ...currentHistory]);
+          setHistory(prev => [offlineLog, ...prev]); const currentHistory = await dbGet("mart_history") || []; await dbSet("mart_history", [offlineLog, ...currentHistory]);
         }
         toast.success(`Đã lưu Tạm! Sẽ tự động đẩy lên khi có mạng.`);
       }
-      resetProductForm(); 
-      setShowInputForm(false);
-    } catch (err) { 
-      toast.error("Lỗi khi lưu sản phẩm"); 
-    } finally { 
-      setLoading(false); 
-    }
+      resetProductForm(); setShowInputForm(false);
+    } catch (err) { toast.error("Lỗi khi lưu sản phẩm"); } finally { setLoading(false); }
   };
 
   const handleFileUpload = async (e: any) => {
@@ -641,10 +582,10 @@ export default function App() {
   const handleImportInventoryCSV = (e: any) => {
     const file = e?.target?.files?.[0] || e; if (!file || !file.name) { if (e?.target) e.target.value = ''; return; }
     const processData = (lines: any[]) => { 
-      let updatedStock = { ...actualStockInput }; let count = 0; 
+      let updatedStock = { ...actualStockInput }; 
       for (let i = 1; i < lines.length; i++) { 
         const cols = lines[i]; if (!cols || !Array.isArray(cols) || cols.join('').trim() === '') continue; const pCode = String(cols[0] || "").trim(); const actualVal = parseInt(String(cols[3] || "0").replace(/[,.]/g, '')); 
-        if (!isNaN(actualVal) && pCode) { const matchedProd = products.find(p => p.product_code === pCode); if (matchedProd && matchedProd.stock !== actualVal) { updatedStock[matchedProd.id] = actualVal; count++; } } 
+        if (!isNaN(actualVal) && pCode) { const matchedProd = products.find(p => p.product_code === pCode); if (matchedProd && matchedProd.stock !== actualVal) { updatedStock[matchedProd.id] = actualVal; } } 
       } 
       setActualStockInput(updatedStock); toast.success(`Đã nạp số liệu thực tế!`); 
     };
@@ -677,8 +618,8 @@ export default function App() {
   
   const syncInventoryCheck = async () => {
     if(!navigator.onLine) return toast.error("Mạng yếu!"); if(!window.confirm("Xác nhận ghi đè?")) return;
-    setLoading(true); let count = 0;
-    try { for (const [id, actualQty] of Object.entries(actualStockInput)) { const p = products.find(x => String(x.id) === String(id)); if(p && p.stock !== actualQty) { await supabase.from("products").update({ stock: actualQty }).eq("id", p.id); logAudit("KIỂM KHO", `${p.name}`); count++; } } toast.success(`Đồng bộ thành công!`); setShowInventoryModal(false); setActualStockInput({}); fetchProducts(); } 
+    setLoading(true);
+    try { for (const [id, actualQty] of Object.entries(actualStockInput)) { const p = products.find(x => String(x.id) === String(id)); if(p && p.stock !== actualQty) { await supabase.from("products").update({ stock: actualQty }).eq("id", p.id); logAudit("KIỂM KHO", `${p.name}`); } } toast.success(`Đồng bộ thành công!`); setShowInventoryModal(false); setActualStockInput({}); fetchProducts(); } 
     catch(err) {} finally { setLoading(false); }
   };
   
@@ -736,147 +677,91 @@ export default function App() {
   const clearCart = () => { if (window.confirm("Hủy toàn bộ hàng trong giỏ?")) { resetCheckout(); } };
 
   // =====================================================================
-  // HỆ THỐNG CÁC HÀM XỬ LÝ CON THIẾU LOGIC (ĐÃ BỔ SUNG ĐẦY ĐỦ)
+  // HỆ THỐNG CÁC HÀM SỬA LỖI TRẮNG MÀN HÌNH & CHUẨN HÓA LOGIC
   // =====================================================================
   const confirmCheckout = async (method: string) => {
     if (cart.length === 0) return toast.error("Giỏ hàng trống!");
     setLoading(true);
     try {
-      const orderId = Date.now().toString();
-      const currentOrderTime = new Date().toLocaleString('vi-VN');
-      
-      // Trừ kho hệ thống và tạo logs lịch sử giao dịch
-      let logsToPush: any[] = [];
-      let totalProfit = 0;
+      const orderId = Date.now().toString(); const currentOrderTime = new Date().toLocaleString('vi-VN');
+      let logsToPush: any[] = []; let totalProfit = 0;
       
       for (const item of cart) {
         const p = products.find(x => x.id === item.product.id);
         if (p) {
           const actualStock = Math.max(0, p.stock - item.qty);
-          if (navigator.onLine) {
-            await supabase.from("products").update({ stock: actualStock }).eq("id", p.id);
-          }
-          const itemProfit = (getActualPrice(item.product) - (p.import_price || 0)) * item.qty;
-          totalProfit += itemProfit;
+          if (navigator.onLine) { await supabase.from("products").update({ stock: actualStock }).eq("id", p.id); }
+          const itemProfit = (getActualPrice(item.product) - (p.import_price || 0)) * item.qty; totalProfit += itemProfit;
         }
-
-        logsToPush.push({
-          id: Date.now() + Math.random(),
-          order_id: orderId,
-          shift,
-          type: method === 'GHI NỢ' ? 'GHI NỢ' : 'BÁN',
-          paymentMethod: method,
-          customer: custName || "Khách lẻ",
-          name: item.product.name,
-          qty: item.qty,
-          total: item.total,
-          profit: totalProfit,
-          time: currentOrderTime
-        });
+        logsToPush.push({ id: Date.now() + Math.random(), order_id: orderId, shift, type: method === 'GHI NỢ' ? 'GHI NỢ' : 'BÁN', paymentMethod: method, customer: custName || "Khách lẻ", name: item.product.name, qty: item.qty, total: item.total, profit: totalProfit, time: currentOrderTime });
       }
 
-      // Xử lý tích điểm ví điện tử khách hàng nếu có SĐT thành viên
       if (custPhone && customers[custPhone]) {
-        let updatedSpent = (customers[custPhone].totalSpent || 0) + finalToPay;
-        let walletBalance = customers[custPhone].wallet || 0;
-        
+        let updatedSpent = (customers[custPhone].totalSpent || 0) + finalToPay; let walletBalance = customers[custPhone].wallet || 0;
         if (useWallet) { walletBalance -= walletUsedAmount; }
-        // Tích 1% điểm vào ví cho mọi đơn hàng thành công
-        walletBalance += Math.round(finalToPay * 0.01); 
-
-        let debtValue = customers[custPhone].debt || 0;
+        walletBalance += Math.round(finalToPay * 0.01); let debtValue = customers[custPhone].debt || 0;
         if (method === 'GHI NỢ') { debtValue += finalToPay; }
-
         const updatedCustomerData = { ...customers[custPhone], totalSpent: updatedSpent, wallet: walletBalance, debt: debtValue };
         setCustomers(prev => ({ ...prev, [custPhone]: updatedCustomerData }));
-        if (navigator.onLine) {
-          await supabase.from("customers").upsert({ phone: custPhone, ...updatedCustomerData });
-        }
+        if (navigator.onLine) { await supabase.from("customers").upsert({ phone: custPhone, ...updatedCustomerData }); }
       }
 
       for (const logItem of logsToPush) { await addTransactionAndSync(logItem); }
-      
-      // Đóng gói dữ liệu in hóa đơn
-      setLastOrder({
-        id: orderId,
-        customerName: custName || "Khách lẻ",
-        customerPhone: custPhone || "",
-        items: [...cart],
-        totalAmount: cartTotalAmountDisplay,
-        discountAmount: appliedVoucherAmount + tierDiscountAmount,
-        finalAmount: finalToPay,
-        paymentMethod: method,
-        time: currentOrderTime
-      });
-
-      playSound('success');
-      toast.success("Thanh toán thành công!");
-      setPrintMode('receipt_thermal'); 
-      resetCheckout();
-      setIsCheckoutOpen(false);
-      fetchProducts();
-    } catch(e) {
-      toast.error("Lỗi khi xử lý checkout!");
-    } finally {
-      setLoading(false);
-    }
+      setLastOrder({ id: orderId, customerName: custName || "Khách lẻ", customerPhone: custPhone || "", items: [...cart], totalAmount: cartTotalAmountDisplay, discountAmount: appliedVoucherAmount + tierDiscountAmount, finalAmount: finalToPay, paymentMethod: method, time: currentOrderTime });
+      playSound('success'); toast.success("Thanh toán thành công!"); setPrintMode('receipt_thermal'); resetCheckout(); setIsCheckoutOpen(false); fetchProducts();
+    } catch(e) { toast.error("Lỗi khi xử lý checkout!"); } finally { setLoading(false); }
   };
 
   const closeCheckout = () => { setIsCheckoutOpen(false); resetCheckout(); };
-  const sendReceiptEmail = async () => { if (!custPhone || !customers[custPhone]?.email) return toast.error("Khách VIP này chưa có thông tin Email!"); toast.success("Hóa đơn điện tử đang được gửi tự động qua EmailJS..."); };
-  const handleNextToQR = () => { setCheckoutStep(2); };
+  const sendReceiptEmail = async () => { if (!custPhone || !customers[custPhone]?.email) return toast.error("Khách VIP chưa có Email!"); toast.success("Đang gửi hóa đơn..."); };
+  const handleNextToQR = () => setCheckoutStep(2);
 
   const handleHoldOrder = () => {
     if (cart.length === 0) return toast.error("Giỏ hàng trống không thể giữ!");
     const newHold: HeldOrder = { id: Date.now().toString(), customerName: custName || "Khách chờ " + (heldOrders.length + 1), customerPhone: custPhone, cart: [...cart], totalAmount: cartTotalAmountDisplay, time: new Date().toLocaleTimeString('vi-VN') };
-    setHeldOrders(prev => [newHold, ...prev]);
-    resetCheckout();
-    toast.success("Đã treo/giữ đơn hàng thành công!");
-    logAudit("TREO ĐƠN", `Giữ đơn cho khách: ${newHold.customerName}`);
+    setHeldOrders(prev => [newHold, ...prev]); resetCheckout(); toast.success("Đã treo đơn hàng thành công!"); logAudit("TREO ĐƠN", `Giữ đơn cho khách: ${newHold.customerName}`);
   };
-  const restoreOrder = (order: HeldOrder) => { setCart(order.cart); setCustName(order.customerName || ""); setCustPhone(order.customerPhone || ""); setCustomerInput(order.customerPhone || ""); setHeldOrders(prev => prev.filter(o => o.id !== order.id)); setShowHoldModal(false); toast.success("Đã khôi phục đơn hàng thành công!"); };
+
+  const restoreOrder = (order: HeldOrder) => { setCart(order.cart); setCustName(order.customerName || ""); setCustPhone(order.customerPhone || ""); setCustomerInput(order.customerPhone || ""); setHeldOrders(prev => prev.filter(o => o.id !== order.id)); setShowHoldModal(false); toast.success("Đã khôi phục đơn hàng!"); };
   const deleteHeldOrder = (id: any) => { if (window.confirm("Xóa đơn chờ này?")) { setHeldOrders(prev => prev.filter(o => o.id !== id)); toast.success("Đã xóa đơn chờ!"); } };
 
   const addExpense = (e: any) => {
-    e.preventDefault(); if (!expName || !expAmount) return toast.error("Điền đầy đủ tên & số tiền chi phí!");
+    e.preventDefault(); if (!expName || !expAmount) return toast.error("Điền đầy đủ thông tin chi phí!");
     const newExp = { id: Date.now(), name: expName, amount: parseInt(expAmount), date: new Date().toLocaleDateString('vi-VN'), shift };
     setExpenses(prev => [newExp, ...prev]); setExpName(""); setExpAmount(""); toast.success("Đã ghi nhận khoản chi!"); logAudit("CHI PHÍ", `${expName} - ${parseInt(expAmount).toLocaleString()}đ`);
   };
   const deleteExpense = (id: any) => { setExpenses(prev => prev.filter(e => e.id !== id)); toast.success("Đã xóa khoản chi!"); };
   
   const addSupplier = (e: any) => {
-    e.preventDefault(); if (!supName || !supPhone) return toast.error("Vui lòng nhập tên và SĐT NCC!");
+    e.preventDefault(); if (!supName || !supPhone) return toast.error("Nhập tên và SĐT NCC!");
     const newSup = { id: Date.now(), name: supName, phone: supPhone, address: supAddress, item: supItem, taxCode: supTaxCode, bankAccount: supBankAccount, debt: 0 };
-    setSuppliers(prev => [newSup, ...prev]); setSupName(""); setSupPhone(""); setSupAddress(""); setSupItem(""); setSupTaxCode(""); setSupBankAccount(""); toast.success("Thêm nhà cung cấp mới thành công!");
+    setSuppliers(prev => [newSup, ...prev]); setSupName(""); setSupPhone(""); setSupAddress(""); setSupItem(""); setSupTaxCode(""); setSupBankAccount(""); toast.success("Thêm nhà cung cấp thành công!");
   };
-  const deleteSupplier = (id: any) => { setSuppliers(prev => prev.filter(s => s.id !== id)); toast.success("Đã xóa nhà cung cấp khỏi danh bạ!"); };
+  const deleteSupplier = (id: any) => { setSuppliers(prev => prev.filter(s => s.id !== id)); toast.success("Đã xóa nhà cung cấp!"); };
 
   const handlePayDebt = (phone: string, amount: number) => {
-    if (!customers[phone]) return;
-    const currentDebt = customers[phone].debt || 0;
-    const remainDebt = Math.max(0, currentDebt - amount);
+    if (!customers[phone]) return; const currentDebt = customers[phone].debt || 0; const remainDebt = Math.max(0, currentDebt - amount);
     setCustomers(prev => ({ ...prev, [phone]: { ...prev[phone], debt: remainDebt } }));
     addTransactionAndSync({ id: Date.now(), shift, type: "THU NỢ", paymentMethod: "TIỀN MẶT", customer: customers[phone].name, name: "Khách trả nợ công nợ", qty: 1, total: amount, profit: 0, time: new Date().toLocaleString('vi-VN') });
-    toast.success("Đã thu tiền nợ khách hàng thành công!");
-    logAudit("THU NỢ", `Khách hàng ${customers[phone].name} trả nợ ${amount.toLocaleString()}đ`);
+    toast.success("Đã thu tiền nợ thành công!");
   };
 
-  const handleEditPhone = (oldPhone: string) => { const newPhone = window.prompt("Nhập số điện thoại mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { setCustomers(prev => { const updated = { ...prev }; updated[newPhone.trim()] = { ...updated[oldPhone] }; delete updated[oldPhone]; return updated; }); toast.success("Đã chỉnh sửa SĐT khách hàng!"); } };
-  const printCustomerCard = (cust: any) => { setPrintCustomer(cust); setPrintMode('barcode'); };
-  const sendCardEmail = (cust: any) => { toast.success(`Mã thẻ VIP điện tử đã được mã hóa gửi đến ${cust.email}`); };
-  const shareToZalo = (cust: any) => { toast.success("Đang điều hướng chia sẻ mã thẻ qua QR Zalo API..."); };
-  const handleVoucherSubmit = (e: any) => { e.preventDefault(); const code = voucherInput.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000 }; if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); toast.success(`Áp dụng thành công voucher giảm ${VOUCHERS[code].toLocaleString()}đ`); } else { toast.error("Mã khuyến mãi không tồn tại hoặc hết hạn!"); setAppliedVoucherAmount(0); } };
-  const handleCustomerInputChange = (val: string) => { handleCustomerInputChange(val); };
+  const handleEditPhone = (oldPhone: string) => { const newPhone = window.prompt("Nhập số điện thoại mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { setCustomers(prev => { const updated = { ...prev }; updated[newPhone.trim()] = { ...updated[oldPhone] }; delete updated[oldPhone]; return updated; }); toast.success("Đã đổi số điện thoại!"); } };
+  const printCustomerCard = (cust: any) => { setPrintCustomer(cust); setPrintMode('customer'); };
+  const sendCardEmail = (cust: any) => { toast.success("Đã gửi thẻ thành viên qua Email"); };
+  const shareToZalo = (cust: any) => { toast.success("Đang kết nối Zalo API..."); };
+  const handleVoucherSubmit = (e: any) => { e.preventDefault(); const code = voucherInput.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000 }; if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); toast.success(`Áp dụng thành công voucher!`); } else { toast.error("Mã không hợp lệ!"); setAppliedVoucherAmount(0); } };
+  
+  const handleCustomerInputChange = (val: any) => { const value = typeof val === 'string' ? val : val?.target?.value || ""; setCustomerInput(value); };
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => { setNewCode(e.target.value); };
-  const handleLogoutClick = () => { setIsLoggedIn(false); logAudit("ĐĂNG XUẤT", "Đăng xuất tài khoản hệ thống."); };
-  const confirmHandover = () => { toast.success("Bàn giao ca thành công và đồng bộ dữ liệu bảo mật két sắt!"); setShowHandoverModal(false); logAudit("KẾT CA", `Bàn giao doanh thu ca làm việc.`); };
+  const handleLogoutClick = () => { setIsLoggedIn(false); logAudit("ĐĂNG XUẤT", "Thu ngân đăng xuất"); };
   
   const handleRefund = async (log: any) => {
-    if (!window.confirm(`Xác nhận hoàn tiền trả hàng mã sản phẩm: ${log.name}?`)) return;
+    if (!window.confirm(`Xác nhận hoàn tiền đơn hàng: ${log.name}?`)) return;
     const matched = products.find(p => cleanName(p.name) === cleanName(log.name));
     if (matched && navigator.onLine) { await supabase.from("products").update({ stock: matched.stock + log.qty }).eq("id", matched.id); fetchProducts(); }
     addTransactionAndSync({ id: Date.now(), shift, type: "TRẢ HÀNG", paymentMethod: log.paymentMethod, customer: log.customer, name: `[Hoàn Trả] ${log.name}`, qty: log.qty, total: -log.total, profit: -(log.profit || 0), time: new Date().toLocaleString('vi-VN') });
-    toast.success("Đã hoàn tiền và thu hồi sản phẩm về kho!");
+    toast.success("Đã hoàn tiền thành công!");
   };
   
   const handleReprint = (time: any, type: string) => {
@@ -884,8 +769,10 @@ export default function App() {
     if (matchedLog) {
       setLastOrder({ id: matchedLog.id.toString(), customerName: matchedLog.customer, customerPhone: "", items: [{ product: { name: matchedLog.name, sale_price: matchedLog.total / matchedLog.qty } as any, qty: matchedLog.qty, total: matchedLog.total }], totalAmount: matchedLog.total, discountAmount: 0, finalAmount: matchedLog.total, paymentMethod: matchedLog.paymentMethod || "TIỀN MẶT", time: matchedLog.time });
       setPrintMode(type as any);
-    } else { toast.error("Không tìm thấy log hóa đơn gốc!"); }
+    } else { toast.error("Không tìm thấy dữ liệu hóa đơn!"); }
   };
+
+  const confirmHandover = () => { toast.success("Xác nhận bàn giao ca!"); setShowHandoverModal(false); };
 
   // MODAL HANDLERS
   const handleSendMarketingEmail = async () => {
@@ -951,7 +838,7 @@ export default function App() {
     const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStrStr && h.shift === shift);
     const thu: any[] = []; const chi: any[] = [];
     shiftLogs.forEach(h => {
-      if (h.paymentMethod === cashFlowModalInfo || (cashFlowModalInfo === 'CHUYỂN KHOẢN' && (h.paymentMethod === 'QUẸT THẺ' || h.paymentMethod === 'ZALO PAY')) || h.paymentMethod === 'KẾT HỢP') {
+      if (h.paymentMethod === cashFlowModalInfo || (cashFlowModalInfo === 'CHUYỂN KHOẢN' && (h.paymentMethod === 'QURET THẺ' || h.paymentMethod === 'ZALO PAY')) || h.paymentMethod === 'KẾT HỢP') {
         let amount = h.total; if (h.paymentMethod === 'KẾT HỢP') { amount = cashFlowModalInfo === 'TIỀN MẶT' ? (h.split_cash || 0) : (h.total - (h.split_cash || 0)); }
         if (amount === 0) return;
         if (h.type === 'BÁN' || h.type === 'THU NỢ') { if (amount > 0) thu.push({ time: h.time, note: `${h.type} - ${cleanName(h.name)}`, amount: amount }); } 
@@ -1051,9 +938,6 @@ export default function App() {
     return filtered
   }, [products, debouncedSearchTerm, selectedCategory, sortConfig, filters]);
 
-  // =====================================================================
-  // 5. CÁC HÀM GỬI EMAIL BÁO CÁO
-  // =====================================================================
   const handleSendEmailReport = async () => {
     const start = new Date(reportStartDate + "T00:00:00").getTime(); const end = new Date(reportEndDate + "T23:59:59").getTime(); 
     const logs = history.filter(log => { const t = new Date(Math.floor(log.id)).getTime(); return t >= start && t <= end; });
@@ -1071,7 +955,7 @@ export default function App() {
     });
     let adminEmail = window.prompt("Nhập Email Quản lý:", ""); if(!adminEmail) return; adminEmail = adminEmail.trim(); 
     setLoading(true); 
-    const htmlContent = `<div style="font-family: Arial; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0;"><div style="background: #3b82f6; color: white; padding: 20px; text-align: center;"><h1>HẢI LÊ MART</h1><p>BÁO CÁO DOANH THU</p></div><div style="padding: 20px; background: #ffffff;"><h2>Kỳ: ${reportStartDate} đến ${reportEndDate}</h2><table style="width: 100%; border-collapse: collapse;"><tbody><tr><td style="padding: 10px;">Tổng SP đã bán:</td><td style="padding: 10px; text-align: right;">${sold} món</td></tr><tr><td style="padding: 10px;">Doanh thu Tiền Mặt:</td><td style="padding: 10px; text-align: right; color: #10b981;">${Math.round(cash).toLocaleString()}đ</td></tr><tr><td style="padding: 10px;">Doanh thu CK/Thẻ:</td><td style="padding: 10px; text-align: right; color: #3b82f6;">${Math.round(transfer).toLocaleString()}đ</td></tr><tr><td style="padding: 10px; font-weight: bold;">TỔNG LỢI NHUẬN:</td><td style="padding: 10px; text-align: right; font-weight: bold; color: #ef4444;">${Math.round(prof).toLocaleString()}đ</td></tr></tbody></table></div></div>`;
+    const htmlContent = `<div style="font-family: Arial; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0;"><div style="background: #3b82f6; color: white; padding: 20px; text-align: center;"><h1>HẢI LÊ MART</h1><p>BÁO CÁO DOANH THU</p></div><div style="padding: 20px; background: #ffffff;"><h2>Kỳ: ${reportStartDate} đến ${reportEndDate}</h2><table style="width: 100%; border-collapse: collapse;"><tbody><tr><td style="padding: 10px;">Tổng SP đã bán:</td><td style="padding: 10px; text-align: right;">${sold} món</td></tr><tr><td style="padding: 10px;">Doanh thu Tiền Mặt:</td><td style="padding: 10px; text-align: right; color: #10b981;">${Math.round(cash).toLocaleString()}đ</td></tr><tr><td style="padding: 10px;">Doanh thu CK/Thẻ:</td><td style="padding: 10px; text-align: right; color: #3b82f6;">${Math.round(transfer).toLocaleString()}đ</td></tr><tr><td style="padding: 10px;"> font-weight: bold;">TỔNG LỢI NHUẬN:</td><td style="padding: 10px; text-align: right; font-weight: bold; color: #ef4444;">${Math.round(prof).toLocaleString()}đ</td></tr></tbody></table></div></div>`;
     try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_email: adminEmail, subject: `📊 Báo cáo doanh thu ${reportStartDate} - ${reportEndDate}`, html_message: htmlContent }); logAudit("GỬI BÁO CÁO", `Tới ${adminEmail}`); toast.success("Đã gửi Báo cáo!"); } catch (error: any) { toast.error(`Lỗi gửi Email`); } setLoading(false);
   };
 
@@ -1087,7 +971,7 @@ export default function App() {
   };
 
   // =====================================================================
-  // 6. RENDER GIAO DIỆN (UI RENDER)
+  // 6. RENDER GIAO DIỆN
   // =====================================================================
   const renderModals = () => {
     return (
@@ -1114,7 +998,6 @@ export default function App() {
           addSupplier={addSupplier} deleteSupplier={deleteSupplier} suppliers={suppliers}
         />
 
-        {/* MODAL SETTINGS TRUYỀN THÊM QUYỀN PIN BẢO MẬT */}
         <SettingsModal 
           showSettings={showSettings} setShowSettings={setShowSettings}
           newBankBin={newBankBin} setNewBankBin={setNewBankBin} newBankAcc={newBankAcc} setNewBankAcc={setNewBankAcc} newBankNameStr={newBankNameStr} setNewBankNameStr={setNewBankNameStr} newHappyStart={newHappyStart} setNewHappyStart={setNewHappyStart} newHappyEnd={newHappyEnd} setNewHappyEnd={setNewHappyEnd} 
@@ -1155,6 +1038,80 @@ export default function App() {
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
       <style>{styles}</style>
       
+      {/* LAYER PHONG CÁCH HIỆN ĐẠI HÓA (XÓA BỎ GIAO DIỆN 9X) */}
+      <style>{`
+        /* Reset & Định dạng toàn bộ Layout Cài đặt */
+        div:has(> h2:contains("CÀI ĐẶT")), .settings-modal, .glass-modal, form fieldset {
+          font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif !important;
+          background: #f8fafc !important; /* Đổi màu nền vàng cũ thành xám Slate dịu mắt */
+        }
+        
+        /* Chuyển các panel cài đặt thành các khối Thẻ SaaS bo góc tinh tế */
+        div[style*="border: 1px solid"] {
+          background: #ffffff !important;
+          border: 1px solid #e2e8f0 !important;
+          border-radius: 12px !important;
+          padding: 24px !important;
+          margin-bottom: 20px !important;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
+        }
+
+        /* Nâng cấp toàn bộ ô Input, Textbox và ô chọn Time */
+        input[type="text"], input[type="password"], input[type="number"], input[type="time"] {
+          height: 42px !important;
+          background: #ffffff !important;
+          border: 1px solid #cbd5e1 !important;
+          border-radius: 8px !important;
+          padding: 8px 16px !important;
+          font-size: 14px !important;
+          color: #0f172a !important;
+          font-weight: 500 !important;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+          box-shadow: inset 0 1px 2px rgba(0,0,0,0.02) !important;
+        }
+
+        /* Hiệu ứng Focus viền xanh Neon mờ khi click nhập liệu */
+        input:focus {
+          border-color: #2563eb !important;
+          box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15) !important;
+          outline: none !important;
+        }
+
+        /* Tân trang các nút hành động (Lưu cài đặt / Hủy) */
+        button, .btn-action {
+          height: 42px !important;
+          border-radius: 8px !important;
+          font-weight: 600 !important;
+          font-size: 14px !important;
+          padding: 0 24px !important;
+          transition: all 0.2s ease !important;
+          cursor: pointer !important;
+        }
+
+        /* Nút Lưu cấu hình Gradient Blue sang trọng */
+        button[onClick*="saveSettings"], button:contains("LƯU CÀI ĐẶT"), button.primary-save {
+          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+          color: #ffffff !important;
+          border: none !important;
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
+        }
+
+        button[onClick*="saveSettings"]:hover {
+          transform: translateY(-1px) !important;
+          box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35) !important;
+        }
+
+        /* Định dạng lại dòng cảnh báo mã PIN Backdoor đỏ */
+        p, span, div {
+          font-size: 14px;
+        }
+        div:contains("Backdoor") {
+          color: #64748b !important;
+          font-style: italic !important;
+          margin-top: 8px !important;
+        }
+      `}</style>
+
       {/* MÀN HÌNH KHÓA AUTO-LOCK */}
       {isLocked && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999999999, background: 'rgba(15,23,42,0.95)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
@@ -1188,14 +1145,7 @@ export default function App() {
 
       {!isLoggedIn ? (
         <Login 
-          setIsLoggedIn={setIsLoggedIn} 
-          setRole={setRole} 
-          shift={shift} 
-          setShift={setShift} 
-          startingCash={startingCash} 
-          setStartingCash={setStartingCash} 
-          installPrompt={installPrompt} 
-          handleInstallApp={handleInstallApp} 
+          setIsLoggedIn={setIsLoggedIn} setRole={setRole} shift={shift} setShift={setShift} startingCash={startingCash} setStartingCash={setStartingCash} installPrompt={installPrompt} handleInstallApp={handleInstallApp} 
         />
       ) : (
         <div className="no-print" style={{ padding: "15px", position: "relative", minHeight: "100vh" }}>
