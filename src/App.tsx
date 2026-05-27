@@ -441,25 +441,32 @@ export default function App() {
   };
 
   const fetchProducts = async () => { 
-    const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false }); 
-    if (data) setProducts(data) 
-  };
-
-  const executeWithAdminCheck = (action: () => void) => { if (role === 'admin') { action(); } else { setPendingAction(() => action); setShowPinModal(true); } };
-  
-  const fetchSettingsFromCloud = async () => {
     try {
-      const { data } = await supabase.from("settings").select("*").eq("id", 1).single();
-      if (data) { 
-        setBankBin(data.bank_bin); setBankAcc(data.bank_acc); setBankNameStr(data.bank_name_str); setZaloPayId(data.zalopay_id || "");
-        setNewBankBin(data.bank_bin); setNewBankAcc(data.bank_acc); setNewBankNameStr(data.bank_name_str); setNewZaloPayId(data.zalopay_id || "");
-        if (data.admin_pin) setAdminPin(data.admin_pin); 
-        if (data.happy_hour_start) { setHappyStart(data.happy_hour_start); setNewHappyStart(data.happy_hour_start); } 
-        if (data.happy_hour_end) { setHappyEnd(data.happy_hour_end); setNewHappyEnd(data.happy_hour_end); } 
+      if (navigator.onLine) {
+        // KHI CÓ MẠNG: Lấy dữ liệu mới nhất từ Cloud
+        const { data, error } = await supabase.from("products").select("*").order("created_at", { ascending: false }); 
+        
+        if (data && !error) { 
+          setProducts(data);
+          // Lén lưu một bản copy vào ổ cứng máy tính để dùng lúc rớt mạng
+          await dbSet("mart_products_cache", data);
+        } else {
+          // Mạng chập chờn, lỗi truy vấn -> Lôi đồ dự phòng ra dùng
+          const localData = await dbGet("mart_products_cache");
+          if (localData) setProducts(localData);
+        }
+      } else {
+        // KHI MẤT MẠNG HÀN TOÀN: Bốc thẳng từ ổ cứng ra
+        console.log("Đang tải sản phẩm từ bộ nhớ Offline...");
+        const localData = await dbGet("mart_products_cache");
+        if (localData) setProducts(localData);
       }
-    } catch (err) {}
+    } catch (err) {
+      // Lỗi bất ngờ -> Vẫn ưu tiên lôi đồ dự phòng ra để không bị sập App
+      const localData = await dbGet("mart_products_cache");
+      if (localData) setProducts(localData);
+    }
   };
-
   const updateSettingsToCloud = async (bin: string, acc: string, nameStr: string, zaloId: string, hStart: string, hEnd: string) => {
     if (!navigator.onLine) return toast.error("Mất mạng! Không thể lưu cài đặt lên Cloud."); setLoading(true);
     try {
