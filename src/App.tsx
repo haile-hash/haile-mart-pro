@@ -51,9 +51,6 @@ import { Login } from "./components/auth/Login";
 import './styles/App.css';
 import './styles/Print.css';
 
-// =====================================================================
-// NATIVE INDEXEDDB ENGINE - HỆ THỐNG ENGINE LƯU TRỮ VÔ HẠN
-// =====================================================================
 const dbName = "HaileMartIndexedDB";
 const storeName = "kv_store";
 
@@ -107,13 +104,11 @@ export default function App() {
   const VAT_RATE = 0.1;
   const IDLE_TIMEOUT = 5 * 60 * 1000; 
 
-  // ==========================================
-  // BẢO MẬT API KEY (Dành cho Create React App)
-  // ==========================================
-  const EMAILJS_SERVICE_ID = process.env.REACT_APP_EMAILJS_SERVICE_ID || "";
-  const EMAILJS_TEMPLATE_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_ID || "";
-  const EMAILJS_TEMPLATE_VIP_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_VIP_ID || "";
-  const EMAILJS_PUBLIC_KEY = process.env.REACT_APP_EMAILJS_PUBLIC_KEY || "";
+  // ĐÃ VÁ LỖI EMAIL: Để trực tiếp key CÔNG KHAI tại đây, gửi mail mượt 100% không lo lỗi Vercel
+  const EMAILJS_SERVICE_ID = "service_7ie990l";
+  const EMAILJS_TEMPLATE_ID = "template_m1j9i7k";
+  const EMAILJS_TEMPLATE_VIP_ID = "template_t91erhg";
+  const EMAILJS_PUBLIC_KEY = "5ric0kxuwNPlUleAv";
 
   useEffect(() => { 
     if (EMAILJS_PUBLIC_KEY) {
@@ -121,9 +116,6 @@ export default function App() {
     }
   }, [EMAILJS_PUBLIC_KEY]);
 
-  // =====================================================================
-  // 1. TẤT CẢ STATES VÀ HOOKS
-  // =====================================================================
   const [isStorageLoading, setIsStorageLoading] = useState(true); 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
@@ -217,15 +209,8 @@ export default function App() {
   const { isOnline, syncStatus, syncAllOfflineData, loadCloudData } = useOfflineSync({ isLoggedIn, history, setHistory, customers, setCustomers, heldOrders, setHeldOrders, auditLogs, setAuditLogs, expenses, setExpenses, suppliers, setSuppliers });
   const isPrintingRef = useRef(false);
 
-  // =====================================================================
-  // 2. EFFECTS (VÒNG ĐỜI VÀ EVENT CHẠY NGẦM)
-  // =====================================================================
-
   useEffect(() => {
-    const handler = (e: any) => {
-      e.preventDefault();
-      setInstallPrompt(e);
-    };
+    const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e); };
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
@@ -234,29 +219,16 @@ export default function App() {
     if (!installPrompt) return;
     installPrompt.prompt();
     const { outcome } = await installPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setInstallPrompt(null);
-      toast.success("Cài đặt App thành công!");
-    }
+    if (outcome === 'accepted') { setInstallPrompt(null); toast.success("Cài đặt App thành công!"); }
   };
 
   useEffect(() => {
     if (!isLoggedIn || isLocked) return;
     let timeout: any;
-    const resetTimer = () => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => setIsLocked(true), IDLE_TIMEOUT);
-    };
-    window.addEventListener('mousemove', resetTimer);
-    window.addEventListener('keydown', resetTimer);
-    window.addEventListener('click', resetTimer);
+    const resetTimer = () => { clearTimeout(timeout); timeout = setTimeout(() => setIsLocked(true), IDLE_TIMEOUT); };
+    window.addEventListener('mousemove', resetTimer); window.addEventListener('keydown', resetTimer); window.addEventListener('click', resetTimer);
     resetTimer(); 
-    return () => {
-      clearTimeout(timeout);
-      window.removeEventListener('mousemove', resetTimer);
-      window.removeEventListener('keydown', resetTimer);
-      window.removeEventListener('click', resetTimer);
-    };
+    return () => { clearTimeout(timeout); window.removeEventListener('mousemove', resetTimer); window.removeEventListener('keydown', resetTimer); window.removeEventListener('click', resetTimer); };
   }, [isLoggedIn, isLocked]);
 
   useEffect(() => {
@@ -269,34 +241,14 @@ export default function App() {
       try {
         let isMigrated = await dbGet("mart_storage_migrated") === "true";
         if (!isMigrated) {
-          const keysToMigrate = [
-            "mart_logged_in", "mart_role", "mart_shift", "mart_starting_cash",
-            "mart_pos", "mart_customers", "mart_held_orders", "mart_audit",
-            "mart_expenses", "mart_suppliers", "mart_history"
-          ];
+          const keysToMigrate = ["mart_logged_in", "mart_role", "mart_shift", "mart_starting_cash", "mart_pos", "mart_customers", "mart_held_orders", "mart_audit", "mart_expenses", "mart_suppliers", "mart_history"];
           for (const key of keysToMigrate) {
             const localData = localStorage.getItem(key);
-            if (localData !== null) {
-              try {
-                if (localData.startsWith("[") || localData.startsWith("{")) { await dbSet(key, JSON.parse(localData)); } 
-                else { await dbSet(key, localData); }
-              } catch (e) { await dbSet(key, localData); }
-              localStorage.removeItem(key);
-            }
+            if (localData !== null) { try { if (localData.startsWith("[") || localData.startsWith("{")) { await dbSet(key, JSON.parse(localData)); } else { await dbSet(key, localData); } } catch (e) { await dbSet(key, localData); } localStorage.removeItem(key); }
           }
           await dbSet("mart_storage_migrated", "true");
         }
-        const loggedIn = await dbGet("mart_logged_in") === "true";
-        const savedRole = await dbGet("mart_role") || "staff";
-        const savedShift = await dbGet("mart_shift") || "Ca Sáng";
-        const savedCash = Number(await dbGet("mart_starting_cash") || 5000000);
-        const savedPOs = await dbGet("mart_pos") || [];
-        const savedCustomers = await dbGet("mart_customers") || {};
-        const savedHeld = await dbGet("mart_held_orders") || [];
-        const savedAudit = await dbGet("mart_audit") || [];
-        const savedExpenses = await dbGet("mart_expenses") || [];
-        const savedSuppliers = await dbGet("mart_suppliers") || [];
-        const savedHistory = await dbGet("mart_history") || [];
+        const loggedIn = await dbGet("mart_logged_in") === "true"; const savedRole = await dbGet("mart_role") || "staff"; const savedShift = await dbGet("mart_shift") || "Ca Sáng"; const savedCash = Number(await dbGet("mart_starting_cash") || 5000000); const savedPOs = await dbGet("mart_pos") || []; const savedCustomers = await dbGet("mart_customers") || {}; const savedHeld = await dbGet("mart_held_orders") || []; const savedAudit = await dbGet("mart_audit") || []; const savedExpenses = await dbGet("mart_expenses") || []; const savedSuppliers = await dbGet("mart_suppliers") || []; const savedHistory = await dbGet("mart_history") || [];
 
         setIsLoggedIn(loggedIn); setRole(savedRole); setShift(savedShift); setStartingCash(savedCash);
         setLocalPOs(savedPOs); setCustomers(savedCustomers); setHeldOrders(savedHeld);
@@ -426,10 +378,6 @@ export default function App() {
     }
   }, [showPOModal, poTab, localPOs]);
 
-  // =====================================================================
-  // 3. ACTION FUNCTIONS (HÀM XỬ LÝ)
-  // =====================================================================
-
   const addTransactionAndSync = async (logData: any) => {
     setHistory(prev => [logData, ...prev]);
     if (navigator.onLine) { try { await supabase.from("history").insert([logData]); } catch (err) {} }
@@ -546,15 +494,22 @@ export default function App() {
       const log = history.find(l => l.id === logId); 
       if (!log || (log.type !== 'BÁN' && log.type !== 'GHI NỢ')) return;
 
-      const existingRefunds = history.filter(h => h.type === 'TRẢ HÀNG' && h.time > log.time && h.name.includes(cleanName(log.name)));
-      const alreadyRefundedQty = existingRefunds.reduce((sum, h) => sum + Math.abs(h.qty), 0);
-      const remainingQtyToRefund = log.qty - alreadyRefundedQty;
+      const safeLogName = log.name ? cleanName(log.name) : "";
+      const existingRefunds = history.filter(h => {
+        const safeHName = h.name ? h.name : "";
+        return h.type === 'TRẢ HÀNG' && 
+               h.time > log.time && 
+               safeLogName !== "" && 
+               safeHName.includes(safeLogName);
+      });
+      const alreadyRefundedQty = existingRefunds.reduce((sum, h) => sum + Math.abs(h.qty || 0), 0);
+      const remainingQtyToRefund = (log.qty || 0) - alreadyRefundedQty;
 
       if (remainingQtyToRefund <= 0) {
         return toast.error("Đơn này đã được hoàn trả toàn bộ số lượng rồi!");
       }
 
-      const qtyInput = window.prompt(`Sản phẩm: ${cleanName(log.name)}\nSố lượng CÓ THỂ hoàn trả: ${remainingQtyToRefund}\n\nNhập SỐ LƯỢNG khách muốn trả lại:`, remainingQtyToRefund.toString()); 
+      const qtyInput = window.prompt(`Sản phẩm: ${safeLogName}\nSố lượng CÓ THỂ hoàn trả: ${remainingQtyToRefund}\n\nNhập SỐ LƯỢNG khách muốn trả lại:`, remainingQtyToRefund.toString()); 
       if (qtyInput === null) return; 
       
       const refundQty = parseInt(qtyInput); 
@@ -592,7 +547,7 @@ export default function App() {
         } 
       }
       
-      const lg = { id: Date.now(), shift, type: "TRẢ HÀNG", name: `HOÀN: ${cleanName(log.name)}`, qty: refundQty, total: -refundTotal, profit: -refundProfit, customer: log.customer, product_id: log.product_id, paymentMethod: selectedMethod, time: new Date().toLocaleString('vi-VN') };
+      const lg = { id: Date.now(), shift, type: "TRẢ HÀNG", name: `HOÀN: ${safeLogName}`, qty: refundQty, total: -refundTotal, profit: -refundProfit, customer: log.customer, product_id: log.product_id, paymentMethod: selectedMethod, time: new Date().toLocaleString('vi-VN') };
       await addTransactionAndSync(lg); 
       toast.success(`Đã hoàn đơn thành công!`); 
     }); 
@@ -883,13 +838,12 @@ export default function App() {
   const removeFromCart = (productId: any) => { setCart(cart.filter(item => item.product.id !== productId)) };
   const clearCart = () => { if (window.confirm("Hủy toàn bộ?")) { resetCheckout(); } };
 
-  // MODAL HANDLERS
   const handleSendMarketingEmail = async () => {
     if (!marketingMsg) return toast.error("Nhập nội dung!"); if (!window.confirm("Gửi?")) return; setLoading(true); 
     const targetCustomers = Object.keys(customers || {}).filter(phone => { const c = customers[phone]; if (!c || !c.email) return false; if (marketingTier === "Tất cả") return true; return getCustomerTier(c.totalSpent || 0).name.includes(marketingTier); });
     if (targetCustomers.length === 0) { setLoading(false); return toast.error("Không tìm thấy khách hàng!"); }
     let successCount = 0;
-    for (const phone of targetCustomers) { const c = customers[phone]; const htmlContent = `<div><h1>HẢI LÊ MART</h1><p>${marketingMsg}</p></div>`; try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_email: c.email, subject: "💌 Ưu Đãi Đặc Quyền Từ Hải Lê Mart", html_message: htmlContent }); successCount++; } catch (error: any) {} }
+    for (const phone of targetCustomers) { const c = customers[phone]; const htmlContent = `<div><h1>HẢI LÊ MART</h1><p>${marketingMsg}</p></div>`; try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { to_email: c.email, subject: "💌 Ưu Đãi Đặc Quyền Từ Hải Lê Mart", html_message: htmlContent }); successCount++; } catch (error: any) {} }
     logAudit("GỬI MAIL MKT", `Gửi ${successCount} mail`); setLoading(false); setShowMarketingModal(false); toast.success(`Đã gửi thành công!`);
   };
 
@@ -922,38 +876,23 @@ export default function App() {
     } catch (err: any) { toast.error("Lỗi"); } finally { setLoading(false); }
   };
 
-  // =====================================================================
-  // 4. MEMOS & TÍNH TOÁN CÔNG THỨC
-  // =====================================================================
+  // VÁ LỖI CÔNG THỨC TIỀN MẶT CHUẨN BAN ĐẦU
   const todayStrStr = new Date().toLocaleDateString('vi-VN');
-  
-  // TÍNH TOÁN CA LÀM ĐÃ BAO GỒM TRỪ CHI PHÍ
-  const currentShiftStats = useMemo(() => { 
-    const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStrStr && h.shift === shift); 
-    let cash = startingCash; let transfer = 0; let prof = 0; let totalSales = 0; 
-    shiftLogs.forEach(h => { 
-      if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += h.total; 
-      if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') { 
-        if (h.paymentMethod === 'CHUYỂN KHOẢN' || h.paymentMethod === 'QUẸT THẺ' || h.paymentMethod === 'ZALO PAY') { transfer += h.total; } 
-        else if (h.paymentMethod === 'TIỀN MẶT' || h.paymentMethod === 'KẾT HỢP' || h.paymentMethod === 'TRỪ NỢ' || h.paymentMethod === 'VÍ WALLET') {
-          let amountToAdd = h.total;
-          if(h.paymentMethod === 'KẾT HỢP' && h.split_cash) { 
-             amountToAdd = h.split_cash; 
-             transfer += (h.total - h.split_cash); 
-          }
-          cash += amountToAdd; 
+  const currentShiftStats = useMemo(() => {
+    const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStrStr && h.shift === shift);
+    let cash = 0; let transfer = 0; let prof = 0; let totalSales = 0;
+    shiftLogs.forEach(h => {
+      if (h.type === 'BÁN' || h.type === 'GHI NỢ') totalSales += h.total;
+      if (h.type === 'BÁN' || h.type === 'THU NỢ' || h.type === 'TRẢ HÀNG') {
+        if (h.paymentMethod === 'CHUYỂN KHOẢN' || h.paymentMethod === 'QUẸT THẺ' || h.paymentMethod === 'ZALO PAY') { transfer += h.total; }
+        else if (h.paymentMethod === 'TIỀN MẶT' || h.paymentMethod === 'KẾT HỢP') {
+          if(h.paymentMethod === 'KẾT HỢP' && h.split_cash) { cash += h.split_cash; transfer += (h.total - h.split_cash); } else { cash += h.total; }
         }
-      } 
-      prof += (h.profit || 0) 
-    }); 
-    
-    // TRỪ ĐI CHI PHÍ (EXPENSES) TRONG CA
-    const shiftExpenses = expenses.filter(e => e.date === todayStrStr);
-    const totalExpenses = shiftExpenses.reduce((sum, e) => sum + e.amount, 0);
-    cash -= totalExpenses;
-
-    return { rev: cash + transfer - startingCash, cash, transfer, prof, totalSales } 
-  }, [history, expenses, shift, todayStrStr, startingCash]);
+      }
+      prof += (h.profit || 0)
+    });
+    return { rev: cash + transfer, cash, transfer, prof, totalSales }
+  }, [history, shift, todayStrStr]);
 
   const currentShiftCashFlow = useMemo(() => {
     if (!cashFlowModalInfo) return { thu: [], chi: [] };
@@ -1060,9 +999,6 @@ export default function App() {
     return filtered
   }, [products, debouncedSearchTerm, selectedCategory, sortConfig, filters]);
 
-  // =====================================================================
-  // 5. CÁC HÀM GỬI EMAIL BÁO CÁO
-  // =====================================================================
   const handleSendEmailReport = async () => {
     const start = new Date(reportStartDate + "T00:00:00").getTime(); const end = new Date(reportEndDate + "T23:59:59").getTime(); 
     const logs = history.filter(log => { const t = new Date(Math.floor(log.id)).getTime(); return t >= start && t <= end; });
@@ -1095,9 +1031,6 @@ export default function App() {
     try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_email: adminEmail, subject: `🚨 Cảnh báo Tồn Kho & Hạn Sử Dụng`, html_message: htmlContent }); toast.success("Đã gửi cảnh báo kho!"); logAudit("CẢNH BÁO KHO", "Gửi email tồn kho"); } catch (error: any) { toast.error(`Lỗi gửi Email`); } setLoading(false);
   };
 
-  // =====================================================================
-  // 6. RENDER GIAO DIỆN (UI RENDER)
-  // =====================================================================
   const renderModals = () => {
     return (
       <>
@@ -1163,7 +1096,6 @@ export default function App() {
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
       <style>{styles}</style>
       
-      {/* MÀN HÌNH KHÓA AUTO-LOCK */}
       {isLocked && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999999999, background: 'rgba(15,23,42,0.95)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
           <h1 style={{ fontSize: '32px', marginBottom: '10px', color: '#ef4444' }}>🔒 MÀN HÌNH ĐÃ KHÓA</h1>
@@ -1195,16 +1127,7 @@ export default function App() {
       {renderModals()}
 
       {!isLoggedIn ? (
-        <Login 
-          setIsLoggedIn={setIsLoggedIn} 
-          setRole={setRole} 
-          shift={shift} 
-          setShift={setShift} 
-          startingCash={startingCash} 
-          setStartingCash={setStartingCash} 
-          installPrompt={installPrompt} 
-          handleInstallApp={handleInstallApp} 
-        />
+        <Login setIsLoggedIn={setIsLoggedIn} setRole={setRole} shift={shift} setShift={setShift} startingCash={startingCash} setStartingCash={setStartingCash} installPrompt={installPrompt} handleInstallApp={handleInstallApp} />
       ) : (
         <div className="no-print" style={{ padding: "15px", position: "relative", minHeight: "100vh" }}>
           <div style={{ maxWidth: "1500px", margin: "0 auto", minWidth: "1000px" }}>
