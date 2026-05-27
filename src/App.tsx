@@ -460,9 +460,9 @@ export default function App() {
     const note = window.prompt("Nhập ghi chú (Tên khách/Bàn...):", "");
     if (note === null) return;
     
-    const newHeldOrder: HeldOrder = { id: Date.now(), time: new Date().toLocaleTimeString('vi-VN'), note: note || "Không có ghi chú", items: cart };
+    const newHeldOrder: HeldOrder = { id: Date.now(), time: new Date().toLocaleTimeString('vi-VN'), note: note || "Không có ghi chú", items: [...cart] };
     setHeldOrders(prev => [newHeldOrder, ...prev]);
-    resetCheckout();
+    resetCheckout(); // Giải phóng giỏ hàng chính để tiếp tục làm việc, không làm trắng màn hình.
     toast.success("Đã lưu đơn tạm giữ!");
   };
 
@@ -520,6 +520,9 @@ export default function App() {
   const confirmCheckout = (paymentMethod: string) => {
     if (cart.length === 0) return toast.error("Giỏ hàng trống!");
     
+    // Tạo cấu trúc dữ liệu bản sao giỏ hàng lưu vào lastOrder để in hóa đơn đầy đủ dữ liệu
+    const orderItemsBackup = [...cart];
+    
     cart.forEach(item => {
       addTransactionAndSync({
         id: Date.now() + Math.random(), shift, type: "BÁN", name: item.product.name,
@@ -529,10 +532,12 @@ export default function App() {
     });
 
     logAudit("BÁN HÀNG", `Hóa đơn: ${cartTotalAmountDisplay}đ - ${paymentMethod}`);
-    setLastOrder({ items: cart, total: finalToPay, method: paymentMethod, customer: custName, time: new Date().toLocaleString('vi-VN') });
+    
+    // Gán đầy đủ dữ liệu bản sao giỏ hàng thay vì gán cart (vốn sắp bị resetCheckout xóa sạch)
+    setLastOrder({ items: orderItemsBackup, total: finalToPay, method: paymentMethod, customer: custName || "Khách lẻ", time: new Date().toLocaleString('vi-VN') });
     
     toast.success("Thanh toán thành công!");
-    setPrintMode('receipt_thermal');
+    setPrintMode('receipt_thermal'); // Kích hoạt chế độ in bill nhiệt K80 mặc định sau thanh toán
     resetCheckout();
     setIsCheckoutOpen(false);
   };
@@ -593,6 +598,7 @@ export default function App() {
   };
 
   const printCustomerCard = (customer: any) => { 
+      if(!customer) return toast.error("Dữ liệu khách hàng không hợp lệ!");
       setPrintCustomer(customer); 
       setPrintMode('customer'); 
   };
@@ -623,17 +629,59 @@ export default function App() {
     toast.success("Đã bàn giao ca!"); setShowHandoverModal(false); setIsLoggedIn(false);
   };
 
+  // SỬA LỖI HOÀN ĐƠN: Hỏi rõ số lượng và hình thức thanh toán hoàn trả tiền
   const handleRefund = (log: any) => {
     executeWithAdminCheck(() => {
-      if(window.confirm(`Bạn muốn hoàn tiền đơn hàng ${log.name}?`)) {
-        addTransactionAndSync({ id: Date.now(), shift, type: "TRẢ HÀNG", name: log.name, qty: log.qty, total: -log.total, paymentMethod: log.paymentMethod, time: new Date().toLocaleString('vi-VN') });
-        toast.success("Đã hoàn tiền!");
+      // 1. Hỏi số lượng cần hoàn trả
+      const refundQtyStr = window.prompt(`Đơn hàng gốc mua ${log.qty} sản phẩm. Nhập số lượng bạn muốn hoàn trả:`, log.qty.toString());
+      if (refundQtyStr === null) return; // Người dùng ấn Hủy
+      const refundQty = parseInt(refundQtyStr);
+      if (isNaN(refundQty) || refundQty <= 0 || refundQty > log.qty) {
+        return toast.error("Số lượng hoàn trả không hợp lệ hoặc vượt quá số lượng mua gốc!");
+      }
+
+      // 2. Hỏi hình thức hoàn tiền
+      const methodChoice = window.prompt(`Nhập hình thức hoàn tiền (Gõ 1 cho TIỀN MẶT, Gõ 2 cho CHUYỂN KHOẢN):`, "1");
+      if (methodChoice === null) return;
+      let refundMethod = "TIỀN MẶT";
+      if (methodChoice.trim() === "2") {
+        refundMethod = "CHUYỂN KHOẢN";
+      }
+
+      // Tính số tiền hoàn tương ứng tỉ lệ số lượng hoàn
+      const baseSinglePrice = log.total / log.qty;
+      const refundTotalAmount = Math.round(baseSinglePrice * refundQty);
+
+      if (window.confirm(`Xác nhận hoàn [${refundQty} sản phẩm] ${log.name} với số tiền ${refundTotalAmount.toLocaleString()}đ bằng [${refundMethod}]?`)) {
+        addTransactionAndSync({ 
+          id: Date.now(), 
+          shift, 
+          type: "TRẢ HÀNG", 
+          name: `${log.name} (Hoàn trả)`, 
+          qty: refundQty, 
+          total: -refundTotalAmount, 
+          paymentMethod: refundMethod, 
+          time: new Date().toLocaleString('vi-VN'),
+          customer: log.customer || "Khách lẻ"
+        });
+        toast.success(`Đã hoàn tiền ${refundTotalAmount.toLocaleString()}đ thành công!`);
       }
     });
   };
 
-  const handleReprint = (time: string, type: 'receipt_thermal' | 'receipt_a4') => {
-    toast.success("Đang in lại..."); setPrintMode(type);
+  // SỬA LỖI IN LẠI: Đồng bộ chính xác log gốc truyền vào để PrintManager đọc dữ liệu hiển thị
+  const handleReprint = (log: any, type: 'receipt_thermal' | 'receipt_a4') => {
+    if (!log) return toast.error("Không tìm thấy dữ liệu hóa đơn!");
+    // Khôi phục cấu trúc đối tượng hóa đơn giống lúc vừa thanh toán xong để in ấn mẫu
+    setLastOrder({
+      items: [{ product: { name: log.name, sale_price: log.total / log.qty }, qty: log.qty, total: log.total }],
+      total: log.total,
+      method: log.paymentMethod,
+      customer: log.customer || "Khách lẻ",
+      time: log.time || new Date().toLocaleString('vi-VN')
+    });
+    setPrintMode(type);
+    toast.success("Đang tiến hành lệnh in lại...");
   };
 
   const updateSettingsToCloud = async (bin: string, acc: string, nameStr: string, zaloId: string, hStart: string, hEnd: string, pin: string) => {
@@ -782,7 +830,14 @@ export default function App() {
     }); 
   };
 
-  const handlePrintBarcode = (p: any) => { const q = window.prompt(`SL tem in:`, "30"); if (q && parseInt(q) > 0) { setPrintBarcodeProduct(p); setBarcodeCount(parseInt(q)); setPrintMode('barcode'); } };
+  const handlePrintBarcode = (p: any) => { 
+    const q = window.prompt(`SL tem in:`, "30"); 
+    if (q && parseInt(q) > 0) { 
+      setPrintBarcodeProduct(p); 
+      setBarcodeCount(parseInt(q)); 
+      setPrintMode('barcode'); 
+    } 
+  };
   const downloadSampleCSV = () => { try { const csv = "\uFEFFMã SP,Tên SP,Danh Mục,Giá Nhập,Giá Bán,Giá KM,ĐK Tặng,Quà Tặng,Số Lượng,Hạn Sử Dụng\nSP001,Mì Hảo Hảo,Đồ ăn liền,3000,5000,0,1,,100,2026-12-31"; const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Mau_Nhap_Kho.csv`; document.body.appendChild(link); link.click(); document.body.removeChild(link); } catch(e) {} };
   const exportToCSV = () => { let csv = "\uFEFFGiờ,Ca,Loại,Hình thức,Khách,Sản phẩm,SL,Tổng,Lợi nhuận\n"; history.forEach(log => { csv += `${new Date(Math.floor(log.id)).toLocaleString('vi-VN')},${log.shift || ""},${log.type},${log.paymentMethod || ""},${log.customer || "Khách lẻ"},${log.name},${log.qty},${Math.round(log.total)},${Math.round(log.profit || 0)}\n`; }); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Bao_Cao_Ban_Hang.csv`; link.click(); };
   const exportAuditToCSV = () => { let csv = "\uFEFFThời gian,Người dùng,Ca,Hành động,Chi tiết\n"; auditLogs.forEach(log => { csv += `${log.time},${log.user_name},${log.shift},${log.action},"${(log.detail || "")}"\n`; }); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Nhat_Ky.csv`; link.click(); };
@@ -1146,7 +1201,7 @@ const handleSendMarketingEmail = async () => {
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                 <CartPanel cart={cart} custName={custName} heldOrders={heldOrders} cartTotalAmountDisplay={cartTotalAmountDisplay} setShowHoldModal={setShowHoldModal} handleHoldOrder={handleHoldOrder} clearCart={clearCart} setCustName={setCustName} setCustPhone={setCustPhone} setCustomerInput={setCustomerInput} setIsCheckoutOpen={setIsCheckoutOpen} setCheckoutStep={setCheckoutStep} adjustCartQty={adjustCartQty} handleDirectQtyChange={handleDirectQtyChange} handleDirectQtyBlur={handleDirectQtyBlur} removeFromCart={removeFromCart} />
-                <HistoryPanel logSearchTerm={logSearchTerm} setLogSearchTerm={setLogSearchTerm} logTypeFilter={logTypeFilter} setLogTypeFilter={setLogTypeFilter} exportToCSV={exportToCSV} groupedHistory={groupedHistory} expandedDates={expandedDates} toggleDateGroup={toggleDateGroup} handleRefund={handleRefund} onPrintK80={(log) => handleReprint(log.time, 'receipt_thermal')} onPrintA4={(log) => handleReprint(log.time, 'receipt_a4')} />
+                <HistoryPanel logSearchTerm={logSearchTerm} setLogSearchTerm={setLogSearchTerm} logTypeFilter={logTypeFilter} setLogTypeFilter={setLogTypeFilter} exportToCSV={exportToCSV} groupedHistory={groupedHistory} expandedDates={expandedDates} toggleDateGroup={toggleDateGroup} handleRefund={handleRefund} onPrintK80={(log) => handleReprint(log, 'receipt_thermal')} onPrintA4={(log) => handleReprint(log, 'receipt_a4')} />
               </div>
             </div>
           </div>
