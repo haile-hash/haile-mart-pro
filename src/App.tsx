@@ -677,7 +677,7 @@ export default function App() {
   const clearCart = () => { if (window.confirm("Hủy toàn bộ hàng trong giỏ?")) { resetCheckout(); } };
 
   // =====================================================================
-  // HỆ THỐNG CÁC HÀM SỬA LỖI TRẮNG MÀN HÌNH & CHUẨN HÓA LOGIC
+  // HỆ THỐNG CÁC HÀM SỬA LỖI TRẤNG MÀN HÌNH & CHUẨN HÓA LOGIC
   // =====================================================================
   const confirmCheckout = async (method: string) => {
     if (cart.length === 0) return toast.error("Giỏ hàng trống!");
@@ -838,7 +838,7 @@ export default function App() {
     const shiftLogs = history.filter(h => new Date(Math.floor(h.id)).toLocaleDateString('vi-VN') === todayStrStr && h.shift === shift);
     const thu: any[] = []; const chi: any[] = [];
     shiftLogs.forEach(h => {
-      if (h.paymentMethod === cashFlowModalInfo || (cashFlowModalInfo === 'CHUYỂN KHOẢN' && (h.paymentMethod === 'QURET THẺ' || h.paymentMethod === 'ZALO PAY')) || h.paymentMethod === 'KẾT HỢP') {
+      if (h.paymentMethod === cashFlowModalInfo || (cashFlowModalInfo === 'CHUYỂN KHOẢN' && (h.paymentMethod === 'QUẸT THẺ' || h.paymentMethod === 'ZALO PAY')) || h.paymentMethod === 'KẾT HỢP') {
         let amount = h.total; if (h.paymentMethod === 'KẾT HỢP') { amount = cashFlowModalInfo === 'TIỀN MẶT' ? (h.split_cash || 0) : (h.total - (h.split_cash || 0)); }
         if (amount === 0) return;
         if (h.type === 'BÁN' || h.type === 'THU NỢ') { if (amount > 0) thu.push({ time: h.time, note: `${h.type} - ${cleanName(h.name)}`, amount: amount }); } 
@@ -938,6 +938,9 @@ export default function App() {
     return filtered
   }, [products, debouncedSearchTerm, selectedCategory, sortConfig, filters]);
 
+  // =====================================================================
+  // 5. CÁC HÀM GỬI EMAIL BÁO CÁO
+  // =====================================================================
   const handleSendEmailReport = async () => {
     const start = new Date(reportStartDate + "T00:00:00").getTime(); const end = new Date(reportEndDate + "T23:59:59").getTime(); 
     const logs = history.filter(log => { const t = new Date(Math.floor(log.id)).getTime(); return t >= start && t <= end; });
@@ -955,7 +958,7 @@ export default function App() {
     });
     let adminEmail = window.prompt("Nhập Email Quản lý:", ""); if(!adminEmail) return; adminEmail = adminEmail.trim(); 
     setLoading(true); 
-    const htmlContent = `<div style="font-family: Arial; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0;"><div style="background: #3b82f6; color: white; padding: 20px; text-align: center;"><h1>HẢI LÊ MART</h1><p>BÁO CÁO DOANH THU</p></div><div style="padding: 20px; background: #ffffff;"><h2>Kỳ: ${reportStartDate} đến ${reportEndDate}</h2><table style="width: 100%; border-collapse: collapse;"><tbody><tr><td style="padding: 10px;">Tổng SP đã bán:</td><td style="padding: 10px; text-align: right;">${sold} món</td></tr><tr><td style="padding: 10px;">Doanh thu Tiền Mặt:</td><td style="padding: 10px; text-align: right; color: #10b981;">${Math.round(cash).toLocaleString()}đ</td></tr><tr><td style="padding: 10px;">Doanh thu CK/Thẻ:</td><td style="padding: 10px; text-align: right; color: #3b82f6;">${Math.round(transfer).toLocaleString()}đ</td></tr><tr><td style="padding: 10px;"> font-weight: bold;">TỔNG LỢI NHUẬN:</td><td style="padding: 10px; text-align: right; font-weight: bold; color: #ef4444;">${Math.round(prof).toLocaleString()}đ</td></tr></tbody></table></div></div>`;
+    const htmlContent = `<div style="font-family: Arial; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0;"><div style="background: #3b82f6; color: white; padding: 20px; text-align: center;"><h1>HẢI LÊ MART</h1><p>BÁO CÁO DOANH THU</p></div><div style="padding: 20px; background: #ffffff;"><h2>Kỳ: ${reportStartDate} đến ${reportEndDate}</h2><table style="width: 100%; border-collapse: collapse;"><tbody><tr><td style="padding: 10px;">Tổng SP đã bán:</td><td style="padding: 10px; text-align: right;">${sold} món</td></tr><tr><td style="padding: 10px;">Doanh thu Tiền Mặt:</td><td style="padding: 10px; text-align: right; color: #10b981;">${Math.round(cash).toLocaleString()}đ</td></tr><tr><td style="padding: 10px;">Doanh thu CK/Thẻ:</td><td style="padding: 10px; text-align: right; color: #3b82f6;">${Math.round(transfer).toLocaleString()}đ</td></tr><tr><td style="padding: 10px; font-weight: bold;">TỔNG LỢI NHUẬN:</td><td style="padding: 10px; text-align: right; font-weight: bold; color: #ef4444;">${Math.round(prof).toLocaleString()}đ</td></tr></tbody></table></div></div>`;
     try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_email: adminEmail, subject: `📊 Báo cáo doanh thu ${reportStartDate} - ${reportEndDate}`, html_message: htmlContent }); logAudit("GỬI BÁO CÁO", `Tới ${adminEmail}`); toast.success("Đã gửi Báo cáo!"); } catch (error: any) { toast.error(`Lỗi gửi Email`); } setLoading(false);
   };
 
@@ -1038,77 +1041,55 @@ export default function App() {
     <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
       <style>{styles}</style>
       
-      {/* LAYER PHONG CÁCH HIỆN ĐẠI HÓA (XÓA BỎ GIAO DIỆN 9X) */}
+      {/* LỚP LÀM ĐẸP AN TOÀN (THAY THẾ LỚP LÀM VỠ LAYOUT LƯỢT TRƯỚC) */}
       <style>{`
-        /* Reset & Định dạng toàn bộ Layout Cài đặt */
-        div:has(> h2:contains("CÀI ĐẶT")), .settings-modal, .glass-modal, form fieldset {
-          font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif !important;
-          background: #f8fafc !important; /* Đổi màu nền vàng cũ thành xám Slate dịu mắt */
-        }
-        
-        /* Chuyển các panel cài đặt thành các khối Thẻ SaaS bo góc tinh tế */
-        div[style*="border: 1px solid"] {
-          background: #ffffff !important;
-          border: 1px solid #e2e8f0 !important;
-          border-radius: 12px !important;
-          padding: 24px !important;
-          margin-bottom: 20px !important;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
+        /* Đổi màu nền vàng thô thiển của khối cài đặt gốc thành màu Premium Slate mượt mắt */
+        div:has(> h2), div[style*="background-color"], fieldset {
+          font-family: 'Inter', -apple-system, sans-serif !important;
+          background-color: #f8fafc !important; 
         }
 
-        /* Nâng cấp toàn bộ ô Input, Textbox và ô chọn Time */
+        /* Làm mịn và thẩm mỹ hóa các ô nhập liệu (Input/Time) mà KHÔNG thay đổi kích thước hay cấu hình Flexbox */
         input[type="text"], input[type="password"], input[type="number"], input[type="time"] {
-          height: 42px !important;
-          background: #ffffff !important;
+          background-color: #ffffff !important;
           border: 1px solid #cbd5e1 !important;
           border-radius: 8px !important;
-          padding: 8px 16px !important;
-          font-size: 14px !important;
           color: #0f172a !important;
           font-weight: 500 !important;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-          box-shadow: inset 0 1px 2px rgba(0,0,0,0.02) !important;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
         }
 
-        /* Hiệu ứng Focus viền xanh Neon mờ khi click nhập liệu */
+        /* Tạo viền phát sáng xanh dịu khi click trỏ chuột vào ô nhập liệu */
         input:focus {
-          border-color: #2563eb !important;
-          box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15) !important;
+          border-color: #3b82f6 !important;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2) !important;
           outline: none !important;
         }
 
-        /* Tân trang các nút hành động (Lưu cài đặt / Hủy) */
-        button, .btn-action {
-          height: 42px !important;
-          border-radius: 8px !important;
-          font-weight: 600 !important;
-          font-size: 14px !important;
-          padding: 0 24px !important;
-          transition: all 0.2s ease !important;
-          cursor: pointer !important;
-        }
-
-        /* Nút Lưu cấu hình Gradient Blue sang trọng */
-        button[onClick*="saveSettings"], button:contains("LƯU CÀI ĐẶT"), button.primary-save {
-          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+        /* Thiết kế nút "Lưu Cài Đặt" thành dạng nút bấm Hiện đại */
+        button:contains("LƯU"), button[onClick*="saveSettings"], button.primary-save {
+          background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
           color: #ffffff !important;
           border: none !important;
-          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
+          border-radius: 8px !important;
+          font-weight: 600 !important;
+          box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3) !important;
+          cursor: pointer !important;
+          transition: transform 0.1s ease !important;
+        }
+        button[onClick*="saveSettings"]:active {
+          transform: scale(0.98) !important;
         }
 
-        button[onClick*="saveSettings"]:hover {
-          transform: translateY(-1px) !important;
-          box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35) !important;
-        }
-
-        /* Định dạng lại dòng cảnh báo mã PIN Backdoor đỏ */
-        p, span, div {
-          font-size: 14px;
-        }
-        div:contains("Backdoor") {
-          color: #64748b !important;
-          font-style: italic !important;
-          margin-top: 8px !important;
+        /* Nút Đóng (x) ở góc trên bên trái mượt mà hơn */
+        button[onClick*="setShowSettings"], button:contains("x") {
+          background: #ef4444 !important;
+          color: white !important;
+          border: none !important;
+          border-radius: 6px !important;
+          font-weight: bold !important;
+          cursor: pointer !important;
         }
       `}</style>
 
