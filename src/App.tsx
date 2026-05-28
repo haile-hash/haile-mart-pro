@@ -735,14 +735,27 @@ export default function App() {
   };
 
   const handleReprint = (timeStr: string, mode: 'receipt_thermal' | 'receipt_a4') => {
-    const logsInBill = history.filter(h => h.time === timeStr && (h.type === 'BÁN' || h.type === 'GHI NỢ' || h.type === 'TRẢ HÀNG') && h.product_id !== 'DISCOUNT'); const discountLog = history.find(h => h.time === timeStr && h.product_id === 'DISCOUNT'); if(logsInBill.length === 0) return toast.error("Lỗi hóa đơn!");
-    const isRefundSlip = logsInBill[0].type === 'TRẢ HÀNG'; const reconstructedCart = logsInBill.map(l => ({ qty: Math.abs(l.qty || 1), product: { name: l.name.replace("HOÀN: ", ""), gift_info: null, isHappyHour: String(l.name).includes('[Giờ Vàng]') }, priceIncludingVat: Math.abs(l.total) / Math.abs(l.qty || 1) }));
+    const logsInBill = history.filter(h => h.time === timeStr && (h.type === 'BÁN' || h.type === 'GHI NỢ' || h.type === 'TRẢ HÀNG') && h.product_id !== 'DISCOUNT'); 
+    const discountLog = history.find(h => h.time === timeStr && h.product_id === 'DISCOUNT'); 
+    if(logsInBill.length === 0) return toast.error("Lỗi hóa đơn!");
+    
+    // BỌC GIÁP: Nhận diện đây là bill HOÀN HÀNG hay BÁN HÀNG
+    const isRefundSlip = logsInBill[0].type === 'TRẢ HÀNG'; 
+    
+    const reconstructedCart = logsInBill.map(l => ({ qty: Math.abs(l.qty || 1), product: { name: l.name.replace("HOÀN: ", ""), gift_info: null, isHappyHour: String(l.name).includes('[Giờ Vàng]') }, priceIncludingVat: Math.abs(l.total) / Math.abs(l.qty || 1) }));
     const subTotal = reconstructedCart.reduce((s, i) => s + (i.qty * (i.priceIncludingVat / (1 + VAT_RATE))), 0); const vatTotal = Math.round(subTotal * VAT_RATE); const discount = discountLog ? Math.abs(discountLog.total) : 0; const finalTotal = logsInBill.reduce((sum, l) => sum + Math.abs(l.total), 0) - discount; 
     let cPhone = ""; let cName = logsInBill[0].customer; if (cName && cName !== "Khách lẻ") { const match = cName.match(/\((.*?)\)/); if (match && match[1]) { cPhone = match[1]; cName = cName.replace(` (${cPhone})`, "").trim(); } else { cPhone = cName; } }
-    const rOrder = { orderId: logsInBill[0].order_id || (isRefundSlip ? "PHIẾU_TRẢ_HÀNG" : "HD_COPY"), shift: logsInBill[0].shift, cart: reconstructedCart, subTotal, vatTotal, finalTotal, debtAmount: logsInBill[0].type === 'GHI NỢ' ? finalTotal : 0, discount, time: timeStr, paymentMethod: logsInBill[0].paymentMethod, customerGiven: 0, custName: cName || "Khách lẻ", custPhone: cPhone };
+    
+    const rOrder = { 
+      orderId: logsInBill[0].order_id || (isRefundSlip ? "PHIẾU_TRẢ_HÀNG" : "HD_COPY"), 
+      shift: logsInBill[0].shift, cart: reconstructedCart, subTotal, vatTotal, finalTotal, 
+      debtAmount: logsInBill[0].type === 'GHI NỢ' ? finalTotal : 0, discount, time: timeStr, 
+      paymentMethod: logsInBill[0].paymentMethod, customerGiven: 0, custName: cName || "Khách lẻ", custPhone: cPhone, 
+      isRefund: isRefundSlip // TÍNH NĂNG MỚI: Báo cho máy in biết đây là phiếu Hoàn
+    };
+    
     setLastOrder(rOrder); setPrintMode(mode); logAudit("IN LẠI HÓA ĐƠN", `HĐ lúc ${timeStr}`);
   };
-
   const sendReceiptEmail = async () => {
     if (!lastOrder) return; 
     let savedEmail = customersData?.[lastOrder.custPhone]?.email || ""; 
