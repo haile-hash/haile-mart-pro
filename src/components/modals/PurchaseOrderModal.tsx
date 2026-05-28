@@ -19,42 +19,64 @@ interface PurchaseOrderModalProps {
   loading: boolean;
 }
 
-export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({ showModal, setShowModal, suppliers, products, handleSavePO, loading }) => {
+export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({ 
+  showModal, 
+  setShowModal, 
+  suppliers = [], 
+  products = [], 
+  handleSavePO, 
+  loading 
+}) => {
   const [selectedSupId, setSelectedSupId] = useState("");
   const [poItems, setPoItems] = useState<POItem[]>([]);
   const [searchProd, setSearchProd] = useState("");
   const [paidAmountStr, setPaidAmountStr] = useState("");
   const [note, setNote] = useState("");
 
-  const totalAmount = poItems.reduce((sum, item) => sum + (item.qty * item.importPrice), 0);
-  const paidAmount = parseInt(paidAmountStr.replace(/[,.]/g, '')) || 0;
+  const totalAmount = useMemo(() => {
+    return (poItems || []).reduce((sum, item) => sum + ((item?.qty || 0) * (item?.importPrice || 0)), 0);
+  }, [poItems]);
+
+  const paidAmount = useMemo(() => {
+    const cleanStr = String(paidAmountStr || "").replace(/[,.]/g, '');
+    return parseInt(cleanStr) || 0;
+  }, [paidAmountStr]);
+
   const debtAmount = totalAmount - paidAmount;
 
   const filteredProducts = useMemo(() => {
-    if (!searchProd.trim()) return [];
-    const term = searchProd.toLowerCase();
-    return products.filter(p => p.name.toLowerCase().includes(term) || p.product_code.toLowerCase().includes(term)).slice(0, 10);
+    if (!searchProd || !searchProd.trim()) return [];
+    const term = searchProd.toLowerCase().trim();
+    return (products || [])
+      .filter(p => 
+        String(p?.name || "").toLowerCase().includes(term) || 
+        String(p?.product_code || "").toLowerCase().includes(term)
+      )
+      .slice(0, 10);
   }, [searchProd, products]);
 
   const addProductToPO = (p: Product) => {
-    if (poItems.find(item => item.product.id === p.id)) {
-      toast.error("Sản phẩm đã có trong phiếu!"); return;
+    if (!p) return;
+    if ((poItems || []).find(item => item?.product?.id === p.id)) {
+      toast.error("Sản phẩm đã có trong phiếu!"); 
+      return;
     }
     setPoItems([...poItems, { product: p, qty: 1, importPrice: p.import_price || 0 }]);
     setSearchProd("");
   };
 
   const updateItem = (id: any, field: 'qty' | 'importPrice', val: string) => {
-    const num = parseInt(val.replace(/[,.]/g, '')) || 0;
-    setPoItems(poItems.map(item => item.product.id === id ? { ...item, [field]: num } : item));
+    const cleanStr = String(val || "").replace(/[,.]/g, '');
+    const num = parseInt(cleanStr) || 0;
+    setPoItems((poItems || []).map(item => item?.product?.id === id ? { ...item, [field]: num } : item));
   };
 
-  const removeItem = (id: any) => setPoItems(poItems.filter(i => i.product.id !== id));
+  const removeItem = (id: any) => setPoItems((poItems || []).filter(i => i?.product?.id !== id));
 
   const onSubmit = () => {
     if (!selectedSupId) return toast.error("Vui lòng chọn Nhà cung cấp!");
-    if (poItems.length === 0) return toast.error("Phiếu nhập chưa có sản phẩm nào!");
-    const supplier = suppliers.find(s => String(s.id) === selectedSupId);
+    if (!poItems || poItems.length === 0) return toast.error("Phiếu nhập chưa có sản phẩm nào!");
+    const supplier = (suppliers || []).find(s => String(s?.id) === selectedSupId);
     if (!supplier) return;
     handleSavePO(supplier, poItems, totalAmount, paidAmount, note).then(() => {
       setSelectedSupId(""); setPoItems([]); setPaidAmountStr(""); setNote("");
@@ -64,21 +86,40 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({ showModa
   if (!showModal) return null;
 
   return (
-    <div className="no-print" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(15, 23, 42, 0.6)", backdropFilter: "blur(4px)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999, fontFamily: "'Inter', sans-serif" }} onClick={() => setShowModal(false)}>
-      <div className="glass" style={{ padding: "0", width: "950px", maxHeight: "90vh", borderRadius: "16px", display: "flex", flexDirection: "column", background: "#ffffff", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)" }} onClick={e => e.stopPropagation()}>
-        
+    <div 
+      className="no-print" 
+      style={{ 
+        position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.6)", 
+        backdropFilter: "blur(4px)", display: "flex", justifyContent: "center", 
+        alignItems: "center", zIndex: 9999, fontFamily: "'Inter', sans-serif" 
+      }} 
+      onClick={() => setShowModal(false)}
+    >
+      <div 
+        className="glass" 
+        style={{ 
+          padding: "0", width: "950px", maxWidth: "95vw", maxHeight: "90vh", 
+          borderRadius: "16px", display: "flex", flexDirection: "column", 
+          background: "#ffffff", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)" 
+        }} 
+        onClick={e => e.stopPropagation()}
+      >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid #f1f5f9", background: "#ffffff", borderRadius: "16px 16px 0 0" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <div style={{ background: "#eff6ff", color: "#2563eb", padding: "8px", borderRadius: "10px" }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="21 8 21 21 3 21 3 8"></polyline>
+                <rect x="1" y="3" width="22" height="5"></rect>
+                <line x1="10" y1="12" x2="14" y2="12"></line>
+              </svg>
             </div>
             <h2 style={{ margin: 0, color: "#0f172a", fontSize: "20px", fontWeight: "800" }}>TẠO PHIẾU NHẬP HÀNG (PO)</h2>
           </div>
-          <button onClick={() => setShowModal(false)} style={{ background: "#f1f5f9", border: "none", borderRadius: "50%", width: "32px", height: "32px", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer", color: "#64748b" }}>✖</button>
+          <button onClick={() => setShowModal(false)} style={{ background: "#f1f5f9", border: "none", borderRadius: "50%", width: "32px", height: "32px", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer", color: "#64748b" }}>&times;</button>
         </div>
 
         <div style={{ padding: "24px", overflowY: "auto", overflowX: "hidden", display: "flex", flexDirection: "column", gap: "20px", background: "#fafafa" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", width: "100%" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "20px", width: "100%" }}>
             <div style={{ background: "#ffffff", padding: "20px", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
                 <span style={{ background: "#1e293b", color: "#fff", width: "22px", height: "22px", display: "flex", justifyContent: "center", alignItems: "center", borderRadius: "50%", fontSize: "12px", fontWeight: "bold" }}>1</span>
@@ -86,7 +127,7 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({ showModa
               </div>
               <select value={selectedSupId} onChange={e => setSelectedSupId(e.target.value)} style={{ boxSizing: "border-box", width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", marginBottom: "12px", fontWeight: "600", background: "#f8fafc", fontFamily: "'Inter', sans-serif" }}>
                 <option value="">-- Chọn Nhà Cung Cấp --</option>
-                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name} - {s.phone} (Nợ: {(s.debt || 0).toLocaleString()}đ)</option>)}
+                {(suppliers || []).map(s => <option key={s.id} value={s.id}>{s.name} - {s.phone} (Nợ: {(Number(s.debt) || 0).toLocaleString()}đ)</option>)}
               </select>
               <textarea placeholder="Ghi chú phiếu nhập..." value={note} onChange={e => setNote(e.target.value)} style={{ boxSizing: "border-box", width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", height: "70px", resize: "none", background: "#f8fafc", fontFamily: "'Inter', sans-serif" }} />
             </div>
@@ -112,8 +153,8 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({ showModa
             </div>
           </div>
 
-          <div style={{ background: "#ffffff", borderRadius: "12px", border: "1px solid #e2e8f0", overflow: "hidden" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
+          <div style={{ background: "#ffffff", borderRadius: "12px", border: "1px solid #e2e8f0", overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px", minWidth: "600px" }}>
               <thead style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
                 <tr>
                   <th style={{ padding: "14px", textAlign: "left", color: "#475569" }}>Sản phẩm</th>
@@ -126,15 +167,15 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({ showModa
               <tbody>
                 {poItems.length === 0 ? <tr><td colSpan={5} style={{ textAlign: "center", padding: "40px", color: "#94a3b8" }}>Chưa có sản phẩm nào.</td></tr> : poItems.map((item, idx) => (
                   <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                    <td style={{ padding: "12px 14px", fontWeight: "600" }}>{item.product.name}</td>
+                    <td style={{ padding: "12px 14px", fontWeight: "600" }}>{item?.product?.name || "Sản phẩm không rõ"}</td>
                     <td style={{ padding: "12px 14px", textAlign: "center" }}>
                       <input type="number" min="1" value={item.qty || ""} onChange={e => updateItem(item.product.id, 'qty', e.target.value)} style={{ boxSizing: "border-box", width: "80px", padding: "8px", textAlign: "center", border: "1px solid #cbd5e1", borderRadius: "6px", fontFamily: "'Inter', sans-serif" }} />
                     </td>
                     <td style={{ padding: "12px 14px", textAlign: "right" }}>
                       <input type="text" value={item.importPrice === 0 ? "" : item.importPrice.toLocaleString()} onChange={e => updateItem(item.product.id, 'importPrice', e.target.value)} style={{ boxSizing: "border-box", width: "120px", padding: "8px", textAlign: "right", border: "1px solid #cbd5e1", borderRadius: "6px", fontFamily: "'Inter', sans-serif" }} />
                     </td>
-                    <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: "800" }}>{(item.qty * item.importPrice).toLocaleString()}đ</td>
-                    <td style={{ padding: "12px 14px", textAlign: "center" }}><button onClick={() => removeItem(item.product.id)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer" }}>✕</button></td>
+                    <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: "800" }}>{((item?.qty || 0) * (item?.importPrice || 0)).toLocaleString()}đ</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center" }}><button onClick={() => removeItem(item.product.id)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "16px" }}>✕</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -143,7 +184,7 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({ showModa
         </div>
 
         <div style={{ background: "#ffffff", padding: "20px 24px", borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "flex-end", borderRadius: "0 0 16px 16px" }}>
-          <div style={{ width: "400px" }}>
+          <div style={{ width: "400px", maxWidth: "100%" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
               <span>Tổng Tiền Hàng:</span><span style={{ fontWeight: "800" }}>{totalAmount.toLocaleString()}đ</span>
             </div>
@@ -159,7 +200,6 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({ showModa
             </button>
           </div>
         </div>
-
       </div>
     </div>
   );
