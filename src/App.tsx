@@ -874,13 +874,28 @@ export default function App() {
     for (const item of pendingImports) {
       try {
         if (item.action === "UPDATE_STOCK") {
+          const baseCode = String(item.data.product_code).split('-')[0];
+          
+          // Khi có mạng lại, ép Cloud đồng bộ đồng loạt giá bán/quà tặng mới cho nhóm mã này
+          await supabase.from("products").update({
+            sale_price: item.data.sale_price,
+            promo_price: item.data.promo_price,
+            gift_info: item.data.gift_info,
+            updated_at: new Date().toISOString()
+          }).eq("product_code", baseCode);
+
+          await supabase.from("products").update({
+            sale_price: item.data.sale_price,
+            promo_price: item.data.promo_price,
+            gift_info: item.data.gift_info,
+            updated_at: new Date().toISOString()
+          }).like("product_code", `${baseCode}-%`);
+
+          // Sau đó mới cộng dồn số tồn kho vào riêng lô mục tiêu
           const { data: cloudProd } = await supabase.from("products").select("stock").eq("id", item.targetId).single();
           const currentCloudStock = cloudProd ? cloudProd.stock : 0;
           await supabase.from("products").update({ 
             stock: currentCloudStock + item.addedStock,
-            sale_price: item.data.sale_price,     // ĐẨY GIÁ BÁN MỚI LÊN
-            promo_price: item.data.promo_price,   // ĐẨY KM MỚI LÊN
-            gift_info: item.data.gift_info,       // ĐẨY QUÀ TẶNG MỚI LÊN
             updated_at: new Date().toISOString()
           }).eq("id", item.targetId);
         } else if (item.action === "INSERT_NEW") {
