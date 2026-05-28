@@ -195,16 +195,16 @@ export default function App() {
 
   const { darkMode, setDarkMode, showSettings, setShowSettings, showInputForm, setShowInputForm, showDebtModal, setShowDebtModal, showStatsModal, setShowStatsModal, showCustomerModal, setShowCustomerModal, showHandoverModal, setShowHandoverModal, showAuditModal, setShowAuditModal, showHoldModal, setShowHoldModal, showExpenseModal, setShowExpenseModal, showSupplierModal, setShowSupplierModal, showMarketingModal, setShowMarketingModal, showInventoryModal, setShowInventoryModal, showMainMenu, setShowMainMenu, cashFlowModalInfo, setCashFlowModalInfo, scannerMode, setScannerMode, printMode, setPrintMode } = useUIState();
   const { newCode, setNewCode, newName, setNewName, newImportPrice, setNewImportPrice, newPrice, setNewPrice, newPromoPrice, setNewPromoPrice, newGiftCondition, setNewGiftCondition, newGiftInfo, setNewGiftInfo, newStock, setNewStock, newExpiry, setNewExpiry, newCategory, setNewCategory, resetProductForm } = useProductInput();
-  const { cart, setCart, barcodeInput, custAddress, setCustAddress, setBarcodeInput, isCheckoutOpen, setIsCheckoutOpen, checkoutStep, setCheckoutStep, customerInput, setCustomerInput, custPhone, setCustPhone, custName, setCustName, useWallet, setUseWallet, voucherInput, setVoucherInput, appliedVoucherAmount, setAppliedVoucherAmount, customerGiven, setCustomerGiven, lastOrder, setLastOrder, resetCheckout } = useCheckoutState();
+  const { cart, setCart, barcodeInput, custAddress, setCustAddress, setBarcodeInput, isCheckoutOpen, setIsCheckoutOpen, checkoutStep, setCheckoutStep, customerInput, setCustomerInput, custPhone, setCustPhone, custName, setCustName, useWallet, setUseWallet, voucherInput, setVoucherInput, appliedVoucherAmount, setAppliedVoucherAmount, customerGiven, setCustomerGiven, finalToPay, customers, bankBin, bankAcc, bankNameStr, loading, handleVoucherSubmit, handleCustomerInputChange, setScannerMode: setScannerModeAction, handleNextToQR, confirmCheckout: confirmCheckoutAction, setPrintMode: setPrintModeAction, sendReceiptEmail, closeCheckout, custAddress: custAddressAction, setCustAddress: setCustAddressAction } = useCheckoutState();
 
-  const [customers, setCustomers] = useState<Record<string, Customer>>({});
+  const [customersData, setCustomers] = useState<Record<string, Customer>>({});
   const [heldOrders, setHeldOrders] = useState<HeldOrder[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [history, setHistory] = useState<TransactionLog[]>([]);
 
-  const { isOnline, syncStatus, syncAllOfflineData, loadCloudData } = useOfflineSync({ isLoggedIn, history, setHistory, customers, setCustomers, heldOrders, setHeldOrders, auditLogs, setAuditLogs, expenses, setExpenses, suppliers, setSuppliers });
+  const { isOnline, syncStatus, syncAllOfflineData, loadCloudData } = useOfflineSync({ isLoggedIn, history, setHistory, customers: customersData, setCustomers, heldOrders, setHeldOrders, auditLogs, setAuditLogs, expenses, setExpenses, suppliers, setSuppliers });
   const isPrintingRef = useRef(false);
 
   // =====================================================================
@@ -216,7 +216,7 @@ export default function App() {
   const cartTotalAmountDisplay = cart.reduce((sum, item) => sum + (item.total || 0), 0);
   const tierDiscountAmount = 0; 
   const amountAfterTierAndVoucher = cartTotalAmountDisplay - tierDiscountAmount - appliedVoucherAmount;
-  const walletUsedAmount = (useWallet && custPhone && customers[custPhone]) ? Math.min(amountAfterTierAndVoucher, customers[custPhone].wallet || 0) : 0;
+  const walletUsedAmount = (useWallet && custPhone && customersData[custPhone]) ? Math.min(amountAfterTierAndVoucher, customersData[custPhone].wallet || 0) : 0;
   const finalToPay = amountAfterTierAndVoucher - walletUsedAmount;
 
   const groupedHistory = useMemo(() => {
@@ -279,10 +279,54 @@ export default function App() {
     return { total, profit, orders: ordersCount, cash, transfer };
   }, [history, shift, todayStrStr]);
 
-  const currentShiftCashFlow = useMemo(() => ({
-    cash: currentShiftStats.cash,
-    transfer: currentShiftStats.transfer
-  }), [currentShiftStats]);
+  // =====================================================================
+  // THAY THẾ: LOGIC PHÂN LOẠI CHI TIẾT DÒNG TIỀN CHO MODAL ĐỐI SOÁT
+  // =====================================================================
+  const currentShiftCashFlow = useMemo(() => {
+    const thu: any[] = [];
+    const chi: any[] = [];
+    const todayStr = todayStrStr || new Date().toLocaleDateString('vi-VN');
+
+    history.forEach(log => {
+      let logDate = "";
+      if (log.time) {
+        const parts = log.time.split(' ');
+        const datePart = parts.find(p => p.includes('/'));
+        if (datePart) logDate = datePart.replace(',', '').trim();
+      }
+
+      if (log.shift === shift && logDate === todayStr) {
+        if (log.type === 'BÁN' || log.type === 'THU NỢ') {
+           if (log.paymentMethod === 'TIỀN MẶT' || log.paymentMethod === 'CHUYỂN KHOẢN' || log.paymentMethod === 'ZALO PAY' || log.paymentMethod === 'QUẸT THẺ') {
+              thu.push({ note: `[${log.type}] ${log.order_id || log.name}`, amount: log.total, time: log.time, method: log.paymentMethod === 'TIỀN MẶT' ? 'TIỀN MẶT' : 'CHUYỂN KHOẢN' });
+           } else if (log.paymentMethod === 'KẾT HỢP') {
+              if (log.split_cash && log.split_cash > 0) thu.push({ note: `[${log.type}] ${log.order_id || log.name} (Tiền mặt)`, amount: log.split_cash, time: log.time, method: 'TIỀN MẶT' });
+              const transferAmt = (log.total || 0) - (log.split_cash || 0);
+              if (transferAmt > 0) thu.push({ note: `[${log.type}] ${log.order_id || log.name} (CK)`, amount: transferAmt, time: log.time, method: 'CHUYỂN KHOẢN' });
+           }
+        }
+        else if (log.type === 'TRẢ HÀNG') {
+           const absTotal = Math.abs(log.total || 0);
+           if (absTotal > 0 && log.paymentMethod !== 'VÍ WALLET' && log.paymentMethod !== 'TRỪ NỢ') {
+              chi.push({ note: `[HOÀN HÀNG] ${log.name}`, amount: absTotal, time: log.time, method: log.paymentMethod === 'TIỀN MẶT' ? 'TIỀN MẶT' : 'CHUYỂN KHOẢN' });
+           }
+        }
+      }
+    });
+
+    expenses.forEach(exp => {
+      if (exp.date === todayStr) {
+        chi.push({ note: `[CHI PHÍ] ${exp.name}`, amount: Number(exp.amount) || 0, time: exp.date, method: 'TIỀN MẶT' }); 
+      }
+    });
+
+    return {
+      thu_tien_mat: thu.filter(i => i.method === 'TIỀN MẶT'),
+      chi_tien_mat: chi.filter(i => i.method === 'TIỀN MẶT'),
+      thu_chuyen_khoan: thu.filter(i => i.method === 'CHUYỂN KHOẢN'),
+      chi_chuyen_khoan: chi.filter(i => i.method === 'CHUYỂN KHOẢN')
+    };
+  }, [history, expenses, shift, todayStrStr]);
 
   const categories = useMemo(() => {
     const cats = new Set(["Tất cả"]);
@@ -383,7 +427,7 @@ export default function App() {
   useEffect(() => { if (!isStorageLoading) dbSet("mart_shift", shift); }, [shift, isStorageLoading]);
   useEffect(() => { if (!isStorageLoading) dbSet("mart_starting_cash", startingCash.toString()); }, [startingCash, isStorageLoading]);
   useEffect(() => { if (!isStorageLoading) dbSet("mart_pos", localPOs); }, [localPOs, isStorageLoading]);
-  useEffect(() => { if (!isStorageLoading) dbSet("mart_customers", customers); }, [customers, isStorageLoading]);
+  useEffect(() => { if (!isStorageLoading) dbSet("mart_customers", customersData); }, [customersData, isStorageLoading]);
   useEffect(() => { if (!isStorageLoading) dbSet("mart_held_orders", heldOrders); }, [heldOrders, isStorageLoading]);
   useEffect(() => { if (!isStorageLoading) dbSet("mart_audit", auditLogs); }, [auditLogs, isStorageLoading]);
   useEffect(() => { if (!isStorageLoading) dbSet("mart_expenses", expenses); }, [expenses, isStorageLoading]);
@@ -449,8 +493,8 @@ export default function App() {
         const p = findProductByCode(currentCode); 
         if (p) { handleSelectSuggest(p); playSound('success'); } 
         else { 
-          const matchedPhone = Object.keys(customers || {}).find(phone => phone === currentCode.trim() || customers[phone]?.cardCode === currentCode.trim()); 
-          if (matchedPhone) { playSound('success'); setCustomerInput(customers[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setScanMessage({ text: `✅ KH VIP: ${customers[matchedPhone].name}`, type: 'success' }) } 
+          const matchedPhone = Object.keys(customersData || {}).find(phone => phone === currentCode.trim() || customersData[phone]?.cardCode === currentCode.trim()); 
+          if (matchedPhone) { playSound('success'); setCustomerInput(customersData[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customersData[matchedPhone].name); setScanMessage({ text: `✅ KH VIP: ${customersData[matchedPhone].name}`, type: 'success' }) } 
           else { playSound('error'); setScanMessage({ text: `❌ Lỗi mã`, type: 'error' }) } 
         } 
       }
@@ -462,8 +506,8 @@ export default function App() {
       }
       else if (scannerMode === 'customer') { 
         const val = currentCode.trim(); setCustomerInput(val); 
-        const matchedPhone = Object.keys(customers || {}).find(phone => phone === val || customers[phone]?.cardCode === val); 
-        if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setCustAddress(customers[matchedPhone].address || ""); playSound('success'); setScanMessage({ text: `✅ Nhận diện VIP: ${customers[matchedPhone].name}`, type: 'success' }) } 
+        const matchedPhone = Object.keys(customersData || {}).find(phone => phone === val || customersData[phone]?.cardCode === val); 
+        if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customersData[matchedPhone].name); setCustAddress(customersData[matchedPhone].address || ""); playSound('success'); setScanMessage({ text: `✅ Nhận diện VIP: ${customersData[matchedPhone].name}`, type: 'success' }) } 
         else { setCustPhone(val); setCustName(""); setCustAddress(""); playSound('success'); setScanMessage({ text: `✅ Đã quét mã (Khách mới)`, type: 'success' }) } 
       }
       setTimeout(() => setScannerMode(null), 1000); setTimeout(() => setScanMessage(null), 1500); setScanQueue(prev => prev.slice(1));
@@ -556,7 +600,7 @@ export default function App() {
   
   const handleLogoutClick = () => { logAudit("ĐĂNG XUẤT", `Thoát ca ${shift}`); setShowHandoverModal(true); };
   const confirmHandover = async () => { try { if (navigator.onLine) { await supabase.auth.signOut(); } } catch (error) {} finally { await dbRemove("mart_logged_in"); await dbRemove("mart_role"); await dbRemove("mart_shift"); localStorage.removeItem("mart_was_logged_in"); setIsLoggedIn(false); window.location.reload(); } };
-  const handleEditPhone = async (oldPhone: string) => { executeWithAdminCheck(() => { const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customers[newPhone]) return toast.error("SĐT đã tồn tại!"); const cData = customers[oldPhone]; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = { ...cData, phone: newPhone }; delete updated[oldPhone]; return updated }); logAudit("SỬA KHÁCH HÀNG", `Đổi SĐT ${oldPhone} -> ${newPhone}`); toast.success("Cập nhật thành công!"); } }); };
+  const handleEditPhone = async (oldPhone: string) => { executeWithAdminCheck(() => { const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customersData[newPhone]) return toast.error("SĐT đã tồn tại!"); const cData = customersData[oldPhone]; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = { ...cData, phone: newPhone }; delete updated[oldPhone]; return updated }); logAudit("SỬA KHÁCH HÀNG", `Đổi SĐT ${oldPhone} -> ${newPhone}`); toast.success("Cập nhật thành công!"); } }); };
   const addSupplier = async () => { if (!supName || !supPhone) return toast.error("Nhập đủ Tên/SĐT"); const newId = Date.now(); const newSupData = { id: newId, name: supName, phone: supPhone, address: supAddress, item: supItem, taxCode: supTaxCode, bankAccount: supBankAccount, debt: 0 }; setSuppliers(prev => [newSupData, ...prev]); if (navigator.onLine) { supabase.from('suppliers').insert([newSupData]).then(); } setSupName(""); setSupPhone(""); setSupAddress(""); setSupItem(""); setSupTaxCode(""); setSupBankAccount(""); toast.success("Thêm NCC thành công!"); logAudit("THÊM NCC", supName); };
   const deleteSupplier = async (id: any) => { setSuppliers(prev => prev.filter(s => s.id !== id)); if (navigator.onLine) await supabase.from('suppliers').delete().eq('id', id); logAudit("XÓA NCC", `ID: ${id}`); };
   
@@ -578,81 +622,45 @@ export default function App() {
   };
 
   const handleCustomerInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value; setCustomerInput(val); const matchedPhone = Object.keys(customers || {}).find(phone => phone === val.trim() || customers[phone]?.cardCode === val.trim());
-    if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customers[matchedPhone].name); setCustAddress(customers[matchedPhone].address || ""); setUseWallet(false); } 
+    const val = e.target.value; setCustomerInput(val); const matchedPhone = Object.keys(customersData || {}).find(phone => phone === val.trim() || customersData[phone]?.cardCode === val.trim());
+    if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customersData[matchedPhone].name); setCustAddress(customersData[matchedPhone].address || ""); setUseWallet(false); } 
     else { setCustPhone(val); setCustName(""); setCustAddress(""); setUseWallet(false); }
   };
 
-  const handleNextToQR = () => { if (cart.length === 0) return toast.error("Giỏ hàng trống!"); if (custPhone && !customers[custPhone] && !custName) return toast.error("Vui lòng nhập Tên khách mới!"); setCheckoutStep(2); };
+  const handleNextToQR = () => { if (cart.length === 0) return toast.error("Giỏ hàng trống!"); if (custPhone && !customersData[custPhone] && !custName) return toast.error("Vui lòng nhập Tên khách mới!"); setCheckoutStep(2); };
 
   // =====================================================================
-  // BẮT ĐẦU: FIX LỖI CHIA CHO 0 & BỌC GIÁP KHÁCH HÀNG VÀ CHỐT ĐƠN 
+  // BẢO VỆ KẾ TOÁN: HÀM CONFIRM CHECKOUT CHỐNG CHIA CHO SỐ 0 TRIỆT ĐỂ
   // =====================================================================
   const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 'GHI NỢ' | 'KẾT HỢP' | 'QUẸT THẺ' | 'ZALO PAY') => {
     if (cart.some(i => !i.qty || i.qty <= 0)) { playSound('error'); return toast.error("Lỗi số lượng sản phẩm!") }
     if (payMethod === 'GHI NỢ' && !custPhone) return toast.error("Thanh toán Ghi nợ cần SĐT Khách hàng!");
     setLoading(true); 
     try {
-      let newLogs: any[] = []; 
-      const baseTotal = cartTotalAmountDisplay; 
-      const subTotal = Math.round(baseTotal / (1 + VAT_RATE)); 
-      const vatTotal = baseTotal - subTotal; 
-      const finalTotal = amountAfterTierAndVoucher - walletUsedAmount; 
-      const orderIdStr = "HD" + Date.now().toString().slice(-6);
-      
+      let newLogs: any[] = []; const baseTotal = cartTotalAmountDisplay; const subTotal = Math.round(baseTotal / (1 + VAT_RATE)); const vatTotal = baseTotal - subTotal; const finalTotal = amountAfterTierAndVoucher - walletUsedAmount; const orderIdStr = "HD" + Date.now().toString().slice(-6);
       for (const item of cart) {
         if (navigator.onLine) await supabase.from("products").update({ stock: Math.max(0, item.product.stock - item.qty) }).eq("id", item.product.id);
         
         let splitCashAmt = 0; 
-        if (payMethod === 'KẾT HỢP') { 
-          // BỌC GIÁP: Chống lỗi chia cho 0 sinh ra Infinity làm hỏng CSDL Kế toán
+        if(payMethod === 'KẾT HỢP') { 
+          // BỌC GIÁP: Chống chia cho số 0
           const safeRatio = finalTotal > 0 ? (Number(customerGiven) / finalTotal) : 0;
           splitCashAmt = Math.round(safeRatio * Math.round(item.qty * getActualPrice(item.product) * (1 + VAT_RATE))); 
         }
-        
-        const newLog = { 
-          id: Date.now() + Math.random(), shift, 
-          type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", 
-          name: cleanName(item.product.name), qty: item.qty, total: item.total, 
-          profit: Math.round(item.qty * (getActualPrice(item.product) - (item.product.import_price || 0))), 
-          customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", 
-          product_id: item.product.id, paymentMethod: payMethod, 
-          split_cash: splitCashAmt, time: new Date().toLocaleString('vi-VN'), order_id: orderIdStr 
-        };
+        const newLog = { id: Date.now() + Math.random(), shift, type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", name: cleanName(item.product.name), qty: item.qty, total: item.total, profit: Math.round(item.qty * (getActualPrice(item.product) - (item.product.import_price || 0))), customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id, paymentMethod: payMethod, split_cash: splitCashAmt, time: new Date().toLocaleString('vi-VN'), order_id: orderIdStr };
         newLogs.push(newLog);
       }
-      
       if (custPhone) {
-        // BỌC GIÁP: Nếu Ghi nợ thì không cộng điểm tích lũy
         const earned = payMethod === 'GHI NỢ' ? 0 : Math.round(finalTotal * 0.02);
-        const currentCust = customers[custPhone] || {};
-        const updatedCust = { 
-          name: custName, 
-          wallet: payMethod === 'GHI NỢ' ? (currentCust.wallet || 0) : Math.round((currentCust.wallet || 0) - walletUsedAmount + earned), 
-          debt: (currentCust.debt || 0) + (payMethod === 'GHI NỢ' ? finalTotal : 0), 
-          totalSpent: (currentCust.totalSpent || 0) + (payMethod !== 'GHI NỢ' ? finalTotal : 0), 
-          email: currentCust.email || "", address: custAddress || currentCust.address || "", cardCode: currentCust.cardCode || "" 
-        }; 
-        setCustomers(prev => ({ ...prev, [custPhone]: updatedCust })); 
-        if (navigator.onLine) { await supabase.from("customers").upsert({ phone: custPhone, ...updatedCust }); }
+        const currentCust = customersData[custPhone] || {};
+        const updatedCust = { name: custName, wallet: payMethod === 'GHI NỢ' ? (currentCust.wallet || 0) : Math.round((currentCust.wallet || 0) - walletUsedAmount + earned), debt: (currentCust.debt || 0) + (payMethod === 'GHI NỢ' ? finalTotal : 0), totalSpent: (currentCust.totalSpent || 0) + (payMethod !== 'GHI NỢ' ? finalTotal : 0), email: currentCust.email || "", address: custAddress || currentCust.address || "", cardCode: currentCust.cardCode || "" }; 
+        setCustomers(prev => ({ ...prev, [custPhone]: updatedCust })); if (navigator.onLine) { await supabase.from("customers").upsert({ phone: custPhone, ...updatedCust }); }
       }
-      
-      setHistory(prev => [...newLogs, ...prev]); 
-      if (navigator.onLine) { try { await supabase.from("history").insert(newLogs); } catch(err) { console.log(err); } }
-      
-      setLastOrder({ 
-        orderId: orderIdStr, shift, cart: [...cart], subTotal, vatTotal, finalTotal, 
-        debtAmount: payMethod === 'GHI NỢ' ? finalTotal : 0, discount: appliedVoucherAmount + tierDiscountAmount, 
-        time: new Date().toLocaleString('vi-VN'), paymentMethod: payMethod, 
-        customerGiven: Number(customerGiven) || 0, custPhone, custName 
-      });
+      setHistory(prev => [...newLogs, ...prev]); if (navigator.onLine) { try { await supabase.from("history").insert(newLogs); } catch(err) { console.log(err); } }
+      setLastOrder({ orderId: orderIdStr, shift, cart: [...cart], subTotal, vatTotal, finalTotal, debtAmount: payMethod === 'GHI NỢ' ? finalTotal : 0, discount: appliedVoucherAmount + tierDiscountAmount, time: new Date().toLocaleString('vi-VN'), paymentMethod: payMethod, customerGiven: Number(customerGiven) || 0, custPhone, custName });
       logAudit("THANH TOÁN", `${orderIdStr} - ${payMethod} - ${finalTotal.toLocaleString()}đ`);
       setCheckoutStep(3); fetchProducts(); 
-    } catch (err: any) { 
-      toast.error("Lỗi thanh toán: " + err.message); 
-    } finally { 
-      setLoading(false); 
-    }
+    } catch (err) { toast.error("Lỗi thanh toán: " + err.message); } finally { setLoading(false); }
   };
 
   const handleRefund = async (logId: any) => { 
@@ -685,13 +693,13 @@ export default function App() {
       if (log.type === 'GHI NỢ') {
         if (!window.confirm(`Đơn mua nợ. Hệ thống tự trừ ${refundTotal.toLocaleString()}đ dư nợ?`)) return; selectedMethod = "TRỪ NỢ";
         const phoneMatch = log.customer.match(/\((.*?)\)/); const customerPhone = phoneMatch ? phoneMatch[1] : null;
-        if (customerPhone && customers[customerPhone]) { const custData = customers[customerPhone]; const newDebt = Math.max(0, (custData.debt || 0) - refundTotal); setCustomers(prev => ({ ...prev, [customerPhone]: { ...custData, debt: newDebt } })); if (navigator.onLine) { await supabase.from("customers").update({ debt: newDebt }).eq("phone", customerPhone); } }
+        if (customerPhone && customersData[customerPhone]) { const custData = customersData[customerPhone]; const newDebt = Math.max(0, (custData.debt || 0) - refundTotal); setCustomers(prev => ({ ...prev, [customerPhone]: { ...custData, debt: newDebt } })); if (navigator.onLine) { await supabase.from("customers").update({ debt: newDebt }).eq("phone", customerPhone); } }
       } else {
         const choice = window.prompt(`Hình thức hoàn tiền:\n1. TIỀN MẶT\n2. CHUYỂN KHOẢN\n3. HOÀN VÀO VÍ VIP`, "1"); if (choice === null) return; 
         if (choice === "2") selectedMethod = "CHUYỂN KHOẢN"; if (choice === "3") selectedMethod = "VÍ WALLET";
         if (choice === "3") {
-          const phoneMatch = log.customer.match(/\((.*?)\)/); const customerPhone = phoneMatch ? phoneMatch[1] : null; if (!customerPhone || !customers[customerPhone]) { return toast.error("Khách lẻ không hoàn Ví VIP được!"); }
-          const custData = customers[customerPhone]; setCustomers(prev => ({ ...prev, [customerPhone]: { ...custData, wallet: Math.round((custData.wallet || 0) + refundTotal) } })); if (navigator.onLine) { await supabase.from("customers").update({ wallet: Math.round((custData.wallet || 0) + refundTotal) }).eq("phone", customerPhone); }
+          const phoneMatch = log.customer.match(/\((.*?)\)/); const customerPhone = phoneMatch ? phoneMatch[1] : null; if (!customerPhone || !customersData[customerPhone]) { return toast.error("Khách lẻ không hoàn Ví VIP được!"); }
+          const custData = customersData[customerPhone]; setCustomers(prev => ({ ...prev, [customerPhone]: { ...custData, wallet: Math.round((custData.wallet || 0) + refundTotal) } })); if (navigator.onLine) { await supabase.from("customers").update({ wallet: Math.round((custData.wallet || 0) + refundTotal) }).eq("phone", customerPhone); }
         }
       }
       
@@ -711,31 +719,22 @@ export default function App() {
     }); 
   };
 
+  // =====================================================================
+  // BẢO VỆ KẾ TOÁN: THU NỢ ÉP CHẶN CHỮ CHỐNG ĐẬP SẬP SỔ NỢ (NaN FIX)
+  // =====================================================================
   const handlePayDebt = async (phone: string) => { 
-    const currentDebt = customers[phone]?.debt || 0; 
-    if (currentDebt <= 0) return toast.error("Khách không có nợ!"); 
+    const currentDebt = customersData[phone]?.debt || 0; if (currentDebt <= 0) return toast.error("Khách không có nợ!"); 
+    const inputAmount = window.prompt(`Khách: ${customersData[phone].name}\nNợ cũ: ${currentDebt.toLocaleString()}đ\nSố tiền trả:`, currentDebt.toString()); if (!inputAmount) return; 
     
-    const inputAmount = window.prompt(`Khách: ${customers[phone].name}\nNợ cũ: ${currentDebt.toLocaleString()}đ\nSố tiền trả:`, currentDebt.toString()); 
-    if (!inputAmount) return; // BỌC GIÁP: Khách bấm Cancel hoặc để trống
+    // Ép sạch chuỗi chữ rác vĩnh viễn
+    const paidAmount = parseInt(inputAmount.replace(/[^0-9]/g, '')); 
+    if (isNaN(paidAmount) || paidAmount <= 0 || paidAmount > currentDebt) { return toast.error("Số tiền trả không hợp lệ!"); }
     
-    // BỌC GIÁP: Ép sạch ký tự chữ, chỉ giữ lại số. Chống NaN.
-    const paidAmount = Number(inputAmount.replace(/[^0-9]/g, '')); 
-    if (isNaN(paidAmount) || paidAmount <= 0 || paidAmount > currentDebt) { 
-      return toast.error("Số tiền trả không hợp lệ!"); 
-    }
-    
-    const methodChoice = window.prompt(`Hình thức:\n1. TIỀN MẶT\n2. CHUYỂN KHOẢN`, "1"); 
-    if (methodChoice === null) return; 
-    const selectedMethod = methodChoice === "2" ? "CHUYỂN KHOẢN" : "TIỀN MẶT";
-    
-    const remainingDebt = currentDebt - paidAmount; 
-    setCustomers(prev => ({ ...prev, [phone]: { ...prev[phone], debt: remainingDebt } })); 
+    const methodChoice = window.prompt(`Hình thức:\n1. TIỀN MẶT\n2. CHUYỂN KHOẢN`, "1"); if (methodChoice === null) return; const selectedMethod = methodChoice === "2" ? "CHUYỂN KHOẢN" : "TIỀN MẶT";
+    const remainingDebt = currentDebt - paidAmount; setCustomers(prev => ({ ...prev, [phone]: { ...prev[phone], debt: remainingDebt } })); 
     if (navigator.onLine) { await supabase.from("customers").update({ debt: remainingDebt }).eq("phone", phone); }
-    
-    const lg = { id: Date.now(), shift, type: "THU NỢ", name: remainingDebt === 0 ? "Thanh toán hết nợ" : `Trả bớt nợ (Còn nợ: ${remainingDebt.toLocaleString()}đ)`, qty: 1, total: paidAmount, profit: 0, customer: `${customers[phone].name} (${phone})`, paymentMethod: selectedMethod, time: new Date().toLocaleString('vi-VN') }; 
-    addTransactionAndSync(lg); 
-    logAudit("THU NỢ", `${customers[phone].name} trả ${paidAmount.toLocaleString()}đ`); 
-    toast.success(`Thu nợ thành công!`);
+    const lg = { id: Date.now(), shift, type: "THU NỢ", name: remainingDebt === 0 ? "Thành toán hết nợ" : `Trả bớt nợ (Còn nợ: ${remainingDebt.toLocaleString()}đ)`, qty: 1, total: paidAmount, profit: 0, customer: `${customersData[phone].name} (${phone})`, paymentMethod: selectedMethod, time: new Date().toLocaleString('vi-VN') }; addTransactionAndSync(lg); 
+    logAudit("THU NỢ", `${customersData[phone].name} trả ${paidAmount.toLocaleString()}đ`); toast.success(`Thu nợ thành công!`);
   };
 
   const handleReprint = (timeStr: string, mode: 'receipt_thermal' | 'receipt_a4') => {
@@ -749,22 +748,13 @@ export default function App() {
 
   const sendReceiptEmail = async () => {
     if (!lastOrder) return; 
-    
-    // BỌC GIÁP: Sử dụng Optional Chaining thay vì gọi thẳng
-    let savedEmail = customers?.[lastOrder.custPhone]?.email || ""; 
-    
-    let email = window.prompt("Nhập Email khách hàng:", savedEmail); 
-    if (!email) return; 
-    email = email.trim(); 
-    
-    if (lastOrder.custPhone && customers[lastOrder.custPhone]) { 
-      setCustomers((prev: any) => ({ ...prev, [lastOrder.custPhone]: { ...prev[lastOrder.custPhone], email: email } })); 
-    }
-    
+    let savedEmail = (lastOrder.custPhone && customersData[lastOrder.custPhone]) ? customersData[lastOrder.custPhone].email : ""; 
+    let email = window.prompt("Nhập Email khách hàng:", savedEmail); if (!email) return; email = email.trim(); 
+    if (lastOrder.custPhone && customersData[lastOrder.custPhone]) { setCustomers((prev: any) => ({ ...prev, [lastOrder.custPhone]: { ...prev[lastOrder.custPhone], email: email } })); }
     setLoading(true); 
     
     let itemsHtml = ""; 
-    (lastOrder.cart || []).forEach((item: any) => { 
+    lastOrder.cart.forEach((item: any) => { 
       const priceToUse = item.priceIncludingVat !== undefined ? item.priceIncludingVat : Math.round(getActualPrice(item.product) * (1 + VAT_RATE)); 
       itemsHtml += `
         <tr>
@@ -818,23 +808,16 @@ export default function App() {
       </div>
     `;
 
-    try { 
-      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_email: email, subject: `🧾 Hóa đơn mua hàng #${lastOrder.orderId}`, html_message: htmlContent }); 
-      logAudit("GỬI HÓA ĐƠN EMAIL", `Mã HĐ: ${lastOrder.orderId}`); 
-      toast.success("Đã gửi Hóa đơn thành công!"); 
-    } catch (error: any) { 
-      toast.error(`Lỗi gửi Email`); 
-    } 
-    setLoading(false);
+    try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_email: email, subject: `🧾 Hóa đơn mua hàng #${lastOrder.orderId}`, html_message: htmlContent }); logAudit("GỬI HÓA ĐƠN EMAIL", `Mã HĐ: ${lastOrder.orderId}`); toast.success("Đã gửi Hóa đơn thành công!"); } catch (error: any) { toast.error(`Lỗi gửi Email`); } setLoading(false)
   };
 
-  const printCustomerCard = (phone: string) => { const cust = customers[phone]; if(!cust) return toast.error("Không tìm thấy dữ liệu khách!"); setPrintCustomer({ phone, ...cust }); setPrintMode('customer_card'); logAudit("IN THẺ VIP", phone); };
+  const printCustomerCard = (phone: string) => { const cust = customersData[phone]; if(!cust) return toast.error("Không tìm thấy dữ liệu khách!"); setPrintCustomer({ phone, ...cust }); setPrintMode('customer_card'); logAudit("IN THẺ VIP", phone); };
   
   // =====================================================================
-  // BẮT ĐẦU: ÁP DỤNG THẺ TABLE SIÊU VỮNG CHẮC CHO EMAIL VIP CARD
+  // THAY THẾ: GIỮ KHUNG TABLE SIÊU VỮNG CHẮC CHO MẪU EMAIL THẺ THÀNH VIÊN
   // =====================================================================
   const sendCardEmail = async (phone: string) => {
-    const font = customers[phone]; if(!font) return toast.error("Không tìm thấy dữ liệu khách!");
+    const font = customersData[phone]; if(!font) return toast.error("Không tìm thấy dữ liệu khách!");
     let email = font.email || window.prompt(`Nhập Email của ${font.name}:`, ""); if (!email) return; email = email.trim(); 
     if (!font.email) { setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], email } })); } setLoading(true);
     
@@ -884,7 +867,7 @@ export default function App() {
     try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { to_email: email, subject: `💳 Thẻ VIP Đặc Quyền - ${font.name}`, html_message: htmlContent }); logAudit("GỬI THẺ VIP EMAIL", phone); toast.success("Đã gửi Thẻ VIP thành công!"); } catch (error: any) { toast.error(`Lỗi gửi Email`); } setLoading(false);
   };
   
-  const shareToZalo = (phone: string) => { const cust = customers[phone]; const code = cust.cardCode || phone; navigator.clipboard.writeText(`Chào ${cust.name},\nMã Thẻ VIP của bạn là: ${code}`).then(() => { toast.success(`Đang mở Zalo...`); logAudit("CHIA SẺ ZALO", phone); window.open(`https://zalo.me/${phone}`, '_blank') }).catch(() => { window.open(`https://zalo.me/${phone}`, '_blank') }) };
+  const shareToZalo = (phone: string) => { const cust = customersData[phone]; const code = cust.cardCode || phone; navigator.clipboard.writeText(`Chào ${cust.name},\nMã Thẻ VIP của bạn là: ${code}`).then(() => { toast.success(`Đang mở Zalo...`); logAudit("CHIA SẺ ZALO", phone); window.open(`https://zalo.me/${phone}`, '_blank') }).catch(() => { window.open(`https://zalo.me/${phone}`, '_blank') }) };
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => { const code = e.target.value; setNewCode(code); const p = products.find((x: any) => x.product_code === code); if (p) { setNewName(cleanName(p.name)); setNewCategory(formatCategoryStr(p.category)); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewExpiry(p.expiry_date || ""); const gift = parseGift(p.gift_info); setNewGiftCondition(gift.cond.toString()); setNewGiftInfo(gift.text) } };
 
   const syncPendingImports = async () => {
@@ -1089,8 +1072,8 @@ export default function App() {
     if (e.key === 'Enter') { 
       e.preventDefault(); const p = findProductByCode(barcodeInput); 
       if (p) { handleSelectSuggest(p); } else { 
-        const matchedPhone = Object.keys(customers || {}).find(phone => phone === barcodeInput.trim() || customers[phone]?.cardCode === barcodeInput.trim()); 
-        if (matchedPhone) { playSound('success'); setCustomerInput(customers[matchedPhone]?.cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customers[matchedPhone]?.name); setBarcodeInput(""); } 
+        const matchedPhone = Object.keys(customersData || {}).find(phone => phone === barcodeInput.trim() || customersData[phone]?.cardCode === barcodeInput.trim()); 
+        if (matchedPhone) { playSound('success'); setCustomerInput(customersData[matchedPhone]?.cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customersData[matchedPhone]?.name); setBarcodeInput(""); } 
         else { playSound('error'); toast.error("Mã không hợp lệ!"); } 
       } 
     } 
@@ -1168,10 +1151,10 @@ export default function App() {
 
   const handleSendMarketingEmail = async () => {
     if (!marketingMsg) return toast.error("Nhập nội dung!"); if (!window.confirm("Gửi?")) return; setLoading(true); 
-    const targetCustomers = Object.keys(customers || {}).filter(phone => { const c = customers[phone]; if (!c || !c.email) return false; if (marketingTier === "Tất cả") return true; return getCustomerTier(c.totalSpent || 0).name.includes(marketingTier); });
+    const targetCustomers = Object.keys(customersData || {}).filter(phone => { const c = customersData[phone]; if (!c || !c.email) return false; if (marketingTier === "Tất cả") return true; return getCustomerTier(c.totalSpent || 0).name.includes(marketingTier); });
     if (targetCustomers.length === 0) { setLoading(false); return toast.error("Không tìm thấy khách hàng!"); }
     let successCount = 0;
-    for (const phone of targetCustomers) { const c = customers[phone]; const htmlContent = `<div><h1>HẢI LÊ MART</h1><p>${marketingMsg}</p></div>`; try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { to_email: c.email, subject: "💌 Ưu Đãi Đặc Quyền Từ Hải Lê Mart", html_message: htmlContent }); successCount++; } catch (error: any) {} }
+    for (const phone of targetCustomers) { const c = customersData[phone]; const htmlContent = `<div><h1>HẢI LÊ MART</h1><p>${marketingMsg}</p></div>`; try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { to_email: c.email, subject: "💌 Ưu Đãi Đặc Quyền Từ Hải Lê Mart", html_message: htmlContent }); successCount++; } catch (error: any) {} }
     logAudit("GỬI MAIL MKT", `Gửi ${successCount} mail`); setLoading(false); setShowMarketingModal(false); toast.success(`Đã gửi thành công!`);
   };
 
@@ -1210,14 +1193,26 @@ export default function App() {
       <>
         <ExpenseModal showExpenseModal={showExpenseModal} setShowExpenseModal={setShowExpenseModal} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} expenses={expenses} addExpense={addExpense} deleteExpense={deleteExpense} />
         {showHandoverModal && <HandoverModal role={role} shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onClose={() => setShowHandoverModal(false)} onConfirm={confirmHandover} />}
-        <CashFlowModal cashFlowModalInfo={cashFlowModalInfo} setCashFlowModalInfo={setCashFlowModalInfo} shift={shift} todayStrStr={todayStrStr} currentShiftCashFlow={currentShiftCashFlow} currentShiftStats={currentShiftStats} />
+        
+        {/* MODAL CẤP DỮ LIỆU BÓC TÁCH CHI TIẾT */}
+        <CashFlowModal 
+          cashFlowModalInfo={cashFlowModalInfo} 
+          setCashFlowModalInfo={setCashFlowModalInfo} 
+          shift={shift} 
+          todayStrStr={todayStrStr} 
+          currentShiftCashFlow={{
+            thu: cashFlowModalInfo === 'TIỀN MẶT' ? currentShiftCashFlow.thu_tien_mat : currentShiftCashFlow.thu_chuyen_khoan,
+            chi: cashFlowModalInfo === 'TIỀN MẶT' ? currentShiftCashFlow.chi_tien_mat : currentShiftCashFlow.chi_chuyen_khoan
+          }} 
+          currentShiftStats={currentShiftStats} 
+        />
         
         <HoldOrdersModal showHoldModal={showHoldModal} setShowHoldModal={setShowHoldModal} heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={deleteHeldOrder} />
         
-        <CheckoutModal isCheckoutOpen={isCheckoutOpen} setIsCheckoutOpen={setIsCheckoutOpen} checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} voucherInput={voucherInput} setVoucherInput={setVoucherInput} customerInput={customerInput} setCustomerInput={setCustomerInput} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} useWallet={useWallet} setUseWallet={setUseWallet} appliedVoucherAmount={appliedVoucherAmount} setAppliedVoucherAmount={setAppliedVoucherAmount} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} finalToPay={finalToPay} customers={customers} isOnline={isOnline} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} loading={loading} handleVoucherSubmit={handleVoucherSubmit} handleCustomerInputChange={handleCustomerInputChange} setScannerMode={setScannerMode} handleNextToQR={handleNextToQR} confirmCheckout={confirmCheckout} setPrintMode={setPrintMode} sendReceiptEmail={sendReceiptEmail} closeCheckout={closeCheckout} custAddress={custAddress} setCustAddress={setCustAddress}/>
+        <CheckoutModal isCheckoutOpen={isCheckoutOpen} setIsCheckoutOpen={setIsCheckoutOpen} checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} voucherInput={voucherInput} setVoucherInput={setVoucherInput} customerInput={customerInput} setCustomerInput={setCustomerInput} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} useWallet={useWallet} setUseWallet={setUseWallet} appliedVoucherAmount={appliedVoucherAmount} setAppliedVoucherAmount={setAppliedVoucherAmount} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} finalToPay={finalToPay} customers={customersData} isOnline={isOnline} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} loading={loading} handleVoucherSubmit={handleVoucherSubmit} handleCustomerInputChange={handleCustomerInputChange} setScannerMode={setScannerMode} handleNextToQR={handleNextToQR} confirmCheckout={confirmCheckout} setPrintMode={setPrintMode} sendReceiptEmail={sendReceiptEmail} closeCheckout={closeCheckout} custAddress={custAddress} setCustAddress={setCustAddress}/>
         <StatsModal showStatsModal={showStatsModal} setShowStatsModal={setShowStatsModal} reportStartDate={reportStartDate} setReportStartDate={setReportStartDate} reportEndDate={reportEndDate} setReportEndDate={setReportEndDate} exportToCSV={exportToCSV} onExportCSV={exportToCSV} handleExportCSV={exportToCSV} sendInventoryAlertEmail={sendInventoryAlertEmail} onSendAlert={sendInventoryAlertEmail} handleSendEmailReport={handleSendEmailReport} onSendReport={handleSendEmailReport} filteredStats={filteredStats} chartData={chartData} topSelling={topSelling} products={products} />
         <InventoryModal showInventoryModal={showInventoryModal} setShowInventoryModal={setShowInventoryModal} inventorySearchTerm={inventorySearchTerm} setInventorySearchTerm={setInventorySearchTerm} handleInventorySearchEnter={handleInventorySearchEnter} invFilter={invFilter} setInvFilter={setInvFilter} exportInventoryCSV={exportInventoryCSV} onExport={exportInventoryCSV} handleImportInventoryCSV={handleImportInventoryCSV} onImport={handleImportInventoryCSV} products={products} actualStockInput={actualStockInput} setActualStockInput={setActualStockInput} handleInvInputKeyDown={handleInvInputKeyDown} syncInventoryCheck={syncInventoryCheck} onSync={syncInventoryCheck} loading={loading} />
-        <DebtModal showDebtModal={showDebtModal} setShowDebtModal={setShowDebtModal} customers={customers} handlePayDebt={handlePayDebt} />
+        <DebtModal showDebtModal={showDebtModal} setShowDebtModal={setShowDebtModal} customers={customersData} handlePayDebt={handlePayDebt} />
         <AuditModal showAuditModal={showAuditModal} setShowAuditModal={setShowAuditModal} auditLogs={auditLogs} exportAuditToCSV={exportAuditToCSV} setSelectedAuditLog={setSelectedAuditLog} setSelectedLog={setSelectedAuditLog} onViewDetail={setSelectedAuditLog} onRowClick={setSelectedAuditLog} />
         <AuditDetailModal selectedAuditLog={selectedAuditLog} setSelectedAuditLog={setSelectedAuditLog} showModal={!!selectedAuditLog} setShowModal={(val: boolean) => !val && setSelectedAuditLog(null)} selectedLog={selectedAuditLog} setSelectedLog={setSelectedAuditLog} />
         <ScannerModal scannerMode={scannerMode} setScannerMode={setScannerMode} scanMessage={scanMessage} />
@@ -1241,7 +1236,7 @@ export default function App() {
 
         <CustomerModal 
           showCustomerModal={showCustomerModal} setShowCustomerModal={setShowCustomerModal}
-          customers={customers} setCustomers={setCustomers} logAudit={logAudit}
+          customers={customersData} setCustomers={setCustomers} logAudit={logAudit}
           handleEditPhone={handleEditPhone} printCustomerCard={printCustomerCard} sendCardEmail={sendCardEmail} shareToZalo={shareToZalo}
         />
 
@@ -1299,7 +1294,7 @@ export default function App() {
       <Toaster position="top-right" reverseOrder={false} toastOptions={{ style: { fontSize: '15px', fontWeight: 'bold', padding: '16px 24px', color: '#0f172a', background: '#ffffff', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', border: '1px solid #e2e8f0', borderRadius: '8px' } }} containerStyle={{ top: 20, right: 20, zIndex: 999999999 }} />
       <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeSubmitAction} />
       
-      <PrintManager printMode={printMode} lastOrder={lastOrder} shift={shift} role={role} customers={customers} VAT_RATE={VAT_RATE} printBarcodeProduct={printBarcodeProduct} barcodeCount={barcodeCount} printCustomer={printCustomer} printPOData={printPOData} />
+      <PrintManager printMode={printMode} lastOrder={lastOrder} shift={shift} role={role} customers={customersData} VAT_RATE={VAT_RATE} printBarcodeProduct={printBarcodeProduct} barcodeCount={barcodeCount} printCustomer={printCustomer} printPOData={printPOData} />
       {renderModals()}
 
       {!isLoggedIn ? (
