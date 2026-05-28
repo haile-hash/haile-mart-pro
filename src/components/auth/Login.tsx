@@ -33,16 +33,17 @@ export const Login: React.FC<LoginProps> = ({
   // =========================================================
   useEffect(() => {
     const checkSavedSession = async () => {
-      // Vì chúng ta dùng IndexedDB ở file App.tsx để lưu "mart_logged_in"
-      // Nhưng lúc này App.tsx chưa tải xong DB, ta có thể check tạm bằng localStorage
-      const savedSession = localStorage.getItem("mart_offline_creds");
-      const wasLoggedIn = localStorage.getItem("mart_was_logged_in") === "true";
-      
-      if (wasLoggedIn && savedSession) {
-         // Phục hồi lại Role từ phiên cũ (nếu lưu)
-         const savedRole = localStorage.getItem("mart_role") || "staff";
-         setRole(savedRole);
-         setIsLoggedIn(true);
+      try {
+        const savedSession = localStorage.getItem("mart_offline_creds");
+        const wasLoggedIn = localStorage.getItem("mart_was_logged_in") === "true";
+        
+        if (wasLoggedIn && savedSession) {
+           const savedRole = localStorage.getItem("mart_role") || "staff";
+           setRole(savedRole);
+           setIsLoggedIn(true);
+        }
+      } catch (error) {
+        console.error("Lỗi đọc phiên đăng nhập:", error);
       }
     };
     checkSavedSession();
@@ -75,14 +76,15 @@ export const Login: React.FC<LoginProps> = ({
         return;
       }
 
-      // Đăng nhập Server thành công -> Lưu dự phòng vào ổ cứng
+      // Đăng nhập Server thành công -> Lưu dự phòng vào ổ cứng (Mã hóa Base64 cơ bản để che mắt)
       const userRole = u.includes("admin") ? "admin" : "staff";
-      localStorage.setItem("mart_offline_creds", JSON.stringify({ email: u, password: p }));
+      const encodedCreds = btoa(JSON.stringify({ email: u, password: p })); // Mã hóa dữ liệu
+      localStorage.setItem("mart_offline_creds", encodedCreds);
       localStorage.setItem("mart_was_logged_in", "true");
       localStorage.setItem("mart_role", userRole);
 
       setRole(userRole);
-      setStartingCash(startingCash); // Có thể cần cập nhật từ form
+      setStartingCash(startingCash); 
       setIsLoggedIn(true);
 
     } else {
@@ -96,18 +98,31 @@ export const Login: React.FC<LoginProps> = ({
          return;
       }
 
-      const offlineCreds = JSON.parse(offlineCredsRaw);
+      try {
+        let offlineCreds;
+        // Thử giải mã Base64 (Nếu là phiên bản bảo mật mới)
+        try {
+          offlineCreds = JSON.parse(atob(offlineCredsRaw));
+        } catch (decodeErr) {
+          // Fallback: Đọc bản cũ (Plain text) nếu máy này chưa kịp cập nhật code mới
+          offlineCreds = JSON.parse(offlineCredsRaw);
+        }
 
-      if (u === offlineCreds.email && p === offlineCreds.password) {
-         // Đúng mật khẩu cũ
-         const savedRole = localStorage.getItem("mart_role") || "staff";
-         setRole(savedRole);
-         localStorage.setItem("mart_was_logged_in", "true"); // Đánh dấu đã đăng nhập
-         
-         toast.success('Đang chạy ở chế độ Offline (Ngoại tuyến)');
-         setIsLoggedIn(true);
-      } else {
-         toast.error('Sai tài khoản hoặc mật khẩu Offline!');
+        if (u === offlineCreds.email && p === offlineCreds.password) {
+           // Đúng mật khẩu
+           const savedRole = localStorage.getItem("mart_role") || "staff";
+           setRole(savedRole);
+           localStorage.setItem("mart_was_logged_in", "true"); 
+           
+           toast.success('Đang chạy ở chế độ Offline (Ngoại tuyến)');
+           setIsLoggedIn(true);
+        } else {
+           toast.error('Sai tài khoản hoặc mật khẩu Offline!');
+        }
+      } catch (parseError) {
+        // Bẫy lỗi chống sập web nếu localStorage bị hỏng/sửa bậy bạ
+        toast.error('Dữ liệu xác thực ngoại tuyến bị lỗi. Vui lòng kết nối mạng để đăng nhập lại!');
+        localStorage.removeItem('mart_offline_creds'); // Xóa rác
       }
     }
     setLoading(false);
