@@ -932,7 +932,6 @@ export default function App() {
       const finalGiftInfo = newGiftInfo.trim() !== "" ? `${newGiftCondition};;;${newGiftInfo}` : null; 
       
       const inputCode = newCode.trim(); 
-      // BỌC GIÁP: Luôn bóc tách mã gốc để tìm tất cả các lô (loại bỏ đuôi -xxxx)
       const baseCode = inputCode.split('-')[0]; 
       const formattedCat = formatCategoryStr(newCategory);
       
@@ -961,7 +960,7 @@ export default function App() {
         gift_info: finalGiftInfo, stock: finalStockToSave, expiry_date: newExpiry || null 
       };
 
-      // CẬP NHẬT GIAO DIỆN NGAY LẬP TỨC (OPTIMISTIC UPDATE) - CHUYỂN RA NGOÀI ĐỂ LUÔN CHẠY
+      // CẬP NHẬT GIAO DIỆN NGAY LẬP TỨC
       setProducts(prev => {
         let updated = prev.map(p => {
            const pBase = String(p.product_code).split('-')[0];
@@ -984,11 +983,14 @@ export default function App() {
 
       if (navigator.onLine) {
         if (allVariants.length > 0) {
-          const variantIds = allVariants.map(v => v.id);
-          // ĐỒNG BỘ GIÁ BÁN CHO TOÀN BỘ CÁC LÔ TRÊN CLOUD
-          await supabase.from("products").update({ 
-            name: newName, category: formattedCat, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, updated_at: new Date().toISOString() 
-          }).in("id", variantIds);
+          // ÉP SUPABASE ĐỔI GIÁ TỪNG LÔ MỘT ĐỂ ĐẢM BẢO THÀNH CÔNG
+          for (const v of allVariants) {
+              const keepSuffix = v.name.includes('[Lô mới]') ? ' [Lô mới]' : '';
+              await supabase.from("products").update({ 
+                name: newName + keepSuffix, category: formattedCat, sale_price: salePrice, 
+                promo_price: promo, gift_info: finalGiftInfo, updated_at: new Date().toISOString() 
+              }).eq("id", v.id);
+          }
 
           if (isNewBatch) { 
             await supabase.from("products").insert([newProductData]); 
