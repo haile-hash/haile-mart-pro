@@ -196,6 +196,7 @@ export default function App() {
   const { darkMode, setDarkMode, showSettings, setShowSettings, showInputForm, setShowInputForm, showDebtModal, setShowDebtModal, showStatsModal, setShowStatsModal, showCustomerModal, setShowCustomerModal, showHandoverModal, setShowHandoverModal, showAuditModal, setShowAuditModal, showHoldModal, setShowHoldModal, showExpenseModal, setShowExpenseModal, showSupplierModal, setShowSupplierModal, showMarketingModal, setShowMarketingModal, showInventoryModal, setShowInventoryModal, showMainMenu, setShowMainMenu, cashFlowModalInfo, setCashFlowModalInfo, scannerMode, setScannerMode, printMode, setPrintMode } = useUIState();
   const { newCode, setNewCode, newName, setNewName, newImportPrice, setNewImportPrice, newPrice, setNewPrice, newPromoPrice, setNewPromoPrice, newGiftCondition, setNewGiftCondition, newGiftInfo, setNewGiftInfo, newStock, setNewStock, newExpiry, setNewExpiry, newCategory, setNewCategory, resetProductForm } = useProductInput();
   const { cart, setCart, barcodeInput, setBarcodeInput, isCheckoutOpen, setIsCheckoutOpen, checkoutStep, setCheckoutStep, customerInput, setCustomerInput, custPhone, setCustPhone, custName, setCustName, useWallet, setUseWallet, voucherInput, setVoucherInput, appliedVoucherAmount, setAppliedVoucherAmount, customerGiven, setCustomerGiven, lastOrder, setLastOrder, resetCheckout, custAddress, setCustAddress } = useCheckoutState();
+
   const [customersData, setCustomers] = useState<Record<string, Customer>>({});
   const [heldOrders, setHeldOrders] = useState<HeldOrder[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
@@ -205,10 +206,6 @@ export default function App() {
 
   const { isOnline, syncStatus, syncAllOfflineData, loadCloudData } = useOfflineSync({ isLoggedIn, history, setHistory, customers: customersData, setCustomers, heldOrders, setHeldOrders, auditLogs, setAuditLogs, expenses, setExpenses, suppliers, setSuppliers });
   const isPrintingRef = useRef(false);
-
-  // =====================================================================
-  // BẮT ĐẦU: KHỐI LOGIC DỮ LIỆU ĐÃ ĐƯỢC PHỤC HỒI CHUẨN XÁC
-  // =====================================================================
 
   const findProductByCode = (code: string) => products.find(p => p.product_code === code);
 
@@ -221,19 +218,13 @@ export default function App() {
   const groupedHistory = useMemo(() => {
     const groups: Record<string, any[]> = {};
     let filteredLog = [...history];
-    
     if (logSearchTerm) {
       const lower = logSearchTerm.toLowerCase();
-      filteredLog = filteredLog.filter(l => 
-        (l.name && l.name.toLowerCase().includes(lower)) || 
-        (l.order_id && l.order_id.toLowerCase().includes(lower))
-      );
+      filteredLog = filteredLog.filter(l => (l.name && l.name.toLowerCase().includes(lower)) || (l.order_id && l.order_id.toLowerCase().includes(lower)));
     }
-    
     if (logTypeFilter !== "Tất cả") {
       filteredLog = filteredLog.filter(l => l.type === logTypeFilter);
     }
-
     filteredLog.forEach(log => {
       let dateKey = "Khác";
       if (log.time) {
@@ -278,9 +269,7 @@ export default function App() {
     return { total, profit, orders: ordersCount, cash, transfer };
   }, [history, shift, todayStrStr]);
 
-  // =====================================================================
-  // THAY THẾ: LOGIC PHÂN LOẠI CHI TIẾT DÒNG TIỀN CHO MODAL ĐỐI SOÁT
-  // =====================================================================
+  // LOGIC DÒNG TIỀN ĐÃ ĐƯỢC CHUẨN HÓA VÀ BÓC TÁCH HOÀN HẢO
   const currentShiftCashFlow = useMemo(() => {
     const thu: any[] = [];
     const chi: any[] = [];
@@ -295,6 +284,7 @@ export default function App() {
       }
 
       if (log.shift === shift && logDate === todayStr) {
+        // BÁN HÀNG & THU NỢ -> GHI NHẬN THU VÀO
         if (log.type === 'BÁN' || log.type === 'THU NỢ') {
            if (log.paymentMethod === 'TIỀN MẶT' || log.paymentMethod === 'CHUYỂN KHOẢN' || log.paymentMethod === 'ZALO PAY' || log.paymentMethod === 'QUẸT THẺ') {
               thu.push({ note: `[${log.type}] ${log.order_id || log.name}`, amount: log.total, time: log.time, method: log.paymentMethod === 'TIỀN MẶT' ? 'TIỀN MẶT' : 'CHUYỂN KHOẢN' });
@@ -304,6 +294,7 @@ export default function App() {
               if (transferAmt > 0) thu.push({ note: `[${log.type}] ${log.order_id || log.name} (CK)`, amount: transferAmt, time: log.time, method: 'CHUYỂN KHOẢN' });
            }
         }
+        // HOÀN HÀNG LỖI -> GHI NHẬN CHI RA
         else if (log.type === 'TRẢ HÀNG') {
            const absTotal = Math.abs(log.total || 0);
            if (absTotal > 0 && log.paymentMethod !== 'VÍ WALLET' && log.paymentMethod !== 'TRỪ NỢ') {
@@ -367,10 +358,6 @@ export default function App() {
   const filteredStats = history;
   const chartData: any[] = [];
   const topSelling: any[] = [];
-
-  // =====================================================================
-  // KẾT THÚC: KHỐI LOGIC DỮ LIỆU
-  // =====================================================================
 
   useEffect(() => {
     const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e); };
@@ -628,33 +615,32 @@ export default function App() {
 
   const handleNextToQR = () => { if (cart.length === 0) return toast.error("Giỏ hàng trống!"); if (custPhone && !customersData[custPhone] && !custName) return toast.error("Vui lòng nhập Tên khách mới!"); setCheckoutStep(2); };
 
-  // =====================================================================
-  // BẢO VỆ KẾ TOÁN: HÀM CONFIRM CHECKOUT CHỐNG CHIA CHO SỐ 0 TRIỆT ĐỂ
-  // =====================================================================
   const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 'GHI NỢ' | 'KẾT HỢP' | 'QUẸT THẺ' | 'ZALO PAY') => {
     if (cart.some(i => !i.qty || i.qty <= 0)) { playSound('error'); return toast.error("Lỗi số lượng sản phẩm!") }
     if (payMethod === 'GHI NỢ' && !custPhone) return toast.error("Thanh toán Ghi nợ cần SĐT Khách hàng!");
     setLoading(true); 
     try {
       let newLogs: any[] = []; const baseTotal = cartTotalAmountDisplay; const subTotal = Math.round(baseTotal / (1 + VAT_RATE)); const vatTotal = baseTotal - subTotal; const finalTotal = amountAfterTierAndVoucher - walletUsedAmount; const orderIdStr = "HD" + Date.now().toString().slice(-6);
+      
       for (const item of cart) {
         if (navigator.onLine) await supabase.from("products").update({ stock: Math.max(0, item.product.stock - item.qty) }).eq("id", item.product.id);
         
         let splitCashAmt = 0; 
         if(payMethod === 'KẾT HỢP') { 
-          // BỌC GIÁP: Chống chia cho số 0
           const safeRatio = finalTotal > 0 ? (Number(customerGiven) / finalTotal) : 0;
           splitCashAmt = Math.round(safeRatio * Math.round(item.qty * getActualPrice(item.product) * (1 + VAT_RATE))); 
         }
         const newLog = { id: Date.now() + Math.random(), shift, type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", name: cleanName(item.product.name), qty: item.qty, total: item.total, profit: Math.round(item.qty * (getActualPrice(item.product) - (item.product.import_price || 0))), customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id, paymentMethod: payMethod, split_cash: splitCashAmt, time: new Date().toLocaleString('vi-VN'), order_id: orderIdStr };
         newLogs.push(newLog);
       }
+      
       if (custPhone) {
         const earned = payMethod === 'GHI NỢ' ? 0 : Math.round(finalTotal * 0.02);
         const currentCust = customersData[custPhone] || {};
         const updatedCust = { name: custName, wallet: payMethod === 'GHI NỢ' ? (currentCust.wallet || 0) : Math.round((currentCust.wallet || 0) - walletUsedAmount + earned), debt: (currentCust.debt || 0) + (payMethod === 'GHI NỢ' ? finalTotal : 0), totalSpent: (currentCust.totalSpent || 0) + (payMethod !== 'GHI NỢ' ? finalTotal : 0), email: currentCust.email || "", address: custAddress || currentCust.address || "", cardCode: currentCust.cardCode || "" }; 
         setCustomers(prev => ({ ...prev, [custPhone]: updatedCust })); if (navigator.onLine) { await supabase.from("customers").upsert({ phone: custPhone, ...updatedCust }); }
       }
+      
       setHistory(prev => [...newLogs, ...prev]); if (navigator.onLine) { try { await supabase.from("history").insert(newLogs); } catch(err) { console.log(err); } }
       setLastOrder({ orderId: orderIdStr, shift, cart: [...cart], subTotal, vatTotal, finalTotal, debtAmount: payMethod === 'GHI NỢ' ? finalTotal : 0, discount: appliedVoucherAmount + tierDiscountAmount, time: new Date().toLocaleString('vi-VN'), paymentMethod: payMethod, customerGiven: Number(customerGiven) || 0, custPhone, custName });
       logAudit("THANH TOÁN", `${orderIdStr} - ${payMethod} - ${finalTotal.toLocaleString()}đ`);
@@ -667,18 +653,16 @@ export default function App() {
       const log = history.find(l => l.id === logId); 
       if (!log || (log.type !== 'BÁN' && log.type !== 'GHI NỢ')) return;
 
-      const safeLogName = log.name ? cleanName(log.name) : "";
-      const existingRefunds = history.filter(h => {
-        const safeHName = h.name ? h.name : "";
-        return h.type === 'TRẢ HÀNG' && h.time > log.time && safeLogName !== "" && safeHName.includes(safeLogName);
-      });
-      const alreadyRefundedQty = existingRefunds.reduce((sum, h) => sum + Math.abs(h.qty || 0), 0);
+      const alreadyRefundedQty = history
+        .filter(h => h.type === 'TRẢ HÀNG' && h.order_id === log.order_id && h.product_id === log.product_id)
+        .reduce((sum, h) => sum + Math.abs(h.qty || 0), 0);
+        
       const remainingQtyToRefund = (log.qty || 0) - alreadyRefundedQty;
 
       if (remainingQtyToRefund <= 0) return toast.error("Đơn này đã được hoàn trả toàn bộ số lượng!");
 
-      const qtyInput = window.prompt(`Sản phẩm: ${safeLogName}\nSố lượng CÓ THỂ hoàn trả: ${remainingQtyToRefund}\n\nNhập SỐ LƯỢNG khách muốn trả lại:`, remainingQtyToRefund.toString()); 
-      if (qtyInput === null) return; 
+      const qtyInput = window.prompt(`Sản phẩm: ${cleanName(log.name)}\nSố lượng có thể hoàn trả: ${remainingQtyToRefund}\n\nNhập SỐ LƯỢNG khách trả lại:`, remainingQtyToRefund.toString()); 
+      if (!qtyInput) return; 
       
       const refundQty = parseInt(qtyInput); 
       if (isNaN(refundQty) || refundQty <= 0 || refundQty > remainingQtyToRefund) return toast.error("Số lượng hoàn trả không hợp lệ!"); 
@@ -690,15 +674,26 @@ export default function App() {
       let selectedMethod = "TIỀN MẶT";
 
       if (log.type === 'GHI NỢ') {
-        if (!window.confirm(`Đơn mua nợ. Hệ thống tự trừ ${refundTotal.toLocaleString()}đ dư nợ?`)) return; selectedMethod = "TRỪ NỢ";
-        const phoneMatch = log.customer.match(/\((.*?)\)/); const customerPhone = phoneMatch ? phoneMatch[1] : null;
-        if (customerPhone && customersData[customerPhone]) { const custData = customersData[customerPhone]; const newDebt = Math.max(0, (custData.debt || 0) - refundTotal); setCustomers(prev => ({ ...prev, [customerPhone]: { ...custData, debt: newDebt } })); if (navigator.onLine) { await supabase.from("customers").update({ debt: newDebt }).eq("phone", customerPhone); } }
+        if (!window.confirm(`Đơn này mua nợ. Trừ ${refundTotal.toLocaleString()}đ dư nợ của khách?`)) return; 
+        selectedMethod = "TRỪ NỢ";
+        const phoneMatch = log.customer?.match(/\((.*?)\)/); const customerPhone = phoneMatch ? phoneMatch[1] : log.customer;
+        if (customerPhone && customersData[customerPhone]) { 
+          const custData = customersData[customerPhone]; 
+          const newDebt = Math.max(0, (custData.debt || 0) - refundTotal); 
+          setCustomers(prev => ({ ...prev, [customerPhone]: { ...custData, debt: newDebt } })); 
+          if (navigator.onLine) { await supabase.from("customers").update({ debt: newDebt }).eq("phone", customerPhone); } 
+        }
       } else {
-        const choice = window.prompt(`Hình thức hoàn tiền:\n1. TIỀN MẶT\n2. CHUYỂN KHOẢN\n3. HOÀN VÀO VÍ VIP`, "1"); if (choice === null) return; 
-        if (choice === "2") selectedMethod = "CHUYỂN KHOẢN"; if (choice === "3") selectedMethod = "VÍ WALLET";
+        const choice = window.prompt(`Hình thức trả tiền cho khách:\n1. TIỀN MẶT\n2. CHUYỂN KHOẢN\n3. HOÀN VÀO VÍ VIP`, "1"); 
+        if (!choice) return; 
+        if (choice === "2") selectedMethod = "CHUYỂN KHOẢN"; 
+        if (choice === "3") selectedMethod = "VÍ WALLET";
         if (choice === "3") {
-          const phoneMatch = log.customer.match(/\((.*?)\)/); const customerPhone = phoneMatch ? phoneMatch[1] : null; if (!customerPhone || !customersData[customerPhone]) { return toast.error("Khách lẻ không hoàn Ví VIP được!"); }
-          const custData = customersData[customerPhone]; setCustomers(prev => ({ ...prev, [customerPhone]: { ...custData, wallet: Math.round((custData.wallet || 0) + refundTotal) } })); if (navigator.onLine) { await supabase.from("customers").update({ wallet: Math.round((custData.wallet || 0) + refundTotal) }).eq("phone", customerPhone); }
+          const phoneMatch = log.customer?.match(/\((.*?)\)/); const customerPhone = phoneMatch ? phoneMatch[1] : null; 
+          if (!customerPhone || !customersData[customerPhone]) { return toast.error("Khách lẻ không hoàn Ví VIP được!"); }
+          const custData = customersData[customerPhone]; 
+          setCustomers(prev => ({ ...prev, [customerPhone]: { ...custData, wallet: Math.round((custData.wallet || 0) + refundTotal) } })); 
+          if (navigator.onLine) { await supabase.from("customers").update({ wallet: Math.round((custData.wallet || 0) + refundTotal) }).eq("phone", customerPhone); }
         }
       }
       
@@ -711,28 +706,31 @@ export default function App() {
         } 
       }
       
-      const lg = { id: Date.now(), shift, type: "TRẢ HÀNG", name: `HOÀN: ${safeLogName}`, qty: refundQty, total: -refundTotal, profit: -refundProfit, customer: log.customer, product_id: log.product_id, paymentMethod: selectedMethod, time: new Date().toLocaleString('vi-VN') };
+      const lg = { id: Date.now(), shift, type: "TRẢ HÀNG", name: `HOÀN: ${cleanName(log.name)}`, qty: refundQty, total: -refundTotal, profit: -refundProfit, customer: log.customer, product_id: log.product_id, paymentMethod: selectedMethod, time: new Date().toLocaleString('vi-VN'), order_id: log.order_id };
       await addTransactionAndSync(lg); 
-      logAudit("HOÀN ĐƠN", `Trả ${refundQty} x ${safeLogName} (${selectedMethod})`);
-      toast.success(`Đã hoàn đơn thành công!`); 
+      logAudit("HOÀN ĐƠN", `Trả ${refundQty} x ${cleanName(log.name)} (${selectedMethod})`);
+      toast.success(`Hoàn tiền (${selectedMethod}): ${refundTotal.toLocaleString()}đ thành công!`); 
     }); 
   };
 
-  // =====================================================================
-  // BẢO VỆ KẾ TOÁN: THU NỢ ÉP CHẶN CHỮ CHỐNG ĐẬP SẬP SỔ NỢ (NaN FIX)
-  // =====================================================================
   const handlePayDebt = async (phone: string) => { 
-    const currentDebt = customersData[phone]?.debt || 0; if (currentDebt <= 0) return toast.error("Khách không có nợ!"); 
-    const inputAmount = window.prompt(`Khách: ${customersData[phone].name}\nNợ cũ: ${currentDebt.toLocaleString()}đ\nSố tiền trả:`, currentDebt.toString()); if (!inputAmount) return; 
+    const currentDebt = customersData[phone]?.debt || 0; 
+    if (currentDebt <= 0) return toast.error("Khách không có nợ!"); 
     
-    // Ép sạch chuỗi chữ rác vĩnh viễn
-    const paidAmount = parseInt(inputAmount.replace(/[^0-9]/g, '')); 
+    const inputAmount = window.prompt(`Khách: ${customersData[phone].name}\nNợ cũ: ${currentDebt.toLocaleString()}đ\nSố tiền trả:`, currentDebt.toString()); 
+    if (!inputAmount) return; 
+    
+    const paidAmount = Number(inputAmount.replace(/[^0-9]/g, '')); 
     if (isNaN(paidAmount) || paidAmount <= 0 || paidAmount > currentDebt) { return toast.error("Số tiền trả không hợp lệ!"); }
     
-    const methodChoice = window.prompt(`Hình thức:\n1. TIỀN MẶT\n2. CHUYỂN KHOẢN`, "1"); if (methodChoice === null) return; const selectedMethod = methodChoice === "2" ? "CHUYỂN KHOẢN" : "TIỀN MẶT";
-    const remainingDebt = currentDebt - paidAmount; setCustomers(prev => ({ ...prev, [phone]: { ...prev[phone], debt: remainingDebt } })); 
+    const methodChoice = window.prompt(`Hình thức:\n1. TIỀN MẶT\n2. CHUYỂN KHOẢN`, "1"); 
+    if (methodChoice === null) return; const selectedMethod = methodChoice === "2" ? "CHUYỂN KHOẢN" : "TIỀN MẶT";
+    
+    const remainingDebt = currentDebt - paidAmount; 
+    setCustomers(prev => ({ ...prev, [phone]: { ...prev[phone], debt: remainingDebt } })); 
     if (navigator.onLine) { await supabase.from("customers").update({ debt: remainingDebt }).eq("phone", phone); }
-    const lg = { id: Date.now(), shift, type: "THU NỢ", name: remainingDebt === 0 ? "Thành toán hết nợ" : `Trả bớt nợ (Còn nợ: ${remainingDebt.toLocaleString()}đ)`, qty: 1, total: paidAmount, profit: 0, customer: `${customersData[phone].name} (${phone})`, paymentMethod: selectedMethod, time: new Date().toLocaleString('vi-VN') }; addTransactionAndSync(lg); 
+    
+    const lg = { id: Date.now(), shift, type: "THU NỢ", name: remainingDebt === 0 ? "Thanh toán hết nợ" : `Trả bớt nợ (Còn nợ: ${remainingDebt.toLocaleString()}đ)`, qty: 1, total: paidAmount, profit: 0, customer: `${customersData[phone].name} (${phone})`, paymentMethod: selectedMethod, time: new Date().toLocaleString('vi-VN') }; addTransactionAndSync(lg); 
     logAudit("THU NỢ", `${customersData[phone].name} trả ${paidAmount.toLocaleString()}đ`); toast.success(`Thu nợ thành công!`);
   };
 
@@ -747,20 +745,15 @@ export default function App() {
 
   const sendReceiptEmail = async () => {
     if (!lastOrder) return; 
-    let savedEmail = (lastOrder.custPhone && customersData[lastOrder.custPhone]) ? customersData[lastOrder.custPhone].email : ""; 
+    let savedEmail = customersData?.[lastOrder.custPhone]?.email || ""; 
     let email = window.prompt("Nhập Email khách hàng:", savedEmail); if (!email) return; email = email.trim(); 
     if (lastOrder.custPhone && customersData[lastOrder.custPhone]) { setCustomers((prev: any) => ({ ...prev, [lastOrder.custPhone]: { ...prev[lastOrder.custPhone], email: email } })); }
     setLoading(true); 
     
     let itemsHtml = ""; 
-    lastOrder.cart.forEach((item: any) => { 
+    (lastOrder.cart || []).forEach((item: any) => { 
       const priceToUse = item.priceIncludingVat !== undefined ? item.priceIncludingVat : Math.round(getActualPrice(item.product) * (1 + VAT_RATE)); 
-      itemsHtml += `
-        <tr>
-          <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; color: #1e293b;">${cleanName(item.product.name)}</td>
-          <td style="padding: 12px; text-align: center; border-bottom: 1px solid #f1f5f9; color: #1e293b; font-weight: bold;">${item.qty}</td>
-          <td style="padding: 12px; text-align: right; border-bottom: 1px solid #f1f5f9; color: #1e293b;">${(priceToUse * item.qty).toLocaleString()}đ</td>
-        </tr>`; 
+      itemsHtml += `<tr><td style="padding: 12px; border-bottom: 1px solid #f1f5f9; color: #1e293b;">${cleanName(item.product.name)}</td><td style="padding: 12px; text-align: center; border-bottom: 1px solid #f1f5f9; color: #1e293b; font-weight: bold;">${item.qty}</td><td style="padding: 12px; text-align: right; border-bottom: 1px solid #f1f5f9; color: #1e293b;">${(priceToUse * item.qty).toLocaleString()}đ</td></tr>`; 
     }); 
 
     const htmlContent = `
@@ -781,16 +774,8 @@ export default function App() {
             </div>
           </div>
           <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-            <thead>
-              <tr style="background: #f8fafc;">
-                <th style="padding: 12px; text-align: left; color: #64748b; font-size: 13px; border-bottom: 2px solid #e2e8f0;">Sản phẩm</th>
-                <th style="padding: 12px; text-align: center; color: #64748b; font-size: 13px; border-bottom: 2px solid #e2e8f0;">SL</th>
-                <th style="padding: 12px; text-align: right; color: #64748b; font-size: 13px; border-bottom: 2px solid #e2e8f0;">Thành tiền</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itemsHtml}
-            </tbody>
+            <thead><tr style="background: #f8fafc;"><th style="padding: 12px; text-align: left; color: #64748b; font-size: 13px; border-bottom: 2px solid #e2e8f0;">Sản phẩm</th><th style="padding: 12px; text-align: center; color: #64748b; font-size: 13px; border-bottom: 2px solid #e2e8f0;">SL</th><th style="padding: 12px; text-align: right; color: #64748b; font-size: 13px; border-bottom: 2px solid #e2e8f0;">Thành tiền</th></tr></thead>
+            <tbody>${itemsHtml}</tbody>
           </table>
           <div style="background: #f8fafc; padding: 15px; border-radius: 8px; text-align: right;">
             <h2 style="margin: 0; color: #0f172a; font-size: 22px;">
@@ -806,22 +791,18 @@ export default function App() {
         </div>
       </div>
     `;
-
     try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_email: email, subject: `🧾 Hóa đơn mua hàng #${lastOrder.orderId}`, html_message: htmlContent }); logAudit("GỬI HÓA ĐƠN EMAIL", `Mã HĐ: ${lastOrder.orderId}`); toast.success("Đã gửi Hóa đơn thành công!"); } catch (error: any) { toast.error(`Lỗi gửi Email`); } setLoading(false)
   };
 
   const printCustomerCard = (phone: string) => { const cust = customersData[phone]; if(!cust) return toast.error("Không tìm thấy dữ liệu khách!"); setPrintCustomer({ phone, ...cust }); setPrintMode('customer_card'); logAudit("IN THẺ VIP", phone); };
   
-  // =====================================================================
-  // THAY THẾ: GIỮ KHUNG TABLE SIÊU VỮNG CHẮC CHO MẪU EMAIL THẺ THÀNH VIÊN
-  // =====================================================================
   const sendCardEmail = async (phone: string) => {
     const font = customersData[phone]; if(!font) return toast.error("Không tìm thấy dữ liệu khách!");
     let email = font.email || window.prompt(`Nhập Email của ${font.name}:`, ""); if (!email) return; email = email.trim(); 
     if (!font.email) { setCustomers((prev: any) => ({ ...prev, [phone]: { ...prev[phone], email } })); } setLoading(true);
     
     const code = font.cardCode || phone; 
-    const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=2&height=10&includetext=false`; 
+    const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=3&height=15&includetext=false`; 
     
     const htmlContent = `
       <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f1f5f9; padding: 30px; border-radius: 12px;">
