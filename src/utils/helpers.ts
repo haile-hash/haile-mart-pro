@@ -49,7 +49,7 @@ export const formatCategoryStr = (str: string) => {
 };
 
 export const parseGift = (giftStr: string | null) => { 
-  if (!giftStr) return { cond: 0, text: "" }; 
+  if (!giftStr) return null; 
   if (giftStr.includes(';;;')) { 
     const parts = giftStr.split(';;;'); 
     return { cond: parseInt(parts[0]) || 1, text: parts[1] || "" } 
@@ -60,20 +60,25 @@ export const parseGift = (giftStr: string | null) => {
 export const cleanName = (name: string) => name ? String(name).split(' [Lô')[0] : '';
 
 export const getActualPrice = (p: any) => { 
-  let price = (p.promo_price && p.promo_price > 0) ? p.promo_price : p.sale_price; 
+  if (!p) return 0;
+  let price = (Number(p.promo_price) > 0) ? Number(p.promo_price) : Number(p.sale_price || 0); 
   const currentHour = new Date().getHours(); 
-  if ((currentHour >= 20 || currentHour < 6) && (p.category === 'Đồ ăn liền' || p.category === 'Bánh Kẹo')) { 
-    price = price * 0.8; p.isHappyHour = true 
+  const isSnack = p.category === 'Đồ ăn liền' || p.category === 'Bánh Kẹo';
+  
+  if ((currentHour >= 20 || currentHour < 6) && isSnack) { 
+    price = price * 0.8; 
+    p.isHappyHour = true; 
   } else { 
-    p.isHappyHour = false 
+    p.isHappyHour = false; 
   } 
-  return Math.round(price) 
+  return Math.round(price); 
 };
 
 export const getCustomerTier = (totalSpent = 0) => { 
-  if (totalSpent >= 500000000) return { name: "💎 KIM CƯƠNG", discountRate: 0.10, color: "#a855f7", bg: "#faf5ff", border: "#e9d5ff" }; 
-  if (totalSpent >= 200000000) return { name: "🥇 VÀNG", discountRate: 0.05, color: "#ca8a04", bg: "#fefce8", border: "#fef08a" }; 
-  if (totalSpent >= 50000000) return { name: "🥈 BẠC", discountRate: 0.02, color: "#475569", bg: "#f8fafc", border: "#cbd5e1" }; 
+  const spent = Number(totalSpent) || 0;
+  if (spent >= 500000000) return { name: "💎 KIM CƯƠNG", discountRate: 0.10, color: "#a855f7", bg: "#faf5ff", border: "#e9d5ff" }; 
+  if (spent >= 200000000) return { name: "🥇 VÀNG", discountRate: 0.05, color: "#ca8a04", bg: "#fefce8", border: "#fef08a" }; 
+  if (spent >= 50000000) return { name: "🥈 BẠC", discountRate: 0.02, color: "#475569", bg: "#f8fafc", border: "#cbd5e1" }; 
   return { name: "🥉 ĐỒNG", discountRate: 0, color: "#b45309", bg: "#fffbeb", border: "#fde68a" } 
 };
 
