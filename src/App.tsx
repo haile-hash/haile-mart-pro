@@ -930,16 +930,19 @@ export default function App() {
       const salePrice = parseInt(newPrice); 
       const promo = parseInt(newPromoPrice) || 0; 
       const finalGiftInfo = newGiftInfo.trim() !== "" ? `${newGiftCondition};;;${newGiftInfo}` : null; 
-      const baseCode = newCode.trim(); 
+      
+      const inputCode = newCode.trim(); 
+      // BỌC GIÁP: Luôn bóc tách mã gốc để tìm tất cả các lô (loại bỏ đuôi -xxxx)
+      const baseCode = inputCode.split('-')[0]; 
       const formattedCat = formatCategoryStr(newCategory);
       
       const allVariants = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)); 
-      const exist = allVariants.find(p => p.product_code === baseCode); 
+      // Lô đang nhắm tới là mã người dùng gõ vào form
+      const exist = products.find(p => p.product_code === inputCode) || allVariants.find(p => p.product_code === baseCode); 
       
-      // Kiểm tra có tạo lô mới không (Lệch giá vốn hoặc lệch hạn sử dụng)
       const isNewBatch = exist && (exist.import_price !== impPrice || (exist.expiry_date || "") !== (newExpiry || ""));
 
-      let finalProductCode = baseCode;
+      let finalProductCode = exist ? exist.product_code : baseCode;
       let finalProductName = newName;
       let finalStockToSave = added;
 
@@ -953,86 +956,57 @@ export default function App() {
         finalStockToSave = exist.stock + added;
       }
 
-      const newProductData = {
-        product_code: finalProductCode,
-        name: finalProductName,
-        category: formattedCat,
-        import_price: impPrice,
-        sale_price: salePrice,
-        promo_price: promo,
-        gift_info: finalGiftInfo,
-        stock: finalStockToSave,
-        expiry_date: newExpiry || null
+      const newProductData = { 
+        product_code: finalProductCode, name: finalProductName, category: formattedCat, 
+        import_price: impPrice, sale_price: salePrice, promo_price: promo, 
+        gift_info: finalGiftInfo, stock: finalStockToSave, expiry_date: newExpiry || null 
       };
 
+      // CẬP NHẬT GIAO DIỆN NGAY LẬP TỨC (OPTIMISTIC UPDATE)
+      setProducts(prev => {
+        let updated = prev.map(p => {
+           const pBase = String(p.product_code).split('-')[0];
+           if (pBase === baseCode) {
+              const keepSuffix = p.name.includes('[Lô mới]') ? ' [Lô mới]' : '';
+              return { 
+                ...p, 
+                name: newName + keepSuffix, category: formattedCat, 
+                sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, 
+                stock: (!isNewBatch && p.id === exist?.id) ? finalStockToSave : p.stock 
+              };
+           }
+           return p;
+        });
+        if (isNewBatch || !exist) {
+           updated = [{ id: `temp-${Date.now()}`, ...newProductData, created_at: new Date().toISOString() }, ...updated];
+        }
+        return updated;
+      });
+
       if (navigator.onLine) {
-        // NẾU ĐÃ CÓ SẢN PHẨM TRÊN HỆ THỐNG
         if (allVariants.length > 0) {
           const variantIds = allVariants.map(v => v.id);
-          
-          // ĐỒNG BỘ 100%: Cập nhật Giá bán, Giá khuyến mãi, Quà tặng cho TẤT CẢ các lô/biến thể hiện tại
+          // ĐỒNG BỘ GIÁ BÁN CHO TOÀN BỘ CÁC LÔ TRÊN CLOUD
           await supabase.from("products").update({ 
-            sale_price: salePrice,
-            promo_price: promo,
-            gift_info: finalGiftInfo,
-            updated_at: new Date().toISOString() 
+            name: newName, category: formattedCat, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, updated_at: new Date().toISOString() 
           }).in("id", variantIds);
 
-          if (isNewBatch) {
-            // Nếu là lô mới, tiến hành chèn thêm dòng lô mới vào cơ sở dữ liệu
-            await supabase.from("products").insert([newProductData]);
-          } else if (exist) {
-            // Nếu là lô cũ, chỉ cập nhật tăng số lượng tồn kho của riêng lô đó
-            await supabase.from("products").update({ 
-              stock: finalStockToSave,
-              updated_at: new Date().toISOString() 
-            }).eq("id", exist.id);
+          if (isNewBatch) { 
+            await supabase.from("products").insert([newProductData]); 
+          } else if (exist) { 
+            await supabase.from("products").update({ stock: finalStockToSave, updated_at: new Date().toISOString() }).eq("id", exist.id); 
           }
-        } else {
-          // Nếu là mặt hàng mới tinh chưa từng tồn tại
-          await supabase.from("products").insert([newProductData]);
+        } else { 
+          await supabase.from("products").insert([newProductData]); 
         }
 
-        if (added > 0) addTransactionAndSync({ id: Date.now(), shift, type: "NHẬP", name: finalProductName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') });
+        if (added > 0) addTransactionAndSync({ id: Date.now(), shift, type: "NHẬP", name: finalProductName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }); 
         logAudit("THÊM/SỬA SP", `Mã: ${finalProductCode}`);
-        toast.success(`Đã lưu và đồng bộ giá toàn hệ thống thành công!`);
-        fetchProducts();
+        toast.success(`Đã lưu & đồng bộ giá!`);
       } else {
-        // XỬ LÝ KHI MẤT MẠNG (OFFLINE MODE)
         const pendingImports = await dbGet("mart_pending_imports") || [];
-        let actionType = (exist && !isNewBatch) ? "UPDATE_STOCK" : "INSERT_NEW";
-        let targetId = (exist && !isNewBatch) ? exist.id : null;
-
-        pendingImports.push({
-          id: Date.now(),
-          action: actionType,
-          targetId: targetId,
-          data: newProductData,
-          addedStock: added
-        });
+        pendingImports.push({ id: Date.now(), action: (exist && !isNewBatch) ? "UPDATE_STOCK" : "INSERT_NEW", targetId: (exist && !isNewBatch) ? exist.id : null, data: newProductData, addedStock: added });
         await dbSet("mart_pending_imports", pendingImports);
-
-        // Đồng bộ tức thì trên giao diện màn hình offline để thu ngân thấy giá mới
-        setProducts(prev => {
-          let updated = prev.map(p => {
-            const pBase = String(p.product_code).split('-')[0];
-            if (pBase === baseCode) {
-              return {
-                ...p,
-                sale_price: salePrice,
-                promo_price: promo,
-                gift_info: finalGiftInfo,
-                stock: (!isNewBatch && p.id === exist.id) ? finalStockToSave : p.stock
-              };
-            }
-            return p;
-          });
-
-          if (isNewBatch || !exist) {
-            updated = [{ id: `temp-${Date.now()}`, ...newProductData, created_at: new Date().toISOString() }, ...updated];
-          }
-          return updated;
-        });
 
         if (added > 0) {
           const offlineLog = { id: Date.now(), shift, type: "NHẬP (OFFLINE)", name: finalProductName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') };
@@ -1041,34 +1015,69 @@ export default function App() {
           await dbSet("mart_history", [offlineLog, ...currentHistory]);
         }
         logAudit("NHẬP KHO OFFLINE", `Mã: ${finalProductCode}`);
-        toast.success(`Đã lưu Tạm! Giá bán và tồn sẽ tự động đồng bộ khi có mạng.`);
+        toast.success(`Đã lưu Tạm! Đồng bộ tự động khi có mạng.`);
       }
-      resetProductForm();
+      resetProductForm(); 
       setShowInputForm(false);
-    } catch (err) {
-      toast.error("Lỗi khi lưu sản phẩm");
-    } finally {     // <--- ĐÃ SỬA CHỮ final THÀNH finally CHUẨN XÁC
-      setLoading(false);
+    } catch (err) { 
+      toast.error("Lỗi khi lưu sản phẩm"); 
+    } finally { 
+      setLoading(false); 
     }
   };
 
   const handleFileUpload = async (e: any) => {
     const file = e?.target?.files?.[0] || e; if (!file || !file.name) { if (e?.target) e.target.value = ''; return; }
     if (!navigator.onLine) { toast.error("Cần mạng để tải lên!"); if (e?.target) e.target.value = ''; return; }
+    
     const processData = async (lines: any[]) => {
       setLoading(true); 
       try {
         if (!lines || lines.length <= 1) { toast.error("File rỗng!"); setLoading(false); return; } 
         let successCount = 0; let importLogs: any[] = [];
+        
         for (let i = 1; i < lines.length; i++) {
           const cols = lines[i]; if (!cols || !Array.isArray(cols) || cols.join('').trim() === '') continue; 
           const pCode = String(cols[0] || "").trim(); const pName = String(cols[1] || "").trim(); const pCategory = formatCategoryStr(String(cols[2] || "")); const pImpPrice = parseInt(String(cols[3] || "0").replace(/[,.]/g, '')) || 0; const pSalePrice = parseInt(String(cols[4] || "0").replace(/[,.]/g, '')) || 0; const pPromoPrice = parseInt(String(cols[5] || "0").replace(/[,.]/g, '')) || 0; const pGiftCond = String(cols[6] || "1").trim(); const pGiftText = cols[7] ? String(cols[7]).trim() : ""; const pGift = pGiftText !== "" ? `${pGiftCond};;;${pGiftText}` : null; const pStock = parseInt(String(cols[8] || "0").replace(/[,.]/g, '')) || 0; const pExpiry = cols[9] ? String(cols[9]).trim() : null;
           if (!pCode || !pName || pSalePrice <= 0) continue;
-          const baseCode = pCode; const allVariants = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)); 
-          if (allVariants.length > 0) { const needSync = allVariants.some(v => v.sale_price !== pSalePrice || v.promo_price !== pPromoPrice || v.gift_info !== pGift); if (needSync) { await Promise.all(allVariants.map(v => supabase.from("products").update({ sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift }).eq("id", v.id))); } }
-          const exist = allVariants.find(p => p.product_code === baseCode); 
-          if (exist) { if (exist.stock <= 0) { await supabase.from("products").update({ name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry, created_at: new Date().toISOString() }).eq("id", exist.id); } else { if (exist.import_price !== pImpPrice || (exist.expiry_date || "") !== (pExpiry || "")) { const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}${i}`; await supabase.from("products").insert([{ product_code: batchCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); } else { await supabase.from("products").update({ stock: exist.stock + pStock, created_at: new Date().toISOString() }).eq("id", exist.id); } } } 
-          else { await supabase.from("products").insert([{ product_code: baseCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); }
+          
+          // BỐC TÁCH MÃ GỐC
+          const baseCode = pCode.split('-')[0]; 
+          const allVariants = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)); 
+          
+          if (allVariants.length > 0) { 
+            const needSync = allVariants.some(v => v.sale_price !== pSalePrice || v.promo_price !== pPromoPrice || v.gift_info !== pGift || v.name !== pName); 
+            if (needSync) { 
+                const variantIds = allVariants.map(v => v.id);
+                
+                // Đồng bộ tức thì trên giao diện
+                setProducts(prev => prev.map(x => {
+                  if(variantIds.includes(x.id)) {
+                    const keepSuffix = x.name.includes('[Lô mới]') ? ' [Lô mới]' : '';
+                    return { ...x, name: pName + keepSuffix, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift };
+                  }
+                  return x;
+                }));
+
+                await supabase.from("products").update({ name: pName, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, updated_at: new Date().toISOString() }).in("id", variantIds); 
+            } 
+          }
+          
+          const exist = allVariants.find(p => p.product_code === pCode); 
+          if (exist) { 
+            if (exist.stock <= 0) { 
+              await supabase.from("products").update({ name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry, updated_at: new Date().toISOString() }).eq("id", exist.id); 
+            } else { 
+              if (exist.import_price !== pImpPrice || (exist.expiry_date || "") !== (pExpiry || "")) { 
+                const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}${i}`; 
+                await supabase.from("products").insert([{ product_code: batchCode, name: `${pName} [Lô mới]`, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); 
+              } else { 
+                await supabase.from("products").update({ stock: exist.stock + pStock, updated_at: new Date().toISOString() }).eq("id", exist.id); 
+              } 
+            } 
+          } else { 
+            await supabase.from("products").insert([{ product_code: pCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); 
+          }
           if (pStock > 0) { importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "NHẬP", name: cleanName(pName), qty: pStock, total: 0, time: new Date().toLocaleString('vi-VN') } as any); successCount++; }
         }
         if (importLogs.length > 0) { if(navigator.onLine) await supabase.from("history").insert(importLogs); setHistory(prev => [...importLogs, ...prev]); } 
@@ -1082,7 +1091,6 @@ export default function App() {
     } else { const reader = new FileReader(); reader.onload = (event) => { const text = event.target?.result as string; const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''))); processData(lines); }; reader.readAsText(file); } 
     if (e?.target) e.target.value = ''; 
   };
-
   const handleImportInventoryCSV = (e: any) => {
     const file = e?.target?.files?.[0] || e; if (!file || !file.name) { if (e?.target) e.target.value = ''; return; }
     const processData = (lines: any[]) => { 
@@ -1105,9 +1113,36 @@ export default function App() {
 
   const handleEdit = async (id: any, field: string, old: any, isText: boolean = false) => { 
     executeWithAdminCheck(async () => { 
-      if (!navigator.onLine) return toast.error("Mạng yếu!"); let label = field; if (field === 'category') label = 'Danh mục'; if (field === 'sale_price') label = 'Giá bán'; if (field === 'promo_price') label = 'Giá KM'; if (field === 'gift_info') label = 'Quà tặng'; if (field === 'expiry_date') label = 'HSD'; 
+      if (!navigator.onLine) return toast.error("Mạng yếu!"); 
+      let label = field; if (field === 'category') label = 'Danh mục'; if (field === 'sale_price') label = 'Giá bán'; if (field === 'promo_price') label = 'Giá KM'; if (field === 'gift_info') label = 'Quà tặng'; if (field === 'expiry_date') label = 'HSD'; 
       const val = window.prompt(`Sửa ${label}:`, old || ""); 
-      if (val !== null) { let updateData: any = isText ? (field === 'category' ? formatCategoryStr(val) : val) : (parseInt(val) || 0); if (field === 'gift_info' && val.trim() === '') updateData = null; await supabase.from("products").update({ [field]: updateData }).eq("id", id); logAudit("SỬA SP", `ID ${id} - Đổi ${label}`); fetchProducts() } 
+      
+      if (val !== null) { 
+        let updateData: any = isText ? (field === 'category' ? formatCategoryStr(val) : val) : (parseInt(val) || 0); 
+        if (field === 'gift_info' && val.trim() === '') updateData = null; 
+        
+        // ĐỒNG BỘ LÔ: Áp dụng cho Giá bán, Giá KM, Quà tặng, Tên, Danh mục
+        if (field === 'sale_price' || field === 'promo_price' || field === 'gift_info' || field === 'name' || field === 'category') {
+           const p = products.find(x => x.id === id);
+           if (p) {
+              const baseCode = String(p.product_code).split('-')[0];
+              const variantIds = products.filter(x => x.product_code === baseCode || String(x.product_code).startsWith(`${baseCode}-`)).map(x => x.id);
+              
+              // Cập nhật giao diện lập tức (Optimistic Update)
+              setProducts(prev => prev.map(x => variantIds.includes(x.id) ? { ...x, [field]: updateData } : x));
+              
+              // Đẩy lên Cloud đồng loạt
+              await supabase.from("products").update({ [field]: updateData, updated_at: new Date().toISOString() }).in("id", variantIds);
+           }
+        } else {
+           // Đổi tồn kho, giá vốn, HSD thì chỉ áp dụng độc lập cho đúng Lô đó
+           setProducts(prev => prev.map(x => x.id === id ? { ...x, [field]: updateData } : x));
+           await supabase.from("products").update({ [field]: updateData, updated_at: new Date().toISOString() }).eq("id", id); 
+        }
+
+        logAudit("SỬA SP", `ID ${id} - Đổi ${label}`); 
+        toast.success("Cập nhật thành công!");
+      } 
     }); 
   };
 
