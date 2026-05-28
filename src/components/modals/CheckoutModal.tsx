@@ -72,7 +72,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   if (!isCheckoutOpen) return null;
 
-  const vietQrUrl = `https://img.vietqr.io/image/${bankBin || 'ICB'}-${bankAcc || '0000'}-qr_only.png?amount=${finalToPay}&addInfo=Hải%20Lê%20Mart%20Thanh%20Toán`;
+  // Bảo vệ VietQR không bị undefined
+  const safeBankBin = bankBin || 'ICB';
+  const safeBankAcc = bankAcc || '0000';
+  const vietQrUrl = `https://img.vietqr.io/image/${safeBankBin}-${safeBankAcc}-qr_only.png?amount=${finalToPay || 0}&addInfo=Hải%20Lê%20Mart%20Thanh%20Toán`;
+
+  // Kiểm tra an toàn biến nhập tiền
+  const givenNum = Number(customerGiven);
+  const isValidGivenNum = !isNaN(givenNum) && givenNum > 0;
 
   return (
     <div className="checkout-modal-overlay" onClick={handleClose}>
@@ -115,7 +122,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <label className="co-label">Khách hàng</label>
                 <div className="co-input-wrapper">
                   <div className="co-icon-box">📞</div>
-                  <input id="co-customer-input" className="co-input" placeholder="Nhập SĐT hoặc quét thẻ..." value={customerInput} onChange={handleCustomerInputChange} />
+                  <input id="co-customer-input" className="co-input" placeholder="Nhập SĐT hoặc quét thẻ..." value={customerInput || ''} onChange={handleCustomerInputChange} />
                   <button type="button" className="co-btn-scan" onClick={() => setScannerMode('customer')}>Quét</button>
                 </div>
               </div>
@@ -123,27 +130,27 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <label className="co-label">Tên khách hàng</label>
                 <div className="co-input-wrapper">
                   <div className="co-icon-box">👤</div>
-                  <input className="co-input" placeholder="Tên khách hàng thân thiết..." value={custName} onChange={(e) => setCustName(e.target.value)} />
+                  <input className="co-input" placeholder="Tên khách hàng thân thiết..." value={custName || ''} onChange={(e) => setCustName(e.target.value)} />
                 </div>
               </div>
               <div className="co-group" style={{ margin: 0 }}>
                 <label className="co-label">Ghi chú giao hàng</label>
                 <div className="co-input-wrapper">
                   <div className="co-icon-box">📍</div>
-                  <input className="co-input" placeholder="Số nhà, tên đường (Nếu giao tận nơi)..." value={custAddress} onChange={(e) => setCustAddress(e.target.value)} />
+                  <input className="co-input" placeholder="Số nhà, tên đường (Nếu giao tận nơi)..." value={custAddress || ''} onChange={(e) => setCustAddress(e.target.value)} />
                 </div>
               </div>
               <div className="co-group" style={{ marginTop: '10px', borderTop: '1px dashed #e2e8f0', paddingTop: '20px' }}>
                 <label className="co-label" style={{ color: '#059669' }}>Mã Voucher giảm giá</label>
                 <div className="co-input-wrapper">
                   <div className="co-icon-box" style={{ color: '#10b981' }}>🎫</div>
-                  <input className="co-input" placeholder="Nhập mã + Enter..." value={voucherInput} onChange={(e) => setVoucherInput(e.target.value)} onKeyDown={handleVoucherSubmit} />
+                  <input className="co-input" placeholder="Nhập mã + Enter..." value={voucherInput || ''} onChange={(e) => setVoucherInput(e.target.value)} onKeyDown={handleVoucherSubmit} />
                   <button type="button" className="co-btn-scan" onClick={() => setScannerMode('voucher')}>Quét</button>
                 </div>
               </div>
               <div className="co-summary-box" style={{ marginTop: '10px', marginBottom: 0 }}>
                 <div className="co-summary-title">TỔNG KHÁCH PHẢI TRẢ</div>
-                <div className="co-summary-price" style={{ fontSize: '36px' }}>{finalToPay.toLocaleString()}đ</div>
+                <div className="co-summary-price" style={{ fontSize: '36px' }}>{(finalToPay || 0).toLocaleString()}đ</div>
               </div>
             </div>
           )}
@@ -158,7 +165,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <div style={{ flex: '0 0 260px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div className="co-summary-box" style={{ margin: 0, padding: '20px 15px' }}>
                   <div className="co-summary-title" style={{ fontSize: '13px', color: '#1d4ed8' }}>PHẢI THU KHÁCH</div>
-                  <div className="co-summary-price" style={{ fontSize: '32px', color: '#2563eb' }}>{finalToPay.toLocaleString()}đ</div>
+                  <div className="co-summary-price" style={{ fontSize: '32px', color: '#2563eb' }}>{(finalToPay || 0).toLocaleString()}đ</div>
                 </div>
 
                 <div style={{ flex: 1, background: '#f8fafc', padding: '16px', border: '1px dashed #3b82f6', borderRadius: '12px', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
@@ -176,7 +183,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               {/* CỘT PHẢI: INPUT TIỀN & CÁC NÚT BẤM KHỔ LỚN */}
               <div style={{ flex: '1', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 
-                {customers[custPhone]?.wallet > 0 && (
+                {/* BẢO VỆ CHỖ NÀY BẰNG OPTIONAL CHAINING */}
+                {customers?.[custPhone]?.wallet > 0 && (
                   <label style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px 16px", borderRadius: "8px", cursor: "pointer", border: "1px solid #cbd5e1", background: '#fff', margin: 0 }}>
                     <input type="checkbox" checked={useWallet} onChange={e => setUseWallet(e.target.checked)} style={{ width: '18px', height: '18px', accentColor: '#ea580c' }} />
                     <span style={{ fontSize: "14px", fontWeight: "600", color: "#334155" }}>Sử dụng Ví VIP: <span style={{ color: "#ea580c", fontWeight: 'bold' }}>{customers[custPhone].wallet.toLocaleString()}đ</span></span>
@@ -192,7 +200,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     <input 
                       type="number" className="co-input" 
                       placeholder="Nhập số tiền mặt..." 
-                      value={customerGiven} 
+                      value={customerGiven || ''} 
                       onChange={(e) => setCustomerGiven(e.target.value)} 
                       style={{ padding: '10px 14px', fontSize: '16px', fontWeight: 'bold' }} 
                     />
@@ -231,11 +239,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </div>
 
                   <div style={{ height: '22px', marginTop: '6px' }}>
-                    {Number(customerGiven) > finalToPay && (
-                      <span style={{ fontSize: '14px', color: '#10b981', fontWeight: '700' }}>↳ Thừa trả khách: {(Number(customerGiven) - finalToPay).toLocaleString()}đ</span>
+                    {isValidGivenNum && givenNum > finalToPay && (
+                      <span style={{ fontSize: '14px', color: '#10b981', fontWeight: '700' }}>↳ Thừa trả khách: {(givenNum - finalToPay).toLocaleString()}đ</span>
                     )}
-                    {Number(customerGiven) > 0 && Number(customerGiven) < finalToPay && (
-                      <span style={{ fontSize: '14px', color: '#ea580c', fontWeight: '700' }}>↳ Còn thiếu (Quét QR nốt): {(finalToPay - Number(customerGiven)).toLocaleString()}đ</span>
+                    {isValidGivenNum && givenNum < finalToPay && (
+                      <span style={{ fontSize: '14px', color: '#ea580c', fontWeight: '700' }}>↳ Còn thiếu (Quét QR nốt): {(finalToPay - givenNum).toLocaleString()}đ</span>
                     )}
                   </div>
                 </div>
@@ -251,8 +259,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 
                 <button 
                   onClick={() => {
-                    if(!customerGiven || Number(customerGiven) <= 0 || Number(customerGiven) >= finalToPay) {
-                      alert("Vui lòng nhập số tiền mặt khách đưa (nhỏ hơn tổng bill) ở ô phía trên trước khi chọn Kết hợp!"); return;
+                    // Logic chống lỗi thanh toán Kết Hợp
+                    if(!isValidGivenNum || givenNum >= finalToPay) {
+                      alert(`Thanh toán KẾT HỢP chỉ dùng khi khách đưa một phần tiền mặt (nhỏ hơn ${finalToPay.toLocaleString()}đ), phần còn thiếu sẽ được thanh toán bằng Chuyển khoản.\n\nVui lòng nhập lại số tiền mặt khách đưa.`); 
+                      return;
                     }
                     confirmCheckout('KẾT HỢP');
                   }} 
