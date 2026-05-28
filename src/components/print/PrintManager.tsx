@@ -24,9 +24,6 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
   const dateObj = new Date(); 
   const getCustomerDetail = (phone: string) => phone ? ((customers || {})[phone] || null) : null;
 
-  // =====================================================================
-  // TỐI ƯU LẠI GIAO DIỆN HIỂN THỊ TIỀN KHÁCH ĐƯA / TIỀN THỐI LẠI
-  // =====================================================================
   const renderPaymentDetails = (order: any, cDetail: any, isA4: boolean) => {
     const total = Math.round(order.debtAmount > 0 ? order.debtAmount : order.finalTotal);
     const given = Number(order.customerGiven || 0);
@@ -38,40 +35,26 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
     else if (order.paymentMethod === 'GHI NỢ') { debtPart = total; } 
     else { transferPart = total; }
 
-    // Tính tiền thừa nếu khách trả tiền mặt và đưa lố tiền
     const change = (order.paymentMethod === 'TIỀN MẶT' && given > total) ? (given - total) : 0;
-
-    const rowStyle = isA4 
-        ? { display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: '14px' }
-        : { display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: '12px' };
+    const rowStyle = isA4 ? { display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: '14px' } : { display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: '12px' };
 
     return (
         <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: isA4 ? '1px dashed #cbd5e1' : '1px dashed #000' }}>
             <div style={{ ...rowStyle, fontWeight: 'bold', marginBottom: '4px' }}>
-                <span>Phương thức:</span>
-                <span style={{ color: isA4 ? '#2563eb' : '#000', textTransform: 'uppercase' }}>{order.paymentMethod}</span>
+                <span>Phương thức:</span><span style={{ color: isA4 ? '#2563eb' : '#000', textTransform: 'uppercase' }}>{order.paymentMethod}</span>
             </div>
-            
             {order.paymentMethod === 'TIỀN MẶT' && (
-              <>
-                <div style={rowStyle}><span>- Tiền khách đưa:</span><span style={{ fontWeight: 'bold' }}>{given > 0 ? given.toLocaleString() : total.toLocaleString()}đ</span></div>
-                {change > 0 && <div style={rowStyle}><span>- Trả lại khách:</span><span style={{ fontWeight: 'bold' }}>{change.toLocaleString()}đ</span></div>}
-              </>
+              <><div style={rowStyle}><span>- Khách đưa:</span><span style={{ fontWeight: 'bold' }}>{given > 0 ? given.toLocaleString() : total.toLocaleString()}đ</span></div>
+              {change > 0 && <div style={rowStyle}><span>- Trả lại khách:</span><span style={{ fontWeight: 'bold' }}>{change.toLocaleString()}đ</span></div>}</>
             )}
-
             {order.paymentMethod === 'KẾT HỢP' && (
-              <>
-                <div style={rowStyle}><span>- Tiền mặt (Khách đưa):</span><span style={{ fontWeight: 'bold' }}>{given.toLocaleString()}đ</span></div>
-                <div style={rowStyle}><span>- Chuyển khoản thêm:</span><span style={{ fontWeight: 'bold' }}>{transferPart.toLocaleString()}đ</span></div>
-              </>
+              <><div style={rowStyle}><span>- Tiền mặt (Khách đưa):</span><span style={{ fontWeight: 'bold' }}>{given.toLocaleString()}đ</span></div>
+              <div style={rowStyle}><span>- Chuyển khoản thêm:</span><span style={{ fontWeight: 'bold' }}>{transferPart.toLocaleString()}đ</span></div></>
             )}
-            
             {(order.paymentMethod === 'CHUYỂN KHOẢN' || order.paymentMethod === 'ZALO PAY' || order.paymentMethod === 'QUẸT THẺ') && (
               <div style={rowStyle}><span>- Đã thanh toán:</span><span style={{ fontWeight: 'bold' }}>{transferPart.toLocaleString()}đ</span></div>
             )}
-
             {debtPart > 0 && <div style={{ ...rowStyle, color: isA4 ? '#ef4444' : '#000' }}><span>- Khách nợ đơn này:</span><span style={{ fontWeight: 'bold' }}>{debtPart.toLocaleString()}đ</span></div>}
-            
             {order.paymentMethod === 'GHI NỢ' && cDetail && (
                 <div style={{ ...rowStyle, marginTop: '6px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
                     <span style={{ fontWeight: 'bold', fontStyle: 'italic' }}>=&gt; TỔNG NỢ HIỆN TẠI:</span>
@@ -123,14 +106,11 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '18px', fontWeight: '900', margin: '8px 0', borderTop: '1px solid #000', paddingTop: '8px' }}><span>TỔNG CỘNG:</span><span>{Math.round(lastOrder.debtAmount > 0 ? lastOrder.debtAmount : lastOrder.finalTotal).toLocaleString()}đ</span></div>
             <div style={{ marginTop: '10px', background: '#f8fafc', padding: '6px', borderRadius: '4px' }}>{renderPaymentDetails(lastOrder, cDetail, false)}</div>
           </div>
-          
-          {/* KHU VỰC CHỮ KÝ TRÊN BILL NHIỆT K80 */}
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', padding: '0 10px', fontSize: '11px', fontWeight: 'bold' }}>
-            <div style={{ textAlign: 'center' }}>Khách hàng<br/><span style={{ fontSize: '9px', fontWeight: 'normal', fontStyle: 'italic' }}>(Ký, ghi rõ họ tên)</span></div>
-            <div style={{ textAlign: 'center' }}>Người bán<br/><span style={{ fontSize: '9px', fontWeight: 'normal', fontStyle: 'italic' }}>(Ký, ghi rõ họ tên)</span></div>
+            <div style={{ textAlign: 'center' }}>Khách hàng<br/><span style={{ fontSize: '9px', fontWeight: 'normal', fontStyle: 'italic' }}>(Ký, ghi rõ)</span></div>
+            <div style={{ textAlign: 'center' }}>Người bán<br/><span style={{ fontSize: '9px', fontWeight: 'normal', fontStyle: 'italic' }}>(Ký, ghi rõ)</span></div>
           </div>
-
-          <div style={{ textAlign: 'center', marginTop: '30px', fontSize: '12px', fontStyle: 'italic' }}>Cảm ơn Quý khách & Hẹn gặp lại!</div>
+          <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '12px', fontStyle: 'italic' }}>Cảm ơn Quý khách & Hẹn gặp lại!</div>
         </div>
       </div>
     );
@@ -188,8 +168,6 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
               <div style={{ marginTop: '15px', padding: '15px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px' }}>{renderPaymentDetails(lastOrder, cDetail, true)}</div>
             </div>
           </div>
-          
-          {/* KHU VỰC CHỮ KÝ TRÊN BILL A4 */}
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px' }}>
             <div style={{ textAlign: 'center', width: '250px' }}>
               <p style={{ margin: '0 0 5px 0', fontSize: '16px', fontWeight: 'bold' }}>Người mua hàng</p>
@@ -206,8 +184,60 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
     );
   }
 
-  // Các mode in Card và Barcode giữ nguyên, đã được bọc giáp an toàn
-  // ... (Code in Card và Barcode vẫn như cũ)
+  if (printMode === 'barcode') {
+    if (!printBarcodeProduct) return null;
+    const code = printBarcodeProduct.product_code || "";
+    const name = (printBarcodeProduct.name || "").replace(/\s*\[Lô[^\]]*\]/gi, '').trim();
+    const price = printBarcodeProduct.sale_price || 0;
+    
+    // Nâng cấp Server Barcode mạnh mẽ, không bị lag trắng ảnh
+    const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=3&height=15&includetext=false`;
+    const safeCount = Math.max(0, Number(barcodeCount) || 0);
 
+    return (
+      <div className="print-only-zone barcode-print-grid" style={{ width: '100%', backgroundColor: '#fff', padding: '10mm', boxSizing: 'border-box' }}>
+        {Array.from({ length: safeCount }).map((_, idx) => (
+          <div key={idx} style={{ border: '1px dashed #94a3b8', padding: '8px', textAlign: 'center', fontFamily: 'Arial, sans-serif', backgroundColor: '#fff', color: '#000', height: '36mm', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center', pageBreakInside: 'avoid', overflow: 'hidden', boxSizing: 'border-box' }}>
+            <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase' }}>HẢI LÊ MART</div>
+            <div style={{ fontSize: '12px', fontWeight: 'bold', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cleanName(name)}</div>
+            <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}><img src={barcodeUrl} alt={code} style={{ maxWidth: '95%', height: '14mm', objectFit: 'fill' }} /></div>
+            <div style={{ fontSize: '16px', fontWeight: '900' }}>{Number(price).toLocaleString()}đ</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (printMode === 'customer_card') {
+    if (!printCustomer) return null;
+    const code = printCustomer.cardCode || printCustomer.phone;
+    const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=3&height=15&includetext=false`;
+
+    return (
+      <div className="print-only-zone" style={{ width: '100%', backgroundColor: '#fff', textAlign: 'center', paddingTop: '20mm' }}>
+        <div style={{ 
+          display: 'inline-flex', flexDirection: 'column', justifyContent: 'space-between',
+          width: '86mm', height: '54mm', border: '2px solid #b91c1c', borderRadius: '8px', 
+          padding: '12px', background: '#fff7ed', 
+          fontFamily: 'Arial, sans-serif', color: '#000', boxSizing: 'border-box', textAlign: 'left'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #dc2626', paddingBottom: '4px' }}>
+            <span style={{ fontWeight: 'bold', color: '#b91c1c', fontSize: '14px' }}>HẢI LÊ MART</span>
+            <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#ea580c', backgroundColor: '#ffedd5', padding: '2px 6px', borderRadius: '4px' }}>VIP CARD</span>
+          </div>
+          <div style={{ margin: '8px 0', flex: 1 }}>
+            <div style={{ fontSize: '14px', fontWeight: 'bold', textTransform: 'uppercase' }}>{printCustomer.name}</div>
+            <div style={{ fontSize: '12px', color: '#475569', marginTop: '4px' }}>SĐT: {printCustomer.phone}</div>
+          </div>
+          <div style={{ textAlign: 'center', background: '#fff', padding: '4px', borderRadius: '4px' }}>
+            <img src={barcodeUrl} alt="Barcode VIP" style={{ height: '30px', maxWidth: '100%', objectFit: 'contain' }} />
+            <div style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: '1px', marginTop: '2px' }}>{code}</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Chế độ in PO giữ nguyên...
   return null;
 };
