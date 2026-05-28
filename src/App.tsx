@@ -223,11 +223,14 @@ export default function App() {
   const uniqueSalePrices: number[] = [];
   const uniqueExpiries: string[] = [];
   const groupedHistory = {};
-  const cartTotalAmountDisplay = 0;
-  const finalToPay = 0;
-  const amountAfterTierAndVoucher = 0;
-  const walletUsedAmount = 0;
-  const tierDiscountAmount = 0;
+// CÔNG THỨC TÍNH TIỀN CHUẨN:
+  const cartTotalAmountDisplay = cart.reduce((sum, item) => sum + (item.total || 0), 0);
+  const tierDiscountAmount = 0; // Nếu bạn có logic giảm giá hạng thành viên VIP thì điền vào đây
+  const amountAfterTierAndVoucher = cartTotalAmountDisplay - tierDiscountAmount - appliedVoucherAmount;
+  const walletUsedAmount = (useWallet && custPhone && customers[custPhone]) 
+    ? Math.min(amountAfterTierAndVoucher, customers[custPhone].wallet || 0) 
+    : 0;
+  const finalToPay = amountAfterTierAndVoucher - walletUsedAmount;
   const filteredStats = [];
   const chartData = [];
   const topSelling = [];
