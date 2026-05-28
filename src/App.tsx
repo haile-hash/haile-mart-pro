@@ -925,14 +925,14 @@ export default function App() {
     e.preventDefault(); 
     setLoading(true);
     try {
-      const added = parseInt(newStock || "0") || 0; 
-      const impPrice = parseInt(newImportPrice || "0") || 0; 
-      const salePrice = parseInt(newPrice || "0") || 0; 
-      const promo = parseInt(newPromoPrice || "0") || 0; 
+      // BỌC GIÁP SỐ HÓA: Dọn sạch mọi dấu phẩy, dấu chấm, chữ cái do thu ngân gõ nhầm
+      const added = Number(String(newStock).replace(/[^0-9]/g, '')) || 0; 
+      const impPrice = Number(String(newImportPrice).replace(/[^0-9]/g, '')) || 0; 
+      const salePrice = Number(String(newPrice).replace(/[^0-9]/g, '')) || 0; 
+      const promo = Number(String(newPromoPrice).replace(/[^0-9]/g, '')) || 0; 
       const finalGiftInfo = newGiftInfo.trim() !== "" ? `${newGiftCondition};;;${newGiftInfo}` : null; 
       
       const inputCode = newCode.trim(); 
-      // BỌC GIÁP: Tách mã gốc để luôn quét sạch tất cả các lô anh em (-xxxx)
       const baseCode = inputCode.split('-')[0]; 
       const formattedCat = formatCategoryStr(newCategory);
       
@@ -961,7 +961,7 @@ export default function App() {
         gift_info: finalGiftInfo, stock: finalStockToSave, expiry_date: newExpiry || null 
       };
 
-      // 1. CẬP NHẬT GIAO DIỆN NGAY LẬP TỨC (OPTIMISTIC UPDATE TRÊN MÀN HÌNH)
+      // 1. CẬP NHẬT GIAO DIỆN NGAY LẬP TỨC CHO TẤT CẢ CÁC LÔ
       setProducts(prev => {
         let updated = prev.map(p => {
            const pBase = String(p.product_code).split('-')[0];
@@ -983,36 +983,38 @@ export default function App() {
       });
 
       if (navigator.onLine) {
-        // 2. ĐỒNG BỘ 100% LÊN CLOUD BẰNG VÒNG LẶP FOR TUẦN TỰ (CHỐNG LỖI NGẦM)
+        // 2. GỘP CẬP NHẬT TỒN KHO VÀ GIÁ VÀO CHUNG 1 LỆNH (Tăng tốc xử lý)
         if (allVariants.length > 0) {
           for (const v of allVariants) {
               const keepSuffix = v.name.includes('[Lô mới]') ? ' [Lô mới]' : '';
-              await supabase.from("products").update({ 
+              const updatePayload: any = { 
                 name: newName + keepSuffix, 
                 category: formattedCat, 
                 sale_price: salePrice, 
                 promo_price: promo, 
                 gift_info: finalGiftInfo, 
                 updated_at: new Date().toISOString() 
-              }).eq("id", v.id);
+              };
+              // Nếu đang cập nhật đúng lô cũ thì nhồi luôn số tồn kho mới vào
+              if (v.id === exist?.id && !isNewBatch) {
+                  updatePayload.stock = finalStockToSave;
+              }
+              await supabase.from("products").update(updatePayload).eq("id", v.id);
           }
 
           if (isNewBatch) { 
             await supabase.from("products").insert([newProductData]); 
-          } else if (exist) { 
-            await supabase.from("products").update({ stock: finalStockToSave, updated_at: new Date().toISOString() }).eq("id", exist.id); 
           }
         } else { 
-          // Nếu sản phẩm mới tinh chưa từng xuất hiện lô nào
           await supabase.from("products").insert([newProductData]); 
         }
 
         if (added > 0) addTransactionAndSync({ id: Date.now(), shift, type: "NHẬP", name: finalProductName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }); 
         logAudit("THÊM/SỬA SP", `Mã: ${finalProductCode}`);
         toast.success(`Đã lưu & đồng bộ giá toàn bộ kho thành công!`);
-        fetchProducts(); 
+        
+        // ĐÃ XÓA hàm fetchProducts() ở đây để chống tình trạng Supabase đổ dữ liệu cũ đè lên giao diện
       } else {
-        // CHẾ ĐỘ NGOẠI TUYẾN KHI MẤT MẠNG
         const pendingImports = await dbGet("mart_pending_imports") || [];
         pendingImports.push({ id: Date.now(), action: (exist && !isNewBatch) ? "UPDATE_STOCK" : "INSERT_NEW", targetId: (exist && !isNewBatch) ? exist.id : null, data: newProductData, addedStock: added });
         await dbSet("mart_pending_imports", pendingImports);
@@ -1034,7 +1036,6 @@ export default function App() {
       setLoading(false); 
     }
   };
-
   const handleFileUpload = async (e: any) => {
     const file = e?.target?.files?.[0] || e; if (!file || !file.name) { if (e?.target) e.target.value = ''; return; }
     if (!navigator.onLine) { toast.error("Cần mạng để tải lên!"); if (e?.target) e.target.value = ''; return; }
@@ -1127,35 +1128,38 @@ export default function App() {
       const val = window.prompt(`Sửa ${label}:`, old || ""); 
       
       if (val !== null) { 
-        let updateData: any = isText ? (field === 'category' ? formatCategoryStr(val) : val) : (parseInt(val) || 0); 
+        // BỌC GIÁP: Nếu là nhập số thì dọn sạch rác, thay vì parseInt
+        let updateData: any = isText ? (field === 'category' ? formatCategoryStr(val) : val) : (Number(String(val).replace(/[^0-9]/g, '')) || 0); 
         if (field === 'gift_info' && val.trim() === '') updateData = null; 
         
-        // ĐỒNG BỘ LÔ: Áp dụng cho Giá bán, Giá KM, Quà tặng, Tên, Danh mục
-        if (field === 'sale_price' || field === 'promo_price' || field === 'gift_info' || field === 'name' || field === 'category') {
+        if (['sale_price', 'promo_price', 'gift_info', 'name', 'category'].includes(field)) {
            const p = products.find(x => x.id === id);
            if (p) {
               const baseCode = String(p.product_code).split('-')[0];
-              // Lọc ra tất cả các lô có chung mã gốc
-              const variantIds = products.filter(x => String(x.product_code).split('-')[0] === baseCode).map(x => x.id);
+              const siblings = products.filter(x => String(x.product_code).split('-')[0] === baseCode);
               
-              // Cập nhật giao diện lập tức (Optimistic Update)
-              setProducts(prev => prev.map(x => variantIds.includes(x.id) ? { ...x, [field]: updateData } : x));
+              setProducts(prev => prev.map(x => siblings.some(s => s.id === x.id) ? { ...x, [field]: updateData } : x));
               
-              // Đẩy lên Cloud đồng loạt
-              await supabase.from("products").update({ [field]: updateData, updated_at: new Date().toISOString() }).in("id", variantIds);
+              for (const sib of siblings) {
+                  let finalData = updateData;
+                  if (field === 'name') {
+                      const hasSuffix = sib.name.includes('[Lô mới]') ? ' [Lô mới]' : '';
+                      finalData = updateData + hasSuffix;
+                  }
+                  await supabase.from("products").update({ [field]: finalData, updated_at: new Date().toISOString() }).eq("id", sib.id);
+              }
            }
         } else {
-           // Đổi tồn kho, giá vốn, HSD thì chỉ áp dụng độc lập cho đúng Lô đó
            setProducts(prev => prev.map(x => x.id === id ? { ...x, [field]: updateData } : x));
            await supabase.from("products").update({ [field]: updateData, updated_at: new Date().toISOString() }).eq("id", id); 
         }
 
         logAudit("SỬA SP", `ID ${id} - Đổi ${label}`); 
         toast.success("Cập nhật thành công!");
+        // ĐÃ XÓA fetchProducts() Ở ĐÂY
       } 
     }); 
   };
-
   const handlePrintBarcode = (p: any) => { const q = window.prompt(`SL tem in:`, "30"); if (q && parseInt(q) > 0) { setPrintBarcodeProduct(p); setBarcodeCount(parseInt(q)); setPrintMode('barcode'); logAudit("IN TEM", p.name); } };
   const downloadSampleCSV = () => { try { const csv = "\uFEFFMã SP,Tên SP,Danh Mục,Giá Nhập,Giá Bán,Giá KM,ĐK Tặng,Quà Tặng,Số Lượng,Hạn Sử Dụng\nSP001,Mì Hảo Hảo,Đồ ăn liền,3000,5000,0,1,,100,2026-12-31"; const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Mau_Nhap_Kho.csv`; document.body.appendChild(link); link.click(); document.body.removeChild(link); } catch(e) {} };
   const exportToCSV = () => { let csv = "\uFEFFGiờ,Ca,Loại,Hình thức,Khách,Sản phẩm,SL,Tổng,Lợi nhuận\n"; history.forEach(log => { csv += `${new Date(Math.floor(log.id)).toLocaleString('vi-VN')},${log.shift || ""},${log.type},${log.paymentMethod || ""},${log.customer || "Khách lẻ"},${log.name},${log.qty},${Math.round(log.total)},${Math.round(log.profit || 0)}\n`; }); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Bao_Cao_Ban_Hang.csv`; link.click(); logAudit("XUẤT EXCEL", "Lịch sử bán hàng"); };
