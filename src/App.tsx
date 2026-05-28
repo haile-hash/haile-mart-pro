@@ -766,7 +766,9 @@ export default function App() {
         </div>
         
         <div style="background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); border-radius: 16px; padding: 25px; color: white; box-shadow: 0 10px 25px rgba(220, 38, 38, 0.3); position: relative; overflow: hidden; max-width: 400px; margin: 0 auto;">
-          <div style="position: absolute; top: -50px; right: -50px; width: 150px; height: 150px; background: rgba(255,255,255,0.1); border-radius: 50%;"></div>
+          <div style="position: absolute; top: 15px; left: 25px; width: 65px; height: 65px; overflow: hidden; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.15);">
+  <img src="https://haile-mart-pro.vercel.app/logo192.png" alt="Logo" style="width: 100%; height: 100%; object-fit: cover;" />
+</div>
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <h3 style="margin: 0; font-size: 20px; letter-spacing: 1px;">HẢI LÊ MART</h3>
             <span style="background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; letter-spacing: 1px;">VIP MEMBER</span>
