@@ -1,4 +1,5 @@
-const CACHE_NAME = 'haile-mart-offline-v1';
+// Đã tăng version lên v2 để ÉP trình duyệt của khách hàng cập nhật Service Worker mới
+const CACHE_NAME = 'haile-mart-offline-v2';
 
 // BƯỚC 1: LƯU TRỮ CÁC FILE GỐC NGAY KHI CÀI ĐẶT
 self.addEventListener('install', (event) => {
@@ -47,18 +48,19 @@ self.addEventListener('fetch', (event) => {
       .then((response) => {
         
         // =====================================================================
-        // SỬA TẠI ĐÂY: Ngăn chặn lưu cache các file dạng phản hồi từng phần (Status 206)
-        // Thường gặp khi tải file âm thanh/video (như playSound trong app của bạn)
+        // CHỈ CẤP VISA CHO HÀNG CHUẨN: Chỉ lưu Cache khi tải thành công 100% (Status 200)
+        // Loại bỏ hoàn toàn 206 (Audio), 404 (Not Found), 500 (Lỗi server)...
         // =====================================================================
-        if (response.status === 206) {
+        if (!response || response.status !== 200) {
           return response; 
         }
 
-        // Nếu tải thành công và không phải status 206, nhân bản file đó và lưu vào ổ cứng (Cache)
+        // Nếu tải thành công (200 OK), nhân bản và lưu vào ổ cứng
         const responseClone = response.clone();
         caches.open(CACHE_NAME).then((cache) => {
           cache.put(event.request, responseClone);
         });
+        
         return response;
       })
       .catch(() => {
