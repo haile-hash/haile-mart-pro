@@ -27,7 +27,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
   const renderPaymentDetails = (order: any, cDetail: any, isA4: boolean) => {
     const total = Math.round(order.debtAmount > 0 ? order.debtAmount : order.finalTotal);
     const given = Number(order.customerGiven || 0);
-    const isRefund = order.isRefund === true; // KIỂM TRA: Đây có phải bill hoàn tiền?
+    const isRefund = order.isRefund === true; 
     
     let cashPart = 0; let transferPart = 0; let debtPart = 0;
 
@@ -46,11 +46,9 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
                 <span style={{ color: isA4 ? '#2563eb' : '#000', textTransform: 'uppercase' }}>{order.paymentMethod}</span>
             </div>
             
-            {/* NẾU LÀ BILL HOÀN TIỀN */}
             {isRefund ? (
                <div style={rowStyle}><span>- Cửa hàng trả lại:</span><span style={{ fontWeight: 'bold' }}>{total.toLocaleString()}đ</span></div>
             ) : (
-               /* NẾU LÀ BILL BÁN HÀNG BÌNH THƯỜNG */
                <>
                  {order.paymentMethod === 'TIỀN MẶT' && (
                    <><div style={rowStyle}><span>- Khách đưa:</span><span style={{ fontWeight: 'bold' }}>{given > 0 ? given.toLocaleString() : total.toLocaleString()}đ</span></div>
@@ -88,7 +86,6 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
             <h2 style={{ margin: '0 0 4px 0', fontSize: '20px', fontWeight: '900', textTransform: 'uppercase' }}>HẢI LÊ MART</h2>
             <p style={{ margin: '2px 0', fontSize: '12px' }}>ĐC: 123 Đường ABC, Hà Nội</p>
             <p style={{ margin: '2px 0', fontSize: '12px' }}>Hotline: 0902 613 899</p>
-            {/* TỰ ĐỘNG ĐỔI TIÊU ĐỀ NẾU LÀ BILL HOÀN HÀNG */}
             <h3 style={{ margin: '10px 0 4px 0', fontSize: '16px', fontWeight: 'bold' }}>
                {lastOrder.isRefund ? "PHIẾU TRẢ HÀNG (HOÀN TIỀN)" : "HÓA ĐƠN THANH TOÁN"}
             </h3>
@@ -146,9 +143,9 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
               <h1 style={{ margin: '0 0 6px 0', fontSize: '20px', fontWeight: 'bold', textTransform: 'uppercase' }}>HỆ THỐNG HẢI LÊ MART</h1>
               <p style={{ margin: '3px 0', fontSize: '14px' }}><strong>Địa chỉ:</strong> 123 Đường ABC, Quận XYZ, TP. Hà Nội</p>
               <p style={{ margin: '3px 0', fontSize: '14px' }}><strong>Điện thoại:</strong> 0902 613 899</p>
+              <p style={{ margin: '3px 0', fontSize: '14px' }}><strong>Mã số thuế:</strong> 0101234567</p>
             </div>
             <div style={{ width: '45%', textAlign: 'center' }}>
-              {/* TỰ ĐỘNG ĐỔI TIÊU ĐỀ NẾU LÀ BILL HOÀN HÀNG */}
               <h2 style={{ margin: '0 0 8px 0', fontSize: '26px', fontWeight: 'bold' }}>
                 {lastOrder.isRefund ? "PHIẾU TRẢ HÀNG (HOÀN TIỀN)" : "HÓA ĐƠN BÁN HÀNG"}
               </h2>
@@ -159,6 +156,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
           <div style={{ marginBottom: '25px', fontSize: '15px', lineHeight: '1.8' }}>
             <div style={{ display: 'flex' }}><span style={{ width: '180px' }}>Họ tên khách hàng:</span><strong>{lastOrder.custName || "Khách mua lẻ"}</strong></div>
             <div style={{ display: 'flex' }}><span style={{ width: '180px' }}>Số điện thoại:</span><span>{lastOrder.custPhone || "..................................................."}</span></div>
+            <div style={{ display: 'flex' }}><span style={{ width: '180px' }}>Địa chỉ giao hàng:</span><span>{cDetail?.address || "..................................................."}</span></div>
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px', fontSize: '15px' }}>
             <thead>
@@ -259,6 +257,6 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
     );
   }
 
-  // Các file in PO giữ nguyên...
+  // Chế độ in PO (Nhập kho/Trả NCC) giữ nguyên không đổi
   return null;
 };
