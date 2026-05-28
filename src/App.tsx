@@ -936,8 +936,7 @@ export default function App() {
       const baseCode = inputCode.split('-')[0]; 
       const formattedCat = formatCategoryStr(newCategory);
       
-      const allVariants = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)); 
-      // Lô đang nhắm tới là mã người dùng gõ vào form
+      const allVariants = products.filter(p => String(p.product_code).split('-')[0] === baseCode); 
       const exist = products.find(p => p.product_code === inputCode) || allVariants.find(p => p.product_code === baseCode); 
       
       const isNewBatch = exist && (exist.import_price !== impPrice || (exist.expiry_date || "") !== (newExpiry || ""));
@@ -962,7 +961,7 @@ export default function App() {
         gift_info: finalGiftInfo, stock: finalStockToSave, expiry_date: newExpiry || null 
       };
 
-      // CẬP NHẬT GIAO DIỆN NGAY LẬP TỨC (OPTIMISTIC UPDATE)
+      // CẬP NHẬT GIAO DIỆN NGAY LẬP TỨC (OPTIMISTIC UPDATE) - CHUYỂN RA NGOÀI ĐỂ LUÔN CHẠY
       setProducts(prev => {
         let updated = prev.map(p => {
            const pBase = String(p.product_code).split('-')[0];
@@ -1003,6 +1002,7 @@ export default function App() {
         if (added > 0) addTransactionAndSync({ id: Date.now(), shift, type: "NHẬP", name: finalProductName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }); 
         logAudit("THÊM/SỬA SP", `Mã: ${finalProductCode}`);
         toast.success(`Đã lưu & đồng bộ giá!`);
+        fetchProducts(); 
       } else {
         const pendingImports = await dbGet("mart_pending_imports") || [];
         pendingImports.push({ id: Date.now(), action: (exist && !isNewBatch) ? "UPDATE_STOCK" : "INSERT_NEW", targetId: (exist && !isNewBatch) ? exist.id : null, data: newProductData, addedStock: added });
@@ -1041,16 +1041,16 @@ export default function App() {
           const pCode = String(cols[0] || "").trim(); const pName = String(cols[1] || "").trim(); const pCategory = formatCategoryStr(String(cols[2] || "")); const pImpPrice = parseInt(String(cols[3] || "0").replace(/[,.]/g, '')) || 0; const pSalePrice = parseInt(String(cols[4] || "0").replace(/[,.]/g, '')) || 0; const pPromoPrice = parseInt(String(cols[5] || "0").replace(/[,.]/g, '')) || 0; const pGiftCond = String(cols[6] || "1").trim(); const pGiftText = cols[7] ? String(cols[7]).trim() : ""; const pGift = pGiftText !== "" ? `${pGiftCond};;;${pGiftText}` : null; const pStock = parseInt(String(cols[8] || "0").replace(/[,.]/g, '')) || 0; const pExpiry = cols[9] ? String(cols[9]).trim() : null;
           if (!pCode || !pName || pSalePrice <= 0) continue;
           
-          // BỐC TÁCH MÃ GỐC
+          // BỐC TÁCH MÃ GỐC ĐỂ TÌM TẤT CẢ BIẾN THỂ
           const baseCode = pCode.split('-')[0]; 
-          const allVariants = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)); 
+          const allVariants = products.filter(p => String(p.product_code).split('-')[0] === baseCode); 
           
           if (allVariants.length > 0) { 
-            const needSync = allVariants.some(v => v.sale_price !== pSalePrice || v.promo_price !== pPromoPrice || v.gift_info !== pGift || v.name !== pName); 
+            const needSync = allVariants.some(v => v.sale_price !== pSalePrice || v.promo_price !== pPromoPrice || v.gift_info !== pGift || cleanName(v.name) !== pName); 
             if (needSync) { 
                 const variantIds = allVariants.map(v => v.id);
                 
-                // Đồng bộ tức thì trên giao diện
+                // CẬP NHẬT GIAO DIỆN LẬP TỨC
                 setProducts(prev => prev.map(x => {
                   if(variantIds.includes(x.id)) {
                     const keepSuffix = x.name.includes('[Lô mới]') ? ' [Lô mới]' : '';
@@ -1126,7 +1126,8 @@ export default function App() {
            const p = products.find(x => x.id === id);
            if (p) {
               const baseCode = String(p.product_code).split('-')[0];
-              const variantIds = products.filter(x => x.product_code === baseCode || String(x.product_code).startsWith(`${baseCode}-`)).map(x => x.id);
+              // Lọc ra tất cả các lô có chung mã gốc
+              const variantIds = products.filter(x => String(x.product_code).split('-')[0] === baseCode).map(x => x.id);
               
               // Cập nhật giao diện lập tức (Optimistic Update)
               setProducts(prev => prev.map(x => variantIds.includes(x.id) ? { ...x, [field]: updateData } : x));
