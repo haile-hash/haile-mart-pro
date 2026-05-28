@@ -103,8 +103,6 @@ export default function App() {
 
   const VAT_RATE = 0.1;
   const IDLE_TIMEOUT = 5 * 60 * 1000; 
-  
-  // BIẾN ĐÃ ĐƯỢC THÊM VÀO ĐỂ FIX LỖI REFERENCE ERROR
   const todayStrStr = new Date().toLocaleDateString('vi-VN');
 
   const EMAILJS_SERVICE_ID = "service_7ie990l";
@@ -209,32 +207,127 @@ export default function App() {
   const { isOnline, syncStatus, syncAllOfflineData, loadCloudData } = useOfflineSync({ isLoggedIn, history, setHistory, customers, setCustomers, heldOrders, setHeldOrders, auditLogs, setAuditLogs, expenses, setExpenses, suppliers, setSuppliers });
   const isPrintingRef = useRef(false);
 
-  // Thêm các biến tạm chưa được define trong code ban đầu để tránh crash (NẾU CẦN)
-  // Các state bên dưới được thêm vào phòng trường hợp các props này đang bị thiếu trong file gốc
-  const currentShiftCashFlow = useMemo(() => ({ cash: 0, transfer: 0 }), [history]);
-  const currentShiftStats = useMemo(() => ({ total: 0, profit: 0, orders: 0 }), [history]);
-  const totalValue = 0;
-  const lowStockCount = 0;
-  const categories: string[] = ["Tất cả"];
-  const sortedAndFilteredProducts = products;
-  const uniqueNames: string[] = [];
-  const uniqueStocks: number[] = [];
-  const uniqueImportPrices: number[] = [];
-  const uniqueSalePrices: number[] = [];
-  const uniqueExpiries: string[] = [];
-  const groupedHistory = {};
-// CÔNG THỨC TÍNH TIỀN CHUẨN:
-  const cartTotalAmountDisplay = cart.reduce((sum, item) => sum + (item.total || 0), 0);
-  const tierDiscountAmount = 0; // Nếu bạn có logic giảm giá hạng thành viên VIP thì điền vào đây
-  const amountAfterTierAndVoucher = cartTotalAmountDisplay - tierDiscountAmount - appliedVoucherAmount;
-  const walletUsedAmount = (useWallet && custPhone && customers[custPhone]) 
-    ? Math.min(amountAfterTierAndVoucher, customers[custPhone].wallet || 0) 
-    : 0;
-  const finalToPay = amountAfterTierAndVoucher - walletUsedAmount;
-  const filteredStats = [];
-  const chartData = [];
-  const topSelling = [];
+  // =====================================================================
+  // BẮT ĐẦU: KHỐI LOGIC DỮ LIỆU ĐÃ ĐƯỢC PHỤC HỒI CHUẨN XÁC
+  // =====================================================================
+
   const findProductByCode = (code: string) => products.find(p => p.product_code === code);
+
+  const cartTotalAmountDisplay = cart.reduce((sum, item) => sum + (item.total || 0), 0);
+  const tierDiscountAmount = 0; 
+  const amountAfterTierAndVoucher = cartTotalAmountDisplay - tierDiscountAmount - appliedVoucherAmount;
+  const walletUsedAmount = (useWallet && custPhone && customers[custPhone]) ? Math.min(amountAfterTierAndVoucher, customers[custPhone].wallet || 0) : 0;
+  const finalToPay = amountAfterTierAndVoucher - walletUsedAmount;
+
+  const groupedHistory = useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    let filteredLog = [...history];
+    
+    if (logSearchTerm) {
+      const lower = logSearchTerm.toLowerCase();
+      filteredLog = filteredLog.filter(l => 
+        (l.name && l.name.toLowerCase().includes(lower)) || 
+        (l.order_id && l.order_id.toLowerCase().includes(lower))
+      );
+    }
+    
+    if (logTypeFilter !== "Tất cả") {
+      filteredLog = filteredLog.filter(l => l.type === logTypeFilter);
+    }
+
+    filteredLog.forEach(log => {
+      let dateKey = "Khác";
+      if (log.time) {
+        const parts = log.time.split(' ');
+        const datePart = parts.find(p => p.includes('/'));
+        if (datePart) dateKey = datePart.replace(',', '').trim();
+      } else {
+        dateKey = new Date(Math.floor(log.id)).toLocaleDateString('vi-VN');
+      }
+      if (!groups[dateKey]) groups[dateKey] = [];
+      groups[dateKey].push(log);
+    });
+    return groups;
+  }, [history, logSearchTerm, logTypeFilter]);
+
+  const currentShiftStats = useMemo(() => {
+    let total = 0; let profit = 0; let ordersCount = 0;
+    let cash = 0; let transfer = 0;
+    const todayStr = todayStrStr || new Date().toLocaleDateString('vi-VN');
+
+    history.forEach(log => {
+      let logDate = "";
+      if (log.time) {
+        const parts = log.time.split(' ');
+        const datePart = parts.find(p => p.includes('/'));
+        if (datePart) logDate = datePart.replace(',', '').trim();
+      }
+      
+      if (log.shift === shift && logDate === todayStr) {
+        if (log.type === 'BÁN' || log.type === 'GHI NỢ') ordersCount += 1;
+        total += (log.total || 0);
+        profit += (log.profit || 0);
+        
+        if (log.paymentMethod === 'TIỀN MẶT') cash += (log.total || 0);
+        else if (log.paymentMethod === 'CHUYỂN KHOẢN' || log.paymentMethod === 'QUẸT THẺ' || log.paymentMethod === 'ZALO PAY') transfer += (log.total || 0);
+        else if (log.paymentMethod === 'KẾT HỢP') {
+          cash += (log.split_cash || 0);
+          transfer += ((log.total || 0) - (log.split_cash || 0));
+        }
+      }
+    });
+    return { total, profit, orders: ordersCount, cash, transfer };
+  }, [history, shift, todayStrStr]);
+
+  const currentShiftCashFlow = useMemo(() => ({
+    cash: currentShiftStats.cash,
+    transfer: currentShiftStats.transfer
+  }), [currentShiftStats]);
+
+  const categories = useMemo(() => {
+    const cats = new Set(["Tất cả"]);
+    products.forEach(p => { if (p.category) cats.add(p.category); });
+    return Array.from(cats);
+  }, [products]);
+
+  const sortedAndFilteredProducts = useMemo(() => {
+    let result = [...products];
+    if (selectedCategory !== "Tất cả") result = result.filter(p => p.category === selectedCategory);
+    if (debouncedSearchTerm) {
+      const lowerSearch = debouncedSearchTerm.toLowerCase();
+      result = result.filter(p => (p.name && p.name.toLowerCase().includes(lowerSearch)) || (p.product_code && p.product_code.toLowerCase().includes(lowerSearch)));
+    }
+    Object.keys(filters).forEach(key => {
+      if (filters[key] && filters[key].length > 0) result = result.filter(p => filters[key].includes(String(p[key as keyof Product])));
+    });
+    if (sortConfig) {
+      result.sort((a, b) => {
+        const aVal = a[sortConfig.key as keyof Product] || "";
+        const bVal = b[sortConfig.key as keyof Product] || "";
+        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return result;
+  }, [products, selectedCategory, debouncedSearchTerm, sortConfig, filters]);
+
+  const uniqueNames = useMemo(() => Array.from(new Set(products.map(p => p.name))), [products]);
+  const uniqueStocks = useMemo(() => Array.from(new Set(products.map(p => p.stock))), [products]);
+  const uniqueImportPrices = useMemo(() => Array.from(new Set(products.map(p => p.import_price))), [products]);
+  const uniqueSalePrices = useMemo(() => Array.from(new Set(products.map(p => p.sale_price))), [products]);
+  const uniqueExpiries = useMemo(() => Array.from(new Set(products.map(p => p.expiry_date).filter(Boolean))), [products]);
+
+  const totalValue = useMemo(() => products.reduce((sum, p) => sum + ((p.stock || 0) * (p.import_price || 0)), 0), [products]);
+  const lowStockCount = useMemo(() => products.filter(p => p.stock > 0 && p.stock < 10).length, [products]);
+
+  const filteredStats = history;
+  const chartData: any[] = [];
+  const topSelling: any[] = [];
+
+  // =====================================================================
+  // KẾT THÚC: KHỐI LOGIC DỮ LIỆU
+  // =====================================================================
 
   useEffect(() => {
     const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e); };
