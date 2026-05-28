@@ -1,62 +1,41 @@
-/* Ở màn hình thường: Giấu tiệt các vùng in đi */
 @media screen {
-  .print-only, .print-a4-container, .print-card-container {
+  .print-only-zone {
     display: none !important;
   }
 }
 
 @media print {
-  /* 1. Ẩn CHÍNH XÁC các thành phần UI, TUYỆT ĐỐI KHÔNG đụng vào thẻ cha */
-  .no-print, .custom-modal-overlay, .animated-bg-mesh, .login-wrapper, #search-barcode {
+  /* Giấu toàn bộ giao diện App đi khi in */
+  .no-print, .custom-modal-overlay, .animated-bg-mesh, .login-wrapper {
     display: none !important;
   }
 
-  /* Tắt luôn các thông báo pop-up (Toast) khi đang in */
-  div[style*="z-index: 9999"] {
-    display: none !important;
-  }
-
-  /* 2. Thiết lập nền giấy trắng tinh */
+  /* Trả lại màu nền giấy trắng tinh, xóa lề */
   body, html, #root {
-    background: #fff !important;
-    color: #000 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
     margin: 0 !important;
     padding: 0 !important;
-    height: auto !important;
-    overflow: visible !important;
   }
 
-  /* 3. Hiển thị vùng in theo luồng tự nhiên (Static) để máy in đọc được */
-  .print-only, .print-a4-container, .print-card-container {
+  /* Kích hoạt hiển thị cho riêng khu vực in */
+  .print-only-zone {
     display: block !important;
-    background: white !important;
-    margin: 0 auto !important;
-  }
-
-  /* Cấu hình hiển thị chiếc Thẻ VIP (Căn giữa trang) */
-  .print-card-container {
-    display: flex !important;
     width: 100% !important;
-    height: 100vh !important;
-    align-items: center !important;
-    justify-content: center !important;
+    background: #ffffff !important;
+    position: static !important;
+  }
+  
+  /* Lưới in tem mã vạch */
+  .barcode-print-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 3mm !important;
   }
 
-  /* Cấu hình cho Hóa đơn A4 / PO */
-  .print-a4-container {
-    width: 210mm !important;
-    padding: 10mm !important;
-  }
-
-  /* Cấu hình cho Bill nhiệt 80mm */
-  .print-only {
-    width: 80mm !important;
-    padding: 0 !important;
-  }
-
-  /* Ép máy in giữ màu sắc, không tự tiện tẩy trắng background */
-  * { 
-    -webkit-print-color-adjust: exact !important; 
-    print-color-adjust: exact !important; 
+  /* Ép máy in giữ nguyên màu sắc, hình ảnh */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }
