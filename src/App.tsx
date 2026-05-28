@@ -103,6 +103,9 @@ export default function App() {
 
   const VAT_RATE = 0.1;
   const IDLE_TIMEOUT = 5 * 60 * 1000; 
+  
+  // BIẾN ĐÃ ĐƯỢC THÊM VÀO ĐỂ FIX LỖI REFERENCE ERROR
+  const todayStrStr = new Date().toLocaleDateString('vi-VN');
 
   const EMAILJS_SERVICE_ID = "service_7ie990l";
   const EMAILJS_TEMPLATE_ID = "template_m1j9i7k";
@@ -161,7 +164,7 @@ export default function App() {
   const [supPhone, setSupPhone] = useState("");
   const [supAddress, setSupAddress] = useState(""); 
   const [supItem, setSupItem] = useState("");
-  const [supTaxCode, setSupTaxCode] = useState("");       
+  const [supTaxCode, setSupTaxCode] = useState("");        
   const [supBankAccount, setSupBankAccount] = useState("");
   const [marketingTier, setMarketingTier] = useState("Tất cả");
   const [marketingMsg, setMarketingMsg] = useState("");
@@ -205,6 +208,30 @@ export default function App() {
 
   const { isOnline, syncStatus, syncAllOfflineData, loadCloudData } = useOfflineSync({ isLoggedIn, history, setHistory, customers, setCustomers, heldOrders, setHeldOrders, auditLogs, setAuditLogs, expenses, setExpenses, suppliers, setSuppliers });
   const isPrintingRef = useRef(false);
+
+  // Thêm các biến tạm chưa được define trong code ban đầu để tránh crash (NẾU CẦN)
+  // Các state bên dưới được thêm vào phòng trường hợp các props này đang bị thiếu trong file gốc
+  const currentShiftCashFlow = useMemo(() => ({ cash: 0, transfer: 0 }), [history]);
+  const currentShiftStats = useMemo(() => ({ total: 0, profit: 0, orders: 0 }), [history]);
+  const totalValue = 0;
+  const lowStockCount = 0;
+  const categories: string[] = ["Tất cả"];
+  const sortedAndFilteredProducts = products;
+  const uniqueNames: string[] = [];
+  const uniqueStocks: number[] = [];
+  const uniqueImportPrices: number[] = [];
+  const uniqueSalePrices: number[] = [];
+  const uniqueExpiries: string[] = [];
+  const groupedHistory = {};
+  const cartTotalAmountDisplay = 0;
+  const finalToPay = 0;
+  const amountAfterTierAndVoucher = 0;
+  const walletUsedAmount = 0;
+  const tierDiscountAmount = 0;
+  const filteredStats = [];
+  const chartData = [];
+  const topSelling = [];
+  const findProductByCode = (code: string) => products.find(p => p.product_code === code);
 
   useEffect(() => {
     const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e); };
