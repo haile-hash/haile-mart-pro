@@ -778,16 +778,16 @@ export default function App() {
             <img src="${barcodeUrl}" alt="Barcode" style="max-width: 100%; height: 50px;" />
           </div>
           
-          <div style="display: flex; justify-content: space-between; align-items: flex-end;">
-            <div>
-              <p style="margin: 0; font-size: 10px; opacity: 0.8; text-transform: uppercase;">Mã Thành Viên</p>
-              <p style="margin: 5px 0 0 0; font-size: 18px; letter-spacing: 2px; font-family: monospace;">${code}</p>
-            </div>
-            <div style="text-align: right;">
-              <p style="margin: 0; font-size: 10px; opacity: 0.8; text-transform: uppercase;">Chủ thẻ</p>
-              <p style="margin: 5px 0 0 0; font-size: 16px; font-weight: bold; text-transform: uppercase;">${font.name}</p>
-            </div>
-          </div>
+         <div style="display: flex; justify-content: space-between; align-items: flex-end; width: 100%; box-sizing: border-box; padding: 0 5px; margin-top: 5px;">
+  <div style="text-align: left;">
+    <p style="margin: 0; font-size: 10px; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px;">Mã Thành Viên</p>
+    <p style="margin: 4px 0 0 0; font-size: 16px; font-weight: bold; letter-spacing: 1px; font-family: monospace; color: #ffffff;">${code}</p>
+  </div>
+  <div style="text-align: right;">
+    <p style="margin: 0; font-size: 10px; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px;">Chủ thẻ</p>
+    <p style="margin: 4px 0 0 0; font-size: 16px; font-weight: bold; text-transform: uppercase; color: #ffffff;">${font.name}</p>
+  </div>
+</div>
         </div>
         
         <div style="text-align: center; margin-top: 30px;">
