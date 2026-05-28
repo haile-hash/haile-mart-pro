@@ -189,24 +189,25 @@ export const Header: React.FC<HeaderProps> = ({
            
            <div style={{ textAlign: "center" }}>
              <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>VỐN</div>
-             <div style={{ fontSize: "15px", fontWeight: "900", color: "#475569" }}>{(totalValue || 0).toLocaleString()}đ</div>
+             <div style={{ fontSize: "15px", fontWeight: "900", color: "#475569" }}>{Number(totalValue || 0).toLocaleString()}đ</div>
            </div>
            
+           {/* Đã sửa revenue thành cash và bọc Number an toàn */}
            <div style={{ textAlign: "center", cursor: "pointer" }} onClick={() => setCashFlowModalInfo('TIỀN MẶT')}>
              <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>TIỀN MẶT 👆</div>
-             <div style={{ fontSize: "15px", fontWeight: "900", color: "#10b981" }}>{(currentShiftStats?.revenue || 0).toLocaleString()}đ</div>
+             <div style={{ fontSize: "15px", fontWeight: "900", color: "#10b981" }}>{Number(currentShiftStats?.cash || 0).toLocaleString()}đ</div>
            </div>
            
            <div style={{ textAlign: "center", cursor: "pointer" }} onClick={() => setCashFlowModalInfo('CHUYỂN KHOẢN')}>
              <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>CHUYỂN KHOẢN 👆</div>
-             <div style={{ fontSize: "15px", fontWeight: "900", color: "#3b82f6" }}>{(currentShiftStats?.transfer || 0).toLocaleString()}đ</div>
+             <div style={{ fontSize: "15px", fontWeight: "900", color: "#3b82f6" }}>{Number(currentShiftStats?.transfer || 0).toLocaleString()}đ</div>
            </div>
            
            <div style={{ borderLeft: "1px solid #cbd5e1", height: "30px" }}></div>
            
            <div style={{ textAlign: "center" }}>
              <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "bold" }}>LÃI</div>
-             <div style={{ fontSize: "15px", fontWeight: "900", color: "#ea580c" }}>{(currentShiftStats?.profit || 0).toLocaleString()}đ</div>
+             <div style={{ fontSize: "15px", fontWeight: "900", color: "#ea580c" }}>{Number(currentShiftStats?.profit || 0).toLocaleString()}đ</div>
            </div>
         </div>
 
