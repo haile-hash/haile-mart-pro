@@ -2,9 +2,9 @@ import React from 'react';
 import { CartItem, HeldOrder } from '../../types';
 
 export const CartPanel = ({
-  cart,
-  heldOrders,
-  cartTotalAmountDisplay,
+  cart = [], // Bọc giáp: Đảm bảo cart luôn là mảng, không bao giờ undefined
+  heldOrders = [], // Bọc giáp tương tự
+  cartTotalAmountDisplay = 0,
   setShowHoldModal,
   handleHoldOrder,
   clearCart,
@@ -36,7 +36,7 @@ export const CartPanel = ({
             onClick={() => setShowHoldModal(true)} 
             style={{ padding: '6px 12px', border: '1px solid #fbbf24', background: '#fef3c7', color: '#d97706', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}
           >
-            📁 TẠM LƯU ({heldOrders?.length || 0})
+            📁 TẠM LƯU ({heldOrders.length})
           </button>
           <button 
             onClick={handleHoldOrder} 
@@ -66,27 +66,38 @@ export const CartPanel = ({
             {cart.map((item: any, idx: number) => (
               <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '12px', borderBottom: '1px dashed #e2e8f0' }}>
                 <div style={{ flex: 1, paddingRight: '10px' }}>
-                  <div style={{ fontWeight: 'bold', color: '#0f172a', fontSize: '15px' }}>{item.product.name}</div>
+                  <div style={{ fontWeight: 'bold', color: '#0f172a', fontSize: '15px' }}>
+                    {item?.product?.name || 'Sản phẩm không rõ'}
+                  </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
                   
                   {/* Nút tăng giảm số lượng */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <button onClick={() => adjustCartQty(item.product.id, -1)} style={{ width: '28px', height: '28px', border: '1px solid #cbd5e1', background: '#f8fafc', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', color: '#f97316' }}>-</button>
+                    <button 
+                      onClick={() => item?.product?.id && adjustCartQty(item.product.id, -1)} 
+                      style={{ width: '28px', height: '28px', border: '1px solid #cbd5e1', background: '#f8fafc', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', color: '#f97316' }}
+                    >-</button>
                     <input 
                       type="text" 
-                      value={item.qty} 
-                      onChange={(e) => handleDirectQtyChange(item.product.id, e.target.value)}
-                      onBlur={(e) => handleDirectQtyBlur(item.product.id, e.target.value)}
+                      value={item?.qty || ''} 
+                      onChange={(e) => item?.product?.id && handleDirectQtyChange(item.product.id, e.target.value)}
+                      onBlur={(e) => item?.product?.id && handleDirectQtyBlur(item.product.id, e.target.value)}
                       style={{ width: '40px', height: '28px', textAlign: 'center', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none', fontWeight: 'bold' }} 
                     />
-                    <button onClick={() => adjustCartQty(item.product.id, 1)} style={{ width: '28px', height: '28px', border: '1px solid #cbd5e1', background: '#f8fafc', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', color: '#f97316' }}>+</button>
-                    <button onClick={() => removeFromCart(item.product.id)} style={{ width: '28px', height: '28px', border: 'none', background: '#fee2e2', color: '#ef4444', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', marginLeft: '4px' }}>✕</button>
+                    <button 
+                      onClick={() => item?.product?.id && adjustCartQty(item.product.id, 1)} 
+                      style={{ width: '28px', height: '28px', border: '1px solid #cbd5e1', background: '#f8fafc', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', color: '#f97316' }}
+                    >+</button>
+                    <button 
+                      onClick={() => item?.product?.id && removeFromCart(item.product.id)} 
+                      style={{ width: '28px', height: '28px', border: 'none', background: '#fee2e2', color: '#ef4444', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', marginLeft: '4px' }}
+                    >✕</button>
                   </div>
                   
                   {/* Giá tiền */}
                   <div style={{ fontWeight: 'bold', color: '#dc2626', fontSize: '15px' }}>
-                    {(item.total || 0).toLocaleString('vi-VN')}đ
+                    {(item?.total || 0).toLocaleString('vi-VN')}đ
                   </div>
                 </div>
               </div>
