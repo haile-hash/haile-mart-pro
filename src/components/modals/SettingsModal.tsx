@@ -18,7 +18,6 @@ interface SettingsModalProps {
   saveSettings: () => void;
 }
 
-// 🏦 Danh sách toàn bộ hệ thống Ngân hàng (Mã BIN chuẩn Napas) & Ví điện tử
 const BANK_AND_WALLET_LIST = [
   { group: "Ví Điện Tử Phổ Biến", items: [
     { name: "Ví MoMo", bin: "MOMO" },
@@ -84,18 +83,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   if (!showSettings) return null;
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)' }}>
-      <div style={{ background: '#f8fafc', borderRadius: '12px', width: '550px', maxWidth: '95vw', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-        
+    <div 
+      style={{ 
+        position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', 
+        alignItems: 'center', justifyContent: 'center', 
+        background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)' 
+      }}
+      onClick={() => setShowSettings(false)}
+    >
+      <div 
+        style={{ 
+          background: '#f8fafc', borderRadius: '12px', width: '550px', 
+          maxWidth: '95vw', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', 
+          overflow: 'hidden', border: '1px solid #e2e8f0' 
+        }}
+        onClick={e => e.stopPropagation()}
+      >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', background: '#ffffff', borderBottom: '1px solid #e2e8f0' }}>
           <h2 style={{ margin: 0, fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px', color: '#1e293b' }}>
             ⚙ CÀI ĐẶT HỆ THỐNG
           </h2>
-          <button onClick={() => setShowSettings(false)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#94a3b8' }}>&times;</button>
+          <button onClick={() => setShowSettings(false)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#94a3b8', lineHeight: 1 }}>&times;</button>
         </div>
 
         <div style={{ padding: '20px', maxHeight: '75vh', overflowY: 'auto' }}>
-          
           {/* Thông tin thanh toán */}
           <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '15px', marginBottom: '15px' }}>
             <h3 style={{ margin: '0 0 12px 0', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '6px', color: '#334155' }}>
@@ -103,32 +114,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center' }}>
-                <span style={{ width: '150px', fontSize: '14px', fontWeight: '500' }}>Ngân Hàng / Ví:</span>
-                
-                {/* --- CHÍNH LÀ CHỖ NÀY: DROPDOWN MENU --- */}
+                <span style={{ width: '150px', fontSize: '14px', fontWeight: '500', flexShrink: 0 }}>Ngân Hàng / Ví:</span>
                 <select 
-                  value={newBankBin} 
+                  value={newBankBin || ""} 
                   onChange={e => setNewBankBin(e.target.value)} 
                   style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '14px', background: '#fff' }}
                 >
                   <option value="">-- Chọn ngân hàng hoặc ví --</option>
-                  {BANK_AND_WALLET_LIST.map((group, idx) => (
-                    <optgroup key={idx} label={group.group}>
-                      {group.items.map((b, bIdx) => (
-                        <option key={bIdx} value={b.bin}>{b.name}</option>
+                  {(BANK_AND_WALLET_LIST || []).map((group, idx) => (
+                    <optgroup key={idx} label={group?.group}>
+                      {(group?.items || []).map((b, bIdx) => (
+                        <option key={bIdx} value={b?.bin}>{b?.name}</option>
                       ))}
                     </optgroup>
                   ))}
                 </select>
-
               </div>
               <div style={{ display: 'flex', alignItems: 'center' }}>
-                <span style={{ width: '150px', fontSize: '14px', fontWeight: '500' }}>Số Tài Khoản:</span>
-                <input type="text" value={newBankAcc} onChange={e => setNewBankAcc(e.target.value)} style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '14px' }} placeholder="VD: 0680124181004" />
+                <span style={{ width: '150px', fontSize: '14px', fontWeight: '500', flexShrink: 0 }}>Số Tài Khoản:</span>
+                <input type="text" value={newBankAcc || ""} onChange={e => setNewBankAcc(e.target.value)} style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '14px' }} placeholder="VD: 0680124181004" />
               </div>
               <div style={{ display: 'flex', alignItems: 'center' }}>
-                <span style={{ width: '150px', fontSize: '14px', fontWeight: '500' }}>Tên Chủ TK:</span>
-                <input type="text" value={newBankNameStr} onChange={e => setNewBankNameStr(e.target.value.toUpperCase())} style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '14px' }} placeholder="VD: LE HONG HAI" />
+                <span style={{ width: '150px', fontSize: '14px', fontWeight: '500', flexShrink: 0 }}>Tên Chủ TK:</span>
+                <input type="text" value={newBankNameStr || ""} onChange={e => setNewBankNameStr(e.target.value.toUpperCase())} style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '14px' }} placeholder="VD: LE HONG HAI" />
               </div>
             </div>
           </div>
@@ -138,14 +146,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <h3 style={{ margin: '0 0 12px 0', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '6px', color: '#334155' }}>
               ⏱ Giờ Vàng (Happy Hour)
             </h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '14px', fontWeight: '500' }}>Bắt đầu:</span>
-                <input type="time" value={newHappyStart} onChange={e => setNewHappyStart(e.target.value)} style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <input type="time" value={newHappyStart || "11:00"} onChange={e => setNewHappyStart(e.target.value)} style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontFamily: 'inherit' }} />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '14px', fontWeight: '500' }}>Kết thúc:</span>
-                <input type="time" value={newHappyEnd} onChange={e => setNewHappyEnd(e.target.value)} style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <input type="time" value={newHappyEnd || "13:00"} onChange={e => setNewHappyEnd(e.target.value)} style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontFamily: 'inherit' }} />
               </div>
             </div>
           </div>
@@ -157,19 +165,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <span style={{ fontSize: '13px', color: '#991b1b', fontWeight: 'bold' }}>Mã PIN xác thực & Mở khóa màn hình:</span>
-              <input type="text" value={newAdminPinInput} onChange={e => setNewAdminPinInput(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #fca5a5', width: '200px', fontSize: '18px', letterSpacing: '4px' }} placeholder="****" />
+              <input type="text" value={newAdminPinInput || ""} onChange={e => setNewAdminPinInput(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #fca5a5', width: '200px', fontSize: '18px', letterSpacing: '4px', fontWeight: 'bold', textAlign: 'center' }} placeholder="****" />
               <span style={{ fontSize: '11px', color: '#ef4444', fontStyle: 'italic' }}>* Lưu ý: Khi mất mạng, mã sơ cua (Backdoor) luôn là <b>0000</b>.</span>
             </div>
           </div>
-
         </div>
 
-        {/* Chân Modal */}
         <div style={{ padding: '15px 20px', background: '#f1f5f9', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
           <button onClick={() => setShowSettings(false)} style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', fontWeight: '500' }}>Hủy</button>
           <button onClick={saveSettings} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: '#10b981', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}>LƯU CÀI ĐẶT</button>
         </div>
-
       </div>
     </div>
   );
