@@ -1,95 +1,129 @@
 import React from 'react';
-import { cleanName, parseGift } from '../../utils/helpers';
+import { CartItem, HeldOrder } from '../../types';
 
-interface CartPanelProps {
-  cart: any[];
-  custName: string;
-  heldOrders: any[];
-  cartTotalAmountDisplay: number;
-  setShowHoldModal: (val: boolean) => void;
-  handleHoldOrder: () => void;
-  clearCart: () => void;
-  setCustName: (val: string) => void;
-  setCustPhone: (val: string) => void;
-  setCustomerInput: (val: string) => void;
-  setIsCheckoutOpen: (val: boolean) => void;
-  setCheckoutStep: (step: number) => void;
-  adjustCartQty: (id: any, delta: number) => void;
-  handleDirectQtyChange: (id: any, val: string) => void;
-  handleDirectQtyBlur: (id: any, val: string) => void;
-  removeFromCart: (id: any) => void;
-}
+export const CartPanel = ({
+  cart,
+  heldOrders,
+  cartTotalAmountDisplay,
+  setShowHoldModal,
+  handleHoldOrder,
+  clearCart,
+  setIsCheckoutOpen,
+  setCheckoutStep,
+  adjustCartQty,
+  handleDirectQtyChange,
+  handleDirectQtyBlur,
+  removeFromCart
+}: any) => {
+  
+  // Mở popup thanh toán
+  const handleCheckoutClick = () => {
+    if (cart.length === 0) return;
+    setCheckoutStep(1);
+    setIsCheckoutOpen(true);
+  };
 
-export const CartPanel: React.FC<CartPanelProps> = ({
-  cart, custName, heldOrders, cartTotalAmountDisplay,
-  setShowHoldModal, handleHoldOrder, clearCart,
-  setCustName, setCustPhone, setCustomerInput,
-  setIsCheckoutOpen, setCheckoutStep,
-  adjustCartQty, handleDirectQtyChange, handleDirectQtyBlur, removeFromCart
-}) => {
   return (
-    <div className="glass" style={{ padding: "15px", flex: 1.5, minHeight: "45vh", display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", borderBottom: "2px dashed var(--border-glass)", paddingBottom: "12px" }}>
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <h3 style={{ margin: 0, color: "#ef4444", fontSize: "15px", textTransform: "uppercase" }}>
-            🛒 GIỎ HÀNG ({cart.reduce((s, i) => s + (Number(i.qty) || 0), 0)} món)
-          </h3>
-          {custName && (
-            <div style={{ fontSize: "11px", color: "#10b981", fontWeight: "bold", marginTop: "2px" }}>
-              👤 VIP: {custName} 
-              <span style={{ cursor: "pointer", color: "#ef4444", marginLeft: "4px" }} 
-                    onClick={() => { setCustName(""); setCustPhone(""); setCustomerInput("") }} 
-                    title="Xóa khách khỏi giỏ">✖</span>
-            </div>
-          )}
-        </div>
-        <div style={{ display: "flex", gap: "6px" }}>
-          {heldOrders.length > 0 && <button onClick={() => setShowHoldModal(true)} style={{ fontSize: "10px", padding: "6px 8px", background: "var(--bg-input)", color: "#f59e0b", border: "1px solid #fde68a", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>📂 TẠM LƯU ({heldOrders.length})</button>}
-          {cart.length > 0 && <button onClick={handleHoldOrder} style={{ fontSize: "10px", padding: "6px 8px", background: "var(--bg-input)", color: "#ea580c", border: "1px solid #fdba74", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>⏸️ LƯU TẠM (F4)</button>}
-          {cart.length > 0 && <button onClick={clearCart} style={{ fontSize: "10px", padding: "6px 8px", background: "var(--bg-input)", color: "#ef4444", border: "1px solid #fca5a5", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>🗑️ HỦY HẾT</button>}
-        </div>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', background: 'white', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', height: '100%', overflow: 'hidden' }}>
       
-      {cartTotalAmountDisplay > 0 && (
-        <div style={{ background: "rgba(239, 68, 68, 0.1)", padding: "12px 15px", borderRadius: "8px", border: "1px solid #fecaca", marginBottom: "15px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <span style={{ fontSize: "12px", fontWeight: "bold", color: "#ef4444" }}>TỔNG CỘNG:</span>
-            <div style={{ fontSize: "24px", fontWeight: "900", color: "#ef4444" }}>{cartTotalAmountDisplay.toLocaleString()}đ</div>
-          </div>
-          <button onClick={() => { setIsCheckoutOpen(true); setCheckoutStep(1) }} style={{ padding: "12px 25px", background: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer", fontSize: "14px" }}>
-            THANH TOÁN
+      {/* 1. HEADER GIỎ HÀNG */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #f1f5f9' }}>
+        <h3 style={{ margin: 0, color: '#dc2626', fontSize: '16px', fontWeight: 'bold' }}>
+          🛒 GIỎ HÀNG ({cart.length} MÓN)
+        </h3>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button 
+            onClick={() => setShowHoldModal(true)} 
+            style={{ padding: '6px 12px', border: '1px solid #fbbf24', background: '#fef3c7', color: '#d97706', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}
+          >
+            📁 TẠM LƯU ({heldOrders?.length || 0})
+          </button>
+          <button 
+            onClick={handleHoldOrder} 
+            disabled={cart.length === 0} 
+            style={{ padding: '6px 12px', border: '1px solid #60a5fa', background: '#eff6ff', color: '#2563eb', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px', cursor: cart.length === 0 ? 'not-allowed' : 'pointer', opacity: cart.length === 0 ? 0.5 : 1 }}
+          >
+            ⏸ LƯU TẠM (F4)
+          </button>
+          <button 
+            onClick={clearCart} 
+            disabled={cart.length === 0} 
+            style={{ padding: '6px 12px', border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px', cursor: cart.length === 0 ? 'not-allowed' : 'pointer', opacity: cart.length === 0 ? 0.5 : 1 }}
+          >
+            🗑 HỦY HẾT
           </button>
         </div>
-      )}
-      
-      <div style={{ flex: 1, overflowY: "auto", paddingRight: "4px" }}>
-        {cart.length === 0 && <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: "12px", marginTop: "15px" }}>Giỏ hàng trống</div>}
-        {cart.map((item, idx) => {
-          const gift = parseGift(item.product.gift_info); 
-          const gQty = gift.cond > 0 ? Math.floor(item.qty / gift.cond) : 0; 
-          const hasGift = gift.text && gQty > 0;
-          
-          return (
-            <div key={idx} style={{ padding: "8px 0", borderBottom: "1px dashed var(--border-glass)", fontSize: "12px", display: "flex", flexDirection: "column", gap: "6px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontWeight: "bold", color: "var(--text-main)", flex: 1, fontSize: "13px" }}>
-                  {cleanName(item.product.name)} {item.product.isHappyHour && <span style={{ color: "#ea580c", fontSize: "10px" }}>[Giờ Vàng]</span>}
-                </span>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <button className="qty-btn" style={{background:"var(--border-glass)", border:"none", borderRadius:"4px", cursor:"pointer", color: "var(--text-main)"}} onClick={() => adjustCartQty(item.product.id, -1)}>-</button>
-                  <input className="qty-input" style={{ fontSize: "13px", padding: "4px 0", width: "32px", background:"var(--bg-input)", color:"var(--text-main)", border:"1px solid var(--border-glass)", textAlign: "center" }} type="number" value={item.qty} onChange={e => handleDirectQtyChange(item.product.id, e.target.value)} onBlur={e => handleDirectQtyBlur(item.product.id, e.target.value)} onFocus={e => e.target.select()} title="Bấm để nhập số lượng" />
-                  <button className="qty-btn" style={{background:"var(--border-glass)", border:"none", borderRadius:"4px", cursor:"pointer", color: "var(--text-main)"}} onClick={() => adjustCartQty(item.product.id, 1)}>+</button>
-                  <button onClick={() => removeFromCart(item.product.id)} style={{ border: "none", background: "none", color: "#ef4444", cursor: "pointer", fontSize: "18px", marginLeft: "4px", fontWeight: "bold" }}>×</button>
+      </div>
+
+      {/* 2. DANH SÁCH MÓN (Có Scrollbar) */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+        {cart.length === 0 ? (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#94a3b8', fontSize: '15px' }}>
+            Giỏ hàng đang trống. Hãy quét mã vạch!
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {cart.map((item: any, idx: number) => (
+              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '12px', borderBottom: '1px dashed #e2e8f0' }}>
+                <div style={{ flex: 1, paddingRight: '10px' }}>
+                  <div style={{ fontWeight: 'bold', color: '#0f172a', fontSize: '15px' }}>{item.product.name}</div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                  
+                  {/* Nút tăng giảm số lượng */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <button onClick={() => adjustCartQty(item.product.id, -1)} style={{ width: '28px', height: '28px', border: '1px solid #cbd5e1', background: '#f8fafc', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', color: '#f97316' }}>-</button>
+                    <input 
+                      type="text" 
+                      value={item.qty} 
+                      onChange={(e) => handleDirectQtyChange(item.product.id, e.target.value)}
+                      onBlur={(e) => handleDirectQtyBlur(item.product.id, e.target.value)}
+                      style={{ width: '40px', height: '28px', textAlign: 'center', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none', fontWeight: 'bold' }} 
+                    />
+                    <button onClick={() => adjustCartQty(item.product.id, 1)} style={{ width: '28px', height: '28px', border: '1px solid #cbd5e1', background: '#f8fafc', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', color: '#f97316' }}>+</button>
+                    <button onClick={() => removeFromCart(item.product.id)} style={{ width: '28px', height: '28px', border: 'none', background: '#fee2e2', color: '#ef4444', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', marginLeft: '4px' }}>✕</button>
+                  </div>
+                  
+                  {/* Giá tiền */}
+                  <div style={{ fontWeight: 'bold', color: '#dc2626', fontSize: '15px' }}>
+                    {(item.total || 0).toLocaleString('vi-VN')}đ
+                  </div>
                 </div>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-                <span>{hasGift && <span style={{ color: "#10b981", fontSize: "10px", fontStyle: "italic" }}>+ 🎁 Tặng: {gQty} x {gift.text}</span>}</span>
-                <span style={{ color: "#ef4444", fontWeight: "bold", fontSize: "14px" }}>{Math.round(item.total).toLocaleString()}đ</span>
-              </div>
-            </div>
-          )
-        })}
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* 3. FOOTER THANH TOÁN (Luôn bám đáy) */}
+      <div style={{ padding: '16px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#475569' }}>TỔNG CỘNG:</span>
+          <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#ef4444' }}>
+            {(cartTotalAmountDisplay || 0).toLocaleString('vi-VN')}đ
+          </span>
+        </div>
+        <button 
+          onClick={handleCheckoutClick}
+          disabled={cart.length === 0}
+          style={{
+            width: '100%',
+            padding: '16px',
+            background: cart.length === 0 ? '#94a3b8' : '#22c55e',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '18px',
+            fontWeight: 'bold',
+            cursor: cart.length === 0 ? 'not-allowed' : 'pointer',
+            boxShadow: cart.length === 0 ? 'none' : '0 4px 6px -1px rgba(34, 197, 94, 0.4)',
+            transition: 'all 0.2s'
+          }}
+        >
+          💵 THANH TOÁN (F2/F3)
+        </button>
+      </div>
+
     </div>
   );
-};
+}
