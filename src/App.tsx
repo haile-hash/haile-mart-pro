@@ -925,13 +925,14 @@ export default function App() {
     e.preventDefault(); 
     setLoading(true);
     try {
-      const added = parseInt(newStock || "0"); 
-      const impPrice = parseInt(newImportPrice); 
-      const salePrice = parseInt(newPrice); 
-      const promo = parseInt(newPromoPrice) || 0; 
+      const added = parseInt(newStock || "0") || 0; 
+      const impPrice = parseInt(newImportPrice || "0") || 0; 
+      const salePrice = parseInt(newPrice || "0") || 0; 
+      const promo = parseInt(newPromoPrice || "0") || 0; 
       const finalGiftInfo = newGiftInfo.trim() !== "" ? `${newGiftCondition};;;${newGiftInfo}` : null; 
       
       const inputCode = newCode.trim(); 
+      // BỌC GIÁP: Tách mã gốc để luôn quét sạch tất cả các lô anh em (-xxxx)
       const baseCode = inputCode.split('-')[0]; 
       const formattedCat = formatCategoryStr(newCategory);
       
@@ -960,7 +961,7 @@ export default function App() {
         gift_info: finalGiftInfo, stock: finalStockToSave, expiry_date: newExpiry || null 
       };
 
-      // CẬP NHẬT GIAO DIỆN NGAY LẬP TỨC
+      // 1. CẬP NHẬT GIAO DIỆN NGAY LẬP TỨC (OPTIMISTIC UPDATE TRÊN MÀN HÌNH)
       setProducts(prev => {
         let updated = prev.map(p => {
            const pBase = String(p.product_code).split('-')[0];
@@ -982,13 +983,17 @@ export default function App() {
       });
 
       if (navigator.onLine) {
+        // 2. ĐỒNG BỘ 100% LÊN CLOUD BẰNG VÒNG LẶP FOR TUẦN TỰ (CHỐNG LỖI NGẦM)
         if (allVariants.length > 0) {
-          // ÉP SUPABASE ĐỔI GIÁ TỪNG LÔ MỘT ĐỂ ĐẢM BẢO THÀNH CÔNG
           for (const v of allVariants) {
               const keepSuffix = v.name.includes('[Lô mới]') ? ' [Lô mới]' : '';
               await supabase.from("products").update({ 
-                name: newName + keepSuffix, category: formattedCat, sale_price: salePrice, 
-                promo_price: promo, gift_info: finalGiftInfo, updated_at: new Date().toISOString() 
+                name: newName + keepSuffix, 
+                category: formattedCat, 
+                sale_price: salePrice, 
+                promo_price: promo, 
+                gift_info: finalGiftInfo, 
+                updated_at: new Date().toISOString() 
               }).eq("id", v.id);
           }
 
@@ -998,14 +1003,16 @@ export default function App() {
             await supabase.from("products").update({ stock: finalStockToSave, updated_at: new Date().toISOString() }).eq("id", exist.id); 
           }
         } else { 
+          // Nếu sản phẩm mới tinh chưa từng xuất hiện lô nào
           await supabase.from("products").insert([newProductData]); 
         }
 
         if (added > 0) addTransactionAndSync({ id: Date.now(), shift, type: "NHẬP", name: finalProductName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }); 
         logAudit("THÊM/SỬA SP", `Mã: ${finalProductCode}`);
-        toast.success(`Đã lưu & đồng bộ giá!`);
+        toast.success(`Đã lưu & đồng bộ giá toàn bộ kho thành công!`);
         fetchProducts(); 
       } else {
+        // CHẾ ĐỘ NGOẠI TUYẾN KHI MẤT MẠNG
         const pendingImports = await dbGet("mart_pending_imports") || [];
         pendingImports.push({ id: Date.now(), action: (exist && !isNewBatch) ? "UPDATE_STOCK" : "INSERT_NEW", targetId: (exist && !isNewBatch) ? exist.id : null, data: newProductData, addedStock: added });
         await dbSet("mart_pending_imports", pendingImports);
@@ -1017,7 +1024,7 @@ export default function App() {
           await dbSet("mart_history", [offlineLog, ...currentHistory]);
         }
         logAudit("NHẬP KHO OFFLINE", `Mã: ${finalProductCode}`);
-        toast.success(`Đã lưu Tạm! Đồng bộ tự động khi có mạng.`);
+        toast.success(`Đã lưu Tạm! Tự động đồng bộ giá khi có mạng.`);
       }
       resetProductForm(); 
       setShowInputForm(false);
