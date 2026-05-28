@@ -131,7 +131,7 @@ export const CartPanel = ({
             transition: 'all 0.2s'
           }}
         >
-          💵 THANH TOÁN (F2/F3)
+          💵 THANH TOÁN
         </button>
       </div>
 
