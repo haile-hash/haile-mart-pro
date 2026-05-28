@@ -921,7 +921,7 @@ export default function App() {
       const allVariants = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)); 
       const exist = allVariants.find(p => p.product_code === baseCode); 
       
-      // Xác định: Có tạo lô mới không? (Giá vốn lệch hoặc HSD lệch)
+      // Kiểm tra có tạo lô mới không (Lệch giá vốn hoặc lệch hạn sử dụng)
       const isNewBatch = exist && (exist.import_price !== impPrice || (exist.expiry_date || "") !== (newExpiry || ""));
 
       let finalProductCode = baseCode;
@@ -951,52 +951,73 @@ export default function App() {
       };
 
       if (navigator.onLine) {
-        if (exist && !isNewBatch) {
-           // CẬP NHẬT LÔ CŨ: Cập nhật Tồn kho, Giá bán, Khuyến mãi (Giữ nguyên Giá vốn)
-           await supabase.from("products").update({ 
-             stock: finalStockToSave, 
-             sale_price: salePrice,
-             promo_price: promo,
-             gift_info: finalGiftInfo,
-             updated_at: new Date().toISOString() 
-           }).eq("id", exist.id);
+        // NẾU ĐÃ CÓ SẢN PHẨM TRÊN HỆ THỐNG
+        if (allVariants.length > 0) {
+          const variantIds = allVariants.map(v => v.id);
+          
+          // ĐỒNG BỘ 100%: Cập nhật Giá bán, Giá khuyến mãi, Quà tặng cho TẤT CẢ các lô/biến thể hiện tại
+          await supabase.from("products").update({ 
+            sale_price: salePrice,
+            promo_price: promo,
+            gift_info: finalGiftInfo,
+            updated_at: new Date().toISOString() 
+          }).in("id", variantIds);
+
+          if (isNewBatch) {
+            // Nếu là lô mới, tiến hành chèn thêm dòng lô mới vào cơ sở dữ liệu
+            await supabase.from("products").insert([newProductData]);
+          } else if (exist) {
+            // Nếu là lô cũ, chỉ cập nhật tăng số lượng tồn kho của riêng lô đó
+            await supabase.from("products").update({ 
+              stock: finalStockToSave,
+              updated_at: new Date().toISOString() 
+            }).eq("id", exist.id);
+          }
         } else {
-           // TẠO LÔ MỚI / SẢN PHẨM MỚI
-           await supabase.from("products").insert([newProductData]);
+          // Nếu là mặt hàng mới tinh chưa từng tồn tại
+          await supabase.from("products").insert([newProductData]);
         }
 
         if (added > 0) addTransactionAndSync({ id: Date.now(), shift, type: "NHẬP", name: finalProductName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') });
         logAudit("THÊM/SỬA SP", `Mã: ${finalProductCode}`);
-        toast.success(`Đã lưu lên hệ thống Cloud!`);
+        toast.success(`Đã lưu và đồng bộ giá toàn hệ thống thành công!`);
         fetchProducts();
       } else {
-        // XỬ LÝ OFFLINE MẤT MẠNG
+        // XỬ LÝ KHI MẤT MẠNG (OFFLINE MODE)
         const pendingImports = await dbGet("mart_pending_imports") || [];
         let actionType = (exist && !isNewBatch) ? "UPDATE_STOCK" : "INSERT_NEW";
         let targetId = (exist && !isNewBatch) ? exist.id : null;
 
-        // Lưu thông tin Cập nhật để đẩy lên mây sau
         pendingImports.push({
           id: Date.now(),
           action: actionType,
           targetId: targetId,
-          data: newProductData, // newProductData đã chứa đủ giá bán mới, KM mới
+          data: newProductData,
           addedStock: added
         });
         await dbSet("mart_pending_imports", pendingImports);
 
-        if (exist && !isNewBatch) {
-          // Cập nhật giao diện Offline: Tồn mới, Giá bán mới, KM mới
-          setProducts(prev => prev.map(p => p.id === exist.id ? { 
-            ...p, 
-            stock: finalStockToSave,
-            sale_price: salePrice,
-            promo_price: promo,
-            gift_info: finalGiftInfo
-          } : p));
-        } else {
-          setProducts(prev => [{ id: `temp-${Date.now()}`, ...newProductData, created_at: new Date().toISOString() }, ...prev]);
-        }
+        // Đồng bộ tức thì trên giao diện màn hình offline để thu ngân thấy giá mới
+        setProducts(prev => {
+          let updated = prev.map(p => {
+            const pBase = String(p.product_code).split('-')[0];
+            if (pBase === baseCode) {
+              return {
+                ...p,
+                sale_price: salePrice,
+                promo_price: promo,
+                gift_info: finalGiftInfo,
+                stock: (!isNewBatch && p.id === exist.id) ? finalStockToSave : p.stock
+              };
+            }
+            return p;
+          });
+
+          if (isNewBatch || !exist) {
+            updated = [{ id: `temp-${Date.now()}`, ...newProductData, created_at: new Date().toISOString() }, ...updated];
+          }
+          return updated;
+        });
 
         if (added > 0) {
           const offlineLog = { id: Date.now(), shift, type: "NHẬP (OFFLINE)", name: finalProductName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') };
@@ -1005,13 +1026,13 @@ export default function App() {
           await dbSet("mart_history", [offlineLog, ...currentHistory]);
         }
         logAudit("NHẬP KHO OFFLINE", `Mã: ${finalProductCode}`);
-        toast.success(`Đã lưu Tạm! Sẽ tự động đẩy lên khi có mạng.`);
+        toast.success(`Đã lưu Tạm! Giá bán và tồn sẽ tự động đồng bộ khi có mạng.`);
       }
       resetProductForm();
       setShowInputForm(false);
     } catch (err) {
       toast.error("Lỗi khi lưu sản phẩm");
-    } finally {
+    } final {
       setLoading(false);
     }
   };
