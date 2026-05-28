@@ -921,7 +921,7 @@ export default function App() {
     }
   }, [isOnline, isLoggedIn]);
 
-  const handleAddProduct = async (e: React.FormEvent) => {
+ const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault(); 
     setLoading(true);
     try {
@@ -1047,7 +1047,7 @@ export default function App() {
       setShowInputForm(false);
     } catch (err) {
       toast.error("Lỗi khi lưu sản phẩm");
-    } final {
+    } finally {     // <--- ĐÃ SỬA CHỮ final THÀNH finally CHUẨN XÁC
       setLoading(false);
     }
   };
