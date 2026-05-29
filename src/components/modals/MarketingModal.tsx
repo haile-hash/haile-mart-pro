@@ -1,48 +1,105 @@
-// @ts-nocheck
-import React from "react";
+import React, { useState } from 'react';
+import emailjs from '@emailjs/browser';
+import { toast } from 'react-hot-toast';
 
-export const MarketingModal = ({
-  showMarketingModal, setShowMarketingModal,
-  marketingTier, setMarketingTier,
-  marketingMsg, setMarketingMsg,
-  sendMarketingEmails, loading
+interface MarketingModalProps {
+  showMarketingModal: boolean;
+  setShowMarketingModal: (val: boolean) => void;
+  marketingTier: string;
+  setMarketingTier: (val: string) => void;
+  marketingMsg: string;
+  setMarketingMsg: (val: string) => void;
+  customersData: any;
+}
+
+export const MarketingModal: React.FC<MarketingModalProps> = ({
+  showMarketingModal,
+  setShowMarketingModal,
+  marketingTier,
+  setMarketingTier,
+  marketingMsg,
+  setMarketingMsg,
+  customersData
 }) => {
+  const [loading, setLoading] = useState(false);
+
   if (!showMarketingModal) return null;
 
+  const handleSendMarketingEmail = async () => {
+    if (!marketingMsg.trim()) return toast.error("Vui lòng nhập nội dung Email!");
+    setLoading(true);
+    let successCount = 0;
+    
+    // BỌC GIÁP: Đảm bảo customersData không bị undefined
+    const safeCustomers = customersData || {};
+    const keys = Object.keys(safeCustomers);
+
+    if (keys.length === 0) {
+      toast.error("Chưa có khách hàng nào trong hệ thống.");
+      setLoading(false);
+      return;
+    }
+
+    for (const phone of keys) {
+      const c = safeCustomers[phone];
+      if (c && c.email) {
+        // Có thể áp dụng bộ lọc hạng thành viên (Kim cương, Vàng, Bạc) ở đây nếu cần
+        try {
+          await emailjs.send(
+            "service_7ie990l", // Thay bằng Service ID của bạn
+            "template_m1j9i7k", // Thay bằng Template ID gửi Marketing
+            {
+              to_email: c.email,
+              to_name: c.name || "Quý khách",
+              message: marketingMsg
+            }
+          );
+          successCount++;
+        } catch (e) {
+          console.error("Lỗi gửi email cho " + c.email);
+        }
+      }
+    }
+    
+    setLoading(false);
+    toast.success(`Đã gửi thành công ${successCount} email!`);
+    setShowMarketingModal(false);
+    setMarketingMsg("");
+  };
+
   return (
-    <div 
-      className="no-print" 
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}
-      onClick={() => setShowMarketingModal(false)} // Cải tiến UX: Đóng nhanh khi bấm ra nền tối
-    >
-      <div 
-        className="glass" 
-        style={{ padding: "25px", width: "450px", maxWidth: "90vw", background: "#ffffff", borderRadius: "12px", display: "flex", flexDirection: "column" }} 
-        onClick={e => e.stopPropagation()}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #e2e8f0", paddingBottom: "10px", marginBottom: "15px" }}>
-          <h2 style={{ margin: 0, color: "#8b5cf6", fontSize: "18px", fontWeight: "bold" }}>📢 GỬI EMAIL MARKETING CHIẾN DỊCH</h2>
-          <button onClick={() => setShowMarketingModal(false)} style={{ background: "none", border: "none", fontSize: "24px", cursor: "pointer", color: "#64748b", lineHeight: 1 }}>&times;</button>
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+      <div style={{ background: "white", padding: "24px", borderRadius: "12px", width: "500px", maxWidth: "90%" }}>
+        <h2 style={{ marginTop: 0, color: "#e11d48" }}>💌 CHIẾN DỊCH EMAIL MARKETING</h2>
+        
+        <div style={{ marginBottom: "15px" }}>
+          <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold" }}>Gửi đến đối tượng:</label>
+          <select value={marketingTier} onChange={e => setMarketingTier(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }}>
+            <option value="Tất cả">Tất cả khách hàng có Email</option>
+            <option value="Kim Cương">Chỉ gửi khách Kim Cương</option>
+            <option value="Vàng">Chỉ gửi khách Vàng</option>
+          </select>
         </div>
-        
-        <div style={{ background: "#fef2f2", padding: "10px", borderRadius: "8px", fontSize: "12px", color: "#b91c1c", marginBottom: "15px", border: "1px dashed #ef4444", lineHeight: "1.4" }}>
-          <b>⚠️ Cảnh báo hệ thống:</b> Giới hạn tài khoản miễn phí là 200 mail/tháng. Chỉ nên tập trung dùng cho tệp khách hàng hạng <b>Kim Cương / Vàng</b> để tối ưu hóa hiệu quả.
+
+        <div style={{ marginBottom: "15px" }}>
+          <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold" }}>Nội dung Email (HTML hỗ trợ):</label>
+          <textarea 
+            value={marketingMsg} 
+            onChange={e => setMarketingMsg(e.target.value)} 
+            rows={6}
+            placeholder="Kính gửi Quý khách, nhân dịp sinh nhật cửa hàng, chúng tôi tặng bạn Voucher..."
+            style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1", resize: "vertical" }}
+          />
         </div>
-        
-        <label style={{ fontSize: "12px", fontWeight: "bold", color: "#475569", display: "block", marginBottom: "4px" }}>Chọn nhóm phân hạng KH:</label>
-        <select value={marketingTier || "Tất cả"} onChange={e => setMarketingTier(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", fontSize: "14px", marginBottom: "15px", background: "#fff" }}>
-          <option value="Tất cả">Tất cả khách hàng VIP</option>
-          <option value="KIM CƯƠNG">Hạng Kim Cương</option>
-          <option value="VÀNG">Hạng Vàng</option>
-          <option value="BẠC">Hạng Bạc</option>
-        </select>
-        
-        <label style={{ fontSize: "12px", fontWeight: "bold", color: "#475569", display: "block", marginBottom: "4px" }}>Nội dung chiến dịch nhắn gửi:</label>
-        <textarea value={marketingMsg || ""} onChange={e => setMarketingMsg(e.target.value)} rows={5} placeholder="Ví dụ: Tri ân khách hàng VIP Hải Lê Mart, gửi tặng bạn mã giảm giá độc quyền VIP200K cho hóa đơn mua sắm tiếp theo..." style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", marginBottom: "20px", boxSizing: "border-box", fontFamily: "inherit", fontSize: "14px", resize: "none" }}></textarea>
-        
-        <button onClick={sendMarketingEmails} disabled={loading || !marketingMsg?.trim()} style={{ width: "100%", padding: "14px", background: "#8b5cf6", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: (loading || !marketingMsg?.trim()) ? "not-allowed" : "pointer", fontSize: "16px", boxShadow: "0 4px 6px rgba(139,92,246,0.2)", opacity: (!marketingMsg?.trim()) ? 0.6 : 1 }}>
-          {loading ? "ĐANG GỬI THƯ..." : "🚀 PHÁT ĐỘNG CHIẾN DỊCH"}
-        </button>
+
+        <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+          <button onClick={() => setShowMarketingModal(false)} style={{ padding: "10px 16px", borderRadius: "6px", border: "none", cursor: "pointer", background: "#f1f5f9", fontWeight: "bold" }}>
+            Hủy
+          </button>
+          <button onClick={handleSendMarketingEmail} disabled={loading} style={{ padding: "10px 16px", borderRadius: "6px", border: "none", cursor: "pointer", background: "#e11d48", color: "white", fontWeight: "bold" }}>
+            {loading ? "Đang gửi..." : "🚀 Gửi Hàng Loạt"}
+          </button>
+        </div>
       </div>
     </div>
   );
