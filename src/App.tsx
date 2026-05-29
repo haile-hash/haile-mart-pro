@@ -116,6 +116,7 @@ export default function App() {
 
   const [isStorageLoading, setIsStorageLoading] = useState(true); 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentStore, setCurrentStore] = useState<any>(null); // THÊM DÒNG NÀY
   const [isLocked, setIsLocked] = useState(false);
   const [unlockPin, setUnlockPin] = useState("");
   const [installPrompt, setInstallPrompt] = useState<any>(null);
@@ -436,7 +437,35 @@ export default function App() {
 
   useEffect(() => {
     if (isLoggedIn) {
+      // 1. Lấy thông tin Cửa hàng của tài khoản đang đăng nhập
+      const fetchStoreInfo = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: store } = await supabase.from('stores').select('*').eq('owner_id', user.id).single();
+          if (store) {
+            setCurrentStore(store);
+            await dbSet("mart_current_store", store); // Lưu offline
+          }
+        }
+      };
+      fetchStoreInfo();
+
+      // 2. Tải dữ liệu hàng hóa
       fetchProducts(); loadCloudData(); fetchSettingsFromCloud(); 
+      
+      const channel = supabase.channel("db_changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts())
+        .on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData())
+        .on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData())
+        .on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData())
+        .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData())
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload) => { 
+          setScanQueue(prev => [...prev, payload.new.code]); 
+        }).subscribe();
+        
+      return () => { supabase.removeChannel(channel) };
+    }
+  }, [isLoggedIn]); 
       const channel = supabase.channel("db_changes")
         .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts())
         .on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData())
@@ -1378,8 +1407,7 @@ export default function App() {
       <Toaster position="top-right" reverseOrder={false} toastOptions={{ style: { fontSize: '15px', fontWeight: 'bold', padding: '16px 24px', color: '#0f172a', background: '#ffffff', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', border: '1px solid #e2e8f0', borderRadius: '8px' } }} containerStyle={{ top: 20, right: 20, zIndex: 999999999 }} />
       <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeSubmitAction} />
       
-      <PrintManager printMode={printMode} lastOrder={lastOrder} shift={shift} role={role} customers={customersData} VAT_RATE={VAT_RATE} printBarcodeProduct={printBarcodeProduct} barcodeCount={barcodeCount} printCustomer={printCustomer} printPOData={printPOData} />
-      {renderModals()}
+      <PrintManager printMode={printMode} lastOrder={lastOrder} shift={shift} role={role} customers={customersData} VAT_RATE={VAT_RATE} printBarcodeProduct={printBarcodeProduct} barcodeCount={barcodeCount} printCustomer={printCustomer} printPOData={printPOData} currentStore={currentStore} />
 
       {!isLoggedIn ? (
         <Login setIsLoggedIn={setIsLoggedIn} setRole={setRole} shift={shift} setShift={setShift} startingCash={startingCash} setStartingCash={setStartingCash} installPrompt={installPrompt} handleInstallApp={handleInstallApp} />
