@@ -70,7 +70,7 @@ export const Header: React.FC<HeaderProps> = ({
   // Hàm kích hoạt nhạc Windy khi bấm vào Logo
   const toggleWindyMusic = () => {
     if (!audioRef.current) {
-      // Sử dụng link nhạc Windy trực tuyến sôi động
+      // Sử dụng link nhạc Windy dập dình cực bốc!
       audioRef.current = new Audio("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3");
       audioRef.current.loop = true;
     }
@@ -87,7 +87,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px", gap: "10px" }} className="no-print">
       
-      {/* 1. HIỆU ỨNG CSS ANIMATION HOÀN CHỈNH CHO CỜ ĐỎ SAO VÀNG VÀ LƯỢN SÓNG */}
+      {/* 1. HIỆU ỨNG CSS ANIMATION: CỜ ĐỎ SAO VÀNG LƯỢN SÓNG NEON */}
       <style>{`
         @keyframes flagWave {
           0% { background-position: 0% 50%; }
@@ -102,10 +102,10 @@ export const Header: React.FC<HeaderProps> = ({
           background: linear-gradient(-45deg, #da251d, #b71c1c, #da251d, #ff1744) !important;
           background-size: 300% 300% !important;
           animation: flagWave 4s ease infinite !important;
-          animation-play-state: ${isPlaying ? 'running' : 'paused'};
           border: 3px solid #ffeb3b !important;
           animation: flagWave 4s ease infinite, neonBorder 3s linear infinite !important;
         }
+        /* Style cho các mục menu xổ xuống ở góc phải */
         .dropdown-menu-saas button {
           width: 100%;
           text-align: left;
@@ -125,7 +125,7 @@ export const Header: React.FC<HeaderProps> = ({
         }
       `}</style>
 
-      {/* 2. BANNER CỜ ĐỎ SAO VÀNG LƯỢN SÓNG NEON + NÚT BẤM KÍCH NHẠC WINDY */}
+      {/* 2. BANNER WINDY CỜ ĐỎ SAO VÀNG LƯỢN SÓNG NEON - CLICK KÍCH NHẠC DẬP DÌNH */}
       <div 
         className="vietnam-saas-banner" 
         onClick={toggleWindyMusic}
@@ -142,9 +142,9 @@ export const Header: React.FC<HeaderProps> = ({
           userSelect: 'none',
           boxShadow: '0 10px 25px -5px rgba(218,37,29,0.4)'
         }}
-        title="Bấm vào đây để BẬT/TẮT nhạc Windy cực bốc!"
+        title="Bấm mạnh vào đây để BẬT/TẮT nhạc Windy cực bốc!"
       >
-        {/* Ngôi sao vàng lấp lánh đóng vai trò Logo */}
+        {/* Ngôi sao vàng lấp lánh đóng vai trò Logo trên nền cờ đỏ lượn sóng */}
         <div style={{ 
           width: '42px', 
           height: '42px', 
@@ -158,7 +158,7 @@ export const Header: React.FC<HeaderProps> = ({
           transform: isPlaying ? 'scale(1.1) rotate(360deg)' : 'none',
           transition: 'all 0.5s ease'
         }}>
-          {isPlaying ? "📻" : "⭐"}
+          {isPlaying ? "📀" : "⭐"}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -166,64 +166,64 @@ export const Header: React.FC<HeaderProps> = ({
             {getStoreName()}
           </span>
           <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#ffeb3b', letterSpacing: '1px', textShadow: '1px 1px 2px rgba(0,0,0,0.4)' }}>
-            {isPlaying ? "🎵 WINDY MUSIC ON OOO..." : "🔥 CLICK LOGO QUẨY NHẠC"}
+            {isPlaying ? "🎶 WINDY MUSIC DẬP DÌNH OOO..." : "🔥 CLICK QUẨY NHẠC WINDY"}
           </span>
         </div>
 
-        {/* Đĩa nhạc xoay tròn hiệu ứng khi phát nhạc */}
+        {/* Biểu tượng phát nhạc hiệu ứng khi đang quẩy */}
         {isPlaying && (
-          <div style={{ position: 'absolute', right: '15px', fontSize: '20px', animation: 'spin 2s linear infinite' }}>📀</div>
+          <div style={{ position: 'absolute', right: '15px', fontSize: '20px', animation: 'spin 2s linear infinite' }}>🎵</div>
         )}
       </div>
 
-      {/* 3. KHỐI HIỂN THỊ CHỈ SỐ NHANH (MÀU SẮC BAN ĐẦU, KHÔNG LỖI PHÈN) */}
+      {/* 3. KHỐI HIỂN THỊ CHỈ SỐ DOANH THU (KHÔI PHỤC MÀU SẮC BAN ĐẦU) */}
       <div style={{ display: "flex", gap: "10px", flex: 1, justifyContent: "center" }}>
         {role === "admin" && (
-          <div className="stat-card" style={{ padding: "8px 14px", textAlign: "center", minWidth: "110px", background: 'rgba(255,235,59,0.15)', border: '1px solid #ffeb3b' }}>
+          <div className="stat-card" style={{ padding: "8px 14px", textAlign: "center", minWidth: "110px", background: 'rgba(255,235,59,0.15)', border: '1px solid #ffeb3b', borderRadius: "12px" }}>
             <span style={{ fontSize: "11px", color: "#856404", display: "block", fontWeight: "bold" }}>VỐN HÀNG HOÁ</span>
             <strong style={{ fontSize: "16px", color: "#856404" }}>{Math.round(totalValue).toLocaleString()}đ</strong>
           </div>
         )}
-        <div className="stat-card pointer-click" onClick={() => setCashFlowModalInfo('TIỀN MẶT')} style={{ padding: "8px 14px", textAlign: "center", minWidth: "110px", background: 'rgba(20,184,166,0.1)', border: '1px solid #14b8a6' }}>
+        <div className="stat-card pointer-click" onClick={() => setCashFlowModalInfo('TIỀN MẶT')} style={{ padding: "8px 14px", textAlign: "center", minWidth: "110px", background: 'rgba(20,184,166,0.1)', border: '1px solid #14b8a6', borderRadius: "12px" }}>
           <span style={{ fontSize: "11px", color: "#0f766e", display: "block", fontWeight: "bold" }}>TIỀN MẶT 👆</span>
           <strong style={{ fontSize: "16px", color: "#0f766e" }}>{Math.round(currentShiftStats.cash).toLocaleString()}đ</strong>
         </div>
-        <div className="stat-card pointer-click" onClick={() => setCashFlowModalInfo('CHUYỂN KHOẢN')} style={{ padding: "8px 14px", textAlign: "center", minWidth: "110px", background: 'rgba(59,130,246,0.1)', border: '1px solid #3b82f6' }}>
+        <div className="stat-card pointer-click" onClick={() => setCashFlowModalInfo('CHUYỂN KHOẢN')} style={{ padding: "8px 14px", textAlign: "center", minWidth: "110px", background: 'rgba(59,130,246,0.1)', border: '1px solid #3b82f6', borderRadius: "12px" }}>
           <span style={{ fontSize: "11px", color: "#1d4ed8", display: "block", fontWeight: "bold" }}>CHUYỂN KHOẢN 👆</span>
           <strong style={{ fontSize: "16px", color: "#1d4ed8" }}>{Math.round(currentShiftStats.transfer).toLocaleString()}đ</strong>
         </div>
         {role === "admin" && (
-          <div className="stat-card" style={{ padding: "8px 14px", textAlign: "center", minWidth: "110px", background: 'rgba(249,115,22,0.1)', border: '1px solid #f97316' }}>
+          <div className="stat-card" style={{ padding: "8px 14px", textAlign: "center", minWidth: "110px", background: 'rgba(249,115,22,0.1)', border: '1px solid #f97316', borderRadius: "12px" }}>
             <span style={{ fontSize: "11px", color: "#c2410c", display: "block", fontWeight: "bold" }}>LÃI TẠM TÍNH</span>
             <strong style={{ fontSize: "16px", color: "#c2410c" }}>{Math.round(currentShiftStats.profit).toLocaleString()}đ</strong>
           </div>
         )}
       </div>
 
-      {/* 4. KHỐI ĐIỀU KHIỂN CHỨC NĂNG - GOM TẤT CẢ MENU VÀO GÓC PHẢI CHUẨN UX BAN ĐẦU */}
+      {/* 4. KHỐI ĐIỀU KHIỂN GÓC PHẢI - TOÀN BỘ MENU GOM GỌN VÀO ĐÂY */}
       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
         
         {/* Đèn báo trạng thái kết nối */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px', background: isOnline ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', border: isOnline ? '1px solid #10b981' : '1px solid #ef4444' }}>
-          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isOnline ? '#10b981' : '#ef4444', display: 'inline-block' }}></span>
+          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isOnline ? '#10b981' : '#ef4444', display: 'inline-block', boxShadow: isOnline ? '0 0 10px #10b981' : '0 0 10px #ef4444' }}></span>
           <span style={{ fontSize: '12px', fontWeight: 'bold', color: isOnline ? '#10b981' : '#ef4444' }}>
             {isOnline ? 'Cloud Connected' : 'Offline Local'}
           </span>
         </div>
 
-        {/* Nút bật tắt chế độ tối */}
-        <button onClick={() => setDarkMode(!darkMode)} style={{ background: '#f8fafc', border: '1px solid #cbd5e1', cursor: 'pointer', padding: '8px 12px', borderRadius: '8px' }}>
+        {/* Nút bật tắt Darkmode */}
+        <button onClick={() => setDarkMode(!darkMode)} style={{ background: '#f8fafc', border: '1px solid #cbd5e1', cursor: 'pointer', padding: '8px 12px', borderRadius: '8px' }} title="Thay đổi giao diện">
           {darkMode ? "☀️" : "🌙"}
         </button>
 
-        {/* Khối tài khoản bấm xổ ra danh sách tính năng đóng gói */}
+        {/* Khối tài khoản nhân sự - Bấm để xổ ra danh sách menu gọn gàng */}
         <div style={{ position: "relative" }}>
           <button 
             onClick={(e) => { e.stopPropagation(); setShowMainMenu(!showMainMenu); }} 
             style={{ background: '#f8fafc', border: '1px solid #cbd5e1', cursor: 'pointer', padding: "8px 14px", display: "flex", alignItems: "center", gap: "8px", borderRadius: '8px' }}
           >
             <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#da251d", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: "12px" }}>
-              👑
+              {role === "admin" ? "👑" : "🧑"}
             </div>
             <div style={{ textAlign: "left" }}>
               <span style={{ display: "block", fontSize: "13px", fontWeight: "bold", color: "#334155" }}>{role === "admin" ? "Quản lý" : "Thu ngân"}</span>
@@ -232,7 +232,7 @@ export const Header: React.FC<HeaderProps> = ({
             <span style={{ fontSize: "10px", color: '#64748b' }}>▼</span>
           </button>
 
-          {/* TOÀN BỘ DANH SÁCH MENU ĐƯỢC GOM GỌN GÀNG VÀO ĐÂY NHƯ BAN ĐẦU */}
+          {/* TOÀN BỘ DANH SÁCH MENU GOM GỌN VÀO ĐÂY (BAN ĐẦU) */}
           {showMainMenu && (
             <div className="dropdown-menu-saas" style={{ position: "absolute", right: 0, top: "100%", marginTop: "8px", width: "240px", zIndex: 99999, padding: "6px", borderRadius: "12px", background: '#ffffff', border: "1px solid #e2e8f0", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)" }} onClick={e => e.stopPropagation()}>
               <div style={{ padding: "8px 12px", fontSize: "11px", fontWeight: "bold", color: "#94a3b8", textTransform: "uppercase", borderBottom: "1px solid #f1f5f9", marginBottom: "4px" }}>Hệ thống lõi SaaS</div>
@@ -259,9 +259,9 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* Nút Giao ca kết thúc làm việc */}
-        <button onClick={handleLogoutClick} style={{ background: '#dc2626', color: 'white', border: 'none', cursor: 'pointer', padding: "8px 14px", borderRadius: "8px", fontWeight: "bold", fontSize: "13px" }}>
-          🚪 GIAO CA
+        {/* Nút GIAO CA (Renames thành ĐĂNG XUẤT) */}
+        <button onClick={handleLogoutClick} style={{ background: '#dc2626', color: 'white', border: 'none', cursor: 'pointer', padding: "8px 14px", borderRadius: "8px", fontWeight: "bold", fontSize: "13px", boxShadow: '0 4px 10px rgba(220,38,38,0.3)' }}>
+          🚪 <span className="hide-on-mobile">ĐĂNG XUẤT</span>
         </button>
 
       </div>
