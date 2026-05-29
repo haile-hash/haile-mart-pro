@@ -367,46 +367,33 @@ input, select {
 input::placeholder {
   color: #94a3b8 !important;
 }
+
 /* ==========================================================================
-   LỘT XÁC GIAO DIỆN SÁNG (LIGHT THEME) - TƯƠI MỚI & TRÀN ĐẦY SỨC SỐNG
+   BẢN FIX GIAO DIỆN SÁNG (LIGHT THEME) - AN TOÀN & TƯƠI MỚI
    ========================================================================== */
 
-/* Khôi phục lại nền gốc để React tự đổi màu */
-body {
-  background: transparent !important;
-  margin: 0;
-}
-
-/* Nền web tổng: Xám xanh pastel cực kỳ mát mắt và sạch sẽ */
+/* Nền web tổng: Xám xanh pastel nhẹ nhàng */
 .light-theme {
-  background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%) !important;
+  background: #f0f4f8 !important;
   color: #1e293b !important;
 }
 
-/* 1. Ép các khối chứa nội dung (Bảng SP, Giỏ hàng, Khu tìm kiếm) sang màu trắng sứ */
+/* 1. Chỉ nhắm đích xác vào 2 khối làm việc (Không dùng thẻ div chung chung gây liệt phím) */
 .light-theme .products-zone, 
-.light-theme .cart-zone,
-.light-theme > div > div > div[style*="background: #1e293b"],
-.light-theme > div > div > div[style*="background: rgba(255,255,255,0.03)"],
-.light-theme .pos-main-workspace > div {
-  background: rgba(255, 255, 255, 0.95) !important;
-  backdrop-filter: blur(20px) !important;
-  border: 1px solid rgba(203, 213, 225, 0.5) !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05) !important;
-  border-radius: 16px;
+.light-theme .cart-zone {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
+  border-radius: 12px !important;
 }
 
-/* 2. Đánh bay nền đen của Bảng Sản Phẩm */
-.light-theme table {
-  color: #334155 !important;
-}
+/* 2. Đổi màu Bảng Sản Phẩm sang tone sáng */
 .light-theme table thead tr {
   background: #f8fafc !important;
   color: #475569 !important;
   border-bottom: 2px solid #cbd5e1 !important;
 }
 .light-theme table thead th {
-  color: #475569 !important;
   border-bottom: none !important;
 }
 .light-theme table tbody tr {
@@ -414,26 +401,22 @@ body {
   border-bottom: 1px solid #e2e8f0 !important;
 }
 .light-theme table tbody tr:hover {
-  background: #f1f5f9 !important; /* Hiệu ứng hover hàng màu xám nhạt */
+  background: #f1f5f9 !important;
 }
 
-/* 3. Chỉnh lại các ô nhập liệu (Input/Select) cho sáng sủa */
+/* 3. Đổi màu các ô nhập liệu (Input/Select) */
 .light-theme input, 
 .light-theme select {
   background: #ffffff !important;
   color: #0f172a !important;
   border: 1px solid #cbd5e1 !important;
-  box-shadow: inset 0 1px 2px rgba(0,0,0,0.05) !important;
-}
-.light-theme input::placeholder {
-  color: #94a3b8 !important;
 }
 
-/* 4. Khối Menu Điều Hướng xổ xuống */
+/* 4. Khối Menu Cài Đặt xổ xuống */
 .light-theme .dropdown-menu-saas {
   background: #ffffff !important;
   border: 1px solid #e2e8f0 !important;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1) !important;
 }
 .light-theme .dropdown-menu-saas button {
   color: #334155 !important;
