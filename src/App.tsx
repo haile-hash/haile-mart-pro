@@ -1378,14 +1378,20 @@ export default function App() {
       <Toaster position="top-right" />
       
       <Header 
-        role={role}
-        shift={shift}
-        totalValue={totalValue}
-        currentShiftStats={currentShiftStats}
-        setCashFlowModalInfo={setCashFlowModalInfo}
-        darkMode={darkMode}
-        setDarkMode={setDarkMode}
-        handleLogoutClick={handleLogoutClick}
+  role={role}
+  shift={shift}
+  totalValue={totalValue}
+  currentShiftStats={currentShiftStats}
+  
+  // ---> PHẢI CÓ 3 DÒNG NÀY THÌ HEADER MỚI BẤM ĐƯỢC <---
+  showMainMenu={showMainMenu}
+  setShowMainMenu={setShowMainMenu}
+  setCashFlowModalInfo={setCashFlowModalInfo}
+  // -----------------------------------------------------
+
+  darkMode={darkMode}
+  setDarkMode={setDarkMode}
+  handleLogoutClick={handleLogoutClick}
         showMainMenu={showMainMenu}
         setShowMainMenu={setShowMainMenu}
         setShowStatsModal={setShowStatsModal}
