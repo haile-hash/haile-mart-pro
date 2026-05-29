@@ -1,5 +1,6 @@
 import React from 'react';
-import { TransactionLog } from './HistoryPanel';
+// Đã sửa lại đường dẫn trỏ thẳng ra file types.ts ở thư mục gốc src/
+import { TransactionLog } from '../../types';
 
 interface CashFlowDetailModalProps {
   flowType: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | null;
@@ -10,8 +11,6 @@ interface CashFlowDetailModalProps {
 export const CashFlowDetailModal: React.FC<CashFlowDetailModalProps> = ({ flowType, onClose, allLogs }) => {
   if (!flowType) return null;
 
-  // Lọc các giao dịch sinh ra tiền dựa theo phương thức (TM hoặc CK)
-  // Bỏ qua các giao dịch NHẬP (vì nó là chi, không phải thu - tùy logic kế toán của bạn)
   const filteredLogs = allLogs.filter(log => {
     const isMatchedMethod = log.paymentMethod === flowType || (log.paymentMethod === "TM" && flowType === "TIỀN MẶT") || (log.paymentMethod === "CK" && flowType === "CHUYỂN KHOẢN");
     const isRevenueGenerated = log.type === "BÁN" || log.type === "THU NỢ";
