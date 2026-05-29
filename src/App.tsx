@@ -1189,34 +1189,30 @@ export default function App() {
   };
 
   const handleSelectSuggest = (p: Product) => {
-    let addQty = 1;
-    let actualAdded = 0;
-    
+    // 1. Kiểm tra logic tồn kho TRƯỚC khi gọi hàm setCart
+    const existingItem = cart.find((i: CartItem) => i.product.id === p.id);
+    const currentQtyInCart = existingItem ? existingItem.qty : 0;
+
+    if (currentQtyInCart >= p.stock) {
+      playSound('error');
+      toast.error(`❌ Vượt quá tồn kho: ${cleanName(p.name)}`, { id: `out-${p.id}`, duration: 2000 });
+      return; // Dừng luôn, không cho thêm nữa
+    }
+
+    // 2. Nếu còn hàng thì mới cho qua và báo thành công
+    playSound('success');
+    toast.success(`+1 ${cleanName(p.name)}`, { id: `add-${p.id}`, duration: 1000 });
+
+    // 3. Thực hiện cập nhật giỏ hàng
     setCart((prev: CartItem[]) => {
-      const exist = prev.find(i => i.product.id === p.id);
-      if (exist) {
-        if (p.stock > 0 && exist.qty < p.stock) {
-          actualAdded = 1;
-          return prev.map(i => i.product.id === p.id ? { ...i, qty: i.qty + 1, total: (i.qty + 1) * getActualPrice(p) } : i);
-        }
-        return prev;
+      if (existingItem) {
+        return prev.map(i => i.product.id === p.id ? { ...i, qty: i.qty + 1, total: (i.qty + 1) * getActualPrice(p) } : i);
       } else {
-        if (p.stock > 0) {
-          actualAdded = 1;
-          return [...prev, { product: p, qty: 1, total: getActualPrice(p) }];
-        }
-        return prev;
+        return [...prev, { product: p, qty: 1, total: getActualPrice(p) }];
       }
     });
-
-    if (actualAdded > 0) {
-      playSound('success');
-      toast.success(`+1 ${cleanName(p.name)}`, { id: `add-${p.id}`, duration: 1000 });
-    } else {
-      playSound('error');
-      toast.error(`❌ Hết hàng: ${cleanName(p.name)}`, { id: `out-${p.id}`, duration: 2000 });
-    }
     
+    // 4. Xóa ô tìm kiếm sau khi thêm
     setBarcodeInput("");
     setSearchTerm("");
     setShowSuggestions(false);
