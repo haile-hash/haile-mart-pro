@@ -925,7 +925,6 @@ export default function App() {
     e.preventDefault(); 
     setLoading(true);
     try {
-      // BỌC GIÁP SỐ HÓA: Dọn sạch mọi dấu phẩy, dấu chấm, chữ cái do thu ngân gõ nhầm
       const added = Number(String(newStock).replace(/[^0-9]/g, '')) || 0; 
       const impPrice = Number(String(newImportPrice).replace(/[^0-9]/g, '')) || 0; 
       const salePrice = Number(String(newPrice).replace(/[^0-9]/g, '')) || 0; 
@@ -961,7 +960,7 @@ export default function App() {
         gift_info: finalGiftInfo, stock: finalStockToSave, expiry_date: newExpiry || null 
       };
 
-      // 1. CẬP NHẬT GIAO DIỆN NGAY LẬP TỨC CHO TẤT CẢ CÁC LÔ
+      // CẬP NHẬT GIAO DIỆN NGAY LẬP TỨC
       setProducts(prev => {
         let updated = prev.map(p => {
            const pBase = String(p.product_code).split('-')[0];
@@ -983,38 +982,34 @@ export default function App() {
       });
 
       if (navigator.onLine) {
-        // 2. GỘP CẬP NHẬT TỒN KHO VÀ GIÁ VÀO CHUNG 1 LỆNH (Tăng tốc xử lý)
-        if (allVariants.length > 0) {
-          for (const v of allVariants) {
-              const keepSuffix = v.name.includes('[Lô mới]') ? ' [Lô mới]' : '';
-              const updatePayload: any = { 
-                name: newName + keepSuffix, 
-                category: formattedCat, 
-                sale_price: salePrice, 
-                promo_price: promo, 
-                gift_info: finalGiftInfo, 
-                updated_at: new Date().toISOString() 
-              };
-              // Nếu đang cập nhật đúng lô cũ thì nhồi luôn số tồn kho mới vào
-              if (v.id === exist?.id && !isNewBatch) {
-                  updatePayload.stock = finalStockToSave;
-              }
-              await supabase.from("products").update(updatePayload).eq("id", v.id);
-          }
-
-          if (isNewBatch) { 
-            await supabase.from("products").insert([newProductData]); 
-          }
-        } else { 
+        // 1. CHỈ XỬ LÝ TỒN KHO VÀ TẠO MỚI Ở ĐÂY
+        if (isNewBatch) { 
           await supabase.from("products").insert([newProductData]); 
+        } else if (exist) { 
+          await supabase.from("products").update({ stock: finalStockToSave }).eq("id", exist.id); 
+        } else {
+          await supabase.from("products").insert([newProductData]); 
+        }
+
+        // 2. LỆNH QUÉT DB MẠNH NHẤT: Bắt mây đồng bộ giá cho toàn bộ họ hàng nhà nó!
+        if (allVariants.length > 0 || exist) {
+            // Lô gốc
+            await supabase.from("products").update({ 
+               name: newName, category: formattedCat, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo 
+            }).eq("product_code", baseCode);
+            
+            // Các lô có đuôi -xxxx
+            await supabase.from("products").update({ 
+               name: `${newName} [Lô mới]`, category: formattedCat, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo 
+            }).like("product_code", `${baseCode}-%`);
         }
 
         if (added > 0) addTransactionAndSync({ id: Date.now(), shift, type: "NHẬP", name: finalProductName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }); 
         logAudit("THÊM/SỬA SP", `Mã: ${finalProductCode}`);
         toast.success(`Đã lưu & đồng bộ giá toàn bộ kho thành công!`);
-        
-        // ĐÃ XÓA hàm fetchProducts() ở đây để chống tình trạng Supabase đổ dữ liệu cũ đè lên giao diện
+        fetchProducts(); // Tải lại DB một cách vinh quang
       } else {
+        // CHẾ ĐỘ OFFLINE
         const pendingImports = await dbGet("mart_pending_imports") || [];
         pendingImports.push({ id: Date.now(), action: (exist && !isNewBatch) ? "UPDATE_STOCK" : "INSERT_NEW", targetId: (exist && !isNewBatch) ? exist.id : null, data: newProductData, addedStock: added });
         await dbSet("mart_pending_imports", pendingImports);
@@ -1051,7 +1046,6 @@ export default function App() {
           const pCode = String(cols[0] || "").trim(); const pName = String(cols[1] || "").trim(); const pCategory = formatCategoryStr(String(cols[2] || "")); const pImpPrice = parseInt(String(cols[3] || "0").replace(/[,.]/g, '')) || 0; const pSalePrice = parseInt(String(cols[4] || "0").replace(/[,.]/g, '')) || 0; const pPromoPrice = parseInt(String(cols[5] || "0").replace(/[,.]/g, '')) || 0; const pGiftCond = String(cols[6] || "1").trim(); const pGiftText = cols[7] ? String(cols[7]).trim() : ""; const pGift = pGiftText !== "" ? `${pGiftCond};;;${pGiftText}` : null; const pStock = parseInt(String(cols[8] || "0").replace(/[,.]/g, '')) || 0; const pExpiry = cols[9] ? String(cols[9]).trim() : null;
           if (!pCode || !pName || pSalePrice <= 0) continue;
           
-          // BỐC TÁCH MÃ GỐC ĐỂ TÌM TẤT CẢ BIẾN THỂ
           const baseCode = pCode.split('-')[0]; 
           const allVariants = products.filter(p => String(p.product_code).split('-')[0] === baseCode); 
           
@@ -1069,7 +1063,9 @@ export default function App() {
                   return x;
                 }));
 
-                await supabase.from("products").update({ name: pName, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, updated_at: new Date().toISOString() }).in("id", variantIds); 
+                // ĐÁNH THẲNG VÀO CỘT CODE TRÊN CLOUD
+                await supabase.from("products").update({ name: pName, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, updated_at: new Date().toISOString() }).eq("product_code", baseCode); 
+                await supabase.from("products").update({ name: `${pName} [Lô mới]`, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, updated_at: new Date().toISOString() }).like("product_code", `${baseCode}-%`); 
             } 
           }
           
@@ -1094,29 +1090,32 @@ export default function App() {
         logAudit("NHẬP EXCEL", `Nhập ${successCount} mã`); toast.success(`Nhập thành công từ file!`); fetchProducts();
       } catch (err) { toast.error("Lỗi đọc file."); } setLoading(false);
     }; 
+    
+    // KHỐI LOGIC ĐỌC FILE XỬ LÝ ĐUÔI XLSX / CSV
     const fileNameStr = file.name.toLowerCase();
     if (fileNameStr.endsWith('.xlsx') || fileNameStr.endsWith('.xls')) {
       if (!(window as any).XLSX) { toast.loading("Excel Library loading..."); if (e?.target) e.target.value = ''; return; } 
-      const reader = new FileReader(); reader.onload = (event) => { try { const data = new Uint8Array(event.target?.result as ArrayBuffer); const workbook = (window as any).XLSX.read(data, { type: 'array' }); const firstSheet = workbook.Sheets[workbook.SheetNames[0]]; const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false }); processData(jsonData); } catch (error) { toast.error("Lỗi đọc file Excel."); } }; reader.readAsArrayBuffer(file);
-    } else { const reader = new FileReader(); reader.onload = (event) => { const text = event.target?.result as string; const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''))); processData(lines); }; reader.readAsText(file); } 
+      const reader = new FileReader(); 
+      reader.onload = (event) => { 
+        try { 
+          const data = new Uint8Array(event.target?.result as ArrayBuffer); 
+          const workbook = (window as any).XLSX.read(data, { type: 'array' }); 
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]]; 
+          const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false }); 
+          processData(jsonData); 
+        } catch (error) { toast.error("Lỗi đọc file Excel."); } 
+      }; 
+      reader.readAsArrayBuffer(file);
+    } else { 
+      const reader = new FileReader(); 
+      reader.onload = (event) => { 
+        const text = event.target?.result as string; 
+        const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''))); 
+        processData(lines); 
+      }; 
+      reader.readAsText(file); 
+    } 
     if (e?.target) e.target.value = ''; 
-  };
-  const handleImportInventoryCSV = (e: any) => {
-    const file = e?.target?.files?.[0] || e; if (!file || !file.name) { if (e?.target) e.target.value = ''; return; }
-    const processData = (lines: any[]) => { 
-      let updatedStock = { ...actualStockInput }; let count = 0; 
-      for (let i = 1; i < lines.length; i++) { 
-        const cols = lines[i]; if (!cols || !Array.isArray(cols) || cols.join('').trim() === '') continue; const pCode = String(cols[0] || "").trim(); const actualVal = parseInt(String(cols[3] || "0").replace(/[,.]/g, '')); 
-        if (!isNaN(actualVal) && pCode) { const matchedProd = products.find(p => p.product_code === pCode); if (matchedProd && matchedProd.stock !== actualVal) { updatedStock[matchedProd.id] = actualVal; count++; } } 
-      } 
-      setActualStockInput(updatedStock); toast.success(`Đã nạp số liệu thực tế!`); logAudit("KIỂM KHO BẰNG EXCEL", `Nạp ${count} mã`);
-    };
-    const fileNameStr = file.name.toLowerCase();
-    if (fileNameStr.endsWith('.xlsx') || fileNameStr.endsWith('.xls')) { 
-      if (!(window as any).XLSX) { toast.loading("Loading..."); if (e?.target) e.target.value = ''; return; } 
-      const reader = new FileReader(); reader.onload = (event) => { try { const data = new Uint8Array(event.target?.result as ArrayBuffer); const workbook = (window as any).XLSX.read(data, { type: 'array' }); const firstSheet = workbook.Sheets[workbook.SheetNames[0]]; const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false }); processData(jsonData); } catch(err) {} }; reader.readAsArrayBuffer(file); 
-    } else { const reader = new FileReader(); reader.onload = (event) => { const text = event.target?.result as string; const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''))); processData(lines); }; reader.readAsText(file); } 
-    if (e?.target) e.target.value = '';
   };
   
   const handleDelete = async (id: any, name: any) => { executeWithAdminCheck(async () => { if (!navigator.onLine) return toast.error("Mạng yếu!"); if (window.confirm(`Xóa ${name}?`)) { await supabase.from("products").delete().eq("id", id); logAudit("XÓA SP", `Xóa: ${name}`); fetchProducts() } }); };
@@ -1128,7 +1127,6 @@ export default function App() {
       const val = window.prompt(`Sửa ${label}:`, old || ""); 
       
       if (val !== null) { 
-        // BỌC GIÁP: Nếu là nhập số thì dọn sạch rác, thay vì parseInt
         let updateData: any = isText ? (field === 'category' ? formatCategoryStr(val) : val) : (Number(String(val).replace(/[^0-9]/g, '')) || 0); 
         if (field === 'gift_info' && val.trim() === '') updateData = null; 
         
@@ -1140,14 +1138,16 @@ export default function App() {
               
               setProducts(prev => prev.map(x => siblings.some(s => s.id === x.id) ? { ...x, [field]: updateData } : x));
               
-              for (const sib of siblings) {
-                  let finalData = updateData;
-                  if (field === 'name') {
-                      const hasSuffix = sib.name.includes('[Lô mới]') ? ' [Lô mới]' : '';
-                      finalData = updateData + hasSuffix;
-                  }
-                  await supabase.from("products").update({ [field]: finalData, updated_at: new Date().toISOString() }).eq("id", sib.id);
+              // ÉP CLOUD ĐỒNG BỘ: Không cần ID, đánh thẳng vào cột product_code
+              let baseData = updateData;
+              let variantData = updateData;
+              if (field === 'name') {
+                 baseData = String(updateData).replace(' [Lô mới]', '');
+                 variantData = `${baseData} [Lô mới]`;
               }
+
+              await supabase.from("products").update({ [field]: baseData }).eq("product_code", baseCode);
+              await supabase.from("products").update({ [field]: variantData }).like("product_code", `${baseCode}-%`);
            }
         } else {
            setProducts(prev => prev.map(x => x.id === id ? { ...x, [field]: updateData } : x));
@@ -1156,7 +1156,7 @@ export default function App() {
 
         logAudit("SỬA SP", `ID ${id} - Đổi ${label}`); 
         toast.success("Cập nhật thành công!");
-        // ĐÃ XÓA fetchProducts() Ở ĐÂY
+        fetchProducts();
       } 
     }); 
   };
