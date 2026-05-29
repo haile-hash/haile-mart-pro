@@ -317,3 +317,53 @@
 .btn-method.orange { background: #f59e0b; color: #fff; border: none; }
 .btn-method.orange:hover { background: #d97706; }
 .btn-method-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+/* ==========================================================================
+   HỆ THỐNG HIỆU ỨNG THẨM MỸ SAAS PREMIUM
+   ========================================================================== */
+
+/* 1. Hiệu ứng Sóng Mesh Gradient chuyển động mượt mà cho toàn bộ nền (Thay nền vàng phèn) */
+body {
+  background: linear-gradient(-45deg, #0f172a, #1e1e38, #0d0d1e, #111827) !important;
+  background-size: 400% 400% !important;
+  animation: meshWave 15s ease infinite !important;
+  color: #f8fafc !important;
+}
+
+@keyframes meshWave {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* 2. Hiệu ứng Đèn Neon lượn sóng (Glow Border Wave) cho khối Logo */
+@keyframes neonWave {
+  0%, 100% { border-color: #3b82f6; box-shadow: 0 0 12px rgba(59,130,246,0.6), inset 0 0 6px rgba(59,130,246,0.3); }
+  33% { border-color: #ef4444; box-shadow: 0 0 12px rgba(239,68,68,0.6), inset 0 0 6px rgba(239,68,68,0.3); }
+  66% { border-color: #10b981; box-shadow: 0 0 12px rgba(16,185,129,0.6), inset 0 0 6px rgba(16,185,129,0.3); }
+}
+
+.saas-logo-wave {
+  animation: neonWave 6s linear infinite !important;
+}
+
+/* 3. Lột xác các thẻ Card thành phong cách Kính mờ siêu thực (Glassmorphism) */
+.stat-card, .glass-card, div[style*="background: white"], div[style*="background: rgb(255, 255, 255)"] {
+  background: rgba(255, 255, 255, 0.04) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 16px !important;
+  color: #ffffff !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Chỉnh lại màu chữ input để không bị chìm trên nền tối */
+input, select {
+  background: rgba(0, 0, 0, 0.2) !important;
+  color: white !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+input::placeholder {
+  color: #94a3b8 !important;
+}
