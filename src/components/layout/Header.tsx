@@ -51,7 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
-  // Hàm bổ trợ lấy tên cửa hàng động từ bộ nhớ local
+  // Hàm lấy tên cửa hàng động từ local storage
   const getStoreName = () => {
     try {
       const savedStore = window.localStorage.getItem("mart_current_store");
@@ -67,11 +67,10 @@ export const Header: React.FC<HeaderProps> = ({
     return "HỆ THỐNG POS PRO";
   };
 
-  // Hàm kích hoạt nhạc Windy khi bấm vào Logo
+  // Hàm kích hoạt nhạc Windy Hill từ thư mục public
   const toggleWindyMusic = () => {
     if (!audioRef.current) {
-      // Sử dụng link nhạc Windy dập dình cực bốc!
-      audioRef.current = new Audio("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3");
+      audioRef.current = new Audio("/Windy Hill.mp3");
       audioRef.current.loop = true;
     }
     
@@ -79,7 +78,7 @@ export const Header: React.FC<HeaderProps> = ({
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      audioRef.current.play().catch(err => console.log("Chờ tương tác người dùng để phát nhạc"));
+      audioRef.current.play().catch(err => console.log("Cần tương tác để phát nhạc:", err));
       setIsPlaying(true);
     }
   };
@@ -87,7 +86,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px", gap: "10px" }} className="no-print">
       
-      {/* 1. HIỆU ỨNG CSS ANIMATION: CỜ ĐỎ SAO VÀNG LƯỢN SÓNG NEON */}
+      {/* 1. HIỆU ỨNG CSS ANIMATION */}
       <style>{`
         @keyframes flagWave {
           0% { background-position: 0% 50%; }
@@ -101,11 +100,9 @@ export const Header: React.FC<HeaderProps> = ({
         .vietnam-saas-banner {
           background: linear-gradient(-45deg, #da251d, #b71c1c, #da251d, #ff1744) !important;
           background-size: 300% 300% !important;
-          animation: flagWave 4s ease infinite !important;
-          border: 3px solid #ffeb3b !important;
           animation: flagWave 4s ease infinite, neonBorder 3s linear infinite !important;
+          border: 3px solid #ffeb3b !important;
         }
-        /* Style cho các mục menu xổ xuống ở góc phải */
         .dropdown-menu-saas button {
           width: 100%;
           text-align: left;
@@ -123,9 +120,10 @@ export const Header: React.FC<HeaderProps> = ({
           color: #da251d;
           padding-left: 18px;
         }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
       `}</style>
 
-      {/* 2. BANNER WINDY CỜ ĐỎ SAO VÀNG LƯỢN SÓNG NEON - CLICK KÍCH NHẠC DẬP DÌNH */}
+      {/* 2. BANNER CỜ ĐỎ SAO VÀNG VÀ NÚT QUẨY NHẠC */}
       <div 
         className="vietnam-saas-banner" 
         onClick={toggleWindyMusic}
@@ -142,9 +140,8 @@ export const Header: React.FC<HeaderProps> = ({
           userSelect: 'none',
           boxShadow: '0 10px 25px -5px rgba(218,37,29,0.4)'
         }}
-        title="Bấm mạnh vào đây để BẬT/TẮT nhạc Windy cực bốc!"
+        title="Bấm vào để BẬT/TẮT nhạc Windy Hill"
       >
-        {/* Ngôi sao vàng lấp lánh đóng vai trò Logo trên nền cờ đỏ lượn sóng */}
         <div style={{ 
           width: '42px', 
           height: '42px', 
@@ -155,10 +152,10 @@ export const Header: React.FC<HeaderProps> = ({
           justifyContent: 'center', 
           fontSize: '26px', 
           boxShadow: '0 0 15px #ffeb3b',
-          transform: isPlaying ? 'scale(1.1) rotate(360deg)' : 'none',
+          transform: isPlaying ? 'scale(1.1)' : 'none',
           transition: 'all 0.5s ease'
         }}>
-          {isPlaying ? "📀" : "⭐"}
+          {isPlaying ? <span style={{ animation: 'spin 2s linear infinite' }}>📀</span> : "⭐"}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -166,17 +163,12 @@ export const Header: React.FC<HeaderProps> = ({
             {getStoreName()}
           </span>
           <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#ffeb3b', letterSpacing: '1px', textShadow: '1px 1px 2px rgba(0,0,0,0.4)' }}>
-            {isPlaying ? "🎶 WINDY MUSIC DẬP DÌNH OOO..." : "🔥 CLICK QUẨY NHẠC WINDY"}
+            {isPlaying ? "🎶 WINDY HILL ĐANG PHÁT..." : "🔥 CLICK LOGO QUẨY NHẠC"}
           </span>
         </div>
-
-        {/* Biểu tượng phát nhạc hiệu ứng khi đang quẩy */}
-        {isPlaying && (
-          <div style={{ position: 'absolute', right: '15px', fontSize: '20px', animation: 'spin 2s linear infinite' }}>🎵</div>
-        )}
       </div>
 
-      {/* 3. KHỐI HIỂN THỊ CHỈ SỐ DOANH THU (KHÔI PHỤC MÀU SẮC BAN ĐẦU) */}
+      {/* 3. KHỐI CHỈ SỐ KINH DOANH TRONG CA */}
       <div style={{ display: "flex", gap: "10px", flex: 1, justifyContent: "center" }}>
         {role === "admin" && (
           <div className="stat-card" style={{ padding: "8px 14px", textAlign: "center", minWidth: "110px", background: 'rgba(255,235,59,0.15)', border: '1px solid #ffeb3b', borderRadius: "12px" }}>
@@ -200,10 +192,9 @@ export const Header: React.FC<HeaderProps> = ({
         )}
       </div>
 
-      {/* 4. KHỐI ĐIỀU KHIỂN GÓC PHẢI - TOÀN BỘ MENU GOM GỌN VÀO ĐÂY */}
+      {/* 4. KHỐI ĐIỀU KHIỂN & MENU ẨN GÓC PHẢI */}
       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
         
-        {/* Đèn báo trạng thái kết nối */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px', background: isOnline ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', border: isOnline ? '1px solid #10b981' : '1px solid #ef4444' }}>
           <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isOnline ? '#10b981' : '#ef4444', display: 'inline-block', boxShadow: isOnline ? '0 0 10px #10b981' : '0 0 10px #ef4444' }}></span>
           <span style={{ fontSize: '12px', fontWeight: 'bold', color: isOnline ? '#10b981' : '#ef4444' }}>
@@ -211,12 +202,10 @@ export const Header: React.FC<HeaderProps> = ({
           </span>
         </div>
 
-        {/* Nút bật tắt Darkmode */}
         <button onClick={() => setDarkMode(!darkMode)} style={{ background: '#f8fafc', border: '1px solid #cbd5e1', cursor: 'pointer', padding: '8px 12px', borderRadius: '8px' }} title="Thay đổi giao diện">
           {darkMode ? "☀️" : "🌙"}
         </button>
 
-        {/* Khối tài khoản nhân sự - Bấm để xổ ra danh sách menu gọn gàng */}
         <div style={{ position: "relative" }}>
           <button 
             onClick={(e) => { e.stopPropagation(); setShowMainMenu(!showMainMenu); }} 
@@ -232,7 +221,6 @@ export const Header: React.FC<HeaderProps> = ({
             <span style={{ fontSize: "10px", color: '#64748b' }}>▼</span>
           </button>
 
-          {/* TOÀN BỘ DANH SÁCH MENU GOM GỌN VÀO ĐÂY (BAN ĐẦU) */}
           {showMainMenu && (
             <div className="dropdown-menu-saas" style={{ position: "absolute", right: 0, top: "100%", marginTop: "8px", width: "240px", zIndex: 99999, padding: "6px", borderRadius: "12px", background: '#ffffff', border: "1px solid #e2e8f0", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)" }} onClick={e => e.stopPropagation()}>
               <div style={{ padding: "8px 12px", fontSize: "11px", fontWeight: "bold", color: "#94a3b8", textTransform: "uppercase", borderBottom: "1px solid #f1f5f9", marginBottom: "4px" }}>Hệ thống lõi SaaS</div>
@@ -259,7 +247,7 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* Nút GIAO CA (Renames thành ĐĂNG XUẤT) */}
+        {/* 5. NÚT ĐĂNG XUẤT */}
         <button onClick={handleLogoutClick} style={{ background: '#dc2626', color: 'white', border: 'none', cursor: 'pointer', padding: "8px 14px", borderRadius: "8px", fontWeight: "bold", fontSize: "13px", boxShadow: '0 4px 10px rgba(220,38,38,0.3)' }}>
           🚪 <span className="hide-on-mobile">ĐĂNG XUẤT</span>
         </button>
