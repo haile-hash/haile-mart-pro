@@ -14,10 +14,11 @@ interface PrintManagerProps {
   barcodeCount: number;
   printCustomer: any;
   printPOData: any;
+  currentStore?: any; // ĐÃ THÊM: Biến lưu thông tin Cửa hàng hiện tại
 }
 
 export const PrintManager: React.FC<PrintManagerProps> = ({
-  printMode, lastOrder, shift, role, customers, VAT_RATE = 0, printBarcodeProduct, barcodeCount, printCustomer, printPOData,
+  printMode, lastOrder, shift, role, customers, VAT_RATE = 0, printBarcodeProduct, barcodeCount, printCustomer, printPOData, currentStore
 }) => {
   if (!printMode) return null;
 
@@ -89,9 +90,11 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
       <div className="print-only-zone" style={{ width: '100%', textAlign: 'center', backgroundColor: '#fff' }}>
         <div style={{ display: 'inline-block', width: '78mm', margin: '0 auto', textAlign: 'left', fontFamily: 'Arial, sans-serif', color: '#000', padding: '10px 0', boxSizing: 'border-box' }}>
           <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-            <h2 style={{ margin: '0 0 4px 0', fontSize: '20px', fontWeight: '900', textTransform: 'uppercase' }}>HẢI LÊ MART</h2>
-            <p style={{ margin: '2px 0', fontSize: '12px' }}>ĐC: 123 Đường ABC, Hà Nội</p>
-            <p style={{ margin: '2px 0', fontSize: '12px' }}>Hotline: 0902 613 899</p>
+            <h2 style={{ margin: '0 0 4px 0', fontSize: '20px', fontWeight: '900', textTransform: 'uppercase' }}>
+              {currentStore?.store_name || "TÊN CỬA HÀNG"}
+            </h2>
+            <p style={{ margin: '2px 0', fontSize: '12px' }}>ĐC: {currentStore?.address || "Chưa cập nhật địa chỉ"}</p>
+            <p style={{ margin: '2px 0', fontSize: '12px' }}>Hotline: {currentStore?.phone || "Chưa cập nhật SĐT"}</p>
             <h3 style={{ margin: '10px 0 4px 0', fontSize: '16px', fontWeight: 'bold' }}>
                {lastOrder.isRefund ? "PHIẾU TRẢ HÀNG (HOÀN TIỀN)" : "HÓA ĐƠN THANH TOÁN"}
             </h3>
@@ -149,10 +152,12 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
         <div style={{ width: '100%', maxWidth: '210mm', margin: '0 auto', padding: '15mm 20mm', fontFamily: '"Times New Roman", Times, serif', color: '#000', boxSizing: 'border-box' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #000', paddingBottom: '15px', marginBottom: '25px' }}>
             <div style={{ width: '55%' }}>
-              <h1 style={{ margin: '0 0 6px 0', fontSize: '20px', fontWeight: 'bold', textTransform: 'uppercase' }}>HỆ THỐNG HẢI LÊ MART</h1>
-              <p style={{ margin: '3px 0', fontSize: '14px' }}><strong>Địa chỉ:</strong> 123 Đường ABC, Quận XYZ, TP. Hà Nội</p>
-              <p style={{ margin: '3px 0', fontSize: '14px' }}><strong>Điện thoại:</strong> 0902 613 899</p>
-              <p style={{ margin: '3px 0', fontSize: '14px' }}><strong>Mã số thuế:</strong> 0101234567</p>
+              <h1 style={{ margin: '0 0 6px 0', fontSize: '20px', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                HỆ THỐNG {currentStore?.store_name ? currentStore.store_name.toUpperCase() : "CỬA HÀNG"}
+              </h1>
+              <p style={{ margin: '3px 0', fontSize: '14px' }}><strong>Địa chỉ:</strong> {currentStore?.address || "Chưa cập nhật địa chỉ"}</p>
+              <p style={{ margin: '3px 0', fontSize: '14px' }}><strong>Điện thoại:</strong> {currentStore?.phone || "Chưa cập nhật SĐT"}</p>
+              <p style={{ margin: '3px 0', fontSize: '14px' }}><strong>Mã số thuế:</strong> {currentStore?.tax_code || "................"}</p>
             </div>
             <div style={{ width: '45%', textAlign: 'center' }}>
               <h2 style={{ margin: '0 0 8px 0', fontSize: '26px', fontWeight: 'bold' }}>
@@ -204,7 +209,9 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
               <p style={{ margin: '0 0 100px 0', fontSize: '14px', fontStyle: 'italic' }}>(Ký, ghi rõ họ tên)</p>
             </div>
             <div style={{ textAlign: 'center', width: '250px' }}>
-              <p style={{ margin: '0 0 5px 0', fontSize: '16px', fontWeight: 'bold', textTransform: 'uppercase' }}>HẢI LÊ MART</p>
+              <p style={{ margin: '0 0 5px 0', fontSize: '16px', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                 {currentStore?.store_name || "ĐẠI DIỆN CỬA HÀNG"}
+              </p>
               <p style={{ margin: '0 0 100px 0', fontSize: '14px', fontStyle: 'italic' }}>(Đại diện cửa hàng ký, đóng dấu)</p>
               <p style={{ margin: 0, fontSize: '15px', fontWeight: 'bold' }}>{role === 'admin' ? 'Quản lý' : 'Thu ngân'} {shift}</p>
             </div>
@@ -229,7 +236,9 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
       <div className="print-only-zone barcode-print-grid" style={{ width: '100%', backgroundColor: '#fff', padding: '10mm', boxSizing: 'border-box' }}>
         {Array.from({ length: safeCount }).map((_, idx) => (
           <div key={idx} style={{ border: '1px dashed #94a3b8', padding: '8px', textAlign: 'center', fontFamily: 'Arial, sans-serif', backgroundColor: '#fff', color: '#000', height: '36mm', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center', pageBreakInside: 'avoid', overflow: 'hidden', boxSizing: 'border-box' }}>
-            <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase' }}>HẢI LÊ MART</div>
+            <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase' }}>
+               {currentStore?.store_name || "TÊN CỬA HÀNG"}
+            </div>
             <div style={{ fontSize: '12px', fontWeight: 'bold', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cleanName(name)}</div>
             <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}><img src={barcodeUrl} alt={code} style={{ maxWidth: '95%', height: '14mm', objectFit: 'fill' }} /></div>
             <div style={{ fontSize: '16px', fontWeight: '900' }}>{Number(price).toLocaleString()}đ</div>
@@ -256,7 +265,9 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
           fontFamily: 'Arial, sans-serif', color: '#000', boxSizing: 'border-box', textAlign: 'left'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #dc2626', paddingBottom: '4px' }}>
-            <span style={{ fontWeight: 'bold', color: '#b91c1c', fontSize: '14px' }}>HẢI LÊ MART</span>
+            <span style={{ fontWeight: 'bold', color: '#b91c1c', fontSize: '14px', textTransform: 'uppercase' }}>
+               {currentStore?.store_name || "VIP MEMBER"}
+            </span>
             <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#ea580c', backgroundColor: '#ffedd5', padding: '2px 6px', borderRadius: '4px' }}>VIP CARD</span>
           </div>
           <div style={{ margin: '8px 0', flex: 1 }}>
@@ -273,7 +284,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
   }
 
   // =====================================================================
-  // 4. IN PHIẾU ĐẶT HÀNG / NHẬP KHO / ĐỔI TRẢ NCC (PO - A4) KHÔI PHỤC LẠI
+  // 4. IN PHIẾU ĐẶT HÀNG / NHẬP KHO / ĐỔI TRẢ NCC (PO - A4)
   // =====================================================================
   if (printMode === 'po_order' || printMode === 'po_receipt' || printMode === 'po_return') {
     if (!printPOData) return null;
@@ -300,10 +311,12 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
           
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #000', paddingBottom: '15px', marginBottom: '20px' }}>
             <div style={{ width: '55%' }}>
-              <h1 style={{ margin: '0 0 6px 0', fontSize: '20px', fontWeight: 'bold', textTransform: 'uppercase' }}>HỆ THỐNG HẢI LÊ MART</h1>
-              <p style={{ margin: '3px 0', fontSize: '14px' }}><strong>Địa chỉ:</strong> 123 Đường ABC, Quận XYZ, TP. Hà Nội</p>
-              <p style={{ margin: '3px 0', fontSize: '14px' }}><strong>Điện thoại:</strong> 0902 613 899</p>
-              <p style={{ margin: '3px 0', fontSize: '14px' }}><strong>Mã số thuế:</strong> 0101234567</p>
+              <h1 style={{ margin: '0 0 6px 0', fontSize: '20px', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                HỆ THỐNG {currentStore?.store_name ? currentStore.store_name.toUpperCase() : "CỬA HÀNG"}
+              </h1>
+              <p style={{ margin: '3px 0', fontSize: '14px' }}><strong>Địa chỉ:</strong> {currentStore?.address || "Chưa cập nhật địa chỉ"}</p>
+              <p style={{ margin: '3px 0', fontSize: '14px' }}><strong>Điện thoại:</strong> {currentStore?.phone || "Chưa cập nhật SĐT"}</p>
+              <p style={{ margin: '3px 0', fontSize: '14px' }}><strong>Mã số thuế:</strong> {currentStore?.tax_code || "................"}</p>
             </div>
             <div style={{ width: '45%', textAlign: 'center' }}>
               <h2 style={{ margin: '0 0 8px 0', fontSize: '24px', fontWeight: 'bold' }}>{title}</h2>
