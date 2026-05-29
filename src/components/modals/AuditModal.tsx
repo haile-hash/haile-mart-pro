@@ -17,12 +17,12 @@ export const AuditModal: React.FC<AuditModalProps> = ({
     <div 
       className="no-print" 
       style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}
-      onClick={() => setShowAuditModal(false)} // Cải tiến UX: Click ra ngoài vùng đen để đóng
+      onClick={() => setShowAuditModal(false)}
     >
       <div 
         className="glass" 
         style={{ padding: "25px", width: "650px", maxWidth: "95vw", maxHeight: "80vh", display: "flex", flexDirection: "column", background: "#ffffff", borderRadius: "12px" }} 
-        onClick={e => e.stopPropagation()} // Chặn sự kiện click xuyên thấu
+        onClick={e => e.stopPropagation()} 
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid var(--border-glass)", paddingBottom: "10px", marginBottom: "10px" }}>
           <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
@@ -35,15 +35,14 @@ export const AuditModal: React.FC<AuditModalProps> = ({
         </div>
         
         <div style={{ overflowY: "auto", flex: 1, fontSize: "12px", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "5px", background: "#f8fafc" }}>
-          {/* BỌC GIÁP: Kiểm tra an toàn trước khi đo chiều dài mảng */}
           {(!auditLogs || auditLogs.length === 0) && (
             <div style={{ textAlign: "center", color: "#94a3b8", marginTop: "20px", fontStyle: "italic" }}>
               Chưa có bản ghi nào.
             </div>
           )}
           
-          {/* BỌC GIÁP: Dự phòng mảng rỗng và check an toàn từng thuộc tính */}
-          {(auditLogs || []).map((log, idx) => (
+          {/* SỬA ĐỔI: Cắt 100 bản ghi mới nhất để bảo vệ hiệu năng máy trạm */}
+          {(auditLogs || []).slice(0, 100).map((log, idx) => (
             <div 
               key={idx} 
               onClick={() => setSelectedAuditLog(log)} 
