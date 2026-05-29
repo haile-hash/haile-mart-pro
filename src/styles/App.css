@@ -1,114 +1,121 @@
-/* KHẮC PHỤC LOGO BỊ GIÃN DÀI VÀ KÉO SAO VÀO SÁT CHỮ T */
+/* ========================================================= */
+/* RESET VÀ CẤU TRÚC GỐC */
+/* ========================================================= */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  transition: background 0.3s ease, color 0.3s ease;
+  min-height: 100vh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* KHẮC PHỤC LOGO */
 .logo-wrapper { display: inline-flex !important; align-items: center; padding: 10px 45px 10px 20px !important; position: relative; width: fit-content !important; min-width: 0 !important; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); border-radius: 12px; margin-right: auto; }
 .logo-star { position: absolute !important; right: 12px !important; top: 50% !important; transform: translateY(-50%) !important; font-size: 26px !important; color: #f59e0b !important; margin: 0 !important; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
 
-/* KHAI BÁO BỘ CSS BẢNG BIỂU & NÚT BẤM HIỆN ĐẠI BẬC NHẤT 2026 */
+/* BẢNG BIỂU HIỆN ĐẠI */
 .modern-table { width: 100%; border-collapse: separate; border-spacing: 0; text-align: left; }
-.modern-table th { background: #f8fafc; padding: 14px 16px; font-weight: 700; color: #475569; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; font-size: 13px; letter-spacing: 0.5px; white-space: nowrap; }
-.modern-table td { padding: 16px; border-bottom: 1px solid #f1f5f9; color: #1e293b; font-size: 14px; vertical-align: middle; transition: background 0.2s; }
-.modern-table tbody tr:hover td { background: #f8fafc; }
+.modern-table th { padding: 14px 16px; font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; white-space: nowrap; }
+.modern-table td { padding: 16px; font-size: 14px; vertical-align: middle; transition: background 0.2s; }
 
-.gradient-btn { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 14px; border-radius: 8px; font-weight: 800; border: none; width: 100%; font-size: 15px; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3); text-transform: uppercase; letter-spacing: 0.5px; }
-.gradient-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4); }
-.gradient-btn:disabled { opacity: 0.7; cursor: not-allowed; }
-
-.custom-modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 99999; }
-.custom-modal-overlay * { font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important; box-sizing: border-box; }
-.custom-modal-box { background: white; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3); width: 95%; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+/* MODAL CHUNG */
+.custom-modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 99999; }
+.custom-modal-box { background: white; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15); width: 95%; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
 @keyframes modalPop { 0% { opacity: 0; transform: scale(0.95) translateY(10px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
 .custom-modal-header { padding: 20px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #ffffff; }
-.custom-modal-title { font-size: 1.25rem; font-weight: 800; color: #0f172a; margin: 0; text-transform: uppercase; letter-spacing: 0.5px; }
-.custom-modal-close { background: none; border: none; font-size: 28px; color: #94a3b8; cursor: pointer; transition: all 0.2s; padding: 0; line-height: 1; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; }
+.custom-modal-title { font-size: 1.1rem; font-weight: 800; color: #0f172a; margin: 0; text-transform: uppercase; letter-spacing: 0.5px; }
+.custom-modal-close { background: none; border: none; font-size: 24px; color: #94a3b8; cursor: pointer; transition: all 0.2s; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 .custom-modal-close:hover { color: #ef4444; background: #fee2e2; transform: rotate(90deg); }
-.custom-modal-body { padding: 24px; overflow-y: auto; }
-.custom-input-group { margin-bottom: 18px; }
-.custom-label { display: block; font-size: 0.85rem; font-weight: 700; color: #475569; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-.custom-input { width: 100%; padding: 12px 16px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; outline: none; transition: all 0.2s; background: #f8fafc; color: #1e293b; font-weight: 500; }
-.custom-input:focus { border-color: #3b82f6; background: #fff; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); }
+.custom-input { width: 100%; padding: 12px 16px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; outline: none; transition: all 0.2s; }
 
-.animated-bg-mesh { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; background: linear-gradient(135deg, #ffedd5 0%, #fef08a 50%, #fed7aa 100%); background-size: 400% 400%; animation: gradientBgAnim 15s ease infinite; opacity: 0.8; }
-@keyframes gradientBgAnim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-[data-theme='dark'] .animated-bg-mesh { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%); opacity: 1; }
+/* ========================================================= */
+/* 🌞 GIAO DIỆN SÁNG (LIGHT THEME) - TRÀN ĐẦY SỨC SỐNG */
+/* ========================================================= */
+.light-theme {
+  background: #f1f5f9 !important; /* Xám nhạt, mát mắt */
+  color: #1e293b !important;
+}
 
-/* CSS MÀN HÌNH ĐĂNG NHẬP */
-.login-wrapper { min-height: 100vh; width: 100vw; display: flex; justify-content: center; align-items: center; position: fixed; top:0; left:0; z-index: 9999; font-family: 'Inter', sans-serif;}
-.glass-login { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.8); padding: 40px 35px; border-radius: 20px; box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.1); width: 100%; max-width: 380px; z-index: 10; display: flex; flex-direction: column; gap: 15px; box-sizing: border-box;}
-.login-header { text-align: center; margin-bottom: 10px; }
-.login-title { font-size: 28px; font-weight: 900; margin: 0 0 6px 0; color: #0f172a; text-transform: uppercase; }
-.login-title span { color: #e11d48; }
-.login-subtitle { font-size: 13px; color: #64748b; font-weight: 500; margin: 0; }
-.login-input-group { position: relative; width: 100%; margin-bottom: 0; }
-.login-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94a3b8; width: 18px; height: 18px; pointer-events: none; z-index: 2;}
-.login-input { width: 100%; padding: 14px 16px 14px 42px; border-radius: 12px; border: 1.5px solid #e2e8f0; background: #f8fafc; box-sizing: border-box; outline: none; transition: all 0.2s ease; font-size: 14px; color: #1e293b; font-weight: 500; }
-.login-input:focus { border-color: #e11d48; background: #fff; box-shadow: 0 0 0 4px rgba(225, 29, 72, 0.1); }
-.login-btn-submit { width: 100%; padding: 14px; background: linear-gradient(135deg, #e11d48 0%, #be123c 100%); color: #fff; border: none; border-radius: 12px; font-weight: 800; font-size: 15px; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25); margin-top: 10px; text-transform: uppercase;}
-.login-btn-submit:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(225, 29, 72, 0.35); }
+.light-theme .products-zone, 
+.light-theme .cart-zone,
+.light-theme .glass {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
+  border-radius: 16px !important;
+}
 
-/* BỘ LỌC BẢNG (TABLE FILTER) */
-.table-th-relative { position: relative; }
-.filter-popover { position: absolute; top: calc(100% + 5px); left: 0; width: 250px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); z-index: 9999; display: flex; flex-direction: column; text-align: left; }
-.filter-popover-header { padding: 12px 16px; font-size: 13px; font-weight: 700; color: #1e293b; border-bottom: 1px solid #e2e8f0; background: #f8fafc; border-top-left-radius: 10px; border-top-right-radius: 10px; }
-.filter-popover-body { max-height: 220px; overflow-y: auto; padding: 8px; }
-.filter-checkbox-item { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 13px; color: #475569; margin: 0; }
-.filter-checkbox-item:hover { background-color: #f1f5f9; }
-.filter-checkbox-item input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: #3b82f6; }
-.filter-popover-footer { display: flex; gap: 10px; padding: 12px; border-top: 1px solid #e2e8f0; background: #ffffff; border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; }
+/* Thẻ thống kê Header */
+.light-theme .modern-stat-card {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02) !important;
+}
 
-/* IN ẤN */
+/* Bảng Sản Phẩm Light */
+.light-theme .modern-table th { background: #f8fafc; color: #475569; border-bottom: 2px solid #cbd5e1; }
+.light-theme .modern-table td { border-bottom: 1px solid #f1f5f9; color: #1e293b; }
+.light-theme .modern-table tbody tr:hover td { background: #f8fafc; }
+
+/* Input Light */
+.light-theme .custom-input, .light-theme input, .light-theme select {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+}
+.light-theme .custom-input:focus, .light-theme input:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important; }
+
+/* ========================================================= */
+/* 🌙 GIAO DIỆN TỐI (DARK THEME) - CYBERPUNK */
+/* ========================================================= */
+.dark-theme {
+  background: linear-gradient(-45deg, #0f172a, #1e1e38, #0d0d1e, #111827) !important;
+  background-size: 400% 400% !important;
+  animation: meshWave 15s ease infinite !important;
+  color: #f8fafc !important;
+}
+
+@keyframes meshWave {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.dark-theme .products-zone, 
+.dark-theme .cart-zone,
+.dark-theme .glass {
+  background: rgba(255, 255, 255, 0.03) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Bảng Sản Phẩm Dark */
+.dark-theme .modern-table th { background: rgba(0,0,0,0.3); color: #cbd5e1; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.dark-theme .modern-table td { border-bottom: 1px solid rgba(255,255,255,0.05); color: #f8fafc; }
+.dark-theme .modern-table tbody tr:hover td { background: rgba(255,255,255,0.05); }
+
+/* Input Dark */
+.dark-theme .custom-input, .dark-theme input, .dark-theme select {
+  background: rgba(0, 0, 0, 0.2) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+.dark-theme .custom-input:focus, .dark-theme input:focus { border-color: #38bdf8 !important; }
+
+/* ========================================================= */
+/* 🖨️ CSS IN ẤN (GIỮ NGUYÊN) */
+/* ========================================================= */
 @media screen { .print-only-zone { display: none !important; } }
 @media print {
   @page { margin: 5mm; }
   body * { visibility: hidden !important; }
   .print-only-zone, .print-only-zone * { visibility: visible !important; }
   .print-only-zone { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; background-color: #fff !important; margin: 0 !important; padding: 0 !important; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 }
- 
-/* CHECKOUT MODAL */
-.checkout-modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 99999; }
-.checkout-modal-content { background: #ffffff; width: 90%; max-width: 480px; max-height: 85vh; border-radius: 12px; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.2); display: flex; flex-direction: column; overflow: hidden; font-family: Arial, sans-serif; }
-.checkout-header { padding: 16px 20px; background: #ffffff; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
-.checkout-title { margin: 0; font-size: 16px; font-weight: 700; color: #1e293b; }
-.checkout-close-btn { background: transparent; border: none; color: #94a3b8; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 6px; border-radius: 6px; }
-.checkout-close-btn:hover { background: #f1f5f9; color: #ef4444; }
-.checkout-body { padding: 20px; flex: 1 1 auto; overflow-y: auto; }
-.checkout-footer { padding: 16px 20px; background: #ffffff; border-top: 1px solid #f1f5f9; flex: 0 0 auto; }
-.co-group { margin-bottom: 16px; }
-.co-label { display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; }
-.co-input-wrapper { display: flex; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #fff; transition: 0.2s; }
-.co-input-wrapper:focus-within { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.1); }
-.co-icon-box { padding: 0 12px; display: flex; align-items: center; color: #94a3b8; background: #f8fafc; border-right: 1px solid #cbd5e1; }
-.co-input { flex: 1; border: none; padding: 10px 12px; font-size: 14px; outline: none; color: #0f172a; }
-.co-btn-scan { background: transparent; border: none; border-left: 1px solid #cbd5e1; padding: 0 12px; color: #3b82f6; font-weight: 600; font-size: 13px; cursor: pointer; transition: 0.2s; }
-.co-btn-scan:hover { background: #eff6ff; }
-.co-summary-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; text-align: center; margin-bottom: 16px; }
-.co-summary-title { font-size: 13px; color: #64748b; font-weight: 600; margin-bottom: 4px; }
-.co-summary-price { font-size: 32px; font-weight: 800; color: #0f172a; margin: 0; }
-.co-btn-primary { width: 100%; padding: 14px; background: #2563eb; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; }
-.co-btn-primary:hover { background: #1d4ed8; }
-.btn-method { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; background: #fff; color: #334155; }
-.btn-method:hover { border-color: #94a3b8; background: #f8fafc; }
-.btn-method.green { background: #10b981; color: #fff; border: none; }
-.btn-method.green:hover { background: #059669; }
-.btn-method.blue { background: #3b82f6; color: #fff; border: none; }
-.btn-method.blue:hover { background: #2563eb; }
-.btn-method.orange { background: #f59e0b; color: #fff; border: none; }
-.btn-method.orange:hover { background: #d97706; }
-
-/* HỆ THỐNG HIỆU ỨNG THẨM MỸ SAAS PREMIUM */
-body { background: linear-gradient(-45deg, #0f172a, #1e1e38, #0d0d1e, #111827) !important; background-size: 400% 400% !important; animation: meshWave 15s ease infinite !important; color: #f8fafc !important; }
-@keyframes meshWave { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-.stat-card, .glass-card, div[style*="background: white"], div[style*="background: rgb(255, 255, 255)"] { background: rgba(255, 255, 255, 0.04) !important; backdrop-filter: blur(12px) !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; border-radius: 16px !important; color: #ffffff !important; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2) !important; }
-input, select { background: rgba(0, 0, 0, 0.2) !important; color: white !important; border: 1px solid rgba(255, 255, 255, 0.1) !important; }
-input::placeholder { color: #94a3b8 !important; }
-
-/* BẢN FIX GIAO DIỆN SÁNG (LIGHT THEME) - AN TOÀN & TƯƠI MỚI */
-.light-theme { background: #f0f4f8 !important; color: #1e293b !important; }
-.light-theme .products-zone, .light-theme .cart-zone { background: #ffffff !important; border: 1px solid #cbd5e1 !important; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important; border-radius: 12px !important; }
-.light-theme table thead tr { background: #f8fafc !important; color: #475569 !important; border-bottom: 2px solid #cbd5e1 !important; }
-.light-theme table thead th { border-bottom: none !important; }
-.light-theme table tbody tr { color: #1e293b !important; border-bottom: 1px solid #e2e8f0 !important; }
-.light-theme table tbody tr:hover { background: #f1f5f9 !important; }
-.light-theme input, .light-theme select { background: #ffffff !important; color: #0f172a !important; border: 1px solid #cbd5e1 !important; }
-.light-theme .dropdown-menu-saas { background: #ffffff !important; border: 1px solid #e2e8f0 !important; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1) !important; }
-.light-theme .dropdown-menu-saas button { color: #334155 !important; }
-.light-theme .dropdown-menu-saas button:hover { background: #f1f5f9 !important; color: #da251d !important; }
