@@ -114,9 +114,20 @@ export default function App() {
     if (EMAILJS_PUBLIC_KEY) emailjs.init(EMAILJS_PUBLIC_KEY); 
   }, [EMAILJS_PUBLIC_KEY]);
 
+  // TỰ ĐỘNG NẠP THƯ VIỆN ĐỌC FILE EXCEL
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !(window as any).XLSX) {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      script.async = true;
+      document.head.appendChild(script);
+    }
+  }, []);
+
   const [isStorageLoading, setIsStorageLoading] = useState(true); 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentStore, setCurrentStore] = useState<any>(null); // THÊM DÒNG NÀY
+  const [currentStore, setCurrentStore] = useState<any>(null); // THÔNG TIN CỬA HÀNG ĐANG ĐĂNG NHẬP
+
   const [isLocked, setIsLocked] = useState(false);
   const [unlockPin, setUnlockPin] = useState("");
   const [installPrompt, setInstallPrompt] = useState<any>(null);
@@ -396,9 +407,20 @@ export default function App() {
           }
           await dbSet("mart_storage_migrated", "true");
         }
-        const loggedIn = await dbGet("mart_logged_in") === "true"; const savedRole = await dbGet("mart_role") || "staff"; const savedShift = await dbGet("mart_shift") || "Ca Sáng"; const savedCash = Number(await dbGet("mart_starting_cash") || 5000000); const savedPOs = await dbGet("mart_pos") || []; const savedCustomers = await dbGet("mart_customers") || {}; const savedHeld = await dbGet("mart_held_orders") || []; const savedAudit = await dbGet("mart_audit") || []; const savedExpenses = await dbGet("mart_expenses") || []; const savedSuppliers = await dbGet("mart_suppliers") || []; const savedHistory = await dbGet("mart_history") || [];
+        const loggedIn = await dbGet("mart_logged_in") === "true"; 
+        const savedStore = await dbGet("mart_current_store") || null;
+        const savedRole = await dbGet("mart_role") || "staff"; 
+        const savedShift = await dbGet("mart_shift") || "Ca Sáng"; 
+        const savedCash = Number(await dbGet("mart_starting_cash") || 5000000); 
+        const savedPOs = await dbGet("mart_pos") || []; 
+        const savedCustomers = await dbGet("mart_customers") || {}; 
+        const savedHeld = await dbGet("mart_held_orders") || []; 
+        const savedAudit = await dbGet("mart_audit") || []; 
+        const savedExpenses = await dbGet("mart_expenses") || []; 
+        const savedSuppliers = await dbGet("mart_suppliers") || []; 
+        const savedHistory = await dbGet("mart_history") || [];
 
-        setIsLoggedIn(loggedIn); setRole(savedRole); setShift(savedShift); setStartingCash(savedCash);
+        setIsLoggedIn(loggedIn); setCurrentStore(savedStore); setRole(savedRole); setShift(savedShift); setStartingCash(savedCash);
         setLocalPOs(savedPOs); setCustomers(savedCustomers); setHeldOrders(savedHeld);
         setAuditLogs(savedAudit); setExpenses(savedExpenses); setSuppliers(savedSuppliers); setHistory(savedHistory);
       } catch (err) { console.error(err); } finally { setIsStorageLoading(false); }
@@ -437,35 +459,19 @@ export default function App() {
 
   useEffect(() => {
     if (isLoggedIn) {
-      // 1. Lấy thông tin Cửa hàng của tài khoản đang đăng nhập
       const fetchStoreInfo = async () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const { data: store } = await supabase.from('stores').select('*').eq('owner_id', user.id).single();
           if (store) {
             setCurrentStore(store);
-            await dbSet("mart_current_store", store); // Lưu offline
+            await dbSet("mart_current_store", store);
           }
         }
       };
-      fetchStoreInfo();
+      if (navigator.onLine) fetchStoreInfo();
 
-      // 2. Tải dữ liệu hàng hóa
       fetchProducts(); loadCloudData(); fetchSettingsFromCloud(); 
-      
-      const channel = supabase.channel("db_changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts())
-        .on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData())
-        .on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData())
-        .on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData())
-        .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData())
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload) => { 
-          setScanQueue(prev => [...prev, payload.new.code]); 
-        }).subscribe();
-        
-      return () => { supabase.removeChannel(channel) };
-    }
-  }, [isLoggedIn]); 
       const channel = supabase.channel("db_changes")
         .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts())
         .on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData())
@@ -611,7 +617,7 @@ export default function App() {
   const saveSettings = () => { const bin = newBankBin.trim(); const acc = newBankAcc.trim(); const nameStr = newBankNameStr.trim().toUpperCase(); const zaloId = newZaloPayId.trim(); const pin = newAdminPinInput.trim(); if (!bin || !acc || !nameStr || !pin) return toast.error("Vui lòng điền đủ thông tin & Mã PIN!"); updateSettingsToCloud(bin, acc, nameStr, zaloId, newHappyStart, newHappyEnd, pin); };
   
   const handleLogoutClick = () => { logAudit("ĐĂNG XUẤT", `Thoát ca ${shift}`); setShowHandoverModal(true); };
-  const confirmHandover = async () => { try { if (navigator.onLine) { await supabase.auth.signOut(); } } catch (error) {} finally { await dbRemove("mart_logged_in"); await dbRemove("mart_role"); await dbRemove("mart_shift"); localStorage.removeItem("mart_was_logged_in"); setIsLoggedIn(false); window.location.reload(); } };
+  const confirmHandover = async () => { try { if (navigator.onLine) { await supabase.auth.signOut(); } } catch (error) {} finally { await dbRemove("mart_logged_in"); await dbRemove("mart_role"); await dbRemove("mart_shift"); await dbRemove("mart_current_store"); localStorage.removeItem("mart_was_logged_in"); setIsLoggedIn(false); window.location.reload(); } };
   const handleEditPhone = async (oldPhone: string) => { executeWithAdminCheck(() => { const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customersData[newPhone]) return toast.error("SĐT đã tồn tại!"); const cData = customersData[oldPhone]; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = { ...cData, phone: newPhone }; delete updated[oldPhone]; return updated }); logAudit("SỬA KHÁCH HÀNG", `Đổi SĐT ${oldPhone} -> ${newPhone}`); toast.success("Cập nhật thành công!"); } }); };
   const addSupplier = async () => { if (!supName || !supPhone) return toast.error("Nhập đủ Tên/SĐT"); const newId = Date.now(); const newSupData = { id: newId, name: supName, phone: supPhone, address: supAddress, item: supItem, taxCode: supTaxCode, bankAccount: supBankAccount, debt: 0 }; setSuppliers(prev => [newSupData, ...prev]); if (navigator.onLine) { supabase.from('suppliers').insert([newSupData]).then(); } setSupName(""); setSupPhone(""); setSupAddress(""); setSupItem(""); setSupTaxCode(""); setSupBankAccount(""); toast.success("Thêm NCC thành công!"); logAudit("THÊM NCC", supName); };
   const deleteSupplier = async (id: any) => { setSuppliers(prev => prev.filter(s => s.id !== id)); if (navigator.onLine) await supabase.from('suppliers').delete().eq('id', id); logAudit("XÓA NCC", `ID: ${id}`); };
@@ -1408,6 +1414,7 @@ export default function App() {
       <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeSubmitAction} />
       
       <PrintManager printMode={printMode} lastOrder={lastOrder} shift={shift} role={role} customers={customersData} VAT_RATE={VAT_RATE} printBarcodeProduct={printBarcodeProduct} barcodeCount={barcodeCount} printCustomer={printCustomer} printPOData={printPOData} currentStore={currentStore} />
+      {renderModals()}
 
       {!isLoggedIn ? (
         <Login setIsLoggedIn={setIsLoggedIn} setRole={setRole} shift={shift} setShift={setShift} startingCash={startingCash} setStartingCash={setStartingCash} installPrompt={installPrompt} handleInstallApp={handleInstallApp} />
