@@ -57,7 +57,6 @@ export const ProductTable = ({ products, role, handleSelectSuggest, handleEdit, 
                     
                     <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                       <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                        {/* NÚT THÊM VÀO GIỎ HÀNG CHUYÊN DỤNG */}
                         <button 
                           onClick={() => handleSelectSuggest(product)} 
                           style={{ background: '#10b981', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 'bold', transition: 'all 0.2s' }} 
@@ -68,7 +67,6 @@ export const ProductTable = ({ products, role, handleSelectSuggest, handleEdit, 
                           🛒 <span className="hide-on-mobile">Thêm</span>
                         </button>
                         
-                        {/* CÁC NÚT THAO TÁC CŨ */}
                         <button onClick={() => setPrintBarcodeProduct(product)} style={{ background: '#3b82f6', color: 'white', border: 'none', width: '30px', height: '30px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="In mã vạch">🖨️</button>
                         {role === 'admin' && (
                           <>
