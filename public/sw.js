@@ -1,11 +1,9 @@
-// Đã tăng version lên v2 để ÉP trình duyệt của khách hàng cập nhật Service Worker mới
-const CACHE_NAME = 'haile-mart-offline-v2';
+// Đổi tên cache để ÉP trình duyệt xóa sạch bộ nhớ đệm "haile-mart" cũ
+const CACHE_NAME = 'pos-pro-enterprise-v1';
 
-// BƯỚC 1: LƯU TRỮ CÁC FILE GỐC NGAY KHI CÀI ĐẶT
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      // Bắt buộc lưu trước giao diện nền tảng
       return cache.addAll([
         '/',
         '/index.html',
@@ -15,10 +13,9 @@ self.addEventListener('install', (event) => {
       ]).catch(err => console.log('Lỗi lưu cache gốc:', err));
     })
   );
-  self.skipWaiting(); // Ép Service Worker mới hoạt động ngay
+  self.skipWaiting(); 
 });
 
-// BƯỚC 2: XÓA RÁC CŨ KHI CÓ BẢN CẬP NHẬT MỚI
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -34,28 +31,22 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// BƯỚC 3: CƠ CHẾ ĐÁNH CHẶN (NETWORK FIRST, FALLBACK TO CACHE)
 self.addEventListener('fetch', (event) => {
-  // Bỏ qua các thao tác gửi dữ liệu (POST, PUT, DELETE...) lên Supabase/API
   if (event.request.method !== 'GET') return;
 
-  // Bỏ qua các URL kết nối tới Supabase hoặc Chrome Extension
-  if (event.request.url.includes('supabase.co') || event.request.url.startsWith('chrome-extension')) return;
+  // Bắt buộc request phải bắt đầu bằng http hoặc https
+  if (!event.request.url.startsWith('http')) return;
+  
+  // Bỏ qua URL kết nối tới API/Database (ví dụ Supabase nếu có dùng)
+  if (event.request.url.includes('supabase.co')) return;
 
   event.respondWith(
-    // Ưu tiên tải từ mạng (để luôn có giao diện mới nhất nếu bạn sửa code)
     fetch(event.request)
       .then((response) => {
-        
-        // =====================================================================
-        // CHỈ CẤP VISA CHO HÀNG CHUẨN: Chỉ lưu Cache khi tải thành công 100% (Status 200)
-        // Loại bỏ hoàn toàn 206 (Audio), 404 (Not Found), 500 (Lỗi server)...
-        // =====================================================================
-        if (!response || response.status !== 200) {
+        if (!response || response.status !== 200 || response.type !== 'basic') {
           return response; 
         }
 
-        // Nếu tải thành công (200 OK), nhân bản và lưu vào ổ cứng
         const responseClone = response.clone();
         caches.open(CACHE_NAME).then((cache) => {
           cache.put(event.request, responseClone);
@@ -64,11 +55,9 @@ self.addEventListener('fetch', (event) => {
         return response;
       })
       .catch(() => {
-        // NẾU MẤT MẠNG VÀ TẢI THẤT BẠI -> Lôi file cũ từ ổ cứng (Cache) ra dùng
         return caches.match(event.request).then((cachedResponse) => {
           if (cachedResponse) return cachedResponse;
           
-          // Nếu mất mạng mà file chưa từng được cache, trả về trang chủ index.html
           if (event.request.mode === 'navigate') {
             return caches.match('/index.html');
           }
