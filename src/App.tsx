@@ -115,7 +115,6 @@ export default function App() {
     if (EMAILJS_PUBLIC_KEY) emailjs.init(EMAILJS_PUBLIC_KEY); 
   }, [EMAILJS_PUBLIC_KEY]);
 
-  // TỰ ĐỘNG NẠP THƯ VIỆN ĐỌC FILE EXCEL
   useEffect(() => {
     if (typeof window !== 'undefined' && !(window as any).XLSX) {
       const script = document.createElement('script');
@@ -127,7 +126,7 @@ export default function App() {
 
   const [isStorageLoading, setIsStorageLoading] = useState(true); 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentStore, setCurrentStore] = useState<any>(null); // THÔNG TIN CỬA HÀNG ĐANG ĐĂNG NHẬP
+  const [currentStore, setCurrentStore] = useState<any>(null);
 
   const [isLocked, setIsLocked] = useState(false);
   const [unlockPin, setUnlockPin] = useState("");
@@ -208,7 +207,6 @@ export default function App() {
 
   const { darkMode, setDarkMode, showSettings, setShowSettings, showInputForm, setShowInputForm, showDebtModal, setShowDebtModal, showStatsModal, setShowStatsModal, showCustomerModal, setShowCustomerModal, showHandoverModal, setShowHandoverModal, showAuditModal, setShowAuditModal, showHoldModal, setShowHoldModal, showExpenseModal, setShowExpenseModal, showSupplierModal, setShowSupplierModal, showMarketingModal, setShowMarketingModal, showInventoryModal, setShowInventoryModal, showMainMenu, setShowMainMenu, cashFlowModalInfo, setCashFlowModalInfo, scannerMode, setScannerMode, printMode, setPrintMode } = useUIState();
   
-  // STATE MỚI: Modal Cấu hình riêng cho Cửa Hàng
   const [showStoreSettings, setShowStoreSettings] = useState(false);
 
   const { newCode, setNewCode, newName, setNewName, newImportPrice, setNewImportPrice, newPrice, setNewPrice, newPromoPrice, setNewPromoPrice, newGiftCondition, setNewGiftCondition, newGiftInfo, setNewGiftInfo, newStock, setNewStock, newExpiry, setNewExpiry, newCategory, setNewCategory, resetProductForm } = useProductInput();
@@ -369,10 +367,6 @@ export default function App() {
   const totalValue = useMemo(() => products.reduce((sum, p) => sum + ((p.stock || 0) * (p.import_price || 0)), 0), [products]);
   const lowStockCount = useMemo(() => products.filter(p => p.stock > 0 && p.stock < 10).length, [products]);
 
-  const filteredStats = history;
-  const chartData: any[] = [];
-  const topSelling: any[] = [];
-
   useEffect(() => {
     const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e); };
     window.addEventListener('beforeinstallprompt', handler);
@@ -471,7 +465,6 @@ export default function App() {
           if (store) {
             setCurrentStore(store);
             await dbSet("mart_current_store", store);
-            // Đồng bộ LocalStorage để Modal Settings luôn hiển thị dữ liệu mới nhất
             window.localStorage.setItem("mart_current_store", JSON.stringify(store));
           }
         }
@@ -795,7 +788,6 @@ export default function App() {
       itemsHtml += `<tr><td style="padding: 12px; border-bottom: 1px solid #f1f5f9; color: #1e293b;">${cleanName(item.product.name)}</td><td style="padding: 12px; text-align: center; border-bottom: 1px solid #f1f5f9; color: #1e293b; font-weight: bold;">${item.qty}</td><td style="padding: 12px; text-align: right; border-bottom: 1px solid #f1f5f9; color: #1e293b;">${(priceToUse * item.qty).toLocaleString()}đ</td></tr>`; 
     }); 
 
-    // TỰ ĐỘNG LẤY THÔNG TIN CỬA HÀNG SAAS
     const storeInfo = JSON.parse(window.localStorage.getItem("mart_current_store") || "{}");
     const storeNameDisplay = storeInfo.store_name ? storeInfo.store_name.toUpperCase() : "HỆ THỐNG POS PRO";
     const storePhoneDisplay = storeInfo.phone || "Liên hệ cửa hàng";
@@ -848,7 +840,6 @@ export default function App() {
     const code = font.cardCode || phone; 
     const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=3&height=15&includetext=false`; 
     
-    // TỰ ĐỘNG LẤY THÔNG TIN CỬA HÀNG SAAS
     const storeInfo = JSON.parse(window.localStorage.getItem("mart_current_store") || "{}");
     const storeNameDisplay = storeInfo.store_name ? storeInfo.store_name.toUpperCase() : "HỆ THỐNG POS PRO";
 
@@ -1152,19 +1143,16 @@ export default function App() {
         let updateData: any = isText ? (field === 'category' ? formatCategoryStr(val) : val) : (Number(String(val).replace(/[^0-9]/g, '')) || 0); 
         if (field === 'gift_info' && val.trim() === '') updateData = null; 
         
-        // (Tiếp nối đoạn code bị cắt)
         if (field === 'expiry_date') {
           if (val.trim() === '') {
             updateData = null;
           } else {
-            // Validate định dạng HSD nếu cần (ví dụ mm/yyyy)
             updateData = val;
           }
         }
         
         await supabase.from("products").update({ [field]: updateData }).eq("id", id);
         
-        // Nếu sửa các trường liên quan đến giá hoặc quà tặng, đồng bộ tất cả các lô có cùng baseCode
         if (['name', 'category', 'sale_price', 'promo_price', 'gift_info'].includes(field)) {
            const prod = products.find(p => p.id === id);
            if (prod && prod.product_code) {
@@ -1189,21 +1177,18 @@ export default function App() {
   };
 
   const handleSelectSuggest = (p: Product) => {
-    // 1. Kiểm tra logic tồn kho TRƯỚC khi gọi hàm setCart
     const existingItem = cart.find((i: CartItem) => i.product.id === p.id);
     const currentQtyInCart = existingItem ? existingItem.qty : 0;
 
     if (currentQtyInCart >= p.stock) {
       playSound('error');
       toast.error(`❌ Vượt quá tồn kho: ${cleanName(p.name)}`, { id: `out-${p.id}`, duration: 2000 });
-      return; // Dừng luôn, không cho thêm nữa
+      return; 
     }
 
-    // 2. Nếu còn hàng thì mới cho qua và báo thành công
     playSound('success');
     toast.success(`+1 ${cleanName(p.name)}`, { id: `add-${p.id}`, duration: 1000 });
 
-    // 3. Thực hiện cập nhật giỏ hàng
     setCart((prev: CartItem[]) => {
       if (existingItem) {
         return prev.map(i => i.product.id === p.id ? { ...i, qty: i.qty + 1, total: (i.qty + 1) * getActualPrice(p) } : i);
@@ -1212,7 +1197,6 @@ export default function App() {
       }
     });
     
-    // 4. Xóa ô tìm kiếm sau khi thêm
     setBarcodeInput("");
     setSearchTerm("");
     setShowSuggestions(false);
@@ -1378,20 +1362,14 @@ export default function App() {
       <Toaster position="top-right" />
       
       <Header 
-  role={role}
-  shift={shift}
-  totalValue={totalValue}
-  currentShiftStats={currentShiftStats}
-  
-  // ---> PHẢI CÓ 3 DÒNG NÀY THÌ HEADER MỚI BẤM ĐƯỢC <---
-  showMainMenu={showMainMenu}
-  setShowMainMenu={setShowMainMenu}
-  setCashFlowModalInfo={setCashFlowModalInfo}
-  // -----------------------------------------------------
-
-  darkMode={darkMode}
-  setDarkMode={setDarkMode}
-  handleLogoutClick={handleLogoutClick}
+        role={role}
+        shift={shift}
+        totalValue={totalValue}
+        currentShiftStats={currentShiftStats}
+        setCashFlowModalInfo={setCashFlowModalInfo}
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        handleLogoutClick={handleLogoutClick}
         showMainMenu={showMainMenu}
         setShowMainMenu={setShowMainMenu}
         setShowStatsModal={setShowStatsModal}
@@ -1402,7 +1380,7 @@ export default function App() {
         setShowExpenseModal={setShowExpenseModal}
         setShowSupplierModal={setShowSupplierModal}
         setShowMarketingModal={setShowMarketingModal}
-        setShowSettings={setShowStoreSettings} // Nối nút Cấu Hình (Settings) gọi ra Modal StoreSettings
+        setShowSettings={setShowStoreSettings}
         setShowScannerLinkModal={setShowScannerLinkModal}
         setShowPOModal={setShowPOModal}
         lowStockCount={lowStockCount} 
@@ -1477,6 +1455,7 @@ export default function App() {
             setIsCheckoutOpen={setIsCheckoutOpen}
             handleHoldOrder={handleHoldOrder}
             setCheckoutStep={setCheckoutStep}
+            setShowHoldModal={setShowHoldModal}
           />
           <HistoryPanel 
             history={history}
@@ -1725,8 +1704,6 @@ export default function App() {
             </div>
           );
         })()}
-
-        {/* Các mục chi tiết sản phẩm in ra sẽ được truyền từ lastOrder vào nếu bạn gọi in qua thẻ này */}
       </div>
 
     </div>
