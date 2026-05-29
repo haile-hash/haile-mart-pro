@@ -25,7 +25,7 @@ import { ProductTable } from "./components/products/ProductTable";
 import { CartPanel } from "./components/cart/CartPanel";
 import { HistoryPanel } from "./components/history/HistoryPanel";
 
-import { CashFlowModal } from "./components/modals/CashFlowModal";
+import { CashFlowDetailModal } from "./components/modals/CashFlowDetailModal";
 import { AuditDetailModal } from "./components/modals/AuditDetailModal";
 import { HoldOrdersModal } from "./components/modals/HoldOrdersModal";
 import { CheckoutModal } from "./components/modals/CheckoutModal";
@@ -1483,10 +1483,10 @@ export default function App() {
       )}
 
       {cashFlowModalInfo && (
-        <CashFlowModal 
-          infoType={cashFlowModalInfo}
-          currentShiftCashFlow={currentShiftCashFlow}
+        <CashFlowDetailModal 
+          flowType={cashFlowModalInfo}
           onClose={() => setCashFlowModalInfo(null)}
+          allLogs={history}
         />
       )}
 
