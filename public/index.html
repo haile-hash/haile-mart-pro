@@ -33,7 +33,7 @@
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('%PUBLIC_URL%/sw.js')
                     .then(registration => {
-                        console.log('Service Worker đã đăng ký thành công với scope:', registration.scope);
+                        console.log('Service Worker đã đăng ký thành công!');
                     })
                     .catch(error => {
                         console.error('Lỗi khi đăng ký Service Worker:', error);
