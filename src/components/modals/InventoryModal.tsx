@@ -1,6 +1,6 @@
 /* eslint-disable */
 // @ts-nocheck
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { cleanName } from '../../utils/helpers';
 
 interface InventoryModalProps {
@@ -28,6 +28,14 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
   handleInvInputKeyDown, syncInventoryCheck, loading
 }) => {
   
+  // THÊM MỚI: State quản lý số lượng hiển thị (Phân trang bảo vệ RAM)
+  const [visibleCount, setVisibleCount] = useState(50);
+
+  // THÊM MỚI: Reset lại số lượng khi người dùng gõ tìm kiếm hoặc đổi bộ lọc
+  useEffect(() => {
+    setVisibleCount(50);
+  }, [inventorySearchTerm, invFilter]);
+
   if (!showInventoryModal) return null;
 
   const filteredProductsList = useMemo(() => {
@@ -89,7 +97,8 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
               {filteredProductsList.length === 0 ? (
                 <tr><td colSpan={4} style={{ textAlign: "center", padding: "40px", color: "#94a3b8", fontStyle: "italic" }}>Không có dữ liệu kho phù hợp bộ lọc</td></tr>
               ) : (
-                filteredProductsList.map((p: any) => { 
+                // SỬA ĐỔI: Thêm .slice(0, visibleCount) để chỉ render số lượng giới hạn
+                filteredProductsList.slice(0, visibleCount).map((p: any) => { 
                   const sysStock = Number(p.stock) || 0;
                   const actual = actualStockInput[p.id] !== undefined ? actualStockInput[p.id] : sysStock; 
                   const diff = actual - sysStock; 
@@ -112,6 +121,19 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
               )}
             </tbody>
           </table>
+          
+          {/* THÊM MỚI: Nút tải thêm nếu mảng dữ liệu dài hơn số lượng đang hiển thị */}
+          {filteredProductsList.length > visibleCount && (
+            <button 
+              type="button" 
+              onClick={() => setVisibleCount(prev => prev + 50)} 
+              style={{ width: "100%", padding: "12px", marginTop: "15px", background: "#f8fafc", color: "#3b82f6", border: "1px dashed #cbd5e1", borderRadius: "8px", fontWeight: "bold", cursor: "pointer", transition: "0.2s" }}
+              onMouseOver={e => e.currentTarget.style.background = "#f1f5f9"}
+              onMouseOut={e => e.currentTarget.style.background = "#f8fafc"}
+            >
+              ⏬ Tải thêm sản phẩm (Còn {filteredProductsList.length - visibleCount} mã)
+            </button>
+          )}
         </div>
         
         <div style={{ display: "flex", gap: "10px", marginTop: "15px", borderTop: "1px dashed #cbd5e1", paddingTop: "15px" }}>
