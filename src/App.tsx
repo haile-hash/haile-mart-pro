@@ -795,10 +795,15 @@ export default function App() {
       itemsHtml += `<tr><td style="padding: 12px; border-bottom: 1px solid #f1f5f9; color: #1e293b;">${cleanName(item.product.name)}</td><td style="padding: 12px; text-align: center; border-bottom: 1px solid #f1f5f9; color: #1e293b; font-weight: bold;">${item.qty}</td><td style="padding: 12px; text-align: right; border-bottom: 1px solid #f1f5f9; color: #1e293b;">${(priceToUse * item.qty).toLocaleString()}đ</td></tr>`; 
     }); 
 
+    // TỰ ĐỘNG LẤY THÔNG TIN CỬA HÀNG SAAS
+    const storeInfo = JSON.parse(window.localStorage.getItem("mart_current_store") || "{}");
+    const storeNameDisplay = storeInfo.store_name ? storeInfo.store_name.toUpperCase() : "HỆ THỐNG POS PRO";
+    const storePhoneDisplay = storeInfo.phone || "Liên hệ cửa hàng";
+
     const htmlContent = `
       <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; background: #ffffff;">
         <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 30px 20px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 26px; letter-spacing: 2px; text-transform: uppercase;">HẢI LÊ MART</h1>
+          <h1 style="color: #ffffff; margin: 0; font-size: 26px; letter-spacing: 2px; text-transform: uppercase;">${storeNameDisplay}</h1>
           <p style="color: #94a3b8; margin: 8px 0 0 0; font-size: 14px;">Hóa Đơn Mua Hàng Điện Tử</p>
         </div>
         <div style="padding: 25px;">
@@ -824,8 +829,8 @@ export default function App() {
             <p style="margin: 5px 0 0 0; color: #64748b; font-size: 13px;">Phương thức: ${lastOrder.paymentMethod}</p>
           </div>
           <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
-            <p style="margin: 0; color: #64748b; font-size: 14px;">Cảm ơn quý khách đã mua sắm tại Hải Lê Mart!</p>
-            <p style="margin: 5px 0 0 0; color: #94a3b8; font-size: 12px;">Hotline hỗ trợ: 09xx.xxx.xxx</p>
+            <p style="margin: 0; color: #64748b; font-size: 14px;">Cảm ơn quý khách đã mua sắm tại ${storeNameDisplay}!</p>
+            <p style="margin: 5px 0 0 0; color: #94a3b8; font-size: 12px;">Hotline hỗ trợ: ${storePhoneDisplay}</p>
           </div>
         </div>
       </div>
@@ -843,6 +848,10 @@ export default function App() {
     const code = font.cardCode || phone; 
     const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=3&height=15&includetext=false`; 
     
+    // TỰ ĐỘNG LẤY THÔNG TIN CỬA HÀNG SAAS
+    const storeInfo = JSON.parse(window.localStorage.getItem("mart_current_store") || "{}");
+    const storeNameDisplay = storeInfo.store_name ? storeInfo.store_name.toUpperCase() : "HỆ THỐNG POS PRO";
+
     const htmlContent = `
       <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f1f5f9; padding: 30px; border-radius: 12px;">
         <div style="text-align: center; margin-bottom: 25px;">
@@ -851,11 +860,8 @@ export default function App() {
         </div>
         
         <div style="background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); border-radius: 16px; padding: 25px; color: white; box-shadow: 0 10px 25px rgba(220, 38, 38, 0.3); position: relative; overflow: hidden; max-width: 400px; margin: 0 auto;">
-          <div style="position: absolute; top: 15px; left: 25px; width: 65px; height: 65px; overflow: hidden; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.15);">
-            <img src="https://haile-mart-pro.vercel.app/logo192.png" alt="Logo" style="width: 100%; height: 100%; object-fit: cover;" />
-          </div>
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
-            <h3 style="margin: 0; font-size: 20px; letter-spacing: 1px;">HẢI LÊ MART</h3>
+            <h3 style="margin: 0; font-size: 20px; letter-spacing: 1px;">${storeNameDisplay}</h3>
             <span style="background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; letter-spacing: 1px;">VIP MEMBER</span>
           </div>
           
