@@ -1,16 +1,27 @@
 /* eslint-disable */
 // @ts-nocheck
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { toast } from 'react-hot-toast';
 
 export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, setStartingCash, installPrompt, handleInstallApp }: any) => {
-  const [authMode, setAuthMode] = useState<"login" | "register" | "forgot">("login");
+  // Thêm trạng thái 'update_password'
+  const [authMode, setAuthMode] = useState<"login" | "register" | "forgot" | "update_password">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [storeName, setStoreName] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Lắng nghe sự kiện click từ link Email trả về
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setAuthMode('update_password'); // Đổi giao diện sang form nhập mật khẩu mới
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,10 +77,10 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
     setLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin, // Khách bấm link trong mail sẽ tự đá về trang web của bạn
+        redirectTo: 'https://pos-pro-enterprise.vercel.app', // Ép buộc quay về đúng link Vercel
       });
       if (error) throw error;
-      toast.success("Hệ thống đã gửi link đặt lại mật khẩu vào Email của bạn. Hãy kiểm tra hộp thư (hoặc thư rác)!");
+      toast.success("Hệ thống đã gửi link đặt lại mật khẩu vào Email của bạn. Hãy kiểm tra hộp thư!");
       setAuthMode("login");
     } catch (error: any) {
       toast.error("Lỗi gửi yêu cầu: " + (error.message || "Vui lòng thử lại sau"));
@@ -78,26 +89,44 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
     }
   };
 
+  // Hàm xử lý lưu mật khẩu mới
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password.length < 6) return toast.error("Mật khẩu phải từ 6 ký tự!");
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: password });
+      if (error) throw error;
+      toast.success("Cập nhật mật khẩu thành công! Vui lòng đăng nhập lại.");
+      setAuthMode("login");
+      setPassword("");
+    } catch (error: any) {
+      toast.error("Lỗi cập nhật: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'radial-gradient(circle at 50% 50%, #1e1e38 0%, #0a0a14 100%)', padding: '20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
       
-      <div style={{ position: 'absolute', width: '300px', height: '300px', background: authMode === 'register' ? '#10b981' : authMode === 'forgot' ? '#f59e0b' : '#3b82f6', filter: 'blur(120px)', opacity: 0.15, top: '20%', left: '35%', borderRadius: '50%', pointerEvents: 'none', transition: 'all 0.5s ease' }}></div>
+      <div style={{ position: 'absolute', width: '300px', height: '300px', background: authMode === 'register' ? '#10b981' : authMode === 'forgot' ? '#f59e0b' : authMode === 'update_password' ? '#ec4899' : '#3b82f6', filter: 'blur(120px)', opacity: 0.15, top: '20%', left: '35%', borderRadius: '50%', pointerEvents: 'none', transition: 'all 0.5s ease' }}></div>
 
       <div style={{ background: 'rgba(255, 255, 255, 0.03)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', padding: '40px 35px', borderRadius: '24px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', width: '100%', maxWidth: '440px', boxSizing: 'border-box', color: '#ffffff' }}>
         
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '54px', height: '54px', borderRadius: '16px', background: authMode === 'register' ? 'linear-gradient(135deg, #10b981, #059669)' : authMode === 'forgot' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)', fontSize: '24px', marginBottom: '16px', boxShadow: '0 8px 20px rgba(0,0,0,0.2)', transition: 'all 0.4s ease' }}>
-            {authMode === 'register' ? "🚀" : authMode === 'forgot' ? "⏳" : "🔑"}
+          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '54px', height: '54px', borderRadius: '16px', background: authMode === 'register' ? 'linear-gradient(135deg, #10b981, #059669)' : authMode === 'forgot' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : authMode === 'update_password' ? 'linear-gradient(135deg, #ec4899, #be185d)' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)', fontSize: '24px', marginBottom: '16px', boxShadow: '0 8px 20px rgba(0,0,0,0.2)', transition: 'all 0.4s ease' }}>
+            {authMode === 'register' ? "🚀" : authMode === 'forgot' ? "⏳" : authMode === 'update_password' ? "🔐" : "🔑"}
           </div>
           <h1 style={{ margin: '0 0 6px 0', fontSize: '24px', fontWeight: '800', letterSpacing: '-0.5px', color: '#ffffff' }}>
-            {authMode === 'register' ? "BẮT ĐẦU KINH DOANH" : authMode === 'forgot' ? "KHÔI PHỤC MẬT KHẨU" : "HỆ THỐNG POS PRO"}
+            {authMode === 'register' ? "BẮT ĐẦU KINH DOANH" : authMode === 'forgot' ? "KHÔI PHỤC MẬT KHẨU" : authMode === 'update_password' ? "ĐỔI MẬT KHẨU MỚI" : "HỆ THỐNG POS PRO"}
           </h1>
           <p style={{ margin: 0, color: '#94a3b8', fontSize: '14px', lineHeight: '1.5' }}>
-            {authMode === 'register' ? "Khởi tạo tài khoản phân mảnh doanh nghiệp Cloud" : authMode === 'forgot' ? "Nhập email hệ thống sẽ gửi liên kết xác thực" : "Nền tảng quản lý bán hàng đa cửa hàng"}
+            {authMode === 'register' ? "Khởi tạo tài khoản phân mảnh doanh nghiệp Cloud" : authMode === 'forgot' ? "Nhập email hệ thống sẽ gửi liên kết xác thực" : authMode === 'update_password' ? "Vui lòng thiết lập mật khẩu mới an toàn hơn" : "Nền tảng quản lý bán hàng đa cửa hàng"}
           </p>
         </div>
 
-        <form onSubmit={authMode === 'register' ? handleRegister : authMode === 'forgot' ? handleForgotPassword : handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        <form onSubmit={authMode === 'register' ? handleRegister : authMode === 'forgot' ? handleForgotPassword : authMode === 'update_password' ? handleUpdatePassword : handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
           
           {authMode === 'register' && (
             <>
@@ -112,15 +141,19 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
             </>
           )}
 
-          <div>
-            <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#cbd5e1', fontSize: '13px' }}>Tài Khoản Email</label>
-            <input type="email" required value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#fff', outline: 'none', fontSize: '14px', boxSizing: 'border-box' }} placeholder="name@company.com" />
-          </div>
+          {authMode !== 'update_password' && (
+            <div>
+              <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#cbd5e1', fontSize: '13px' }}>Tài Khoản Email</label>
+              <input type="email" required value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#fff', outline: 'none', fontSize: '14px', boxSizing: 'border-box' }} placeholder="name@company.com" />
+            </div>
+          )}
           
-          {authMode !== 'forgot' && (
+          {(authMode === 'login' || authMode === 'register' || authMode === 'update_password') && (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <label style={{ fontWeight: '600', color: '#cbd5e1', fontSize: '13px' }}>Mật Khẩu</label>
+                <label style={{ fontWeight: '600', color: '#cbd5e1', fontSize: '13px' }}>
+                  {authMode === 'update_password' ? 'Mật Khẩu Mới' : 'Mật Khẩu'}
+                </label>
                 {authMode === 'login' && (
                   <span onClick={() => setAuthMode("forgot")} style={{ color: '#3b82f6', fontSize: '13px', cursor: 'pointer', fontWeight: '500' }}>Quên mật khẩu?</span>
                 )}
@@ -146,8 +179,8 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
             </div>
           )}
 
-          <button type="submit" disabled={loading} style={{ marginTop: '8px', width: '100%', padding: '14px', background: authMode === 'register' ? 'linear-gradient(135deg, #10b981, #059669)' : authMode === 'forgot' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 'bold', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1, transition: 'all 0.3s ease', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
-            {loading ? "ĐANG XỬ LÝ..." : (authMode === 'register' ? "MỞ CỬA HÀNG NGAY" : authMode === 'forgot' ? "GỬI YÊU CẦU ĐỔI MẬT KHẨU" : "ĐĂNG NHẬP VÀO CA")}
+          <button type="submit" disabled={loading} style={{ marginTop: '8px', width: '100%', padding: '14px', background: authMode === 'register' ? 'linear-gradient(135deg, #10b981, #059669)' : authMode === 'forgot' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : authMode === 'update_password' ? 'linear-gradient(135deg, #ec4899, #be185d)' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 'bold', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1, transition: 'all 0.3s ease', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+            {loading ? "ĐANG XỬ LÝ..." : (authMode === 'register' ? "MỞ CỬA HÀNG NGAY" : authMode === 'forgot' ? "GỬI YÊU CẦU ĐỔI MẬT KHẨU" : authMode === 'update_password' ? "LƯU MẬT KHẨU MỚI" : "ĐĂNG NHẬP VÀO CA")}
           </button>
         </form>
 
@@ -158,16 +191,11 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
             </button>
           ) : (
             <button onClick={() => setAuthMode("register")} style={{ background: 'none', border: 'none', color: '#10b981', fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}>
-              ✨ Bạn muốn bán phần mềm? Đăng ký dùng thử
+              ✨ Bạn chưa có tài khoản? Hãy đăng ký để sử dụng
             </button>
           )}
         </div>
 
-        {installPrompt && authMode === 'login' && (
-          <button onClick={handleInstallApp} style={{ width: '100%', marginTop: '16px', padding: '10px', background: 'rgba(255,255,255,0.02)', color: '#cbd5e1', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
-            📲 Tải ứng dụng PWA về thiết bị
-          </button>
-        )}
       </div>
     </div>
   );
