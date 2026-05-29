@@ -5,12 +5,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, shrink-to-fit=no">
     
-    <meta name="theme-color" content="#da251d">
+    <meta name="theme-color" content="#1e293b">
     <meta name="description" content="POS PRO - Nền tảng quản lý bán hàng đa cửa hàng Cloud Enterprise ERP">
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="POS PRO">
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png">
     
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json">
     <link rel="shortcut icon" href="%PUBLIC_URL%/favicon.ico">
@@ -26,6 +27,20 @@
     <div id="root"></div>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('%PUBLIC_URL%/sw.js')
+                    .then(registration => {
+                        console.log('Service Worker đã đăng ký thành công với scope:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('Lỗi khi đăng ký Service Worker:', error);
+                    });
+            });
+        }
+    </script>
 </body>
 
 </html>
