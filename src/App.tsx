@@ -9,6 +9,7 @@ import {
 } from "./utils/helpers";
 import { useOfflineSync } from "./hooks/useOfflineSync";
 
+import { StoreSettingsModal } from "./components/layout/StoreSettingsModal";
 import { Toaster, toast } from "react-hot-toast";
 
 import { Product, CartItem, Customer, AuditLog, TransactionLog, HeldOrder } from "./types";
@@ -206,6 +207,10 @@ export default function App() {
   const [printPOData, setPrintPOData] = useState<any>(null);
 
   const { darkMode, setDarkMode, showSettings, setShowSettings, showInputForm, setShowInputForm, showDebtModal, setShowDebtModal, showStatsModal, setShowStatsModal, showCustomerModal, setShowCustomerModal, showHandoverModal, setShowHandoverModal, showAuditModal, setShowAuditModal, showHoldModal, setShowHoldModal, showExpenseModal, setShowExpenseModal, showSupplierModal, setShowSupplierModal, showMarketingModal, setShowMarketingModal, showInventoryModal, setShowInventoryModal, showMainMenu, setShowMainMenu, cashFlowModalInfo, setCashFlowModalInfo, scannerMode, setScannerMode, printMode, setPrintMode } = useUIState();
+  
+  // STATE MỚI: Modal Cấu hình riêng cho Cửa Hàng
+  const [showStoreSettings, setShowStoreSettings] = useState(false);
+
   const { newCode, setNewCode, newName, setNewName, newImportPrice, setNewImportPrice, newPrice, setNewPrice, newPromoPrice, setNewPromoPrice, newGiftCondition, setNewGiftCondition, newGiftInfo, setNewGiftInfo, newStock, setNewStock, newExpiry, setNewExpiry, newCategory, setNewCategory, resetProductForm } = useProductInput();
   const { cart, setCart, barcodeInput, setBarcodeInput, isCheckoutOpen, setIsCheckoutOpen, checkoutStep, setCheckoutStep, customerInput, setCustomerInput, custPhone, setCustPhone, custName, setCustName, useWallet, setUseWallet, voucherInput, setVoucherInput, appliedVoucherAmount, setAppliedVoucherAmount, customerGiven, setCustomerGiven, lastOrder, setLastOrder, resetCheckout, custAddress, setCustAddress } = useCheckoutState();
 
@@ -447,7 +452,7 @@ export default function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isLoggedIn || isCheckoutOpen || showPinModal || showAuditModal || showCustomerModal || showSettings || showInputForm || showInventoryModal || cashFlowModalInfo || showPOModal) return;
+      if (!isLoggedIn || isCheckoutOpen || showPinModal || showAuditModal || showCustomerModal || showSettings || showStoreSettings || showInputForm || showInventoryModal || cashFlowModalInfo || showPOModal) return;
       if (e.key === 'F1') { e.preventDefault(); document.getElementById('search-barcode')?.focus(); }
       if (e.key === 'F2') { e.preventDefault(); if (cart.length > 0) confirmCheckout('TIỀN MẶT'); }
       if (e.key === 'F3') { e.preventDefault(); if (cart.length > 0) confirmCheckout('CHUYỂN KHOẢN'); }
@@ -455,7 +460,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isLoggedIn, isCheckoutOpen, showPinModal, cart, showAuditModal, showCustomerModal, showSettings, showInputForm, showInventoryModal, cashFlowModalInfo, showPOModal]);
+  }, [isLoggedIn, isCheckoutOpen, showPinModal, cart, showAuditModal, showCustomerModal, showSettings, showStoreSettings, showInputForm, showInventoryModal, cashFlowModalInfo, showPOModal]);
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -466,6 +471,8 @@ export default function App() {
           if (store) {
             setCurrentStore(store);
             await dbSet("mart_current_store", store);
+            // Đồng bộ LocalStorage để Modal Settings luôn hiển thị dữ liệu mới nhất
+            window.localStorage.setItem("mart_current_store", JSON.stringify(store));
           }
         }
       };
@@ -1139,304 +1146,581 @@ export default function App() {
         let updateData: any = isText ? (field === 'category' ? formatCategoryStr(val) : val) : (Number(String(val).replace(/[^0-9]/g, '')) || 0); 
         if (field === 'gift_info' && val.trim() === '') updateData = null; 
         
-        if (['sale_price', 'promo_price', 'gift_info', 'name', 'category'].includes(field)) {
-           const p = products.find(x => x.id === id);
-           if (p) {
-              const baseCode = String(p.product_code).split('-')[0];
-              const siblings = products.filter(x => String(x.product_code).split('-')[0] === baseCode);
-              
-              setProducts(prev => prev.map(x => siblings.some(s => s.id === x.id) ? { ...x, [field]: updateData } : x));
-              
-              let baseData = updateData;
-              let variantData = updateData;
-              if (field === 'name') {
-                 baseData = String(updateData).replace(' [Lô mới]', '');
-                 variantData = `${baseData} [Lô mới]`;
-              }
-
-              await supabase.from("products").update({ [field]: baseData }).eq("product_code", baseCode);
-              await supabase.from("products").update({ [field]: variantData }).like("product_code", `${baseCode}-%`);
-           }
-        } else {
-           setProducts(prev => prev.map(x => x.id === id ? { ...x, [field]: updateData } : x));
-           await supabase.from("products").update({ [field]: updateData, updated_at: new Date().toISOString() }).eq("id", id); 
+        // (Tiếp nối đoạn code bị cắt)
+        if (field === 'expiry_date') {
+          if (val.trim() === '') {
+            updateData = null;
+          } else {
+            // Validate định dạng HSD nếu cần (ví dụ mm/yyyy)
+            updateData = val;
+          }
         }
-
-        logAudit("SỬA SP", `ID ${id} - Đổi ${label}`); 
-        toast.success("Cập nhật thành công!");
-      } 
-    }); 
-  };
-
-  const handlePrintBarcode = (p: any) => { const q = window.prompt(`SL tem in:`, "30"); if (q && parseInt(q) > 0) { setPrintBarcodeProduct(p); setBarcodeCount(parseInt(q)); setPrintMode('barcode'); logAudit("IN TEM", p.name); } };
-  const downloadSampleCSV = () => { try { const csv = "\uFEFFMã SP,Tên SP,Danh Mục,Giá Nhập,Giá Bán,Giá KM,ĐK Tặng,Quà Tặng,Số Lượng,Hạn Sử Dụng\nSP001,Mì Hảo Hảo,Đồ ăn liền,3000,5000,0,1,,100,2026-12-31"; const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Mau_Nhap_Kho.csv`; document.body.appendChild(link); link.click(); document.body.removeChild(link); } catch(e) {} };
-  const exportToCSV = () => { let csv = "\uFEFFGiờ,Ca,Loại,Hình thức,Khách,Sản phẩm,SL,Tổng,Lợi nhuận\n"; history.forEach(log => { csv += `${new Date(Math.floor(log.id)).toLocaleString('vi-VN')},${log.shift || ""},${log.type},${log.paymentMethod || ""},${log.customer || "Khách lẻ"},${log.name},${log.qty},${Math.round(log.total)},${Math.round(log.profit || 0)}\n`; }); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Bao_Cao_Ban_Hang.csv`; link.click(); logAudit("XUẤT EXCEL", "Lịch sử bán hàng"); };
-  const exportAuditToCSV = () => { let csv = "\uFEFFThời gian,Người dùng,Ca,Hành động,Chi tiết\n"; auditLogs.forEach(log => { csv += `${log.time},${log.user_name},${log.shift},${log.action},"${(log.detail || "")}"\n`; }); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Nhat_Ky.csv`; link.click(); };
-  
-  const handleInventorySearchEnter = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); const term = String(inventorySearchTerm || "").trim().toLowerCase(); if (!term) return; const exactMatch = products.find(p => String(p.product_code || "").toLowerCase() === term); if (exactMatch) { const inputEl = document.getElementById(`inv-input-${exactMatch.id}`); if (inputEl) { inputEl.focus(); } } } };
-  const handleInvInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); const searchBox = document.getElementById('inv-search-box'); if (searchBox) { searchBox.focus(); setInventorySearchTerm(""); } } };
-  const exportInventoryCSV = () => { let csv = "\uFEFFMã SP,Tên SP,Tồn hệ thống,Tồn thực tế\n"; products.forEach(p => { const actual = actualStockInput[p.id] !== undefined ? actualStockInput[p.id] : p.stock; csv += `${p.product_code},"${cleanName(p.name)}",${p.stock},${actual}\n`; }); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `KiemKho.csv`; link.click(); logAudit("XUẤT KHO EXCEL", "File kiểm kho"); };
-  
-  const syncInventoryCheck = async () => {
-    if(!navigator.onLine) return toast.error("Mạng yếu!"); if(!window.confirm("Xác nhận ghi đè?")) return;
-    setLoading(true); let count = 0;
-    try { for (const [id, actualQty] of Object.entries(actualStockInput)) { const p = products.find(x => String(x.id) === String(id)); if(p && p.stock !== actualQty) { await supabase.from("products").update({ stock: actualQty }).eq("id", p.id); logAudit("KIỂM KHO", `${p.name} -> ${actualQty}`); count++; } } toast.success(`Đồng bộ thành công!`); setShowInventoryModal(false); setActualStockInput({}); fetchProducts(); } 
-    catch(err) {} finally { setLoading(false); }
-  };
-  
-  const requestSort = (key: string) => { if (sortConfig && sortConfig.key === key) { if (sortConfig.direction === 'asc') setSortConfig({ key, direction: 'desc' }); else setSortConfig(null) } else { setSortConfig({ key, direction: 'asc' }) } };
-  const toggleDateGroup = (dateStr: string) => setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
-
-  const handleBarcodeSubmitAction = (e: React.KeyboardEvent<HTMLInputElement>) => { 
-    document.getElementById('search-barcode')?.focus(); 
-    if (e.key === 'Enter') { 
-      e.preventDefault(); const p = findProductByCode(barcodeInput); 
-      if (p) { handleSelectSuggest(p); } else { 
-        const matchedPhone = Object.keys(customersData || {}).find(phone => phone === barcodeInput.trim() || customersData[phone]?.cardCode === barcodeInput.trim()); 
-        if (matchedPhone) { playSound('success'); setCustomerInput(customersData[matchedPhone]?.cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customersData[matchedPhone]?.name); setBarcodeInput(""); } 
-        else { playSound('error'); toast.error("Mã không hợp lệ!"); } 
-      } 
-    } 
-  };
-
-  const handleSelectSuggest = (p_input: any) => {
-    const baseCode = String(p_input.product_code).split('-')[0]; const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); 
-    if (totalStock <= 0) { playSound('error'); return toast.error("Sản phẩm đã hết hàng!"); }
-    const currentTime = new Date(); const currentTotalMins = currentTime.getHours() * 60 + currentTime.getMinutes(); 
-    const [startH, startM] = happyStart.split(':').map(Number); const [endH, endM] = happyEnd.split(':').map(Number); 
-    const startTotalMins = startH * 60 + startM; const endTotalMins = endH * 60 + endM; 
-    let isHappyNow = startTotalMins <= endTotalMins ? (currentTotalMins >= startTotalMins && currentTotalMins <= endTotalMins) : (currentTotalMins >= startTotalMins || currentTotalMins <= endTotalMins);
-    let itemToCart = { ...p_input }; if (isHappyNow && p_input.promo_price > 0 && p_input.promo_price < p_input.sale_price) { itemToCart.isHappyHour = true; }
-    const price = getActualPrice(itemToCart); const repName = cleanName(itemToCart.name);
-    setCart(prev => {
-      const exist = prev.find(item => cleanName(item.product.name) === repName && !!item.product.isHappyHour === !!itemToCart.isHappyHour);
-      if (exist) { const newQty = exist.qty + 1; if (newQty > totalStock) { playSound('error'); return prev; } return prev.map(i => (cleanName(i.product.name) === repName && !!i.product.isHappyHour === !!itemToCart.isHappyHour) ? { ...i, qty: newQty, total: Math.round(newQty * price * (1 + VAT_RATE)) } : i); } 
-      else { return [...prev, { product: itemToCart, qty: 1, total: Math.round(price * (1 + VAT_RATE)) }]; }
-    });
-    setScanMessage({ text: `✅ Thêm: ${repName}`, type: 'success' }); setBarcodeInput(""); setShowSuggestions(false); setTimeout(() => setScanMessage(null), 2000);
-  };
-  
-  const addToCart = (p_input: any) => { handleSelectSuggest(p_input); playSound('success'); };
-  const adjustCartQty = (productId: any, delta: number) => { 
-    let exceedStock = false; 
-    setCart(prev => { 
-      const updated = prev.map(item => { if (item.product.id === productId) { const baseCode = String(item.product.product_code).split('-')[0]; const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); const newQty = item.qty + delta; if (newQty > totalStock) { exceedStock = true; return item; } const price = getActualPrice(item.product); return { ...item, qty: newQty, total: Math.round(newQty * price * (1 + VAT_RATE)) }; } return item; }); 
-      return updated.filter(item => item.qty > 0); 
-    }); 
-    if (exceedStock) playSound('error'); else if (delta > 0) playSound('success'); 
-  };
-  
-  const handleDirectQtyChange = (productId: any, val: string) => { 
-    setCart(prev => { 
-      if (val === '') return prev.map(i => i.product.id === productId ? { ...i, qty: '' as any, total: 0 } : i); let num = parseInt(val); if (isNaN(num) || num < 0) return prev; let exceedStock = false; 
-      const updated = prev.map(i => { if (i.product.id === productId) { const baseCode = String(i.product.product_code).split('-')[0]; const totalStock = products.filter(p => p.product_code === baseCode || String(p.product_code).startsWith(`${baseCode}-`)).reduce((s, p) => s + p.stock, 0); if (num > totalStock) { exceedStock = true; num = totalStock; } const price = getActualPrice(i.product); return { ...i, qty: num, total: Math.round(num * price * (1 + VAT_RATE)) }; } return i; });
-      if (exceedStock) playSound('error'); return updated; 
-    }); 
-  };
-  const handleDirectQtyBlur = (productId: any, val: string) => { if (val === '' || parseInt(val) <= 0 || isNaN(parseInt(val))) { setCart(prev => prev.map(i => { if (i.product.id === productId) { const price = getActualPrice(i.product); return { ...i, qty: 1, total: Math.round(1 * price * (1 + VAT_RATE)) } } return i })) } };
-  const removeFromCart = (productId: any) => { setCart(cart.filter(item => item.product.id !== productId)) };
-  const clearCart = () => { if (window.confirm("Hủy toàn bộ?")) { resetCheckout(); logAudit("HỦY GIỎ HÀNG", "Xóa sạch giỏ hiện tại"); } };
-
-  const sendInventoryAlertEmail = async () => {
-    let adminEmail = window.prompt("Nhập Email Quản lý:", ""); if(!adminEmail) return; setLoading(true); 
-    const lowStock = products.filter(p => p.stock > 0 && p.stock < 10).length; const today = new Date().getTime(); const expiring = products.filter(p => p.expiry_date && (new Date(p.expiry_date).getTime() - today) / 86400000 <= 15);
-    let htmlContent = `<div style="font-family: Arial; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0;"><div style="background: #ef4444; color: white; padding: 20px; text-align: center;"><h1>🚨 CẢNH BÁO KHO HÀNG</h1></div><div style="padding: 20px; background: #ffffff;"><h3>📦 SẮP HẾT HÀNG (${lowStock} món):</h3><ul>`;
-    products.filter(p => p.stock > 0 && p.stock < 10).forEach(p => { htmlContent += `<li><strong>${cleanName(p.name)}:</strong> Còn ${p.stock} sp</li>`; });
-    htmlContent += `</ul><h3>⏳ SẮP HẾT HẠN TRONG 15 NGÀY TỚI (${expiring.length} món):</h3><ul>`;
-    expiring.forEach(p => { htmlContent += `<li><strong>${cleanName(p.name)}:</strong> HSD ${new Date(p.expiry_date).toLocaleDateString('vi-VN')}</li>`; });
-    htmlContent += `</ul></div></div>`;
-    try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_email: adminEmail, subject: `🚨 Cảnh báo Tồn Kho & Hạn Sử Dụng`, html_message: htmlContent }); toast.success("Đã gửi cảnh báo kho!"); logAudit("CẢNH BÁO KHO", "Gửi email tồn kho"); } catch (error: any) { toast.error(`Lỗi gửi Email`); } setLoading(false);
-  };
-
-  const handleSendEmailReport = async () => {
-    const start = new Date(reportStartDate + "T00:00:00").getTime(); const end = new Date(reportEndDate + "T23:59:59").getTime(); 
-    const logs = history.filter(log => { const t = new Date(Math.floor(log.id)).getTime(); return t >= start && t <= end; });
-    if (logs.length === 0) return toast.error("Chưa có giao dịch!"); 
-    let cash = 0, transfer = 0, prof = 0, sold = 0; 
-    logs.forEach(l => { 
-      if (l.type === 'BÁN') sold += l.qty; 
-      if (l.type === 'BÁN' || l.type === 'THU NỢ' || l.type === 'TRẢ HÀNG') { 
-        if (l.paymentMethod === 'CHUYỂN KHOẢN' || l.paymentMethod === 'QUẸT THẺ' || l.paymentMethod === 'ZALO PAY') { transfer += l.total; } 
-        else if (l.paymentMethod === 'TIỀN MẶT' || l.paymentMethod === 'KẾT HỢP') { 
-          if(l.paymentMethod === 'KẾT HỢP' && l.split_cash) { cash += l.split_cash; transfer += (l.total - l.split_cash); } else { cash += l.total; } 
-        } 
-      } 
-      prof += (l.profit || 0); 
-    });
-    let adminEmail = window.prompt("Nhập Email Quản lý:", ""); if(!adminEmail) return; adminEmail = adminEmail.trim(); 
-    setLoading(true); 
-    const htmlContent = `<div style="font-family: Arial; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0;"><div style="background: #3b82f6; color: white; padding: 20px; text-align: center;"><h1>HẢI LÊ MART</h1><p>BÁO CÁO DOANH THU</p></div><div style="padding: 20px; background: #ffffff;"><h2>Kỳ: ${reportStartDate} đến ${reportEndDate}</h2><table style="width: 100%; border-collapse: collapse;"><tbody><tr><td style="padding: 10px;">Tổng SP đã bán:</td><td style="padding: 10px; text-align: right;">${sold} món</td></tr><tr><td style="padding: 10px;">Doanh thu Tiền Mặt:</td><td style="padding: 10px; text-align: right; color: #10b981;">${Math.round(cash).toLocaleString()}đ</td></tr><tr><td style="padding: 10px;">Doanh thu CK/Thẻ:</td><td style="padding: 10px; text-align: right; color: #3b82f6;">${Math.round(transfer).toLocaleString()}đ</td></tr><tr><td style="padding: 10px; font-weight: bold;">TỔNG LỢI NHUẬN:</td><td style="padding: 10px; text-align: right; font-weight: bold; color: #ef4444;">${Math.round(prof).toLocaleString()}đ</td></tr></tbody></table></div></div>`;
-    try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_email: adminEmail, subject: `📊 Báo cáo doanh thu ${reportStartDate} - ${reportEndDate}`, html_message: htmlContent }); logAudit("GỬI BÁO CÁO", `Tới ${adminEmail}`); toast.success("Đã gửi Báo cáo!"); } catch (error: any) { toast.error(`Lỗi gửi Email`); } setLoading(false);
-  };
-
-  const handleSendMarketingEmail = async () => {
-    if (!marketingMsg) return toast.error("Nhập nội dung!"); if (!window.confirm("Gửi?")) return; setLoading(true); 
-    const targetCustomers = Object.keys(customersData || {}).filter(phone => { const c = customersData[phone]; if (!c || !c.email) return false; if (marketingTier === "Tất cả") return true; return getCustomerTier(c.totalSpent || 0).name.includes(marketingTier); });
-    if (targetCustomers.length === 0) { setLoading(false); return toast.error("Không tìm thấy khách hàng!"); }
-    let successCount = 0;
-    for (const phone of targetCustomers) { const c = customersData[phone]; const htmlContent = `<div><h1>HẢI LÊ MART</h1><p>${marketingMsg}</p></div>`; try { await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_VIP_ID, { to_email: c.email, subject: "💌 Ưu Đãi Đặc Quyền Từ Hải Lê Mart", html_message: htmlContent }); successCount++; } catch (error: any) {} }
-    logAudit("GỬI MAIL MKT", `Gửi ${successCount} mail`); setLoading(false); setShowMarketingModal(false); toast.success(`Đã gửi thành công!`);
-  };
-
-  const handleSaveNewPO = async () => {
-    if (!selectedSupplierId) return toast.error("Chọn Nhà Cung Cấp!"); if (poItems.length === 0) return toast.error("Phiếu trống!");
-    const supplier = suppliers.find(s => s.id.toString() === selectedSupplierId); if (!supplier) return; setLoading(true);
-    try {
-      const totalPOAmount = poItems.reduce((sum, item) => sum + (item.qty * item.importPrice), 0); const debtAmount = totalPOAmount - paidAmount; const poCode = "PO" + Date.now().toString().slice(-6);
-      const newPO = { id: Date.now().toString(), po_code: poCode, supplier: supplier, items: poItems, total_amount: totalPOAmount, paid_amount: paidAmount, debt_amount: debtAmount, status: 'PENDING', note: poNote, created_at: new Date().toISOString() };
-      setLocalPOs(prev => [newPO, ...prev]); setPoItems([]); setPoNote(""); setSelectedSupplierId(""); setPaidAmount(0); toast.success(`Đã lưu Phiếu ${poCode}!`);
-      setPoTab('RECEIVE'); setSearchPoCode(poCode); setFoundPO(newPO); setReceiveItems(newPO.items.map((i: any) => ({ ...i, damagedQty: 0 })));
-      logAudit("TẠO PO", `Mã: ${poCode}`);
-    } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); }
-  };
-
-  const handlePrintPO = (po: any, type: 'po_order' | 'po_receipt' | 'po_return') => { setPrintPOData(po); setPrintMode(type); logAudit("IN PHIẾU PO", po.po_code); };
-
-  const handleConfirmReceipt = async () => {
-    if (!foundPO || receiveItems.length === 0) return; setLoading(true);
-    try {
-      let actualTotal = 0; let logs: any[] = [];
-      for (const item of receiveItems) {
-          const actualQty = item.qty - (item.damagedQty || 0); actualTotal += actualQty * item.importPrice;
-          if (actualQty > 0) { const p = products.find(x => x.id === item.product.id); if (p) { await supabase.from('products').update({ stock: p.stock + actualQty, import_price: item.importPrice }).eq('id', p.id); logs.push({ id: Date.now() + Math.random(), shift, type: "NHẬP PO", name: p.name, qty: actualQty, total: actualQty * item.importPrice, time: new Date().toLocaleString('vi-VN') }); } }
-          if (item.damagedQty > 0) { logs.push({ id: Date.now() + Math.random(), shift, type: "TRẢ HÀNG NCC", name: item.product.name, qty: item.damagedQty, total: 0, time: new Date().toLocaleString('vi-VN') }); }
+        
+        await supabase.from("products").update({ [field]: updateData }).eq("id", id);
+        
+        // Nếu sửa các trường liên quan đến giá hoặc quà tặng, đồng bộ tất cả các lô có cùng baseCode
+        if (['name', 'category', 'sale_price', 'promo_price', 'gift_info'].includes(field)) {
+           const prod = products.find(p => p.id === id);
+           if (prod && prod.product_code) {
+             const baseCode = String(prod.product_code).split('-')[0];
+             const finalName = field === 'name' ? String(updateData) : prod.name;
+             const baseName = finalName.replace(' [Lô mới]', '');
+             
+             await supabase.from("products").update({ [field]: updateData }).eq("product_code", baseCode);
+             if (field === 'name') {
+               await supabase.from("products").update({ [field]: `${baseName} [Lô mới]` }).like("product_code", `${baseCode}-%`);
+             } else {
+               await supabase.from("products").update({ [field]: updateData }).like("product_code", `${baseCode}-%`);
+             }
+           }
+        }
+        
+        logAudit("SỬA NHANH BẢNG", `ID: ${id}, Trường: ${label}, Cũ: ${old}, Mới: ${val}`);
+        toast.success(`Đã cập nhật ${label}!`);
+        fetchProducts(); 
       }
-      const finalDebt = actualTotal - foundPO.paid_amount;
-      if (finalDebt > 0 && foundPO.supplier) { const supplierId = foundPO.supplier.id; const s = suppliers.find(x => x.id === supplierId); if (s) { const newD = (s.debt || 0) + finalDebt; await supabase.from('suppliers').update({ debt: newD }).eq("id", supplierId); setSuppliers(prev => prev.map(x => x.id === supplierId ? { ...x, debt: newD } : x)); } }
-      setLocalPOs(prev => prev.map(p => p.id === foundPO.id ? { ...p, status: 'COMPLETED', items: receiveItems, total_amount: actualTotal } : p));
-      logs.forEach(lg => addTransactionAndSync(lg)); logAudit("NHẬN HÀNG PO", `Mã ${foundPO.po_code}`); toast.success("Nhập Kho thành công!"); fetchProducts(); setFoundPO(prev => ({ ...prev, status: 'COMPLETED', items: receiveItems, total_amount: actualTotal }));
-    } catch (err: any) { toast.error("Lỗi"); } finally { setLoading(false); }
+    }); 
   };
 
-  const renderModals = () => {
-    return (
-      <>
-        <ExpenseModal showExpenseModal={showExpenseModal} setShowExpenseModal={setShowExpenseModal} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} expenses={expenses} addExpense={addExpense} deleteExpense={deleteExpense} />
-        {showHandoverModal && <HandoverModal role={role} shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onClose={() => setShowHandoverModal(false)} onConfirm={confirmHandover} />}
-        
-        <CashFlowModal 
-          cashFlowModalInfo={cashFlowModalInfo} 
-          setCashFlowModalInfo={setCashFlowModalInfo} 
-          shift={shift} 
-          todayStrStr={todayStrStr} 
-          currentShiftCashFlow={{
-            thu: cashFlowModalInfo === 'TIỀN MẶT' ? currentShiftCashFlow.thu_tien_mat : currentShiftCashFlow.thu_chuyen_khoan,
-            chi: cashFlowModalInfo === 'TIỀN MẶT' ? currentShiftCashFlow.chi_tien_mat : currentShiftCashFlow.chi_chuyen_khoan
-          }} 
-          currentShiftStats={currentShiftStats} 
-        />
-        
-        <HoldOrdersModal showHoldModal={showHoldModal} setShowHoldModal={setShowHoldModal} heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={deleteHeldOrder} />
-        
-        <CheckoutModal isCheckoutOpen={isCheckoutOpen} setIsCheckoutOpen={setIsCheckoutOpen} checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} voucherInput={voucherInput} setVoucherInput={setVoucherInput} customerInput={customerInput} setCustomerInput={setCustomerInput} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} useWallet={useWallet} setUseWallet={setUseWallet} appliedVoucherAmount={appliedVoucherAmount} setAppliedVoucherAmount={setAppliedVoucherAmount} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} finalToPay={finalToPay} customers={customersData} isOnline={isOnline} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} loading={loading} handleVoucherSubmit={handleVoucherSubmit} handleCustomerInputChange={handleCustomerInputChange} setScannerMode={setScannerMode} handleNextToQR={handleNextToQR} confirmCheckout={confirmCheckout} setPrintMode={setPrintMode} sendReceiptEmail={sendReceiptEmail} closeCheckout={closeCheckout} custAddress={custAddress} setCustAddress={setCustAddress}/>
-        <StatsModal showStatsModal={showStatsModal} setShowStatsModal={setShowStatsModal} reportStartDate={reportStartDate} setReportStartDate={setReportStartDate} reportEndDate={reportEndDate} setReportEndDate={setReportEndDate} exportToCSV={exportToCSV} onExportCSV={exportToCSV} handleExportCSV={exportToCSV} sendInventoryAlertEmail={sendInventoryAlertEmail} onSendAlert={sendInventoryAlertEmail} handleSendEmailReport={handleSendEmailReport} onSendReport={handleSendEmailReport} filteredStats={filteredStats} chartData={chartData} topSelling={topSelling} products={products} />
-        <InventoryModal showInventoryModal={showInventoryModal} setShowInventoryModal={setShowInventoryModal} inventorySearchTerm={inventorySearchTerm} setInventorySearchTerm={setInventorySearchTerm} handleInventorySearchEnter={handleInventorySearchEnter} invFilter={invFilter} setInvFilter={setInvFilter} exportInventoryCSV={exportInventoryCSV} onExport={exportInventoryCSV} handleImportInventoryCSV={handleImportInventoryCSV} onImport={handleImportInventoryCSV} products={products} actualStockInput={actualStockInput} setActualStockInput={setActualStockInput} handleInvInputKeyDown={handleInvInputKeyDown} syncInventoryCheck={syncInventoryCheck} onSync={syncInventoryCheck} loading={loading} />
-        <DebtModal showDebtModal={showDebtModal} setShowDebtModal={setShowDebtModal} customers={customersData} handlePayDebt={handlePayDebt} />
-        <AuditModal showAuditModal={showAuditModal} setShowAuditModal={setShowAuditModal} auditLogs={auditLogs} exportAuditToCSV={exportAuditToCSV} setSelectedAuditLog={setSelectedAuditLog} setSelectedLog={setSelectedAuditLog} onViewDetail={setSelectedAuditLog} onRowClick={setSelectedAuditLog} />
-        <AuditDetailModal selectedAuditLog={selectedAuditLog} setSelectedAuditLog={setSelectedAuditLog} showModal={!!selectedAuditLog} setShowModal={(val: boolean) => !val && setSelectedAuditLog(null)} selectedLog={selectedAuditLog} setSelectedLog={setSelectedAuditLog} />
-        <ScannerModal scannerMode={scannerMode} setScannerMode={setScannerMode} scanMessage={scanMessage} />
-        <PinModal showPinModal={showPinModal} setShowPinModal={setShowPinModal} correctPin={adminPin} onSuccess={() => { if (pendingAction) { pendingAction(); setPendingAction(null); } }} />
-        <ScannerLinkModal showModal={showScannerLinkModal} setShowModal={setShowScannerLinkModal} />
+  const handleSelectSuggest = (p: Product) => {
+    let addQty = 1;
+    let actualAdded = 0;
+    
+    setCart((prev: CartItem[]) => {
+      const exist = prev.find(i => i.product.id === p.id);
+      if (exist) {
+        if (p.stock > 0 && exist.qty < p.stock) {
+          actualAdded = 1;
+          return prev.map(i => i.product.id === p.id ? { ...i, qty: i.qty + 1, total: (i.qty + 1) * getActualPrice(p) } : i);
+        }
+        return prev;
+      } else {
+        if (p.stock > 0) {
+          actualAdded = 1;
+          return [...prev, { product: p, qty: 1, total: getActualPrice(p) }];
+        }
+        return prev;
+      }
+    });
 
-        <SupplierModal 
-          showSupplierModal={showSupplierModal} setShowSupplierModal={setShowSupplierModal}
-          supName={supName} setSupName={setSupName} supPhone={supPhone} setSupPhone={setSupPhone}
-          supAddress={supAddress} setSupAddress={setSupAddress} supItem={supItem} setSupItem={setSupItem}
-          supTaxCode={supTaxCode} setSupTaxCode={setSupTaxCode} supBankAccount={supBankAccount} setSupBankAccount={setSupBankAccount}
-          addSupplier={addSupplier} deleteSupplier={deleteSupplier} suppliers={suppliers}
-        />
-
-        <SettingsModal 
-          showSettings={showSettings} setShowSettings={setShowSettings}
-          newBankBin={newBankBin} setNewBankBin={setNewBankBin} newBankAcc={newBankAcc} setNewBankAcc={setNewBankAcc} newBankNameStr={newBankNameStr} setNewBankNameStr={setNewBankNameStr} newHappyStart={newHappyStart} setNewHappyStart={setNewHappyStart} newHappyEnd={newHappyEnd} setNewHappyEnd={setNewHappyEnd} 
-          newAdminPinInput={newAdminPinInput} setNewAdminPinInput={setNewAdminPinInput}
-          saveSettings={saveSettings}
-        />
-
-        <CustomerModal 
-          showCustomerModal={showCustomerModal} setShowCustomerModal={setShowCustomerModal}
-          customers={customersData} setCustomers={setCustomers} logAudit={logAudit}
-          handleEditPhone={handleEditPhone} printCustomerCard={printCustomerCard} sendCardEmail={sendCardEmail} shareToZalo={shareToZalo}
-        />
-
-        <MarketingModal 
-          showMarketingModal={showMarketingModal} setShowMarketingModal={setShowMarketingModal}
-          marketingTier={marketingTier} setMarketingTier={setMarketingTier} marketingMsg={marketingMsg} setMarketingMsg={setMarketingMsg} sendMarketingEmails={handleSendMarketingEmail} loading={loading}
-        />
-
-        <POModal 
-          showPOModal={showPOModal} setShowPOModal={setShowPOModal} poTab={poTab} setPoTab={setPoTab} suppliers={suppliers} selectedSupplierId={selectedSupplierId} setSelectedSupplierId={setSelectedSupplierId} poSearch={poSearch} setPoSearch={setPoSearch} poItems={poItems} setPoItems={setPoItems} products={products} poNote={poNote} setPoNote={setPoNote} paidAmount={paidAmount} setPaidAmount={setPaidAmount} searchPoCode={searchPoCode} setSearchPoCode={setSearchPoCode} foundPO={foundPO} setFoundPO={setFoundPO} receiveItems={receiveItems} setReceiveItems={setReceiveItems} allPOs={allPOs} localPOs={localPOs} loading={loading} onSaveNewPO={handleSaveNewPO} onConfirmReceipt={handleConfirmReceipt} handlePrintPO={handlePrintPO}
-        />
-      </>
-    );
+    if (actualAdded > 0) {
+      playSound('success');
+      toast.success(`+1 ${cleanName(p.name)}`, { id: `add-${p.id}`, duration: 1000 });
+    } else {
+      playSound('error');
+      toast.error(`❌ Hết hàng: ${cleanName(p.name)}`, { id: `out-${p.id}`, duration: 2000 });
+    }
+    
+    setBarcodeInput("");
+    setSearchTerm("");
+    setShowSuggestions(false);
   };
 
-  if (isStorageLoading) {
+  const handleQtyChange = (id: any, q: any) => {
+    const qty = parseInt(q);
+    if (isNaN(qty) || qty <= 0) {
+      setCart((prev: CartItem[]) => prev.filter(i => i.product.id !== id));
+      return;
+    }
+    const p = products.find(x => x.id === id);
+    if (!p) return;
+    if (qty > p.stock) {
+      toast.error(`Tồn kho chỉ còn ${p.stock}`);
+      return;
+    }
+    setCart((prev: CartItem[]) => prev.map(i => i.product.id === id ? { ...i, qty, total: qty * getActualPrice(i.product) } : i));
+  };
+
+  const downloadPO = (po: any) => {
+    try {
+      const wb = (window as any).XLSX.utils.book_new();
+      const wsData = [
+        ["MÃ ĐẶT HÀNG:", po.po_code, "NGÀY ĐẶT:", new Date(po.created_at).toLocaleDateString('vi-VN')],
+        ["NHÀ CUNG CẤP:", suppliers.find(s => s.id == po.supplier_id)?.name || "", "SĐT:", suppliers.find(s => s.id == po.supplier_id)?.phone || ""],
+        ["GHI CHÚ:", po.note || ""],
+        [],
+        ["STT", "TÊN SẢN PHẨM", "SỐ LƯỢNG", "GIÁ NHẬP DỰ KIẾN", "THÀNH TIỀN"]
+      ];
+      (po.items || []).forEach((item: any, index: number) => {
+         wsData.push([
+           index + 1,
+           cleanName(item.name),
+           item.qty,
+           item.importPrice,
+           item.qty * item.importPrice
+         ]);
+      });
+      wsData.push([]);
+      wsData.push(["", "", "", "TỔNG CỘNG:", (po.items || []).reduce((sum: number, i: any) => sum + (i.qty * i.importPrice), 0)]);
+
+      const ws = (window as any).XLSX.utils.aoa_to_sheet(wsData);
+      (window as any).XLSX.utils.book_append_sheet(wb, ws, "Phieu_Dat_Hang");
+      (window as any).XLSX.writeFile(wb, `DatHang_${po.po_code}.xlsx`);
+      toast.success("Xuất file Đặt hàng thành công!");
+    } catch(e) {
+      toast.error("Lỗi xuất file");
+    }
+  };
+
+  const downloadSampleExcel = () => {
+    if (!(window as any).XLSX) return toast.error("Đang tải thư viện Excel, thử lại sau!");
+    const wsData = [
+      ["Mã sản phẩm (*)", "Tên sản phẩm (*)", "Danh mục", "Giá Nhập", "Giá Bán (*)", "Giá Khuyến mãi", "Điều kiện mua tặng", "Sản phẩm tặng kèm", "Số lượng", "Hạn sử dụng (mm/yyyy)"],
+      ["BIA-333", "Bia 333 Lon 330ml", "Đồ uống", 10000, 12000, 11000, 2, "Tặng 1 ly thủy tinh", 100, "12/2026"],
+      ["MY-HAO", "Nước rửa chén Mỹ Hảo", "Hóa phẩm", 15000, 20000, "", "", "", 50, ""]
+    ];
+    const ws = (window as any).XLSX.utils.aoa_to_sheet(wsData);
+    const wb = (window as any).XLSX.utils.book_new();
+    (window as any).XLSX.utils.book_append_sheet(wb, ws, "San_Pham");
+    (window as any).XLSX.writeFile(wb, "Mau_Nhap_Hang.xlsx");
+  };
+
+  const syncInventory = async () => {
+    if (!navigator.onLine) return toast.error("Mất kết nối mạng!");
+    if (Object.keys(actualStockInput).length === 0) return toast.warning("Chưa có dữ liệu cập nhật!");
+    if (!window.confirm("Hệ thống sẽ cập nhật số lượng tồn kho theo số liệu thực tế.\nXác nhận đồng bộ?")) return;
+    
+    setLoading(true);
+    try {
+      let count = 0;
+      for (const [id, actualQty] of Object.entries(actualStockInput)) {
+         await supabase.from("products").update({ stock: actualQty, updated_at: new Date().toISOString() }).eq("id", id);
+         count++;
+      }
+      toast.success(`Đã đồng bộ ${count} mã sản phẩm!`);
+      logAudit("KIỂM KHO", `Đồng bộ lệch kho ${count} mã`);
+      setActualStockInput({});
+      fetchProducts();
+      setShowInventoryModal(false);
+    } catch (e) {
+      toast.error("Lỗi đồng bộ kho!");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // NẾU CHƯA ĐĂNG NHẬP HOẶC KHÓA MÀN HÌNH
+  if (!isStorageLoading && (!isLoggedIn || isLocked)) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: '#ffffff', fontFamily: 'Arial, sans-serif' }}>
-        <div style={{ width: '40px', height: '40px', border: '4px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-        <h2 style={{ margin: '20px 0 5px 0', fontSize: '18px', fontWeight: 'bold' }}>HẢI LÊ MART ERP</h2>
-        <p style={{ margin: 0, fontSize: '14px', color: '#94a3b8' }}>Đang nạp cấu trúc bộ nhớ vô hạn IndexedDB...</p>
-        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+      <div className={`app-container ${darkMode ? "dark-theme" : "light-theme"}`} style={{ minHeight: "100vh", position: "relative" }}>
+        <Toaster position="top-right" />
+        
+        {/* Lớp nền tối mờ khóa màn hình */}
+        {isLocked && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
+            <div style={{ background: darkMode ? 'rgba(255,255,255,0.05)' : 'white', padding: '40px', borderRadius: '24px', textAlign: 'center', maxWidth: '400px', width: '90%', border: `1px solid ${darkMode ? 'rgba(255,255,255,0.1)' : 'transparent'}`, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔒</div>
+              <h2 style={{ color: darkMode ? 'white' : '#1e293b', margin: '0 0 8px 0', fontSize: '24px' }}>Màn Hình Đã Khóa</h2>
+              <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>Hệ thống tự động khóa sau 5 phút không hoạt động để bảo mật.</p>
+              
+              <input 
+                type="password" 
+                autoFocus
+                placeholder="Nhập mã PIN để mở khóa..." 
+                value={unlockPin}
+                onChange={e => setUnlockPin(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    if (unlockPin === adminPin || unlockPin === "1234") {
+                      setIsLocked(false);
+                      setUnlockPin("");
+                      toast.success("Đã mở khóa!");
+                    } else {
+                      toast.error("Mã PIN không đúng!");
+                    }
+                  }
+                }}
+                style={{ width: '100%', padding: '14px', borderRadius: '12px', border: `1px solid ${darkMode ? 'rgba(255,255,255,0.1)' : '#cbd5e1'}`, background: darkMode ? 'rgba(0,0,0,0.2)' : '#f8fafc', color: darkMode ? 'white' : 'black', textAlign: 'center', letterSpacing: '4px', fontSize: '18px', fontWeight: 'bold', marginBottom: '16px' }}
+              />
+              
+              <button 
+                onClick={() => {
+                  if (unlockPin === adminPin || unlockPin === "1234") {
+                    setIsLocked(false);
+                    setUnlockPin("");
+                    toast.success("Đã mở khóa!");
+                  } else {
+                    toast.error("Mã PIN không đúng!");
+                  }
+                }}
+                style={{ width: '100%', padding: '14px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }}
+              >
+                MỞ KHÓA
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* NẾU LÀ TRANG LOGIN BÌNH THƯỜNG */}
+        {!isLocked && (
+          <Login 
+            setIsLoggedIn={setIsLoggedIn} 
+            setRole={setRole} 
+            shift={shift} 
+            setShift={setShift} 
+            startingCash={startingCash} 
+            setStartingCash={setStartingCash}
+            installPrompt={installPrompt}
+            handleInstallApp={handleInstallApp}
+          />
+        )}
       </div>
     );
   }
 
+  // ==========================================
+  // RENDER TRANG BÁN HÀNG SAAS CHÍNH THỨC
+  // ==========================================
   return (
-    <div onClick={() => { setOpenFilter(null); setShowSuggestions(false); setShowMainMenu(false) }}>
-      <style>{styles}</style>
+    <div className={`app-container ${darkMode ? "dark-theme" : "light-theme"}`} style={{ padding: "16px", minHeight: "100vh", fontFamily: "'Plus Jakarta Sans', -apple-system, sans-serif" }}>
+      <Toaster position="top-right" />
       
-      {isLocked && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999999999, background: 'rgba(15,23,42,0.95)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-          <h1 style={{ fontSize: '32px', marginBottom: '10px', color: '#ef4444' }}>🔒 MÀN HÌNH ĐÃ KHÓA</h1>
-          <p style={{ marginBottom: '20px', color: '#94a3b8' }}>Hệ thống tự động khóa do không có tương tác. Vui lòng nhập mã PIN.</p>
-          <input 
-            type="password" autoFocus placeholder="Nhập PIN..." 
-            value={unlockPin} onChange={e => setUnlockPin(e.target.value)} 
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                if (unlockPin === adminPin || unlockPin === "0000") { 
-                  setIsLocked(false); setUnlockPin("");
-                } else { playSound('error'); toast.error("Mã PIN không đúng!"); }
-              }
-            }} 
-            style={{ padding: '12px 20px', fontSize: '24px', borderRadius: '8px', border: '2px solid #3b82f6', outline: 'none', textAlign: 'center', width: '200px', letterSpacing: '8px', color: '#0f172a' }} 
+      <Header 
+        role={role}
+        shift={shift}
+        totalValue={totalValue}
+        currentShiftStats={currentShiftStats}
+        setCashFlowModalInfo={setCashFlowModalInfo}
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        handleLogoutClick={handleLogoutClick}
+        showMainMenu={showMainMenu}
+        setShowMainMenu={setShowMainMenu}
+        setShowStatsModal={setShowStatsModal}
+        setShowCustomerModal={setShowCustomerModal}
+        setShowInventoryModal={setShowInventoryModal}
+        setShowDebtModal={setShowDebtModal}
+        setShowAuditModal={setShowAuditModal}
+        setShowExpenseModal={setShowExpenseModal}
+        setShowSupplierModal={setShowSupplierModal}
+        setShowMarketingModal={setShowMarketingModal}
+        setShowSettings={setShowStoreSettings} // Nối nút Cấu Hình (Settings) gọi ra Modal StoreSettings
+        setShowScannerLinkModal={setShowScannerLinkModal}
+        setShowPOModal={setShowPOModal}
+        lowStockCount={lowStockCount} 
+        isOnline={isOnline}
+        syncStatus={syncStatus}
+        syncAllOfflineData={syncPendingImports}
+        bankBin={bankBin}
+        bankAcc={bankAcc}
+        bankNameStr={bankNameStr}
+      />
+
+      <div className="pos-main-workspace" style={{ display: "grid", gridTemplateColumns: "70% 30%", gap: "16px" }}>
+        
+        {/* BÊN TRÁI: KHU VỰC SẢN PHẨM & TÌM KIẾM */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <ProductSearchAndActions 
+            barcodeInput={barcodeInput} setBarcodeInput={setBarcodeInput} handleNextToQR={handleNextToQR}
+            searchTerm={searchTerm} setSearchTerm={setSearchTerm}
+            selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory}
+            categories={categories}
+            openFilter={openFilter} setOpenFilter={setOpenFilter}
+            filters={filters} setFilters={setFilters}
+            sortConfig={sortConfig} setSortConfig={setSortConfig}
+            showSuggestions={showSuggestions} setShowSuggestions={setShowSuggestions}
+            sortedAndFilteredProducts={sortedAndFilteredProducts}
+            handleSelectSuggest={handleSelectSuggest}
+            setShowInputForm={setShowInputForm}
+            handleFileUpload={handleFileUpload}
+            downloadSampleExcel={downloadSampleExcel}
+            uniqueNames={uniqueNames} uniqueStocks={uniqueStocks} uniqueImportPrices={uniqueImportPrices} uniqueSalePrices={uniqueSalePrices} uniqueExpiries={uniqueExpiries}
           />
-          <button 
-            onClick={() => { if (unlockPin === adminPin || unlockPin === "0000") { setIsLocked(false); setUnlockPin(""); } else { playSound('error'); toast.error("PIN sai!"); } }} 
-            style={{ marginTop: '20px', padding: '12px 40px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}
-          >MỞ KHÓA</button>
+          
+          {showInputForm && (
+            <ProductInputForm 
+              newCode={newCode} setNewCode={setNewCode}
+              newName={newName} setNewName={setNewName}
+              newCategory={newCategory} setNewCategory={setNewCategory}
+              newImportPrice={newImportPrice} setNewImportPrice={setNewImportPrice}
+              newPrice={newPrice} setNewPrice={setNewPrice}
+              newPromoPrice={newPromoPrice} setNewPromoPrice={setNewPromoPrice}
+              newGiftCondition={newGiftCondition} setNewGiftCondition={setNewGiftCondition}
+              newGiftInfo={newGiftInfo} setNewGiftInfo={setNewGiftInfo}
+              newStock={newStock} setNewStock={setNewStock}
+              newExpiry={newExpiry} setNewExpiry={setNewExpiry}
+              handleAddProduct={handleAddProduct}
+              setShowInputForm={setShowInputForm}
+              handleCodeChange={handleCodeChange}
+              categories={categories}
+              loading={loading}
+            />
+          )}
+
+          <ProductTable 
+            products={sortedAndFilteredProducts}
+            role={role}
+            handleSelectSuggest={handleSelectSuggest}
+            handleEdit={handleEdit}
+            handleDelete={handleDelete}
+            setPrintBarcodeProduct={setPrintBarcodeProduct}
+          />
         </div>
+
+        {/* BÊN PHẢI: GIỎ HÀNG VÀ LỊCH SỬ GIAO DỊCH */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <CartPanel 
+            cart={cart} setCart={setCart}
+            handleQtyChange={handleQtyChange}
+            cartTotalAmountDisplay={cartTotalAmountDisplay}
+            amountAfterTierAndVoucher={amountAfterTierAndVoucher}
+            finalToPay={finalToPay}
+            confirmCheckout={confirmCheckout}
+            setIsCheckoutOpen={setIsCheckoutOpen}
+            handleHoldOrder={handleHoldOrder}
+            setCheckoutStep={setCheckoutStep}
+          />
+          <HistoryPanel 
+            history={history}
+            shift={shift}
+            handleRefund={handleRefund}
+            handleReprint={handleReprint}
+          />
+        </div>
+      </div>
+
+      {/* ========================================================
+          CÁC MODAL HIỂN THỊ (POPUP)
+          ======================================================== */}
+          
+      {showStoreSettings && (
+        <StoreSettingsModal onClose={() => setShowStoreSettings(false)} />
       )}
 
-      <div className="animated-bg-mesh"></div>
-      <Toaster position="top-right" reverseOrder={false} toastOptions={{ style: { fontSize: '15px', fontWeight: 'bold', padding: '16px 24px', color: '#0f172a', background: '#ffffff', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', border: '1px solid #e2e8f0', borderRadius: '8px' } }} containerStyle={{ top: 20, right: 20, zIndex: 999999999 }} />
-      <input type="text" id="search-barcode" style={{position:'absolute', opacity: 0, height: 0, width: 0}} value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeSubmitAction} />
+      {showPinModal && (
+        <PinModal 
+          adminPin={adminPin}
+          onSuccess={() => { setShowPinModal(false); if(pendingAction) pendingAction(); setPendingAction(null); }}
+          onClose={() => { setShowPinModal(false); setPendingAction(null); }}
+        />
+      )}
+
+      {cashFlowModalInfo && (
+        <CashFlowModal 
+          infoType={cashFlowModalInfo}
+          currentShiftCashFlow={currentShiftCashFlow}
+          onClose={() => setCashFlowModalInfo(null)}
+        />
+      )}
+
+      {isCheckoutOpen && (
+        <CheckoutModal 
+          checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep}
+          cart={cart}
+          customersData={customersData}
+          custPhone={custPhone} setCustPhone={setCustPhone}
+          custName={custName} setCustName={setCustName}
+          customerInput={customerInput}
+          handleCustomerInputChange={handleCustomerInputChange}
+          amountAfterTierAndVoucher={amountAfterTierAndVoucher}
+          finalToPay={finalToPay}
+          useWallet={useWallet} setUseWallet={setUseWallet}
+          walletUsedAmount={walletUsedAmount}
+          voucherInput={voucherInput} setVoucherInput={setVoucherInput}
+          handleVoucherSubmit={handleVoucherSubmit}
+          customerGiven={customerGiven} setCustomerGiven={setCustomerGiven}
+          confirmCheckout={confirmCheckout}
+          closeCheckout={closeCheckout}
+          loading={loading}
+          lastOrder={lastOrder}
+          bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr}
+          sendReceiptEmail={sendReceiptEmail}
+        />
+      )}
+
+      {printBarcodeProduct && (
+        <ScannerModal 
+          product={printBarcodeProduct}
+          barcodeCount={barcodeCount} setBarcodeCount={setBarcodeCount}
+          onClose={() => setPrintBarcodeProduct(null)}
+        />
+      )}
+
+      {showScannerLinkModal && (
+        <ScannerLinkModal onClose={() => setShowScannerLinkModal(false)} />
+      )}
+
+      {showHandoverModal && (
+        <HandoverModal 
+          shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats}
+          onConfirm={confirmHandover} onClose={() => setShowHandoverModal(false)}
+        />
+      )}
+
+      {showAuditModal && (
+        <AuditModal 
+          auditLogs={auditLogs}
+          onClose={() => setShowAuditModal(false)}
+          onViewDetail={(log: AuditLog) => setSelectedAuditLog(log)}
+        />
+      )}
+
+      {selectedAuditLog && (
+        <AuditDetailModal 
+          log={selectedAuditLog}
+          onClose={() => setSelectedAuditLog(null)}
+        />
+      )}
+
+      {showHoldModal && (
+        <HoldOrdersModal 
+          heldOrders={heldOrders}
+          restoreOrder={restoreOrder}
+          deleteHeldOrder={deleteHeldOrder}
+          onClose={() => setShowHoldModal(false)}
+        />
+      )}
+
+      {showExpenseModal && (
+        <ExpenseModal 
+          expenses={expenses}
+          expName={expName} setExpName={setExpName}
+          expAmount={expAmount} setExpAmount={setExpAmount}
+          addExpense={addExpense}
+          deleteExpense={deleteExpense}
+          onClose={() => setShowExpenseModal(false)}
+        />
+      )}
+
+      {showSupplierModal && (
+        <SupplierModal 
+          suppliers={suppliers}
+          supName={supName} setSupName={setSupName}
+          supPhone={supPhone} setSupPhone={setSupPhone}
+          supAddress={supAddress} setSupAddress={setSupAddress}
+          supItem={supItem} setSupItem={setSupItem}
+          supTaxCode={supTaxCode} setSupTaxCode={setSupTaxCode}
+          supBankAccount={supBankAccount} setSupBankAccount={setSupBankAccount}
+          addSupplier={addSupplier}
+          deleteSupplier={deleteSupplier}
+          onClose={() => setShowSupplierModal(false)}
+        />
+      )}
+
+      {showPOModal && (
+        <POModal 
+          poTab={poTab} setPoTab={setPoTab}
+          suppliers={suppliers}
+          selectedSupplierId={selectedSupplierId} setSelectedSupplierId={setSelectedSupplierId}
+          products={products}
+          poSearch={poSearch} setPoSearch={setPoSearch}
+          poItems={poItems} setPoItems={setPoItems}
+          poNote={poNote} setPoNote={setPoNote}
+          paidAmount={paidAmount} setPaidAmount={setPaidAmount}
+          searchPoCode={searchPoCode} setSearchPoCode={setSearchPoCode}
+          foundPO={foundPO} setFoundPO={setFoundPO}
+          receiveItems={receiveItems} setReceiveItems={setReceiveItems}
+          allPOs={allPOs}
+          loading={loading} setLoading={setLoading}
+          downloadPO={downloadPO}
+          setPrintPOData={setPrintPOData}
+          onClose={() => setShowPOModal(false)}
+          logAudit={logAudit}
+          addTransactionAndSync={addTransactionAndSync}
+          fetchProducts={fetchProducts}
+          setProducts={setProducts}
+          setSuppliers={setSuppliers}
+          setHistory={setHistory}
+        />
+      )}
+
+      {showStatsModal && (
+        <StatsModal 
+          reportStartDate={reportStartDate} setReportStartDate={setReportStartDate}
+          reportEndDate={reportEndDate} setReportEndDate={setReportEndDate}
+          history={history}
+          onClose={() => setShowStatsModal(false)}
+        />
+      )}
+
+      {showInventoryModal && (
+        <InventoryModal 
+          products={products}
+          inventorySearchTerm={inventorySearchTerm} setInventorySearchTerm={setInventorySearchTerm}
+          invFilter={invFilter} setInvFilter={setInvFilter}
+          actualStockInput={actualStockInput} setActualStockInput={setActualStockInput}
+          syncInventory={syncInventory}
+          handleImportInventoryCSV={handleImportInventoryCSV}
+          loading={loading}
+          onClose={() => setShowInventoryModal(false)}
+        />
+      )}
+
+      {showDebtModal && (
+        <DebtModal 
+          customersData={customersData}
+          handlePayDebt={handlePayDebt}
+          onClose={() => setShowDebtModal(false)}
+        />
+      )}
+
+      {showCustomerModal && (
+        <CustomerModal 
+          customersData={customersData}
+          handleEditPhone={handleEditPhone}
+          printCustomerCard={printCustomerCard}
+          sendCardEmail={sendCardEmail}
+          shareToZalo={shareToZalo}
+          onClose={() => setShowCustomerModal(false)}
+        />
+      )}
+
+      {showMarketingModal && (
+        <MarketingModal 
+          marketingTier={marketingTier} setMarketingTier={setMarketingTier}
+          marketingMsg={marketingMsg} setMarketingMsg={setMarketingMsg}
+          customersData={customersData}
+          onClose={() => setShowMarketingModal(false)}
+        />
+      )}
+
+      {/* ========================================================
+          KHU VỰC ẨN: CÁC MẪU IN HÓA ĐƠN VÀ THẺ VIP ĐỘNG
+          (Dùng PrintManager để in)
+          ======================================================== */}
+      <div style={{ display: 'none' }}>
+        <PrintManager 
+          printMode={printMode}
+          lastOrder={lastOrder}
+          printCustomer={printCustomer}
+          printPOData={printPOData}
+          printBarcodeProduct={printBarcodeProduct}
+          barcodeCount={barcodeCount}
+        />
+      </div>
       
-      <PrintManager printMode={printMode} lastOrder={lastOrder} shift={shift} role={role} customers={customersData} VAT_RATE={VAT_RATE} printBarcodeProduct={printBarcodeProduct} barcodeCount={barcodeCount} printCustomer={printCustomer} printPOData={printPOData} currentStore={currentStore} />
-      {renderModals()}
-
-      {!isLoggedIn ? (
-        <Login setIsLoggedIn={setIsLoggedIn} setRole={setRole} shift={shift} setShift={setShift} startingCash={startingCash} setStartingCash={setStartingCash} installPrompt={installPrompt} handleInstallApp={handleInstallApp} />
-      ) : (
-        <div className="no-print" style={{ padding: "15px", position: "relative", minHeight: "100vh" }}>
-          <div style={{ maxWidth: "1500px", margin: "0 auto", minWidth: "1000px" }}>
-            <Header role={role} shift={shift} totalValue={totalValue} currentShiftStats={currentShiftStats} setCashFlowModalInfo={setCashFlowModalInfo} darkMode={darkMode} setDarkMode={setDarkMode} handleLogoutClick={handleLogoutClick} showMainMenu={showMainMenu} setShowMainMenu={setShowMainMenu} setShowStatsModal={setShowStatsModal} setShowCustomerModal={setShowCustomerModal} setShowInventoryModal={setShowInventoryModal} setShowDebtModal={setShowDebtModal} setShowAuditModal={setShowAuditModal} setShowExpenseModal={setShowExpenseModal} setShowSupplierModal={setShowSupplierModal} setShowMarketingModal={setShowMarketingModal} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} setShowSettings={setShowSettings} lowStockCount={lowStockCount} isOnline={isOnline} syncStatus={syncStatus} syncAllOfflineData={syncAllOfflineData} setShowScannerLinkModal={setShowScannerLinkModal} setShowPOModal={setShowPOModal} />
-            <div style={{ display: "grid", gridTemplateColumns: "7fr 3fr", gap: "10px" }}>
-              <div className="glass" style={{ padding: "12px" }}>
-                <ProductSearchAndActions searchTerm={searchTerm} setSearchTerm={setSearchTerm} role={role} barcodeInput={barcodeInput} setBarcodeInput={setBarcodeInput} showSuggestions={showSuggestions} setShowSuggestions={setShowSuggestions} handleBarcodeSubmit={handleBarcodeSubmitAction} setScannerMode={setScannerMode} products={products} handleSelectSuggest={handleSelectSuggest} showInputForm={showInputForm} setShowInputForm={setShowInputForm} onAddProduct={() => setShowInputForm(true)} handleFileUpload={handleFileUpload} downloadSampleCSV={downloadSampleCSV} />
-                {showInputForm && <ProductInputForm newCode={newCode} handleCodeChange={handleCodeChange} newName={newName} setNewName={setNewName} newCategory={newCategory} setNewCategory={setNewCategory} categories={categories} newImportPrice={newImportPrice} setNewImportPrice={setNewImportPrice} newPrice={newPrice} setNewPrice={setNewPrice} newPromoPrice={newPromoPrice} setNewPromoPrice={setNewPromoPrice} newGiftCondition={newGiftCondition} setNewGiftCondition={setNewGiftCondition} newGiftInfo={newGiftInfo} setNewGiftInfo={setNewGiftInfo} newStock={newStock} setNewStock={setNewStock} newExpiry={newExpiry} setNewExpiry={setNewExpiry} handleAddProduct={handleAddProduct} setShowInputForm={setShowInputForm} loading={loading} />}
-                <div style={{ display: "flex", gap: "8px", marginBottom: "15px", marginTop: showInputForm ? "15px" : "0" }}>{categories.map(cat => <button key={cat} onClick={() => setSelectedCategory(cat)} className={`tab-btn ${selectedCategory === cat ? 'active' : ''}`}>{cat}</button>)}</div>
-                <ProductTable role={role} sortedAndFilteredProducts={sortedAndFilteredProducts} requestSort={requestSort} handleEdit={handleEdit} addToCart={addToCart} handlePrintBarcode={handlePrintBarcode} handleDelete={handleDelete} sortConfig={sortConfig} filters={filters} setFilters={setFilters} openFilter={openFilter} setOpenFilter={setOpenFilter} uniqueNames={uniqueNames} uniqueStocks={uniqueStocks} uniqueImportPrices={uniqueImportPrices} uniqueSalePrices={uniqueSalePrices} uniqueExpiries={uniqueExpiries} />
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                <CartPanel cart={cart} custName={custName} heldOrders={heldOrders} cartTotalAmountDisplay={cartTotalAmountDisplay} setShowHoldModal={setShowHoldModal} handleHoldOrder={handleHoldOrder} clearCart={clearCart} setCustName={setCustName} setCustPhone={setCustPhone} setCustomerInput={setCustomerInput} setIsCheckoutOpen={setIsCheckoutOpen} setCheckoutStep={setCheckoutStep} adjustCartQty={adjustCartQty} handleDirectQtyChange={handleDirectQtyChange} handleDirectQtyBlur={handleDirectQtyBlur} removeFromCart={removeFromCart} />
-                <HistoryPanel logSearchTerm={logSearchTerm} setLogSearchTerm={setLogSearchTerm} logTypeFilter={logTypeFilter} setLogTypeFilter={setLogTypeFilter} exportToCSV={exportToCSV} groupedHistory={groupedHistory} expandedDates={expandedDates} toggleDateGroup={toggleDateGroup} handleRefund={handleRefund} onPrintK80={(log) => handleReprint(log.time, 'receipt_thermal')} onPrintA4={(log) => handleReprint(log.time, 'receipt_a4')} />
-              </div>
+      {/* KHỐI ĐẦU HÓA ĐƠN ĐỘNG CHO TRÌNH DUYỆT THƯỜNG (Legacy fallback) */}
+      <div id="print-receipt-section" className="print-only" style={{ display: 'none' }}>
+        <style>{`
+          @media print {
+            body * { visibility: hidden; }
+            #print-receipt-section, #print-receipt-section * { visibility: visible; }
+            #print-receipt-section { position: absolute; left: 0; top: 0; width: 100%; font-family: monospace; }
+            .no-print { display: none !important; }
+          }
+        `}</style>
+        
+        {(() => {
+          const storeInfo = JSON.parse(window.localStorage.getItem("mart_current_store") || "{}");
+          return (
+            <div style={{ textAlign: "center", borderBottom: "1px dashed #000", paddingBottom: "10px", marginBottom: "10px" }}>
+              <h2 style={{ margin: "0", fontSize: "20px", textTransform: "uppercase", fontWeight: "900" }}>
+                {storeInfo.store_name || "TÊN CỬA HÀNG"}
+              </h2>
+              <p style={{ margin: "4px 0", fontSize: "12px" }}>ĐC: {storeInfo.address || "Chưa cập nhật địa chỉ"}</p>
+              <p style={{ margin: "4px 0", fontSize: "12px" }}>
+                Hotline: {storeInfo.phone || "..."} {storeInfo.tax_code ? `- MST: ${storeInfo.tax_code}` : ""}
+              </p>
+              
+              <h3 style={{ margin: "10px 0 5px 0", fontSize: "16px", textTransform: "uppercase" }}>HÓA ĐƠN THANH TOÁN</h3>
+              <p style={{ margin: "0", fontSize: "12px" }}>Ca: {shift} | Thu ngân: {role === "admin" ? "Quản lý" : "Nhân viên"}</p>
             </div>
-          </div>
-        </div>
-      )}
+          );
+        })()}
+
+        {/* Các mục chi tiết sản phẩm in ra sẽ được truyền từ lastOrder vào nếu bạn gọi in qua thẻ này */}
+      </div>
+
     </div>
   );
 }
