@@ -51,7 +51,6 @@ export const Header: React.FC<HeaderProps> = ({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
-  // Hàm lấy tên cửa hàng động từ local storage
   const getStoreName = () => {
     try {
       const savedStore = window.localStorage.getItem("mart_current_store");
@@ -67,13 +66,11 @@ export const Header: React.FC<HeaderProps> = ({
     return "HỆ THỐNG POS PRO";
   };
 
-  // Hàm kích hoạt nhạc Windy Hill từ thư mục public
   const toggleWindyMusic = () => {
     if (!audioRef.current) {
       audioRef.current = new Audio("/Windy Hill.mp3");
       audioRef.current.loop = true;
     }
-    
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
@@ -84,172 +81,187 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px", gap: "10px" }} className="no-print">
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", gap: "12px", fontFamily: "'Plus Jakarta Sans', -apple-system, sans-serif" }} className="no-print">
       
-      {/* 1. HIỆU ỨNG CSS ANIMATION */}
+      {/* 1. ÉP FONT CHỮ CAO CẤP VÀ ANIMATION SANG TRỌNG */}
       <style>{`
-        @keyframes flagWave {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+        
+        .premium-banner {
+          background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+          box-shadow: 0 4px 15px -3px rgba(220, 38, 38, 0.4);
+          transition: all 0.3s ease;
         }
-        @keyframes neonBorder {
-          0%, 100% { border-color: #ffeb3b; box-shadow: 0 0 15px rgba(255,235,59,0.8); }
-          50% { border-color: #ff5722; box-shadow: 0 0 25px rgba(255,87,34,1); }
+        .premium-banner:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 20px -4px rgba(220, 38, 38, 0.5);
         }
-        .vietnam-saas-banner {
-          background: linear-gradient(-45deg, #da251d, #b71c1c, #da251d, #ff1744) !important;
-          background-size: 300% 300% !important;
-          animation: flagWave 4s ease infinite, neonBorder 3s linear infinite !important;
-          border: 3px solid #ffeb3b !important;
-        }
-        .dropdown-menu-saas button {
-          width: 100%;
-          text-align: left;
-          padding: 10px 14px;
-          background: none;
-          border: none;
-          color: #334155;
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
+        
+        .modern-stat-card {
+          background: ${darkMode ? 'rgba(255, 255, 255, 0.05)' : '#ffffff'};
+          border: 1px solid ${darkMode ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0'};
+          border-radius: 14px;
+          padding: 8px 16px;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          justify-content: center;
+          min-width: 120px;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.02);
           transition: all 0.2s;
         }
-        .dropdown-menu-saas button:hover {
-          background: #f1f5f9;
-          color: #da251d;
-          padding-left: 18px;
+        .modern-stat-card:hover {
+          border-color: #cbd5e1;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        .stat-label {
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-bottom: 2px;
+        }
+        
+        .stat-value {
+          font-size: 17px;
+          font-weight: 800;
+          letter-spacing: -0.5px;
+        }
+
+        @keyframes spinSlow { 100% { transform: rotate(360deg); } }
       `}</style>
 
-      {/* 2. BANNER CỜ ĐỎ SAO VÀNG VÀ NÚT QUẨY NHẠC */}
+      {/* 2. BANNER CỜ ĐỎ SAO VÀNG - BẢN RUBY LUXURY */}
       <div 
-        className="vietnam-saas-banner" 
+        className="premium-banner"
         onClick={toggleWindyMusic}
         style={{ 
           display: 'flex', 
           alignItems: 'center', 
           gap: '14px', 
-          padding: '10px 20px', 
+          padding: '8px 20px', 
           borderRadius: '16px', 
-          minWidth: '320px', 
           cursor: 'pointer',
           position: 'relative',
           overflow: 'hidden',
           userSelect: 'none',
-          boxShadow: '0 10px 25px -5px rgba(218,37,29,0.4)'
+          border: '1px solid #f87171'
         }}
         title="Bấm vào để BẬT/TẮT nhạc Windy Hill"
       >
         <div style={{ 
-          width: '42px', 
-          height: '42px', 
+          width: '40px', 
+          height: '40px', 
           borderRadius: '12px', 
-          background: '#ffeb3b', 
+          background: 'linear-gradient(135deg, #fef08a 0%, #eab308 100%)', 
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center', 
-          fontSize: '26px', 
-          boxShadow: '0 0 15px #ffeb3b',
-          transform: isPlaying ? 'scale(1.1)' : 'none',
-          transition: 'all 0.5s ease'
+          fontSize: '24px', 
+          boxShadow: '0 2px 10px rgba(234, 179, 8, 0.5)',
+          transform: isPlaying ? 'scale(1.05)' : 'none',
+          transition: 'all 0.3s ease'
         }}>
-          {isPlaying ? <span style={{ animation: 'spin 2s linear infinite' }}>📀</span> : "⭐"}
+          {isPlaying ? <span style={{ animation: 'spinSlow 3s linear infinite' }}>📀</span> : "⭐"}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <span style={{ fontSize: '18px', fontWeight: '900', color: '#ffffff', letterSpacing: '0.5px', textTransform: 'uppercase', textShadow: '2px 2px 4px rgba(0,0,0,0.4)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', paddingRight: '10px' }}>
+          <span style={{ fontSize: '17px', fontWeight: '800', color: '#ffffff', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
             {getStoreName()}
           </span>
-          <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#ffeb3b', letterSpacing: '1px', textShadow: '1px 1px 2px rgba(0,0,0,0.4)' }}>
-            {isPlaying ? "🎶 WINDY HILL ĐANG PHÁT..." : "🔥 CLICK LOGO QUẨY NHẠC"}
+          <span style={{ fontSize: '11px', fontWeight: '600', color: '#fef08a', letterSpacing: '0.5px' }}>
+            {isPlaying ? "🎶 ĐANG PHÁT WINDY HILL..." : "✨ CLICK LOGO QUẨY NHẠC"}
           </span>
         </div>
       </div>
 
-      {/* 3. KHỐI CHỈ SỐ KINH DOANH TRONG CA */}
-      <div style={{ display: "flex", gap: "10px", flex: 1, justifyContent: "center" }}>
+      {/* 3. KHỐI CHỈ SỐ KINH DOANH - SẠCH SẼ, HIỆN ĐẠI, DỄ NHÌN */}
+      <div style={{ display: "flex", gap: "12px", flex: 1, justifyContent: "center" }}>
         {role === "admin" && (
-          <div className="stat-card" style={{ padding: "8px 14px", textAlign: "center", minWidth: "110px", background: 'rgba(255,235,59,0.15)', border: '1px solid #ffeb3b', borderRadius: "12px" }}>
-            <span style={{ fontSize: "11px", color: "#856404", display: "block", fontWeight: "bold" }}>VỐN HÀNG HOÁ</span>
-            <strong style={{ fontSize: "16px", color: "#856404" }}>{Math.round(totalValue).toLocaleString()}đ</strong>
+          <div className="modern-stat-card">
+            <span className="stat-label" style={{ color: "#64748b" }}>Vốn hàng hoá</span>
+            <span className="stat-value" style={{ color: darkMode ? "#cbd5e1" : "#334155" }}>{Math.round(totalValue).toLocaleString()}đ</span>
           </div>
         )}
-        <div className="stat-card pointer-click" onClick={() => setCashFlowModalInfo('TIỀN MẶT')} style={{ padding: "8px 14px", textAlign: "center", minWidth: "110px", background: 'rgba(20,184,166,0.1)', border: '1px solid #14b8a6', borderRadius: "12px" }}>
-          <span style={{ fontSize: "11px", color: "#0f766e", display: "block", fontWeight: "bold" }}>TIỀN MẶT 👆</span>
-          <strong style={{ fontSize: "16px", color: "#0f766e" }}>{Math.round(currentShiftStats.cash).toLocaleString()}đ</strong>
+        <div className="modern-stat-card pointer-click" onClick={() => setCashFlowModalInfo('TIỀN MẶT')} style={{ cursor: 'pointer', borderBottom: '3px solid #10b981' }}>
+          <span className="stat-label" style={{ color: "#10b981" }}>Tiền mặt 👆</span>
+          <span className="stat-value" style={{ color: "#059669" }}>{Math.round(currentShiftStats.cash).toLocaleString()}đ</span>
         </div>
-        <div className="stat-card pointer-click" onClick={() => setCashFlowModalInfo('CHUYỂN KHOẢN')} style={{ padding: "8px 14px", textAlign: "center", minWidth: "110px", background: 'rgba(59,130,246,0.1)', border: '1px solid #3b82f6', borderRadius: "12px" }}>
-          <span style={{ fontSize: "11px", color: "#1d4ed8", display: "block", fontWeight: "bold" }}>CHUYỂN KHOẢN 👆</span>
-          <strong style={{ fontSize: "16px", color: "#1d4ed8" }}>{Math.round(currentShiftStats.transfer).toLocaleString()}đ</strong>
+        <div className="modern-stat-card pointer-click" onClick={() => setCashFlowModalInfo('CHUYỂN KHOẢN')} style={{ cursor: 'pointer', borderBottom: '3px solid #3b82f6' }}>
+          <span className="stat-label" style={{ color: "#3b82f6" }}>Chuyển khoản 👆</span>
+          <span className="stat-value" style={{ color: "#2563eb" }}>{Math.round(currentShiftStats.transfer).toLocaleString()}đ</span>
         </div>
         {role === "admin" && (
-          <div className="stat-card" style={{ padding: "8px 14px", textAlign: "center", minWidth: "110px", background: 'rgba(249,115,22,0.1)', border: '1px solid #f97316', borderRadius: "12px" }}>
-            <span style={{ fontSize: "11px", color: "#c2410c", display: "block", fontWeight: "bold" }}>LÃI TẠM TÍNH</span>
-            <strong style={{ fontSize: "16px", color: "#c2410c" }}>{Math.round(currentShiftStats.profit).toLocaleString()}đ</strong>
+          <div className="modern-stat-card" style={{ borderBottom: '3px solid #f59e0b' }}>
+            <span className="stat-label" style={{ color: "#f59e0b" }}>Lãi tạm tính</span>
+            <span className="stat-value" style={{ color: "#d97706" }}>{Math.round(currentShiftStats.profit).toLocaleString()}đ</span>
           </div>
         )}
       </div>
 
-      {/* 4. KHỐI ĐIỀU KHIỂN & MENU ẨN GÓC PHẢI */}
-      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+      {/* 4. KHỐI ĐIỀU KHIỂN & MENU - GỌN GÀNG, BO GÓC CHUẨN UX */}
+      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px', background: isOnline ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', border: isOnline ? '1px solid #10b981' : '1px solid #ef4444' }}>
-          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isOnline ? '#10b981' : '#ef4444', display: 'inline-block', boxShadow: isOnline ? '0 0 10px #10b981' : '0 0 10px #ef4444' }}></span>
-          <span style={{ fontSize: '12px', fontWeight: 'bold', color: isOnline ? '#10b981' : '#ef4444' }}>
-            {isOnline ? 'Cloud Connected' : 'Offline Local'}
+        {/* Đèn báo trạng thái mạng */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 14px', borderRadius: '12px', background: isOnline ? (darkMode ? 'rgba(16,185,129,0.1)' : '#ecfdf5') : (darkMode ? 'rgba(239,68,68,0.1)' : '#fef2f2'), border: `1px solid ${isOnline ? '#a7f3d0' : '#fecaca'}` }}>
+          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isOnline ? '#10b981' : '#ef4444', display: 'inline-block', boxShadow: isOnline ? '0 0 8px #10b981' : '0 0 8px #ef4444' }}></span>
+          <span style={{ fontSize: '12px', fontWeight: '700', color: isOnline ? '#059669' : '#dc2626' }}>
+            {isOnline ? 'Online' : 'Offline'}
           </span>
         </div>
 
-        <button onClick={() => setDarkMode(!darkMode)} style={{ background: '#f8fafc', border: '1px solid #cbd5e1', cursor: 'pointer', padding: '8px 12px', borderRadius: '8px' }} title="Thay đổi giao diện">
+        {/* Nút bật tắt Darkmode */}
+        <button onClick={() => setDarkMode(!darkMode)} style={{ background: darkMode ? 'rgba(255,255,255,0.05)' : '#ffffff', border: `1px solid ${darkMode ? 'rgba(255,255,255,0.1)' : '#e2e8f0'}`, cursor: 'pointer', padding: '10px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', transition: 'all 0.2s' }} title="Thay đổi giao diện">
           {darkMode ? "☀️" : "🌙"}
         </button>
 
+        {/* Khối tài khoản nhân sự */}
         <div style={{ position: "relative" }}>
           <button 
             onClick={(e) => { e.stopPropagation(); setShowMainMenu(!showMainMenu); }} 
-            style={{ background: '#f8fafc', border: '1px solid #cbd5e1', cursor: 'pointer', padding: "8px 14px", display: "flex", alignItems: "center", gap: "8px", borderRadius: '8px' }}
+            style={{ background: darkMode ? 'rgba(255,255,255,0.05)' : '#ffffff', border: `1px solid ${darkMode ? 'rgba(255,255,255,0.1)' : '#e2e8f0'}`, cursor: 'pointer', padding: "6px 14px 6px 6px", display: "flex", alignItems: "center", gap: "10px", borderRadius: '14px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', transition: 'all 0.2s' }}
           >
-            <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#da251d", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: "12px" }}>
+            <div style={{ width: "32px", height: "32px", borderRadius: "10px", background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "16px" }}>
               {role === "admin" ? "👑" : "🧑"}
             </div>
             <div style={{ textAlign: "left" }}>
-              <span style={{ display: "block", fontSize: "13px", fontWeight: "bold", color: "#334155" }}>{role === "admin" ? "Quản lý" : "Thu ngân"}</span>
-              <span style={{ display: "block", fontSize: "10px", color: "#64748b" }}>{shift}</span>
+              <span style={{ display: "block", fontSize: "13px", fontWeight: "700", color: darkMode ? '#ffffff' : "#334155" }}>{role === "admin" ? "Quản lý" : "Thu ngân"}</span>
+              <span style={{ display: "block", fontSize: "11px", fontWeight: "500", color: "#64748b" }}>{shift}</span>
             </div>
-            <span style={{ fontSize: "10px", color: '#64748b' }}>▼</span>
+            <span style={{ fontSize: "10px", color: '#94a3b8', marginLeft: '4px' }}>▼</span>
           </button>
 
+          {/* Menu xổ xuống */}
           {showMainMenu && (
-            <div className="dropdown-menu-saas" style={{ position: "absolute", right: 0, top: "100%", marginTop: "8px", width: "240px", zIndex: 99999, padding: "6px", borderRadius: "12px", background: '#ffffff', border: "1px solid #e2e8f0", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)" }} onClick={e => e.stopPropagation()}>
-              <div style={{ padding: "8px 12px", fontSize: "11px", fontWeight: "bold", color: "#94a3b8", textTransform: "uppercase", borderBottom: "1px solid #f1f5f9", marginBottom: "4px" }}>Hệ thống lõi SaaS</div>
+            <div className="dropdown-menu-saas" style={{ position: "absolute", right: 0, top: "100%", marginTop: "8px", width: "240px", zIndex: 99999, padding: "8px", borderRadius: "16px", background: darkMode ? '#1e293b' : '#ffffff', border: `1px solid ${darkMode ? '#334155' : '#e2e8f0'}`, boxShadow: "0 20px 25px -5px rgba(0,0,0,0.15)" }} onClick={e => e.stopPropagation()}>
+              <div style={{ padding: "8px 12px", fontSize: "11px", fontWeight: "700", color: "#94a3b8", textTransform: "uppercase", borderBottom: `1px solid ${darkMode ? '#334155' : '#f1f5f9'}`, marginBottom: "4px" }}>Hệ thống SaaS</div>
               <button onClick={() => { setShowMainMenu(false); setShowStatsModal(true); }}>📊 Báo cáo doanh thu</button>
-              <button onClick={() => { setShowMainMenu(false); setShowPOModal(true); }}>📦 Nhập kho NCC (PO)</button>
+              <button onClick={() => { setShowMainMenu(false); setShowPOModal(true); }}>📦 Nhập kho NCC</button>
               <button onClick={() => { setShowMainMenu(false); setShowInventoryModal(true); }}>🔍 Kiểm kho định kỳ</button>
               <button style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }} onClick={() => { setShowMainMenu(false); setShowInventoryModal(true); }}>
-                ⚠️ Hàng sắp hết <span style={{ background: '#ef4444', color: 'white', padding: '2px 6px', borderRadius: '10px', fontSize: '10px' }}>{lowStockCount}</span>
+                ⚠️ Hàng sắp hết <span style={{ background: '#ef4444', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '700' }}>{lowStockCount}</span>
               </button>
-              <button onClick={() => { setShowMainMenu(false); setShowDebtModal(true); }}>💸 Quản lý Sổ nợ Khách</button>
-              <button onClick={() => { setShowMainMenu(false); setShowExpenseModal(true); }}>📉 Lập Phiếu Chi ca</button>
-              <button onClick={() => { setShowMainMenu(false); setShowCustomerModal(true); }}>💳 Danh sách Thành viên (VIP)</button>
-              <button onClick={() => { setShowMainMenu(false); setShowSupplierModal(true); }}>🏢 Danh mục Nhà cung cấp</button>
-              <button onClick={() => { setShowMainMenu(false); setShowMarketingModal(true); }}>💌 Chiến dịch Email Marketing</button>
-              <button onClick={() => { setShowMainMenu(false); setShowScannerLinkModal(true); }}>🔗 Kết nối Máy quét Mobile</button>
+              <button onClick={() => { setShowMainMenu(false); setShowDebtModal(true); }}>💸 Sổ nợ Khách</button>
+              <button onClick={() => { setShowMainMenu(false); setShowExpenseModal(true); }}>📉 Lập Phiếu Chi</button>
+              <button onClick={() => { setShowMainMenu(false); setShowCustomerModal(true); }}>💳 Danh sách VIP</button>
+              <button onClick={() => { setShowMainMenu(false); setShowSupplierModal(true); }}>🏢 Nhà cung cấp</button>
+              <button onClick={() => { setShowMainMenu(false); setShowMarketingModal(true); }}>💌 Email Marketing</button>
+              <button onClick={() => { setShowMainMenu(false); setShowScannerLinkModal(true); }}>🔗 Kết nối Máy quét</button>
               {role === "admin" && (
                 <>
-                  <div style={{ padding: "8px 12px", fontSize: "11px", fontWeight: "bold", color: "#94a3b8", textTransform: "uppercase", borderTop: "1px solid #f1f5f9", marginTop: "4px", marginBottom: "4px" }}>Cấu hình doanh nghiệp</div>
-                  <button onClick={() => { setShowMainMenu(false); setShowSettings(true); }}>⚙️ Thiết lập QR & Giờ Vàng</button>
-                  <button onClick={() => { setShowMainMenu(false); setShowAuditModal(true); }}>📜 Nhật ký kiểm toán hệ thống</button>
+                  <div style={{ padding: "8px 12px", fontSize: "11px", fontWeight: "700", color: "#94a3b8", textTransform: "uppercase", borderTop: `1px solid ${darkMode ? '#334155' : '#f1f5f9'}`, marginTop: "4px", marginBottom: "4px" }}>Cấu hình</div>
+                  <button onClick={() => { setShowMainMenu(false); setShowSettings(true); }}>⚙️ Thiết lập hệ thống</button>
+                  <button onClick={() => { setShowMainMenu(false); setShowAuditModal(true); }}>📜 Nhật ký kiểm toán</button>
                 </>
               )}
             </div>
           )}
         </div>
 
-        {/* 5. NÚT ĐĂNG XUẤT */}
-        <button onClick={handleLogoutClick} style={{ background: '#dc2626', color: 'white', border: 'none', cursor: 'pointer', padding: "8px 14px", borderRadius: "8px", fontWeight: "bold", fontSize: "13px", boxShadow: '0 4px 10px rgba(220,38,38,0.3)' }}>
-          🚪 <span className="hide-on-mobile">ĐĂNG XUẤT</span>
+        {/* Nút Đăng xuất - Tinh tế hơn, bớt cồng kềnh */}
+        <button onClick={handleLogoutClick} style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', cursor: 'pointer', padding: "10px 16px", borderRadius: "12px", fontWeight: "700", fontSize: "13px", display: "flex", alignItems: "center", gap: "6px", transition: 'all 0.2s' }} onMouseOver={(e) => { e.currentTarget.style.background = '#fee2e2'; }} onMouseOut={(e) => { e.currentTarget.style.background = '#fef2f2'; }}>
+          <span style={{ fontSize: '16px' }}>🚪</span> <span className="hide-on-mobile">ĐĂNG XUẤT</span>
         </button>
 
       </div>
