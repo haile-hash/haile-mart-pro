@@ -21,13 +21,13 @@ export const HoldOrdersModal: React.FC<HoldOrdersModalProps> = ({
   return (
     <div style={{
       position: 'fixed',
-      inset: 0, // Bao trùm toàn màn hình
-      backgroundColor: 'rgba(15, 23, 42, 0.75)', // Nền tối mờ chuyên nghiệp
+      inset: 0,
+      backgroundColor: 'rgba(15, 23, 42, 0.75)',
       backdropFilter: 'blur(4px)',
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
-      zIndex: 999999 // Đảm bảo luôn nằm trên cùng
+      zIndex: 999999 
     }}>
       <div style={{
         background: '#ffffff',
@@ -72,9 +72,8 @@ export const HoldOrdersModal: React.FC<HoldOrdersModalProps> = ({
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {heldOrders.map(order => {
-                // Tính toán an toàn để chống crash sập web
-                const orderTotal = order.cart?.reduce((sum, item) => sum + (item.total || 0), 0) || 0;
+              {heldOrders.map((order: any) => {
+                const orderTotal = order.cart?.reduce((sum: number, item: any) => sum + (item.total || 0), 0) || 0;
                 
                 return (
                   <div key={order.id} style={{
@@ -84,20 +83,25 @@ export const HoldOrdersModal: React.FC<HoldOrdersModalProps> = ({
                     padding: '16px',
                     boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
                   }}>
-                    {/* Thông tin giờ & Tiền */}
+                    {/* Thông tin giờ, Tên Khách & Tiền */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', borderBottom: '1px dashed #cbd5e1', paddingBottom: '12px' }}>
-                      <span style={{ fontWeight: 'bold', color: '#3b82f6', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        🕒 Lưu lúc: {order.time || 'Không rõ'}
-                      </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <span style={{ fontWeight: '900', color: '#1e293b', fontSize: '15px' }}>
+                          👤 {order.note || 'Không tên'}
+                        </span>
+                        <span style={{ color: '#3b82f6', fontSize: '12px', fontWeight: 'bold' }}>
+                          🕒 Lưu lúc: {order.time || 'Không rõ'}
+                        </span>
+                      </div>
                       <span style={{ fontWeight: 'bold', color: '#ef4444', fontSize: '18px' }}>
                         {orderTotal.toLocaleString('vi-VN')}đ
                       </span>
                     </div>
                     
-                    {/* Chi tiết món - Thêm dấu ? để chống màn hình trắng */}
+                    {/* Chi tiết món */}
                     <div style={{ fontSize: '15px', color: '#475569', marginBottom: '20px', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '6px' }}>
                       <ul style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        {order.cart?.map((item, idx) => (
+                        {order.cart?.map((item: any, idx: number) => (
                           <li key={idx}>
                             {item.product?.name || 'Sản phẩm không xác định'} <span style={{ fontWeight: 'bold', color: '#0f172a' }}>x{item.qty || 0}</span>
                           </li>
