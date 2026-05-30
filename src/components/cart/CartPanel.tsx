@@ -4,9 +4,12 @@ import React from 'react';
 import { cleanName, getActualPrice } from '../../utils/helpers';
 import { toast } from 'react-hot-toast';
 
-export const CartPanel = ({ cart, setCart, handleQtyChange, cartTotalAmountDisplay, setIsCheckoutOpen, handleHoldOrder }: any) => {
+export const CartPanel = ({ 
+  cart, setCart, handleQtyChange, cartTotalAmountDisplay, 
+  setIsCheckoutOpen, handleHoldOrder, setCheckoutStep, setShowHoldModal 
+}: any) => {
   
-  // Hàm xử lý nút Hủy giỏ hàng
+  // Hàm Hủy giỏ
   const handleClearCart = () => {
     if (cart.length === 0) return;
     if (window.confirm("Bạn có chắc muốn hủy giỏ hàng hiện tại?")) {
@@ -15,27 +18,55 @@ export const CartPanel = ({ cart, setCart, handleQtyChange, cartTotalAmountDispl
     }
   };
 
+  // Hàm Lưu Tạm (Có hỏi tên khách)
+  const onHoldClick = () => {
+    if (cart.length === 0) return;
+    const note = window.prompt("Nhập tên khách hàng hoặc ghi chú (Bàn 1, Khách áo đen...):", "Khách chờ");
+    if (note !== null) {
+      handleHoldOrder(note); // Truyền tên khách về App.tsx
+    }
+  };
+
   return (
     <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #cbd5e1', display: 'flex', flexDirection: 'column', height: '100%', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
       
-      {/* HEADER GIỎ HÀNG */}
-      <div style={{ padding: '16px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ margin: 0, fontSize: '16px', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+      {/* HEADER & NÚT MỞ ĐƠN LƯU */}
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', borderTopLeftRadius: '12px', borderTopRightRadius: '12px' }}>
+        <h2 style={{ margin: 0, fontSize: '15px', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
           🛒 GIỎ HÀNG <span style={{ background: '#ef4444', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '12px' }}>{cart.length}</span>
         </h2>
+        <button onClick={() => setShowHoldModal(true)} style={{ padding: '6px 12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px', boxShadow: '0 2px 4px rgba(59,130,246,0.3)' }}>
+          🕒 MỞ ĐƠN LƯU
+        </button>
+      </div>
+
+      {/* KHU VỰC THANH TOÁN (ĐƯỢC ĐẨY LÊN ĐẦU) */}
+      <div style={{ padding: '16px', borderBottom: '2px dashed #e2e8f0', background: '#ffffff' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
+          <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#475569' }}>TỔNG CỘNG:</span>
+          <span style={{ fontSize: '28px', fontWeight: '900', color: '#dc2626' }}>{cartTotalAmountDisplay.toLocaleString()}đ</span>
+        </div>
+        
+        {/* Đã thêm setCheckoutStep(1) để fix lỗi không hiện Modal */}
+        <button 
+          onClick={() => { setCheckoutStep(1); setIsCheckoutOpen(true); }}
+          disabled={cart.length === 0}
+          style={{ width: '100%', padding: '14px', background: cart.length === 0 ? '#cbd5e1' : '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold', cursor: cart.length === 0 ? 'not-allowed' : 'pointer', boxShadow: cart.length === 0 ? 'none' : '0 4px 12px rgba(16,185,129,0.3)', transition: 'all 0.2s', marginBottom: '12px' }}
+        >
+          💵 THANH TOÁN (F2)
+        </button>
+
         <div style={{ display: 'flex', gap: '8px' }}>
-          {/* Nút Lưu F4 (Gọi hàm handleHoldOrder) */}
-          <button onClick={handleHoldOrder} style={{ padding: '6px 12px', background: '#fef08a', color: '#854d0e', border: '1px solid #fde047', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }} title="Lưu đơn chờ thanh toán sau (F4)">
-            ⏸️ Lưu (F4)
+          <button onClick={onHoldClick} disabled={cart.length === 0} style={{ flex: 1, padding: '10px', background: cart.length === 0 ? '#f1f5f9' : '#fef08a', color: cart.length === 0 ? '#94a3b8' : '#854d0e', border: `1px solid ${cart.length === 0 ? '#e2e8f0' : '#fde047'}`, borderRadius: '6px', fontWeight: 'bold', cursor: cart.length === 0 ? 'not-allowed' : 'pointer' }}>
+            ⏸️ Lưu Tạm (F4)
           </button>
-          {/* Nút Hủy (Gọi hàm handleClearCart) */}
-          <button onClick={handleClearCart} style={{ padding: '6px 12px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
-            🗑️ Hủy
+          <button onClick={handleClearCart} disabled={cart.length === 0} style={{ flex: 1, padding: '10px', background: cart.length === 0 ? '#f1f5f9' : '#fee2e2', color: cart.length === 0 ? '#94a3b8' : '#dc2626', border: `1px solid ${cart.length === 0 ? '#e2e8f0' : '#fecaca'}`, borderRadius: '6px', fontWeight: 'bold', cursor: cart.length === 0 ? 'not-allowed' : 'pointer' }}>
+            🗑️ Hủy Giỏ
           </button>
         </div>
       </div>
 
-      {/* DANH SÁCH MÓN HÀNG */}
+      {/* DANH SÁCH MÓN HÀNG NẰM BÊN DƯỚI */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px', minHeight: '250px' }}>
         {cart.length === 0 ? (
           <div style={{ textAlign: 'center', color: '#94a3b8', marginTop: '40px' }}>
@@ -60,20 +91,6 @@ export const CartPanel = ({ cart, setCart, handleQtyChange, cartTotalAmountDispl
         )}
       </div>
 
-      {/* FOOTER THANH TOÁN */}
-      <div style={{ padding: '16px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', alignItems: 'flex-end' }}>
-          <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#475569' }}>TỔNG CỘNG:</span>
-          <span style={{ fontSize: '24px', fontWeight: '900', color: '#dc2626' }}>{cartTotalAmountDisplay.toLocaleString()}đ</span>
-        </div>
-        <button 
-          onClick={() => setIsCheckoutOpen(true)}
-          disabled={cart.length === 0}
-          style={{ width: '100%', padding: '16px', background: cart.length === 0 ? '#cbd5e1' : '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold', cursor: cart.length === 0 ? 'not-allowed' : 'pointer', boxShadow: cart.length === 0 ? 'none' : '0 4px 12px rgba(16,185,129,0.3)', transition: 'all 0.2s' }}
-        >
-          💵 THANH TOÁN (F2)
-        </button>
-      </div>
     </div>
   );
 };
