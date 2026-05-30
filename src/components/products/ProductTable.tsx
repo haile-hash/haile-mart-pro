@@ -66,7 +66,6 @@ export const ProductTable = ({ products, role, handleSelectSuggest, handleEdit, 
                         <button onClick={() => setPrintBarcodeProduct(product)} style={{ background: '#3b82f6', color: 'white', border: 'none', width: '30px', height: '30px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="In mã vạch">🖨️</button>
                         {role === 'admin' && (
                           <>
-                            <button onClick={() => handleEdit(product?.id, 'name', product?.name, true)} style={{ background: '#f59e0b', color: 'white', border: 'none', width: '30px', height: '30px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Sửa tên">✏️</button>
                             <button onClick={() => handleDelete(product?.id, product?.name)} style={{ background: '#ef4444', color: 'white', border: 'none', width: '30px', height: '30px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Xóa">🗑️</button>
                           </>
                         )}
