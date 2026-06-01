@@ -1,4 +1,4 @@
-// @ts-nocheck
+import { Product } from '../types';
 
 export const styles = `
   @keyframes wave{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
@@ -42,57 +42,71 @@ export const styles = `
   [data-theme='dark'] { --bg-main: #0f172a; --bg-glass: #1e293b; --border-glass: #334155; --text-main: #f8fafc; --text-muted: #94a3b8; --bg-input: #334155; }
 `;
 
-export const formatCategoryStr = (str: string) => { 
+export const formatCategoryStr = (str?: string): string => { 
   if (!str) return "Khác"; 
   const t = str.trim(); 
   return t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : "Khác"; 
 };
 
-export const parseGift = (giftStr: string | null) => { 
-  if (!giftStr) return null; 
+export const parseGift = (giftStr: string | null): { cond: number; text: string } => { 
+  if (!giftStr) return { cond: 1, text: "" }; 
   if (giftStr.includes(';;;')) { 
     const parts = giftStr.split(';;;'); 
-    return { cond: parseInt(parts[0]) || 1, text: parts[1] || "" } 
+    return { cond: parseInt(parts[0]) || 1, text: parts[1] || "" }; 
   } 
-  return { cond: 1, text: giftStr } 
+  return { cond: 1, text: giftStr }; 
 };
 
-export const cleanName = (name: string) => name ? String(name).split(' [Lô')[0] : '';
+export const cleanName = (name?: string): string => name ? String(name).split(' [Lô')[0] : '';
 
-export const getActualPrice = (p: any) => { 
-  if (!p) return 0;
-  let price = (Number(p.promo_price) > 0) ? Number(p.promo_price) : Number(p.sale_price || 0); 
+// Hàm thuần túy kiểm tra xem sản phẩm có đang trong giờ vàng không
+export const checkIsHappyHour = (p: Product): boolean => {
+  if (!p) return false;
   const currentHour = new Date().getHours(); 
   const isSnack = p.category === 'Đồ ăn liền' || p.category === 'Bánh Kẹo';
+  return (currentHour >= 20 || currentHour < 6) && isSnack;
+};
+
+// Hàm lấy giá thực tế, không chỉnh sửa object gốc
+export const getActualPrice = (p: Product): number => { 
+  if (!p) return 0;
+  let price = (Number(p.promo_price) > 0) ? Number(p.promo_price) : Number(p.sale_price || 0); 
   
-  if ((currentHour >= 20 || currentHour < 6) && isSnack) { 
+  if (checkIsHappyHour(p)) { 
     price = price * 0.8; 
-    p.isHappyHour = true; 
-  } else { 
-    p.isHappyHour = false; 
   } 
   return Math.round(price); 
 };
 
-export const getCustomerTier = (totalSpent = 0) => { 
+export const getCustomerTier = (totalSpent: number = 0) => { 
   const spent = Number(totalSpent) || 0;
   if (spent >= 500000000) return { name: "💎 KIM CƯƠNG", discountRate: 0.10, color: "#a855f7", bg: "#faf5ff", border: "#e9d5ff" }; 
   if (spent >= 200000000) return { name: "🥇 VÀNG", discountRate: 0.05, color: "#ca8a04", bg: "#fefce8", border: "#fef08a" }; 
   if (spent >= 50000000) return { name: "🥈 BẠC", discountRate: 0.02, color: "#475569", bg: "#f8fafc", border: "#cbd5e1" }; 
-  return { name: "🥉 ĐỒNG", discountRate: 0, color: "#b45309", bg: "#fffbeb", border: "#fde68a" } 
+  return { name: "🥉 ĐỒNG", discountRate: 0, color: "#b45309", bg: "#fffbeb", border: "#fde68a" }; 
 };
 
-export const playSound = (type: 'success' | 'error') => { 
+export const playSound = (type: 'success' | 'error'): void => { 
   try { 
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)(); 
-    const osc = ctx.createOscillator(); const gain = ctx.createGain(); 
-    osc.connect(gain); gain.connect(ctx.destination); 
+    const osc = ctx.createOscillator(); 
+    const gain = ctx.createGain(); 
+    osc.connect(gain); 
+    gain.connect(ctx.destination); 
+    
     if (type === 'success') { 
-      osc.frequency.value = 800; gain.gain.setValueAtTime(0.1, ctx.currentTime); 
-      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.1) 
+      osc.frequency.value = 800; 
+      gain.gain.setValueAtTime(0.1, ctx.currentTime); 
+      osc.start(ctx.currentTime); 
+      osc.stop(ctx.currentTime + 0.1); 
     } else { 
-      osc.frequency.value = 250; osc.type = 'square'; gain.gain.setValueAtTime(0.1, ctx.currentTime); 
-      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3) 
+      osc.frequency.value = 250; 
+      osc.type = 'square'; 
+      gain.gain.setValueAtTime(0.1, ctx.currentTime); 
+      osc.start(ctx.currentTime); 
+      osc.stop(ctx.currentTime + 0.3); 
     } 
-  } catch (e) { } 
+  } catch (e) { 
+    console.warn("Trình duyệt không hỗ trợ AudioContext hoặc bị chặn autoplay.");
+  } 
 };
