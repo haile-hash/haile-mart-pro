@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, shrink-to-fit=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no">
     
     <meta name="theme-color" content="#1e293b">
     <meta name="description" content="POS PRO - Nền tảng quản lý bán hàng đa cửa hàng Cloud Enterprise ERP">
@@ -15,6 +15,10 @@
     
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json">
     <link rel="shortcut icon" href="%PUBLIC_URL%/favicon.ico">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <title>POS PRO - Cloud Enterprise ERP</title>
 </head>
@@ -33,7 +37,7 @@
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('%PUBLIC_URL%/sw.js')
                     .then(registration => {
-                        console.log('Service Worker đã đăng ký thành công!');
+                        console.log('Service Worker đã đăng ký thành công với scope:', registration.scope);
                     })
                     .catch(error => {
                         console.error('Lỗi khi đăng ký Service Worker:', error);
