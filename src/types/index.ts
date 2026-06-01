@@ -12,6 +12,7 @@ export interface Product {
   stock: number;
   expiry_date: string | null;
   created_at?: string;
+  updated_at?: string; // Bổ sung để track đồng bộ offline
   isHappyHour?: boolean;
 }
 
@@ -29,7 +30,7 @@ export interface Customer {
   totalSpent: number;
   wallet: number;
   debt: number;
-  address?: string; // Bổ sung trường địa chỉ vừa nâng cấp
+  address?: string;
   phone?: string;
 }
 
@@ -46,8 +47,8 @@ export interface AuditLog {
 export interface TransactionLog {
   id: number;
   shift: string;
-  // Bổ sung các loại giao dịch liên quan đến Nhập kho PO và Trả hàng NCC
-  type: 'BÁN' | 'GHI NỢ' | 'THU NỢ' | 'TRẢ HÀNG' | 'NHẬP' | 'HỆ THỐNG' | 'NHẬP PO' | 'TRẢ HÀNG NCC';
+  // Đã bổ sung 'NHẬP (OFFLINE)' để khớp với App.tsx
+  type: 'BÁN' | 'GHI NỢ' | 'THU NỢ' | 'TRẢ HÀNG' | 'NHẬP' | 'HỆ THỐNG' | 'NHẬP PO' | 'TRẢ HÀNG NCC' | 'NHẬP (OFFLINE)';
   name: string;
   qty: number;
   total: number;
@@ -58,8 +59,8 @@ export interface TransactionLog {
   paymentMethod?: string;
   split_cash?: number;
   time: string;
-  order_id?: string; // Bổ sung mã Hóa đơn
-  t?: string;        // Biến thời gian phụ dùng trong HistoryPanel
+  order_id?: string; 
+  t?: string;        
 }
 
 export interface HeldOrder {
@@ -68,27 +69,63 @@ export interface HeldOrder {
   cart: CartItem[];
 }
 
-// BỔ SUNG KHAI BÁO KIỂU CHO NHÀ CUNG CẤP VÀ PO
 export interface Supplier {
   id: string | number;
   name: string;
   phone: string;
   address?: string;
   item?: string;
-  taxCode?: string;      // Mã số thuế
-  bankAccount?: string;  // Số tài khoản
+  taxCode?: string;      
+  bankAccount?: string;  
   debt?: number;
 }
 
 export interface PurchaseOrder {
   id: string | number;
   po_code: string;
-  supplier: Supplier;
-  items: any[];
+  supplier_id: string | number; // Đã thêm để khớp với logic tìm kiếm supplier
+  supplier?: Supplier;
+  items: any[]; // Có thể tạo thêm type POItem nếu cần thiết
   total_amount: number;
   paid_amount: number;
   debt_amount: number;
   status: 'PENDING' | 'COMPLETED';
   note?: string;
   created_at?: string;
+}
+
+// BỔ SUNG CÁC TYPE MỚI ĐỂ LOẠI BỎ 'any' TRONG APP.TSX
+
+export interface Expense {
+  id: number;
+  date: string;
+  name: string;
+  amount: number;
+}
+
+export interface OrderReceipt {
+  orderId: string;
+  shift: string;
+  cart: CartItem[];
+  subTotal: number;
+  vatTotal: number;
+  finalTotal: number;
+  debtAmount: number;
+  discount: number;
+  time: string;
+  paymentMethod: string;
+  customerGiven: number;
+  custName: string;
+  custPhone?: string;
+  isRefund?: boolean;
+}
+
+export interface StoreInfo {
+  id?: string | number;
+  owner_id?: string;
+  store_name?: string;
+  phone?: string;
+  address?: string;
+  tax_code?: string;
+  [key: string]: any; // Mở rộng nếu Cloud trả về thêm data
 }
