@@ -1,15 +1,17 @@
-// Đổi tên cache để ÉP trình duyệt xóa sạch bộ nhớ đệm "haile-mart" cũ
-const CACHE_NAME = 'pos-pro-enterprise-v1';
+// Đổi tên cache để ÉP trình duyệt xóa sạch bộ nhớ đệm cũ
+const CACHE_NAME = 'pos-pro-enterprise-v2';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
+      // Bổ sung cache cho link CDN của XLSX và Font chữ Google (nếu bạn dùng)
       return cache.addAll([
         '/',
         '/index.html',
         '/manifest.json',
         '/logo192.png',
-        '/logo512.png'
+        '/logo512.png',
+        'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
       ]).catch(err => console.log('Lỗi lưu cache gốc:', err));
     })
   );
@@ -33,17 +35,16 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-
-  // Bắt buộc request phải bắt đầu bằng http hoặc https
   if (!event.request.url.startsWith('http')) return;
   
-  // Bỏ qua URL kết nối tới API/Database (ví dụ Supabase nếu có dùng)
+  // Bỏ qua URL API Supabase để luôn lấy dữ liệu mới nhất
   if (event.request.url.includes('supabase.co')) return;
 
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        if (!response || response.status !== 200 || response.type !== 'basic') {
+        // SỬA LỖI: Cho phép cache cả 'basic' (file nội bộ) và 'cors' (file CDN bên ngoài như XLSX, Font)
+        if (!response || response.status !== 200 || (response.type !== 'basic' && response.type !== 'cors')) {
           return response; 
         }
 
@@ -55,6 +56,7 @@ self.addEventListener('fetch', (event) => {
         return response;
       })
       .catch(() => {
+        // Rớt mạng -> Load từ Cache
         return caches.match(event.request).then((cachedResponse) => {
           if (cachedResponse) return cachedResponse;
           
