@@ -1,7 +1,8 @@
 {
-  "id": "/pos-pro-enterprise/",
+  "id": "/",
   "short_name": "POS PRO",
-  "name": "POS PRO Enterprise",
+  "name": "POS PRO Enterprise ERP",
+  "description": "Hệ thống quản lý bán hàng đa nền tảng",
   "icons": [
     {
       "src": "favicon.ico",
@@ -21,7 +22,7 @@
       "purpose": "any maskable"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
   "display": "standalone",
   "theme_color": "#1e293b",
   "background_color": "#0f172a"
