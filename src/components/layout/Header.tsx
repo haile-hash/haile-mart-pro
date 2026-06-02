@@ -18,12 +18,20 @@ export const Header = (props) => {
   }, []);
 
   const toggleWindyMusic = () => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio("/Windy Hill.mp3");
-      audioRef.current.loop = true;
-    }
+    if (!audioRef.current) { audioRef.current = new Audio("/Windy Hill.mp3"); audioRef.current.loop = true; }
     if (isPlaying) { audioRef.current.pause(); setIsPlaying(false); } 
     else { audioRef.current.play().catch(err => console.log(err)); setIsPlaying(true); }
+  };
+
+  // Hàm gọi Menu siêu mạnh: Cập nhật thẳng vào Global State
+  const handleOpenModal = (modalName) => {
+    props.uiState.setShowMainMenu(false);
+    if (props.uiState[modalName]) {
+      props.uiState[modalName](true);
+    } else {
+      // Fallback nếu State chưa kịp load
+      window.dispatchEvent(new CustomEvent('FORCE_OPEN_MODAL', { detail: modalName }));
+    }
   };
 
   return (
@@ -58,6 +66,7 @@ export const Header = (props) => {
           <div className="modern-stat-card" style={{ borderBottom: '3px solid #f59e0b' }}><span style={{ fontSize: "11px", fontWeight: "700", color: "#f59e0b", textTransform: "uppercase" }}>Lãi tạm tính</span><span style={{ fontSize: "17px", fontWeight: "800", color: "#d97706" }}>{Math.round(props.currentShiftStats.profit).toLocaleString()}đ</span></div>
         </div>
 
+        {/* ĐÃ BỎ KHỐI HIỂN THỊ NGƯỜI DÙNG / CA SÁNG CHIỀU THEO YÊU CẦU */}
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '12px', background: props.isOnline ? (props.darkMode ? 'rgba(16,185,129,0.1)' : '#ecfdf5') : (props.darkMode ? 'rgba(239,68,68,0.1)' : '#fef2f2'), border: `1px solid ${props.isOnline ? '#a7f3d0' : '#fecaca'}` }}>
             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: props.isOnline ? '#10b981' : '#ef4444', display: 'inline-block' }}></span>
@@ -70,20 +79,20 @@ export const Header = (props) => {
       </div>
 
       <div style={{ display: "flex", justifyContent: "flex-start", width: "100%", position: "relative" }}>
-        <button className="main-menu-btn" onClick={(e) => { e.stopPropagation(); props.setShowMainMenu(!props.showMainMenu); }}>☰ MENU TÍNH NĂNG</button>
+        <button className="main-menu-btn" onClick={(e) => { e.stopPropagation(); props.uiState.setShowMainMenu(!props.uiState.showMainMenu); }}>☰ MENU TÍNH NĂNG</button>
         
-        {props.showMainMenu && (
+        {props.uiState.showMainMenu && (
           <div className="dropdown-menu-saas" style={{ position: "absolute", left: 0, top: "100%", marginTop: "8px", width: "260px", zIndex: 99999, padding: "8px", borderRadius: "16px", background: props.darkMode ? '#1e293b' : '#ffffff', border: `1px solid ${props.darkMode ? '#334155' : '#e2e8f0'}`, boxShadow: "0 20px 25px -5px rgba(0,0,0,0.15)" }} onClick={e => e.stopPropagation()}>
-            <button onClick={() => { props.setShowMainMenu(false); props.setShowStatsModal(true); }}>📊 Báo cáo doanh thu</button>
-            <button onClick={() => { props.setShowMainMenu(false); props.setShowPOModal(true); }}>📦 Nhập hàng (PO)</button>
-            <button onClick={() => { props.setShowMainMenu(false); props.setShowInventoryModal(true); }}>🔍 Kiểm kho định kỳ</button>
-            <button onClick={() => { props.setShowMainMenu(false); props.setShowDebtModal(true); }}>💸 Sổ nợ Khách</button>
-            <button onClick={() => { props.setShowMainMenu(false); props.setShowExpenseModal(true); }}>📉 Lập Phiếu Chi</button>
-            <button onClick={() => { props.setShowMainMenu(false); props.setShowCustomerModal(true); }}>💳 Danh sách VIP</button>
+            <button onClick={() => handleOpenModal('setShowStatsModal')}>📊 Báo cáo doanh thu</button>
+            <button onClick={() => handleOpenModal('setShowPOModal')}>📦 Nhập hàng (PO)</button>
+            <button onClick={() => handleOpenModal('setShowInventoryModal')}>🔍 Kiểm kho định kỳ</button>
+            <button onClick={() => handleOpenModal('setShowDebtModal')}>💸 Sổ nợ Khách</button>
+            <button onClick={() => handleOpenModal('setShowExpenseModal')}>📉 Lập Phiếu Chi</button>
+            <button onClick={() => handleOpenModal('setShowCustomerModal')}>💳 Danh sách VIP</button>
             
             <div style={{ padding: "8px 12px", fontSize: "11px", fontWeight: "700", color: "#94a3b8", textTransform: "uppercase", margin: "4px 0 0 0" }}>Hệ thống</div>
-            <button onClick={() => { props.setShowMainMenu(false); props.setShowSettings(true); }}>⚙️ Cài đặt Thanh toán & Giờ vàng</button>
-            <button onClick={() => { props.setShowMainMenu(false); props.setShowStoreSettings(true); }}>🏪 Thiết lập Thương hiệu (Logo)</button>
+            <button onClick={() => handleOpenModal('setShowSettings')}>⚙️ Cài đặt Thanh toán & Giờ vàng</button>
+            <button onClick={() => handleOpenModal('setShowStoreSettings')}>🏪 Thiết lập Thương hiệu (Logo)</button>
           </div>
         )}
       </div>
