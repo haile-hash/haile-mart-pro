@@ -4,17 +4,16 @@ import { toast } from 'react-hot-toast';
 
 export const StoreSettingsModal = ({ onClose }: { onClose: () => void }) => {
   const [storeName, setStoreName] = useState("");
-  const [logoUrl, setLogoUrl] = useState(""); // Thêm state cho Logo
+  const [logoUrl, setLogoUrl] = useState(""); 
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [taxCode, setTaxCode] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Kéo dữ liệu cũ từ Local Storage lên form
     const savedStore = JSON.parse(window.localStorage.getItem("mart_current_store") || "{}");
     setStoreName(savedStore.store_name || "");
-    setLogoUrl(savedStore.logo_url || ""); // Load logo
+    setLogoUrl(savedStore.logo_url || ""); 
     setPhone(savedStore.phone || "");
     setAddress(savedStore.address || "");
     setTaxCode(savedStore.tax_code || "");
@@ -27,12 +26,11 @@ export const StoreSettingsModal = ({ onClose }: { onClose: () => void }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Không tìm thấy phiên đăng nhập");
 
-      // Cập nhật lên Supabase (Đảm bảo bảng 'stores' của bạn có cột 'logo_url')
       const { error } = await supabase
         .from('stores')
         .update({
           store_name: storeName,
-          logo_url: logoUrl, // Lưu logo
+          logo_url: logoUrl, 
           phone: phone,
           address: address,
           tax_code: taxCode
@@ -41,13 +39,12 @@ export const StoreSettingsModal = ({ onClose }: { onClose: () => void }) => {
 
       if (error) throw error;
 
-      // Lưu đè lại Local Storage để App nhận diện ngay
-      const updatedStore = { store_name: storeName, logo_url: logoUrl, phone, address, tax_code };
+      // ĐÃ SỬA LỖI TẠI ĐÂY: tax_code: taxCode
+      const updatedStore = { store_name: storeName, logo_url: logoUrl, phone, address, tax_code: taxCode };
       window.localStorage.setItem("mart_current_store", JSON.stringify(updatedStore));
 
       toast.success("Cập nhật thông tin cửa hàng thành công!");
       
-      // Load nhẹ lại trang để cập nhật Header và Form in
       setTimeout(() => {
         window.location.reload();
       }, 800);
@@ -73,7 +70,6 @@ export const StoreSettingsModal = ({ onClose }: { onClose: () => void }) => {
             <input type="text" required value={storeName} onChange={e => setStoreName(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box', background: '#f8fafc', color: '#1e293b', outline: 'none' }} onFocus={e => e.target.style.borderColor = '#3b82f6'} onBlur={e => e.target.style.borderColor = '#cbd5e1'} />
           </div>
           <div>
-            {/* TRƯỜNG NHẬP LOGO MỚI */}
             <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px', color: '#64748b' }}>Link Ảnh Logo (URL)</label>
             <input type="text" value={logoUrl} placeholder="Ví dụ: https://imgur.com/abc.png" onChange={e => setLogoUrl(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box', background: '#f8fafc', color: '#1e293b', outline: 'none' }} onFocus={e => e.target.style.borderColor = '#3b82f6'} onBlur={e => e.target.style.borderColor = '#cbd5e1'} />
           </div>
