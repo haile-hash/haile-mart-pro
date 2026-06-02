@@ -1159,8 +1159,18 @@ export default function App() {
         bankNameStr={bankNameStr}
       />
 
+      {/* KHỞI TẠO VÙNG CHỨA MÁY ẢNH (KHI BẤM NÚT CAMERA) */}
+      {scannerMode !== null && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', zIndex: 999999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+          <h2 style={{ color: 'white', marginBottom: '20px', fontSize: '24px' }}>📷 Đưa mã vạch vào khung hình</h2>
+          <div id="qr-reader" style={{ width: '350px', background: 'white', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}></div>
+          <button onClick={() => setScannerMode(null)} style={{ marginTop: '24px', padding: '12px 30px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}>Đóng Máy Ảnh (Hủy)</button>
+        </div>
+      )}
+
       <div className="pos-main-workspace" style={{ display: "grid", gridTemplateColumns: "70% 30%", gap: "16px" }}>
         
+        {/* BÊN TRÁI: KHU VỰC SẢN PHẨM & TÌM KIẾM */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <ProductSearchAndActions 
             barcodeInput={barcodeInput} setBarcodeInput={setBarcodeInput} 
@@ -1178,21 +1188,7 @@ export default function App() {
           
           {showInputForm && (
             <ProductInputForm 
-              newCode={newCode} setNewCode={setNewCode}
-              newName={newName} setNewName={setNewName}
-              newCategory={newCategory} setNewCategory={setNewCategory}
-              newImportPrice={newImportPrice} setNewImportPrice={setNewImportPrice}
-              newPrice={newPrice} setNewPrice={setNewPrice}
-              newPromoPrice={newPromoPrice} setNewPromoPrice={setNewPromoPrice}
-              newGiftCondition={newGiftCondition} setNewGiftCondition={setNewGiftCondition}
-              newGiftInfo={newGiftInfo} setNewGiftInfo={setNewGiftInfo}
-              newStock={newStock} setNewStock={setNewStock}
-              newExpiry={newExpiry} setNewExpiry={setNewExpiry}
-              handleAddProduct={handleAddProduct}
-              setShowInputForm={setShowInputForm}
-              handleCodeChange={handleCodeChange}
-              categories={categories}
-              loading={loading}
+              newCode={newCode} setNewCode={setNewCode} newName={newName} setNewName={setNewName} newCategory={newCategory} setNewCategory={setNewCategory} newImportPrice={newImportPrice} setNewImportPrice={setNewImportPrice} newPrice={newPrice} setNewPrice={setNewPrice} newPromoPrice={newPromoPrice} setNewPromoPrice={setNewPromoPrice} newGiftCondition={newGiftCondition} setNewGiftCondition={setNewGiftCondition} newGiftInfo={newGiftInfo} setNewGiftInfo={setNewGiftInfo} newStock={newStock} setNewStock={setNewStock} newExpiry={newExpiry} setNewExpiry={setNewExpiry} handleAddProduct={handleAddProduct} setShowInputForm={setShowInputForm} handleCodeChange={handleCodeChange} categories={categories} loading={loading}
             />
           )}
 
@@ -1202,9 +1198,12 @@ export default function App() {
             handleEdit={handleEdit}
             handleDelete={handleDelete}
             setPrintBarcodeProduct={setPrintBarcodeProduct}
+            sortConfig={sortConfig}
+            setSortConfig={setSortConfig}
           />
         </div>
 
+        {/* BÊN PHẢI: GIỎ HÀNG VÀ LỊCH SỬ GIAO DỊCH */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <CartPanel 
             cart={cart} setCart={setCart}
