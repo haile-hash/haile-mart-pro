@@ -9,31 +9,50 @@ export const ProductTable: React.FC<any> = ({ products, handleSelectSuggest, han
   const filterMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => { if (filterMenuRef.current && !filterMenuRef.current.contains(e.target as Node)) setActiveFilterMenu(null); };
-    document.addEventListener('mousedown', handleClickOutside); return () => document.removeEventListener('mousedown', handleClickOutside);
+    const handleClickOutside = (e: MouseEvent) => { 
+      if (filterMenuRef.current && !filterMenuRef.current.contains(e.target as Node)) {
+        setActiveFilterMenu(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside); 
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleSortOrFilterClick = (e: React.MouseEvent, key: keyof Product) => {
-    e.stopPropagation(); let direction: 'asc' | 'desc' = 'asc';
+    e.stopPropagation(); 
+    let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
-    setSortConfig({ key, direction }); setActiveFilterMenu(activeFilterMenu === key ? null : (key as string));
+    setSortConfig({ key, direction }); 
+    setActiveFilterMenu(activeFilterMenu === key ? null : (key as string));
   };
 
-  const getUniqueValues = (key: keyof Product): string[] => Array.from(new Set<string>(products.map(p => String(p[key] || '---')))).sort();
+  // ĐÃ SỬA LỖI TYPESCRIPT: Thêm <string> và (p: any)
+  const getUniqueValues = (key: keyof Product): string[] => {
+    return Array.from(new Set<string>(products.map((p: any) => String(p[key] || '---')))).sort();
+  };
 
   const handleCheckboxChange = (key: string, value: string) => {
     setSelectedFilters(prev => {
-      const curr = prev[key] || []; const next = curr.includes(value) ? curr.filter(v => v !== value) : [...curr, value];
+      const curr = prev[key] || []; 
+      const next = curr.includes(value) ? curr.filter(v => v !== value) : [...curr, value];
       return { ...prev, [key]: next };
     });
   };
 
   const processedProducts = useMemo(() => {
     let result = [...products];
-    Object.entries(selectedFilters).forEach(([key, allowed]) => { if (allowed.length > 0) result = result.filter(p => allowed.includes(String(p[key as keyof Product] || '---'))); });
+    Object.entries(selectedFilters).forEach(([key, allowed]) => { 
+      if (allowed.length > 0) {
+        // ĐÃ SỬA LỖI TYPESCRIPT: Thêm (p: any)
+        result = result.filter((p: any) => allowed.includes(String(p[key as keyof Product] || '---'))); 
+      }
+    });
+    
     if (sortConfig) {
-      result.sort((a, b) => {
-        const aVal = a[sortConfig.key] ?? ''; const bVal = b[sortConfig.key] ?? '';
+      // ĐÃ SỬA LỖI TYPESCRIPT: Thêm (a: any, b: any)
+      result.sort((a: any, b: any) => {
+        const aVal = a[sortConfig.key] ?? ''; 
+        const bVal = b[sortConfig.key] ?? '';
         if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
