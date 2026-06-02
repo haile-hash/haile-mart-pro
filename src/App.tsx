@@ -73,33 +73,27 @@ export default function App() {
 
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState(""); const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(""); const [selectedCategory, setSelectedCategory] = useState("Tất cả"); const [loading, setLoading] = useState(false); const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null); const [filters, setFilters] = useState<Record<string, any[]>>({}); const [showSuggestions, setShowSuggestions] = useState(false);
-  
   const [actualStockInput, setActualStockInput] = useState<Record<string, number>>({}); const [inventorySearchTerm, setInventorySearchTerm] = useState(""); const [invFilter, setInvFilter] = useState('ALL'); const [expName, setExpName] = useState(""); const [expAmount, setExpAmount] = useState(""); const [supName, setSupName] = useState(""); const [supPhone, setSupPhone] = useState(""); const [supAddress, setSupAddress] = useState(""); const [supItem, setSupItem] = useState(""); const [supTaxCode, setSupTaxCode] = useState(""); const [supBankAccount, setSupBankAccount] = useState(""); const [marketingTier, setMarketingTier] = useState("Tất cả"); const [marketingMsg, setMarketingMsg] = useState("");
-  
   const [reportStartDate, setReportStartDate] = useState(() => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0]; }); const [reportEndDate, setReportEndDate] = useState(() => { return new Date().toISOString().split('T')[0]; });
-  
   const [scanQueue, setScanQueue] = useState<string[]>([]); const [printBarcodeProduct, setPrintBarcodeProduct] = useState<Product | null>(null); const [printCustomer, setPrintCustomer] = useState<Customer | null>(null); const [barcodeCount, setBarcodeCount] = useState<number>(30); const [selectedAuditLog, setSelectedAuditLog] = useState<AuditLog | null>(null);
-
   const [localPOs, setLocalPOs] = useState<any[]>([]); const [poTab, setPoTab] = useState<'NEW' | 'RECEIVE'>('NEW'); const [selectedSupplierId, setSelectedSupplierId] = useState(""); const [poItems, setPoItems] = useState<any[]>([]); const [poSearch, setPoSearch] = useState(""); const [poNote, setPoNote] = useState(""); const [paidAmount, setPaidAmount] = useState<number>(0); const [searchPoCode, setSearchPoCode] = useState(""); const [foundPO, setFoundPO] = useState<any>(null); const [receiveItems, setReceiveItems] = useState<any[]>([]); const [allPOs, setAllPOs] = useState<any[]>([]); const [printPOData, setPrintPOData] = useState<any>(null);
 
-  const { darkMode, setDarkMode, showInputForm, setShowInputForm, showMainMenu, setShowMainMenu, cashFlowModalInfo, setCashFlowModalInfo, scannerMode, setScannerMode, printMode, setPrintMode } = useUIState();
-  
-  // ĐÃ SỬA: CHUYỂN TOÀN BỘ TRẠNG THÁI MODAL VÀO ĐÂY ĐỂ TRÁNH LỖI "BẤM KHÔNG LÊN"
-  const [showStatsModal, setShowStatsModal] = useState(false);
-  const [showCustomerModal, setShowCustomerModal] = useState(false);
-  const [showInventoryModal, setShowInventoryModal] = useState(false);
-  const [showDebtModal, setShowDebtModal] = useState(false);
-  const [showAuditModal, setShowAuditModal] = useState(false);
-  const [showExpenseModal, setShowExpenseModal] = useState(false);
-  const [showSupplierModal, setShowSupplierModal] = useState(false);
-  const [showMarketingModal, setShowMarketingModal] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  // ĐÃ SỬA: PHỤC HỒI KẾT NỐI VỚI HOOK GLOBAL USEUISTATE
+  const { 
+    darkMode, setDarkMode, showSettings, setShowSettings, showInputForm, setShowInputForm, 
+    showDebtModal, setShowDebtModal, showStatsModal, setShowStatsModal, 
+    showCustomerModal, setShowCustomerModal, showHandoverModal, setShowHandoverModal, 
+    showAuditModal, setShowAuditModal, showHoldModal, setShowHoldModal, 
+    showExpenseModal, setShowExpenseModal, showSupplierModal, setShowSupplierModal, 
+    showMarketingModal, setShowMarketingModal, showInventoryModal, setShowInventoryModal, 
+    showMainMenu, setShowMainMenu, cashFlowModalInfo, setCashFlowModalInfo, 
+    scannerMode, setScannerMode, printMode, setPrintMode 
+  } = useUIState();
+
   const [showStoreSettings, setShowStoreSettings] = useState(false);
-  const [showScannerLinkModal, setShowScannerLinkModal] = useState(false);
   const [showPOModal, setShowPOModal] = useState(false); 
+  const [showScannerLinkModal, setShowScannerLinkModal] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
-  const [showHandoverModal, setShowHandoverModal] = useState(false);
-  const [showHoldModal, setShowHoldModal] = useState(false);
 
   const { newCode, setNewCode, newName, setNewName, newImportPrice, setNewImportPrice, newPrice, setNewPrice, newPromoPrice, setNewPromoPrice, newGiftCondition, setNewGiftCondition, newGiftInfo, setNewGiftInfo, newStock, setNewStock, newExpiry, setNewExpiry, newCategory, setNewCategory, resetProductForm } = useProductInput();
   const { cart, setCart, barcodeInput, setBarcodeInput, isCheckoutOpen, setIsCheckoutOpen, checkoutStep, setCheckoutStep, customerInput, setCustomerInput, custPhone, setCustPhone, custName, setCustName, useWallet, setUseWallet, voucherInput, setVoucherInput, appliedVoucherAmount, setAppliedVoucherAmount, customerGiven, setCustomerGiven, lastOrder, setLastOrder, resetCheckout, custAddress, setCustAddress } = useCheckoutState();
@@ -136,7 +130,6 @@ export default function App() {
   }, [history, shift, todayStrStr]);
 
   const categories = useMemo(() => { const cats = new Set(["Tất cả"]); products.forEach(p => { if (p.category) cats.add(p.category); }); return Array.from(cats); }, [products]);
-
   const sortedAndFilteredProducts = useMemo(() => {
     let result = [...products];
     if (selectedCategory !== "Tất cả") result = result.filter(p => p.category === selectedCategory);
@@ -483,38 +476,10 @@ export default function App() {
       <Toaster position="top-right" />
       
       <Header 
-        role="admin" 
-        shift={shift}
-        totalValue={totalValue}
-        currentShiftStats={currentShiftStats}
-        setCashFlowModalInfo={setCashFlowModalInfo}
-        darkMode={darkMode}
-        setDarkMode={setDarkMode}
-        handleLogoutClick={handleLogoutClick}
-        showMainMenu={showMainMenu}
-        setShowMainMenu={setShowMainMenu}
-
-        // KẾT NỐI TOÀN BỘ CÁC TRẠNG THÁI MODAL MÀ TA VỪA KHAI BÁO LOCAL
-        setShowStatsModal={setShowStatsModal}
-        setShowCustomerModal={setShowCustomerModal}
-        setShowInventoryModal={setShowInventoryModal}
-        setShowDebtModal={setShowDebtModal}
-        setShowAuditModal={setShowAuditModal}
-        setShowExpenseModal={setShowExpenseModal}
-        setShowSupplierModal={setShowSupplierModal}
-        setShowMarketingModal={setShowMarketingModal}
-        setShowScannerLinkModal={setShowScannerLinkModal}
-        setShowSettings={setShowSettings}
-        setShowStoreSettings={setShowStoreSettings}
-        setShowPOModal={setShowPOModal}
-
-        lowStockCount={lowStockCount} 
-        isOnline={isOnline}
-        syncStatus={syncStatus}
-        syncAllOfflineData={syncPendingImports}
-        bankBin={bankBin}
-        bankAcc={bankAcc}
-        bankNameStr={bankNameStr}
+        shift={shift} totalValue={totalValue} currentShiftStats={currentShiftStats} setCashFlowModalInfo={setCashFlowModalInfo} darkMode={darkMode} setDarkMode={setDarkMode} handleLogoutClick={handleLogoutClick}
+        showMainMenu={showMainMenu} setShowMainMenu={setShowMainMenu}
+        setShowStatsModal={setShowStatsModal} setShowCustomerModal={setShowCustomerModal} setShowInventoryModal={setShowInventoryModal} setShowDebtModal={setShowDebtModal} setShowAuditModal={setShowAuditModal} setShowExpenseModal={setShowExpenseModal} setShowSupplierModal={setShowSupplierModal} setShowMarketingModal={setShowMarketingModal} setShowScannerLinkModal={setShowScannerLinkModal} setShowSettings={setShowSettings} setShowStoreSettings={setShowStoreSettings} setShowPOModal={setShowPOModal}
+        lowStockCount={lowStockCount} isOnline={isOnline} syncStatus={syncStatus} syncAllOfflineData={syncPendingImports} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr}
       />
 
       {scannerMode !== null && (
@@ -526,35 +491,19 @@ export default function App() {
       )}
 
       <div className="pos-main-workspace" style={{ display: "grid", gridTemplateColumns: "70% 30%", gap: "16px" }}>
-        
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <ProductSearchAndActions barcodeInput={barcodeInput} setBarcodeInput={setBarcodeInput} setScannerMode={setScannerMode} showSuggestions={showSuggestions} setShowSuggestions={setShowSuggestions} searchTerm={searchTerm} setSearchTerm={setSearchTerm} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} categories={categories} sortedAndFilteredProducts={sortedAndFilteredProducts} handleSelectSuggest={handleSelectSuggest} setShowInputForm={setShowInputForm} handleFileUpload={handleFileUpload} downloadSampleExcel={downloadSampleExcel} />
           {showInputForm && <ProductInputForm newCode={newCode} setNewCode={setNewCode} newName={newName} setNewName={setNewName} newCategory={newCategory} setNewCategory={setNewCategory} newImportPrice={newImportPrice} setNewImportPrice={setNewImportPrice} newPrice={newPrice} setNewPrice={setNewPrice} newPromoPrice={newPromoPrice} setNewPromoPrice={setNewPromoPrice} newGiftCondition={newGiftCondition} setNewGiftCondition={setNewGiftCondition} newGiftInfo={newGiftInfo} setNewGiftInfo={setNewGiftInfo} newStock={newStock} setNewStock={setNewStock} newExpiry={newExpiry} setNewExpiry={setNewExpiry} handleAddProduct={handleAddProduct} setShowInputForm={setShowInputForm} handleCodeChange={handleCodeChange} categories={categories} loading={loading} />}
           <ProductTable products={sortedAndFilteredProducts} handleSelectSuggest={handleSelectSuggest} handleEdit={handleEdit} handleDelete={handleDelete} setPrintBarcodeProduct={setPrintBarcodeProduct} />
         </div>
-
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <CartPanel cart={cart} setCart={setCart} handleQtyChange={handleQtyChange} cartTotalAmountDisplay={cartTotalAmountDisplay} setIsCheckoutOpen={setIsCheckoutOpen} handleHoldOrder={handleHoldOrder} setCheckoutStep={setCheckoutStep} setShowHoldModal={setShowHoldModal} />
           <HistoryPanel history={history} shift={shift} handleRefund={handleRefund} handleReprint={handleReprint} />
         </div>
       </div>
 
-      {/* DANH SÁCH MODAL (POPUP) */}
       {showStoreSettings && <StoreSettingsModal onClose={() => setShowStoreSettings(false)} />}
-      
-      {showSettings && (
-        <SettingsModal 
-          bankBin={bankBin} setBankBin={setNewBankBin} newBankBin={newBankBin}
-          bankAcc={bankAcc} setBankAcc={setNewBankAcc} newBankAcc={newBankAcc}
-          bankNameStr={bankNameStr} setBankNameStr={setNewBankNameStr} newBankNameStr={newBankNameStr}
-          zaloPayId={zaloPayId} setZaloPayId={setNewZaloPayId} newZaloPayId={newZaloPayId}
-          happyStart={happyStart} setHappyStart={setNewHappyStart} newHappyStart={newHappyStart}
-          happyEnd={happyEnd} setHappyEnd={setNewHappyEnd} newHappyEnd={newHappyEnd}
-          adminPin={adminPin} setAdminPinInput={setNewAdminPinInput} newAdminPinInput={newAdminPinInput}
-          saveSettings={saveSettings} loading={loading} onClose={() => setShowSettings(false)}
-        />
-      )}
-
+      {showSettings && <SettingsModal bankBin={bankBin} setBankBin={setNewBankBin} newBankBin={newBankBin} bankAcc={bankAcc} setBankAcc={setNewBankAcc} newBankAcc={newBankAcc} bankNameStr={bankNameStr} setBankNameStr={setNewBankNameStr} newBankNameStr={newBankNameStr} zaloPayId={zaloPayId} setZaloPayId={setNewZaloPayId} newZaloPayId={newZaloPayId} happyStart={happyStart} setHappyStart={setNewHappyStart} newHappyStart={newHappyStart} happyEnd={happyEnd} setHappyEnd={setNewHappyEnd} newHappyEnd={newHappyEnd} adminPin={adminPin} setAdminPinInput={setNewAdminPinInput} newAdminPinInput={newAdminPinInput} saveSettings={saveSettings} loading={loading} onClose={() => setShowSettings(false)} />}
       {showPinModal && <PinModal adminPin={adminPin} onSuccess={() => { setShowPinModal(false); if(pendingAction) pendingAction(); setPendingAction(null); }} onClose={() => { setShowPinModal(false); setPendingAction(null); }} />}
       {cashFlowModalInfo && <CashFlowDetailModal flowType={cashFlowModalInfo} onClose={() => setCashFlowModalInfo(null)} allLogs={history} />}
       {isCheckoutOpen && <CheckoutModal checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} customersData={customersData} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} customerInput={customerInput} setCustomerInput={setCustomerInput} custAddress={custAddress} setCustAddress={setCustAddress} handleCustomerInputChange={handleCustomerInputChange} finalToPay={finalToPay} useWallet={useWallet} setUseWallet={setUseWallet} voucherInput={voucherInput} setVoucherInput={setVoucherInput} handleVoucherSubmit={handleVoucherSubmit} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} confirmCheckout={confirmCheckout} closeCheckout={closeCheckout} loading={loading} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} sendReceiptEmail={sendReceiptEmail} setScannerMode={setScannerMode} handleNextToQR={handleNextToQR} setPrintMode={setPrintMode} />}
