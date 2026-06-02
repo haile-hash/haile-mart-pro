@@ -60,7 +60,6 @@ export default function App() {
   useEffect(() => { emailjs.init("5ric0kxuwNPlUleAv"); }, []);
   useEffect(() => { if (typeof window !== 'undefined' && !(window as any).XLSX) { const script = document.createElement('script'); script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; script.async = true; document.head.appendChild(script); } }, []);
 
-  // --- STATE CHUNG ---
   const [isStorageLoading, setIsStorageLoading] = useState(true); 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
@@ -69,35 +68,40 @@ export default function App() {
   const [shift, setShift] = useState("Ca Sáng");
   const [startingCash, setStartingCash] = useState<number>(5000000);
 
-  // --- STATE CẤU HÌNH ---
   const [bankBin, setBankBin] = useState(""); const [bankAcc, setBankAcc] = useState(""); const [bankNameStr, setBankNameStr] = useState(""); const [zaloPayId, setZaloPayId] = useState(""); const [adminPin, setAdminPin] = useState("1234"); const [pendingAction, setPendingAction] = useState<(() => void) | null>(null); const [happyStart, setHappyStart] = useState("11:00"); const [happyEnd, setHappyEnd] = useState("13:00");
   const [newBankBin, setNewBankBin] = useState(""); const [newBankAcc, setNewBankAcc] = useState(""); const [newBankNameStr, setNewBankNameStr] = useState(""); const [newZaloPayId, setNewZaloPayId] = useState(""); const [newHappyStart, setNewHappyStart] = useState("11:00"); const [newHappyEnd, setNewHappyEnd] = useState("13:00"); const [newAdminPinInput, setNewAdminPinInput] = useState("");
 
-  // --- UI STATES GLOBAL (Chỉ giữ các state không gây lỗi) ---
+  // ==============================================================
+  // ĐÃ SỬA: KHÔI PHỤC TOÀN BỘ TRẠNG THÁI TỪ useUIState
+  // Đảm bảo Modals có thể đọc được tín hiệu MỞ/ĐÓNG từ Global Store
+  // ==============================================================
   const { 
-    darkMode, setDarkMode, showInputForm, setShowInputForm, 
-    showMainMenu, setShowMainMenu, cashFlowModalInfo, setCashFlowModalInfo, 
-    scannerMode, setScannerMode, printMode, setPrintMode 
+    darkMode, setDarkMode, 
+    showSettings, setShowSettings, 
+    showInputForm, setShowInputForm, 
+    showDebtModal, setShowDebtModal, 
+    showStatsModal, setShowStatsModal, 
+    showCustomerModal, setShowCustomerModal, 
+    showHandoverModal, setShowHandoverModal, 
+    showAuditModal, setShowAuditModal, 
+    showHoldModal, setShowHoldModal, 
+    showExpenseModal, setShowExpenseModal, 
+    showSupplierModal, setShowSupplierModal, 
+    showMarketingModal, setShowMarketingModal, 
+    showInventoryModal, setShowInventoryModal, 
+    showMainMenu, setShowMainMenu, 
+    cashFlowModalInfo, setCashFlowModalInfo, 
+    scannerMode, setScannerMode, 
+    printMode, setPrintMode 
   } = useUIState();
 
-  // ĐÃ SỬA: SỬ DỤNG HOÀN TOÀN REACT LOCAL STATE ĐỂ CHỐNG "LIỆT" MENU
-  const [showStatsModal, setShowStatsModal] = useState(false);
-  const [showCustomerModal, setShowCustomerModal] = useState(false);
-  const [showInventoryModal, setShowInventoryModal] = useState(false);
-  const [showDebtModal, setShowDebtModal] = useState(false);
-  const [showAuditModal, setShowAuditModal] = useState(false);
-  const [showExpenseModal, setShowExpenseModal] = useState(false);
-  const [showSupplierModal, setShowSupplierModal] = useState(false);
-  const [showMarketingModal, setShowMarketingModal] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  // Các State cục bộ phát sinh sau
   const [showStoreSettings, setShowStoreSettings] = useState(false);
   const [showPOModal, setShowPOModal] = useState(false); 
   const [showScannerLinkModal, setShowScannerLinkModal] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
-  const [showHandoverModal, setShowHandoverModal] = useState(false);
-  const [showHoldModal, setShowHoldModal] = useState(false);
+  // ==============================================================
 
-  // --- DỮ LIỆU APP ---
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState(""); const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(""); const [selectedCategory, setSelectedCategory] = useState("Tất cả"); const [loading, setLoading] = useState(false); const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null); const [filters, setFilters] = useState<Record<string, any[]>>({}); const [showSuggestions, setShowSuggestions] = useState(false);
   const [actualStockInput, setActualStockInput] = useState<Record<string, number>>({}); const [inventorySearchTerm, setInventorySearchTerm] = useState(""); const [invFilter, setInvFilter] = useState('ALL'); const [expName, setExpName] = useState(""); const [expAmount, setExpAmount] = useState(""); const [supName, setSupName] = useState(""); const [supPhone, setSupPhone] = useState(""); const [supAddress, setSupAddress] = useState(""); const [supItem, setSupItem] = useState(""); const [supTaxCode, setSupTaxCode] = useState(""); const [supBankAccount, setSupBankAccount] = useState(""); const [marketingTier, setMarketingTier] = useState("Tất cả"); const [marketingMsg, setMarketingMsg] = useState("");
@@ -489,7 +493,7 @@ export default function App() {
         shift={shift} totalValue={totalValue} currentShiftStats={currentShiftStats} setCashFlowModalInfo={setCashFlowModalInfo} darkMode={darkMode} setDarkMode={setDarkMode} handleLogoutClick={handleLogoutClick}
         showMainMenu={showMainMenu} setShowMainMenu={setShowMainMenu}
         
-        // TRUYỀN TOÀN BỘ LOCAL STATE SETTER VÀO HEADER ĐỂ BẢO ĐẢM POPUP BẬT LÊN
+        {/* === ĐẢM BẢO CHUYỂN GIAO TOÀN BỘ QUYỀN MỞ MODAL CHO HEADER === */}
         setShowStatsModal={setShowStatsModal} 
         setShowCustomerModal={setShowCustomerModal} 
         setShowInventoryModal={setShowInventoryModal} 
@@ -526,14 +530,12 @@ export default function App() {
         </div>
       </div>
 
-      {/* DANH SÁCH MODAL (POPUP) BỊ LIỆT ĐÃ ĐƯỢC CHỮA KHỎI */}
+      {/* RENDER TOÀN BỘ MODAL Ở ĐÂY ĐỂ ĐẢM BẢO HIỂN THỊ */}
       {showStoreSettings && <StoreSettingsModal onClose={() => setShowStoreSettings(false)} />}
       {showSettings && <SettingsModal bankBin={bankBin} setBankBin={setNewBankBin} newBankBin={newBankBin} bankAcc={bankAcc} setBankAcc={setNewBankAcc} newBankAcc={newBankAcc} bankNameStr={bankNameStr} setBankNameStr={setNewBankNameStr} newBankNameStr={newBankNameStr} zaloPayId={zaloPayId} setZaloPayId={setNewZaloPayId} newZaloPayId={newZaloPayId} happyStart={happyStart} setHappyStart={setNewHappyStart} newHappyStart={newHappyStart} happyEnd={happyEnd} setHappyEnd={setNewHappyEnd} newHappyEnd={newHappyEnd} adminPin={adminPin} setAdminPinInput={setNewAdminPinInput} newAdminPinInput={newAdminPinInput} saveSettings={saveSettings} loading={loading} onClose={() => setShowSettings(false)} />}
       {showPinModal && <PinModal adminPin={adminPin} onSuccess={() => { setShowPinModal(false); if(pendingAction) pendingAction(); setPendingAction(null); }} onClose={() => { setShowPinModal(false); setPendingAction(null); }} />}
       {cashFlowModalInfo && <CashFlowDetailModal flowType={cashFlowModalInfo} onClose={() => setCashFlowModalInfo(null)} allLogs={history} />}
       {isCheckoutOpen && <CheckoutModal checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} customersData={customersData} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} customerInput={customerInput} setCustomerInput={setCustomerInput} custAddress={custAddress} setCustAddress={setCustAddress} handleCustomerInputChange={handleCustomerInputChange} finalToPay={finalToPay} useWallet={useWallet} setUseWallet={setUseWallet} voucherInput={voucherInput} setVoucherInput={setVoucherInput} handleVoucherSubmit={handleVoucherSubmit} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} confirmCheckout={confirmCheckout} closeCheckout={closeCheckout} loading={loading} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} sendReceiptEmail={sendReceiptEmail} setScannerMode={setScannerMode} handleNextToQR={handleNextToQR} setPrintMode={setPrintMode} />}
-      
-      {/* CÁC MODAL HỆ THỐNG */}
       {printBarcodeProduct && <ScannerModal product={printBarcodeProduct} barcodeCount={barcodeCount} setBarcodeCount={setBarcodeCount} onClose={() => setPrintBarcodeProduct(null)} />}
       {showScannerLinkModal && <ScannerLinkModal onClose={() => setShowScannerLinkModal(false)} />}
       {showHandoverModal && <HandoverModal shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onConfirm={confirmHandover} onClose={() => setShowHandoverModal(false)} />}
