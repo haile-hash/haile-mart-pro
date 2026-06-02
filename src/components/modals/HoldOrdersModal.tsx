@@ -1,22 +1,21 @@
 import React from 'react';
-import { HeldOrder } from '../../types';
+import { HeldOrder, CartItem } from '../../types';
 
 interface HoldOrdersModalProps {
-  showHoldModal: boolean;
-  setShowHoldModal: (show: boolean) => void;
+  onClose: () => void; // Thay vì setShowHoldModal để khớp với App.tsx
   heldOrders: HeldOrder[];
   restoreOrder: (order: HeldOrder) => void;
   deleteHeldOrder: (id: number) => void;
 }
 
 export const HoldOrdersModal: React.FC<HoldOrdersModalProps> = ({
-  showHoldModal,
-  setShowHoldModal,
+  onClose,
   heldOrders,
   restoreOrder,
   deleteHeldOrder
 }) => {
-  if (!showHoldModal) return null;
+  // Vì Modal này được render có điều kiện ở App.tsx {showHoldModal && ...}
+  // Nên không cần check if (!showHoldModal) return null nữa.
 
   return (
     <div style={{
@@ -53,7 +52,7 @@ export const HoldOrdersModal: React.FC<HoldOrdersModalProps> = ({
             📦 DANH SÁCH ĐƠN TẠM LƯU ({heldOrders?.length || 0})
           </h2>
           <button 
-            onClick={() => setShowHoldModal(false)}
+            onClick={() => onClose?.()} // An toàn hơn khi gọi hàm
             style={{
               background: 'none', border: 'none', fontSize: '28px', cursor: 'pointer', color: '#64748b', lineHeight: 1
             }}
@@ -72,8 +71,9 @@ export const HoldOrdersModal: React.FC<HoldOrdersModalProps> = ({
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {heldOrders.map((order: any) => {
-                const orderTotal = order.cart?.reduce((sum: number, item: any) => sum + (item.total || 0), 0) || 0;
+              {heldOrders.map((order: HeldOrder) => {
+                // Sử dụng type chuẩn để báo lỗi nếu sai trường
+                const orderTotal = order.cart?.reduce((sum: number, item: CartItem) => sum + (item.total || 0), 0) || 0;
                 
                 return (
                   <div key={order.id} style={{
@@ -87,7 +87,7 @@ export const HoldOrdersModal: React.FC<HoldOrdersModalProps> = ({
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', borderBottom: '1px dashed #cbd5e1', paddingBottom: '12px' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         <span style={{ fontWeight: '900', color: '#1e293b', fontSize: '15px' }}>
-                          👤 {order.note || 'Không tên'}
+                          👤 {/* Ghi chú tạm thời dùng ID nếu chưa có trường name ở backend */ `Khách hàng (ID: ${order.id})`}
                         </span>
                         <span style={{ color: '#3b82f6', fontSize: '12px', fontWeight: 'bold' }}>
                           🕒 Lưu lúc: {order.time || 'Không rõ'}
@@ -101,7 +101,7 @@ export const HoldOrdersModal: React.FC<HoldOrdersModalProps> = ({
                     {/* Chi tiết món */}
                     <div style={{ fontSize: '15px', color: '#475569', marginBottom: '20px', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '6px' }}>
                       <ul style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        {order.cart?.map((item: any, idx: number) => (
+                        {order.cart?.map((item: CartItem, idx: number) => (
                           <li key={idx}>
                             {item.product?.name || 'Sản phẩm không xác định'} <span style={{ fontWeight: 'bold', color: '#0f172a' }}>x{item.qty || 0}</span>
                           </li>
