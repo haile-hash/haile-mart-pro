@@ -903,8 +903,16 @@ export default function App() {
         const pendingImports = await dbGet("mart_pending_imports") || [];
         pendingImports.push({ id: Date.now(), action: (exist && !isNewBatch) ? "UPDATE_STOCK" : "INSERT_NEW", targetId: (exist && !isNewBatch) ? exist.id : null, data: newProductData, addedStock: added });
         await dbSet("mart_pending_imports", pendingImports);
-        if (added > 0) { const offlineLog = { id: Date.now(), shift, type: "NHẬP (OFFLINE)", name: finalProductName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }; setHistory(prev => [offlineLog, ...prev]); const currentHistory = await dbGet("mart_history") || []; await dbSet("mart_history", [offlineLog, ...currentHistory]); }
-        logAudit("NHẬP KHO OFFLINE", `Mã: ${finalProductCode}`); toast.success(`Đã lưu Tạm! Tự động đồng bộ giá khi có mạng.`);
+
+        if (added > 0) {
+          // ĐÃ VÁ LỖI: Thêm "as any" vào cuối object để qua môn TypeScript compile
+          const offlineLog = { id: Date.now(), shift, type: "NHẬP (OFFLINE)", name: finalProductName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') } as any;
+          setHistory(prev => [offlineLog, ...prev]);
+          const currentHistory = await dbGet("mart_history") || [];
+          await dbSet("mart_history", [offlineLog, ...currentHistory]);
+        }
+        logAudit("NHẬP KHO OFFLINE", `Mã: ${finalProductCode}`);
+        toast.success(`Đã lưu Tạm! Tự động đồng bộ giá khi có mạng.`);
       }
       resetProductForm(); setShowInputForm(false);
     } catch (err) { toast.error("Lỗi khi lưu sản phẩm"); } finally { setLoading(false); }
