@@ -8,12 +8,16 @@ export const CartPanel: React.FC<any> = ({
   return (
     <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
       
-      {/* HEADER GIỎ HÀNG THIẾT KẾ MỚI: TẤT CẢ TRÊN 1 DÒNG */}
+      {/* HEADER GIỎ HÀNG: ÉP SÁT SỐ 1 VÀO CHỮ, NÚT NẰM BÊN PHẢI */}
       <div style={{ padding: '16px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', borderRadius: '12px 12px 0 0' }}>
-        <div style={{ fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px', color: '#1e293b', fontSize: '15px' }}>
-          🛒 GIỎ HÀNG <span style={{ background: '#ef4444', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '12px' }}>{cart.length}</span>
+        
+        {/* CỤM BÊN TRÁI: Chữ Giỏ Hàng và Con Số */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontWeight: '900', color: '#1e293b', fontSize: '15px' }}>🛒 GIỎ HÀNG</span>
+          <span style={{ background: '#ef4444', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold' }}>{cart.length}</span>
         </div>
         
+        {/* CỤM BÊN PHẢI: Các Nút Chức Năng */}
         <div style={{ display: 'flex', gap: '6px' }}>
           <button onClick={handleHoldOrder} disabled={cart.length === 0} style={{ padding: '8px 12px', background: cart.length === 0 ? '#cbd5e1' : '#f59e0b', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', cursor: cart.length === 0 ? 'not-allowed' : 'pointer' }} title="Lưu tạm giỏ hàng (F4)">
             ⏸️ Lưu Tạm
