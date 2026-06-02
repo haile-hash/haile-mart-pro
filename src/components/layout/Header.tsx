@@ -58,7 +58,6 @@ export const Header = (props) => {
           <div className="modern-stat-card" style={{ borderBottom: '3px solid #f59e0b' }}><span style={{ fontSize: "11px", fontWeight: "700", color: "#f59e0b", textTransform: "uppercase" }}>Lãi tạm tính</span><span style={{ fontSize: "17px", fontWeight: "800", color: "#d97706" }}>{Math.round(props.currentShiftStats.profit).toLocaleString()}đ</span></div>
         </div>
 
-        {/* ĐÃ XÓA KHỐI HIỂN THỊ "NGƯỜI DÙNG" VÀ "CA LÀM VIỆC" */}
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '12px', background: props.isOnline ? (props.darkMode ? 'rgba(16,185,129,0.1)' : '#ecfdf5') : (props.darkMode ? 'rgba(239,68,68,0.1)' : '#fef2f2'), border: `1px solid ${props.isOnline ? '#a7f3d0' : '#fecaca'}` }}>
             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: props.isOnline ? '#10b981' : '#ef4444', display: 'inline-block' }}></span>
