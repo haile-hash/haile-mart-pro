@@ -57,13 +57,6 @@ export default function App() {
   if (typeof window !== "undefined" && window.location.search.includes("scanner=true")) return <MobileScanner />;
   const VAT_RATE = 0.1; const IDLE_TIMEOUT = 5 * 60 * 1000; const todayStrStr = new Date().toLocaleDateString('vi-VN');
 
-  // ÉP QUYỀN ADMIN ĐỂ CHỐNG LỖI CÁC MODAL BỊ TÀNG HÌNH
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('mart_role', 'admin');
-    }
-  }, []);
-
   useEffect(() => { emailjs.init("5ric0kxuwNPlUleAv"); }, []);
   useEffect(() => { if (typeof window !== 'undefined' && !(window as any).XLSX) { const script = document.createElement('script'); script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; script.async = true; document.head.appendChild(script); } }, []);
 
@@ -78,19 +71,36 @@ export default function App() {
   const [bankBin, setBankBin] = useState(""); const [bankAcc, setBankAcc] = useState(""); const [bankNameStr, setBankNameStr] = useState(""); const [zaloPayId, setZaloPayId] = useState(""); const [adminPin, setAdminPin] = useState("1234"); const [pendingAction, setPendingAction] = useState<(() => void) | null>(null); const [happyStart, setHappyStart] = useState("11:00"); const [happyEnd, setHappyEnd] = useState("13:00");
   const [newBankBin, setNewBankBin] = useState(""); const [newBankAcc, setNewBankAcc] = useState(""); const [newBankNameStr, setNewBankNameStr] = useState(""); const [newZaloPayId, setNewZaloPayId] = useState(""); const [newHappyStart, setNewHappyStart] = useState("11:00"); const [newHappyEnd, setNewHappyEnd] = useState("13:00"); const [newAdminPinInput, setNewAdminPinInput] = useState("");
 
+  // ==============================================================
+  // ĐÃ SỬA: KHÔI PHỤC TOÀN BỘ TRẠNG THÁI TỪ useUIState
+  // Đảm bảo Modals có thể đọc được tín hiệu MỞ/ĐÓNG từ Global Store
+  // ==============================================================
   const { 
-    darkMode, setDarkMode, showSettings, setShowSettings, showInputForm, setShowInputForm, 
-    showDebtModal, setShowDebtModal, showStatsModal, setShowStatsModal, showCustomerModal, setShowCustomerModal, 
-    showHandoverModal, setShowHandoverModal, showAuditModal, setShowAuditModal, showHoldModal, setShowHoldModal, 
-    showExpenseModal, setShowExpenseModal, showSupplierModal, setShowSupplierModal, showMarketingModal, setShowMarketingModal, 
-    showInventoryModal, setShowInventoryModal, showMainMenu, setShowMainMenu, cashFlowModalInfo, setCashFlowModalInfo, 
-    scannerMode, setScannerMode, printMode, setPrintMode 
+    darkMode, setDarkMode, 
+    showSettings, setShowSettings, 
+    showInputForm, setShowInputForm, 
+    showDebtModal, setShowDebtModal, 
+    showStatsModal, setShowStatsModal, 
+    showCustomerModal, setShowCustomerModal, 
+    showHandoverModal, setShowHandoverModal, 
+    showAuditModal, setShowAuditModal, 
+    showHoldModal, setShowHoldModal, 
+    showExpenseModal, setShowExpenseModal, 
+    showSupplierModal, setShowSupplierModal, 
+    showMarketingModal, setShowMarketingModal, 
+    showInventoryModal, setShowInventoryModal, 
+    showMainMenu, setShowMainMenu, 
+    cashFlowModalInfo, setCashFlowModalInfo, 
+    scannerMode, setScannerMode, 
+    printMode, setPrintMode 
   } = useUIState();
 
+  // Các State cục bộ phát sinh sau
   const [showStoreSettings, setShowStoreSettings] = useState(false);
   const [showPOModal, setShowPOModal] = useState(false); 
   const [showScannerLinkModal, setShowScannerLinkModal] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
+  // ==============================================================
 
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState(""); const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(""); const [selectedCategory, setSelectedCategory] = useState("Tất cả"); const [loading, setLoading] = useState(false); const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null); const [filters, setFilters] = useState<Record<string, any[]>>({}); const [showSuggestions, setShowSuggestions] = useState(false);
