@@ -19,7 +19,7 @@ export const ProductTable: React.FC<any> = ({ products, handleSelectSuggest, han
     setSortConfig({ key, direction }); setActiveFilterMenu(activeFilterMenu === key ? null : (key as string));
   };
 
-  const getUniqueValues = (key: keyof Product): string[] => Array.from(new Set(products.map(p => String(p[key] || '---')))).sort();
+  const getUniqueValues = (key: keyof Product): string[] => Array.from(new Set<string>(products.map(p => String(p[key] || '---')))).sort();
 
   const handleCheckboxChange = (key: string, value: string) => {
     setSelectedFilters(prev => {
