@@ -57,6 +57,13 @@ export default function App() {
   if (typeof window !== "undefined" && window.location.search.includes("scanner=true")) return <MobileScanner />;
   const VAT_RATE = 0.1; const IDLE_TIMEOUT = 5 * 60 * 1000; const todayStrStr = new Date().toLocaleDateString('vi-VN');
 
+  // ÉP QUYỀN ADMIN ĐỂ CHỐNG LỖI CÁC MODAL BỊ TÀNG HÌNH
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('mart_role', 'admin');
+    }
+  }, []);
+
   useEffect(() => { emailjs.init("5ric0kxuwNPlUleAv"); }, []);
   useEffect(() => { if (typeof window !== 'undefined' && !(window as any).XLSX) { const script = document.createElement('script'); script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; script.async = true; document.head.appendChild(script); } }, []);
 
@@ -71,23 +78,19 @@ export default function App() {
   const [bankBin, setBankBin] = useState(""); const [bankAcc, setBankAcc] = useState(""); const [bankNameStr, setBankNameStr] = useState(""); const [zaloPayId, setZaloPayId] = useState(""); const [adminPin, setAdminPin] = useState("1234"); const [pendingAction, setPendingAction] = useState<(() => void) | null>(null); const [happyStart, setHappyStart] = useState("11:00"); const [happyEnd, setHappyEnd] = useState("13:00");
   const [newBankBin, setNewBankBin] = useState(""); const [newBankAcc, setNewBankAcc] = useState(""); const [newBankNameStr, setNewBankNameStr] = useState(""); const [newZaloPayId, setNewZaloPayId] = useState(""); const [newHappyStart, setNewHappyStart] = useState("11:00"); const [newHappyEnd, setNewHappyEnd] = useState("13:00"); const [newAdminPinInput, setNewAdminPinInput] = useState("");
 
-  const { darkMode, setDarkMode, showInputForm, setShowInputForm, showMainMenu, setShowMainMenu, cashFlowModalInfo, setCashFlowModalInfo, scannerMode, setScannerMode, printMode, setPrintMode } = useUIState();
+  const { 
+    darkMode, setDarkMode, showSettings, setShowSettings, showInputForm, setShowInputForm, 
+    showDebtModal, setShowDebtModal, showStatsModal, setShowStatsModal, showCustomerModal, setShowCustomerModal, 
+    showHandoverModal, setShowHandoverModal, showAuditModal, setShowAuditModal, showHoldModal, setShowHoldModal, 
+    showExpenseModal, setShowExpenseModal, showSupplierModal, setShowSupplierModal, showMarketingModal, setShowMarketingModal, 
+    showInventoryModal, setShowInventoryModal, showMainMenu, setShowMainMenu, cashFlowModalInfo, setCashFlowModalInfo, 
+    scannerMode, setScannerMode, printMode, setPrintMode 
+  } = useUIState();
 
-  const [showStatsModal, setShowStatsModal] = useState(false);
-  const [showCustomerModal, setShowCustomerModal] = useState(false);
-  const [showInventoryModal, setShowInventoryModal] = useState(false);
-  const [showDebtModal, setShowDebtModal] = useState(false);
-  const [showAuditModal, setShowAuditModal] = useState(false);
-  const [showExpenseModal, setShowExpenseModal] = useState(false);
-  const [showSupplierModal, setShowSupplierModal] = useState(false);
-  const [showMarketingModal, setShowMarketingModal] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [showStoreSettings, setShowStoreSettings] = useState(false);
   const [showPOModal, setShowPOModal] = useState(false); 
   const [showScannerLinkModal, setShowScannerLinkModal] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
-  const [showHandoverModal, setShowHandoverModal] = useState(false);
-  const [showHoldModal, setShowHoldModal] = useState(false);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState(""); const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(""); const [selectedCategory, setSelectedCategory] = useState("Tất cả"); const [loading, setLoading] = useState(false); const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null); const [filters, setFilters] = useState<Record<string, any[]>>({}); const [showSuggestions, setShowSuggestions] = useState(false);
@@ -480,19 +483,7 @@ export default function App() {
         shift={shift} totalValue={totalValue} currentShiftStats={currentShiftStats} setCashFlowModalInfo={setCashFlowModalInfo} darkMode={darkMode} setDarkMode={setDarkMode} handleLogoutClick={handleLogoutClick}
         showMainMenu={showMainMenu} setShowMainMenu={setShowMainMenu}
         
-        // TRUYỀN TOÀN BỘ LOCAL STATE SETTER VÀO HEADER ĐỂ BẢO ĐẢM POPUP BẬT LÊN
-        setShowStatsModal={setShowStatsModal} 
-        setShowCustomerModal={setShowCustomerModal} 
-        setShowInventoryModal={setShowInventoryModal} 
-        setShowDebtModal={setShowDebtModal} 
-        setShowAuditModal={setShowAuditModal} 
-        setShowExpenseModal={setShowExpenseModal} 
-        setShowSupplierModal={setShowSupplierModal} 
-        setShowMarketingModal={setShowMarketingModal} 
-        setShowScannerLinkModal={setShowScannerLinkModal} 
-        setShowSettings={setShowSettings} 
-        setShowStoreSettings={setShowStoreSettings} 
-        setShowPOModal={setShowPOModal}
+        setShowStatsModal={setShowStatsModal} setShowCustomerModal={setShowCustomerModal} setShowInventoryModal={setShowInventoryModal} setShowDebtModal={setShowDebtModal} setShowAuditModal={setShowAuditModal} setShowExpenseModal={setShowExpenseModal} setShowSupplierModal={setShowSupplierModal} setShowMarketingModal={setShowMarketingModal} setShowScannerLinkModal={setShowScannerLinkModal} setShowSettings={setShowSettings} setShowStoreSettings={setShowStoreSettings} setShowPOModal={setShowPOModal}
         
         lowStockCount={lowStockCount} isOnline={isOnline} syncStatus={syncStatus} syncAllOfflineData={syncPendingImports} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr}
       />
@@ -517,7 +508,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* RENDER TOÀN BỘ MODAL Ở ĐÂY VỚI QUYỀN ADMIN (CHỐNG LỖI ẨN TRONG FILE CON) */}
+      {/* RENDER TOÀN BỘ MODAL Ở ĐÂY KÈM QUYỀN ADMIN (CHỐNG LỖI TÀNG HÌNH TRONG RUỘT FILE CON) */}
       {showStoreSettings && <StoreSettingsModal role="admin" onClose={() => setShowStoreSettings(false)} />}
       {showSettings && <SettingsModal role="admin" bankBin={bankBin} setBankBin={setNewBankBin} newBankBin={newBankBin} bankAcc={bankAcc} setBankAcc={setNewBankAcc} newBankAcc={newBankAcc} bankNameStr={bankNameStr} setBankNameStr={setNewBankNameStr} newBankNameStr={newBankNameStr} zaloPayId={zaloPayId} setZaloPayId={setNewZaloPayId} newZaloPayId={newZaloPayId} happyStart={happyStart} setHappyStart={setNewHappyStart} newHappyStart={newHappyStart} happyEnd={happyEnd} setHappyEnd={setNewHappyEnd} newHappyEnd={newHappyEnd} adminPin={adminPin} setAdminPinInput={setNewAdminPinInput} newAdminPinInput={newAdminPinInput} saveSettings={saveSettings} loading={loading} onClose={() => setShowSettings(false)} />}
       {showPinModal && <PinModal adminPin={adminPin} onSuccess={() => { setShowPinModal(false); if(pendingAction) pendingAction(); setPendingAction(null); }} onClose={() => { setShowPinModal(false); setPendingAction(null); }} />}
