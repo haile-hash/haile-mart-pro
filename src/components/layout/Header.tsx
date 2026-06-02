@@ -23,13 +23,11 @@ export const Header: React.FC<any> = ({
         .modern-stat-card { background: ${darkMode ? 'rgba(255, 255, 255, 0.05)' : '#ffffff'}; border: 1px solid ${darkMode ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0'}; border-radius: 12px; padding: 8px 16px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; min-width: 120px; box-shadow: 0 2px 6px rgba(0,0,0,0.02); }
         .main-menu-btn { background: ${darkMode ? '#334155' : '#1e293b'}; color: white; padding: 8px 20px; border-radius: 10px; display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; border: none; cursor: pointer; transition: 0.2s; }
         .main-menu-btn:hover { background: #0f172a; }
-        .dropdown-menu-saas button { width: 100%; text-align: left; padding: 10px 14px; background: none; border: none; color: ${darkMode ? '#cbd5e1' : '#334155'}; font-size: 13px; font-weight: 600; cursor: pointer; }
-        .dropdown-menu-saas button:hover { background: ${darkMode ? '#334155' : '#f1f5f9'}; color: ${darkMode ? '#ffffff' : '#da251d'}; }
+        .dropdown-menu-saas button { width: 100%; text-align: left; padding: 10px 14px; background: none; border: none; color: ${darkMode ? '#cbd5e1' : '#334155'}; font-size: 13px; font-weight: 600; cursor: pointer; display: block; border-bottom: 1px solid ${darkMode ? 'rgba(255,255,255,0.05)' : '#f1f5f9'}; }
+        .dropdown-menu-saas button:hover { background: ${darkMode ? '#334155' : '#f1f5f9'}; color: ${darkMode ? '#ffffff' : '#da251d'}; padding-left: 18px; transition: 0.2s; }
       `}</style>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-        
-        {/* CLICK VÀO ĐÂY ĐỂ MỞ CẤU HÌNH THAY LÔ GÔ */}
         <div className="premium-banner" onClick={() => setShowSettings(true)} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '8px 20px', borderRadius: '16px', cursor: 'pointer', border: '1px solid #f87171', minWidth: '300px' }} title="Nhấn để Sửa tên & Logo">
           <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: storeInfo.logo ? 'transparent' : 'linear-gradient(135deg, #fef08a 0%, #eab308 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', overflow: 'hidden' }}>
             {storeInfo.logo ? <img src={storeInfo.logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : "🏪"}
@@ -55,7 +53,7 @@ export const Header: React.FC<any> = ({
           <button onClick={() => setDarkMode(!darkMode)} style={{ background: darkMode ? 'rgba(255,255,255,0.05)' : '#ffffff', border: `1px solid ${darkMode ? 'rgba(255,255,255,0.1)' : '#e2e8f0'}`, cursor: 'pointer', width: '44px', height: '44px', borderRadius: '12px', fontSize: '18px' }}>{darkMode ? "☀️" : "🌙"}</button>
           <div style={{ background: darkMode ? 'rgba(255,255,255,0.05)' : '#ffffff', border: `1px solid ${darkMode ? 'rgba(255,255,255,0.1)' : '#e2e8f0'}`, padding: "6px 14px 6px 6px", display: "flex", alignItems: "center", gap: "10px", borderRadius: '14px' }}>
             <div style={{ width: "32px", height: "32px", borderRadius: "10px", background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "16px" }}>👑</div>
-            <div style={{ textAlign: "left" }}><span style={{ display: "block", fontSize: "13px", fontWeight: "700", color: darkMode ? '#ffffff' : "#334155" }}>Quản lý</span><span style={{ display: "block", fontSize: "11px", fontWeight: "500", color: "#64748b" }}>{shift}</span></div>
+            <div style={{ textAlign: "left" }}><span style={{ display: "block", fontSize: "13px", fontWeight: "700", color: darkMode ? '#ffffff' : "#334155" }}>Người dùng</span><span style={{ display: "block", fontSize: "11px", fontWeight: "500", color: "#64748b" }}>{shift}</span></div>
           </div>
           <button onClick={handleLogoutClick} style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', width: '44px', height: '44px', borderRadius: '12px', cursor: 'pointer' }}>⏻</button>
         </div>
@@ -65,13 +63,14 @@ export const Header: React.FC<any> = ({
         <button className="main-menu-btn" onClick={(e) => { e.stopPropagation(); setShowMainMenu(!showMainMenu); }}>☰ MENU TÍNH NĂNG</button>
         {showMainMenu && (
           <div className="dropdown-menu-saas" style={{ position: "absolute", left: 0, top: "100%", marginTop: "8px", width: "260px", zIndex: 99999, padding: "8px", borderRadius: "16px", background: darkMode ? '#1e293b' : '#ffffff', border: `1px solid ${darkMode ? '#334155' : '#e2e8f0'}`, boxShadow: "0 20px 25px -5px rgba(0,0,0,0.15)" }} onClick={e => e.stopPropagation()}>
+            {/* ĐÃ THÔNG MẠCH HOÀN TOÀN CÁC NÚT BẤM BẬT POPUP */}
             <button onClick={() => { setShowMainMenu(false); setShowStatsModal(true); }}>📊 Báo cáo doanh thu</button>
             <button onClick={() => { setShowMainMenu(false); setShowInventoryModal(true); }}>🔍 Kiểm kho định kỳ</button>
             <button onClick={() => { setShowMainMenu(false); setShowDebtModal(true); }}>💸 Sổ nợ Khách</button>
             <button onClick={() => { setShowMainMenu(false); setShowExpenseModal(true); }}>📉 Lập Phiếu Chi</button>
             <button onClick={() => { setShowMainMenu(false); setShowCustomerModal(true); }}>💳 Danh sách VIP</button>
-            <div style={{ padding: "8px 12px", fontSize: "11px", fontWeight: "700", color: "#94a3b8", textTransform: "uppercase", borderTop: `1px solid ${darkMode ? '#334155' : '#f1f5f9'}`, margin: "4px 0" }}>Cấu hình</div>
-            <button onClick={() => { setShowMainMenu(false); setShowSettings(true); }}>⚙️ Thiết lập hệ thống (Đổi Tên/Logo)</button>
+            <div style={{ padding: "8px 12px", fontSize: "11px", fontWeight: "700", color: "#94a3b8", textTransform: "uppercase", margin: "4px 0 0 0" }}>Hệ thống</div>
+            <button onClick={() => { setShowMainMenu(false); setShowSettings(true); }}>⚙️ Thiết lập thương hiệu</button>
           </div>
         )}
       </div>
