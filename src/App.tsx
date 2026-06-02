@@ -1128,7 +1128,8 @@ export default function App() {
     <div className={`app-container ${darkMode ? "dark-theme" : "light-theme"}`} style={{ padding: "16px", minHeight: "100vh", fontFamily: "'Plus Jakarta Sans', -apple-system, sans-serif" }}>
       <Toaster position="top-right" />
       
-      <Header 
+     <Header 
+        role="admin" 
         shift={shift}
         totalValue={totalValue}
         currentShiftStats={currentShiftStats}
@@ -1138,8 +1139,6 @@ export default function App() {
         handleLogoutClick={handleLogoutClick}
         showMainMenu={showMainMenu}
         setShowMainMenu={setShowMainMenu}
-        
-        // NHỮNG DÒNG DƯỚI ĐÂY LÀ CHÌA KHÓA MỞ TOÀN BỘ MODAL:
         setShowStatsModal={setShowStatsModal}
         setShowCustomerModal={setShowCustomerModal}
         setShowInventoryModal={setShowInventoryModal}
@@ -1148,9 +1147,14 @@ export default function App() {
         setShowExpenseModal={setShowExpenseModal}
         setShowSupplierModal={setShowSupplierModal}
         setShowMarketingModal={setShowMarketingModal}
-        setShowSettings={setShowStoreSettings} // Map StoreSettingsModal vào đây
         setShowScannerLinkModal={setShowScannerLinkModal}
+        
+        /* --- ĐÃ BỔ SUNG ĐẦY ĐỦ 3 BIẾN BỊ THIẾU --- */
+        setShowSettings={setShowSettings}
+        setShowStoreSettings={setShowStoreSettings}
         setShowPOModal={setShowPOModal}
+        /* ---------------------------------------- */
+
         lowStockCount={lowStockCount} 
         isOnline={isOnline}
         syncStatus={syncStatus}
@@ -1225,6 +1229,19 @@ export default function App() {
       </div>
 
       {showStoreSettings && <StoreSettingsModal onClose={() => setShowStoreSettings(false)} />}
+      {/* THÊM ĐOẠN NÀY ĐỂ MỞ LẠI SETTINGS MODAL CŨ */}
+      {showSettings && (
+        <SettingsModal 
+          bankBin={bankBin} setBankBin={setNewBankBin} newBankBin={newBankBin}
+          bankAcc={bankAcc} setBankAcc={setNewBankAcc} newBankAcc={newBankAcc}
+          bankNameStr={bankNameStr} setBankNameStr={setNewBankNameStr} newBankNameStr={newBankNameStr}
+          zaloPayId={zaloPayId} setZaloPayId={setNewZaloPayId} newZaloPayId={newZaloPayId}
+          happyStart={happyStart} setHappyStart={setNewHappyStart} newHappyStart={newHappyStart}
+          happyEnd={happyEnd} setHappyEnd={setNewHappyEnd} newHappyEnd={newHappyEnd}
+          adminPin={adminPin} setAdminPinInput={setNewAdminPinInput} newAdminPinInput={newAdminPinInput}
+          saveSettings={saveSettings} loading={loading} onClose={() => setShowSettings(false)}
+        />
+      )}
       {showPinModal && <PinModal adminPin={adminPin} onSuccess={() => { setShowPinModal(false); if(pendingAction) pendingAction(); setPendingAction(null); }} onClose={() => { setShowPinModal(false); setPendingAction(null); }} />}
       {cashFlowModalInfo && <CashFlowDetailModal flowType={cashFlowModalInfo} onClose={() => setCashFlowModalInfo(null)} allLogs={history} />}
       {isCheckoutOpen && <CheckoutModal checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} customersData={customersData} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} customerInput={customerInput} setCustomerInput={setCustomerInput} custAddress={custAddress} setCustAddress={setCustAddress} handleCustomerInputChange={handleCustomerInputChange} finalToPay={finalToPay} useWallet={useWallet} setUseWallet={setUseWallet} voucherInput={voucherInput} setVoucherInput={setVoucherInput} handleVoucherSubmit={handleVoucherSubmit} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} confirmCheckout={confirmCheckout} closeCheckout={closeCheckout} loading={loading} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} sendReceiptEmail={sendReceiptEmail} setScannerMode={setScannerMode} handleNextToQR={handleNextToQR} setPrintMode={setPrintMode} />}
