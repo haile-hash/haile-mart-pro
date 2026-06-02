@@ -5,16 +5,16 @@ import emailjs from '@emailjs/browser';
 import { supabase } from "./supabaseClient";
 import { formatCategoryStr, parseGift, cleanName, getActualPrice, playSound } from "./utils/helpers";
 
-// --- IMPORT HOOKS (Não bộ xử lý) ---
+// --- IMPORT HOOKS ---
 import { useOfflineSync } from "./hooks/useOfflineSync";
 import { useUIState } from "./hooks/useUIState";
 import { useProductInput } from "./hooks/useProductInput";
 import { useCheckoutState } from "./hooks/useCheckoutState";
 
-// --- IMPORT TYPES (Khung xương dữ liệu) ---
+// --- IMPORT TYPES ---
 import { Product, CartItem, Customer, AuditLog, TransactionLog, HeldOrder } from "./types";
 
-// --- IMPORT COMPONENTS (Giao diện chuẩn hóa) ---
+// --- IMPORT COMPONENTS ---
 import { Header } from "./components/layout/Header";
 import { StoreSettingsModal } from "./components/layout/StoreSettingsModal";
 import { ProductSearchAndActions } from "./components/products/ProductSearchAndActions";
@@ -23,7 +23,7 @@ import { ProductTable } from "./components/products/ProductTable";
 import { CartPanel } from "./components/cart/CartPanel";
 import { HistoryPanel } from "./components/history/HistoryPanel";
 
-// --- IMPORT MODALS (Cửa sổ chức năng) ---
+// --- IMPORT MODALS ---
 import { CashFlowDetailModal } from "./components/modals/CashFlowDetailModal";
 import { AuditDetailModal } from "./components/modals/AuditDetailModal";
 import { HoldOrdersModal } from "./components/modals/HoldOrdersModal";
@@ -148,6 +148,8 @@ export default function App() {
   const [zaloPayId, setZaloPayId] = useState("");
   const [adminPin, setAdminPin] = useState("1234");
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  const [happyStart, setHappyStart] = useState("11:00");
+  const [happyEnd, setHappyEnd] = useState("13:00");
   
   // Các state form cấu hình
   const [newBankBin, setNewBankBin] = useState("");
@@ -291,12 +293,6 @@ export default function App() {
     }
     return result;
   }, [products, selectedCategory, debouncedSearchTerm, sortConfig, filters]);
-
-  const uniqueNames = useMemo(() => Array.from(new Set(products.map(p => p.name))), [products]);
-  const uniqueStocks = useMemo(() => Array.from(new Set(products.map(p => p.stock))), [products]);
-  const uniqueImportPrices = useMemo(() => Array.from(new Set(products.map(p => p.import_price))), [products]);
-  const uniqueSalePrices = useMemo(() => Array.from(new Set(products.map(p => p.sale_price))), [products]);
-  const uniqueExpiries = useMemo(() => Array.from(new Set(products.map(p => p.expiry_date).filter(Boolean))), [products]);
 
   const totalValue = useMemo(() => products.reduce((sum, p) => sum + ((p.stock || 0) * (p.import_price || 0)), 0), [products]);
   const lowStockCount = useMemo(() => products.filter(p => p.stock > 0 && p.stock < 10).length, [products]);
@@ -469,7 +465,6 @@ export default function App() {
 
   // --- CÁC HÀM XỬ LÝ NGHIỆP VỤ ---
   const executeWithAdminCheck = (action: () => void) => { 
-    // Đã gỡ bỏ phân quyền. Hàm này giờ chỉ đóng vai trò gọi trực tiếp.
     action(); 
   };
 
@@ -505,18 +500,29 @@ export default function App() {
         setBankBin(data.bank_bin); setBankAcc(data.bank_acc); setBankNameStr(data.bank_name_str); setZaloPayId(data.zalopay_id || "");
         setNewBankBin(data.bank_bin); setNewBankAcc(data.bank_acc); setNewBankNameStr(data.bank_name_str); setNewZaloPayId(data.zalopay_id || "");
         if (data.admin_pin) { setAdminPin(data.admin_pin); setNewAdminPinInput(data.admin_pin); } 
+        if (data.happy_hour_start) { setHappyStart(data.happy_hour_start); setNewHappyStart(data.happy_hour_start); } 
+        if (data.happy_hour_end) { setHappyEnd(data.happy_hour_end); setNewHappyEnd(data.happy_hour_end); } 
       }
     } catch (err) {}
   };
 
   const updateSettingsToCloud = async (bin: string, acc: string, nameStr: string, zaloId: string, hStart: string, hEnd: string, pin: string) => {
-    if (!navigator.onLine) return toast.error("Mất mạng! Không thể lưu Cài đặt lên Cloud."); setLoading(true);
+    if (!navigator.onLine) return toast.error("Mất mạng! Không thể lưu Cài đặt."); setLoading(true);
     try {
       const { error } = await supabase.from("settings").update({ bank_bin: bin, bank_acc: acc, bank_name_str: nameStr, zalopay_id: zaloId, happy_hour_start: hStart, happy_hour_end: hEnd, admin_pin: pin, updated_at: new Date().toISOString() }).eq("id", 1);
-      if (!error) { setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr); setZaloPayId(zaloId); setAdminPin(pin); toast.success("Lưu Cài đặt thành công!"); setShowSettings(false); logAudit("CÀI ĐẶT", "Cập nhật hệ thống"); }
+      if (!error) { 
+        setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr); setZaloPayId(zaloId); setHappyStart(hStart); setHappyEnd(hEnd); setAdminPin(pin); 
+        toast.success("Lưu Cài đặt thành công!"); setShowSettings(false); logAudit("CÀI ĐẶT", "Cập nhật hệ thống"); 
+      }
     } catch (err) {} finally { setLoading(false); }
   };
   
+  const saveSettings = () => { 
+    const bin = newBankBin.trim(); const acc = newBankAcc.trim(); const nameStr = newBankNameStr.trim().toUpperCase(); const zaloId = newZaloPayId.trim(); const pin = newAdminPinInput.trim(); 
+    if (!bin || !acc || !nameStr || !pin) return toast.error("Vui lòng điền đủ thông tin & Mã PIN!"); 
+    updateSettingsToCloud(bin, acc, nameStr, zaloId, newHappyStart, newHappyEnd, pin); 
+  };
+
   const handleLogoutClick = () => { logAudit("ĐĂNG XUẤT", `Thoát ca ${shift}`); setShowHandoverModal(true); };
   const confirmHandover = async () => { try { if (navigator.onLine) { await supabase.auth.signOut(); } } catch (error) {} finally { await dbRemove("mart_logged_in"); await dbRemove("mart_shift"); await dbRemove("mart_current_store"); localStorage.removeItem("mart_was_logged_in"); setIsLoggedIn(false); window.location.reload(); } };
   const handleEditPhone = async (oldPhone: string) => { executeWithAdminCheck(() => { const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customersData[newPhone]) return toast.error("SĐT đã tồn tại!"); const cData = customersData[oldPhone]; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = { ...cData, phone: newPhone }; delete updated[oldPhone]; return updated }); logAudit("SỬA KHÁCH HÀNG", `Đổi SĐT ${oldPhone} -> ${newPhone}`); toast.success("Cập nhật thành công!"); } }); };
@@ -669,7 +675,6 @@ export default function App() {
     logAudit("THU NỢ", `${customersData[phone].name} trả ${paidAmount.toLocaleString()}đ`); toast.success(`Thu nợ thành công!`);
   };
 
-  // ĐÃ SỬA LỖI MẢNG CARTITEM THIẾU TOTAL LÚC IN LẠI HÓA ĐƠN
   const handleReprint = (timeStr: string, mode: 'receipt_thermal' | 'receipt_a4') => {
     const logsInBill = history.filter(h => h.time === timeStr && (h.type === 'BÁN' || h.type === 'GHI NỢ' || h.type === 'TRẢ HÀNG') && h.product_id !== 'DISCOUNT'); 
     const discountLog = history.find(h => h.time === timeStr && h.product_id === 'DISCOUNT'); 
@@ -808,7 +813,6 @@ export default function App() {
   const shareToZalo = (phone: string) => { const cust = customersData[phone]; const code = cust.cardCode || phone; navigator.clipboard.writeText(`Chào ${cust.name},\nMã Thẻ VIP của bạn là: ${code}`).then(() => { toast.success(`Đang mở Zalo...`); logAudit("CHIA SẺ ZALO", phone); window.open(`https://zalo.me/${phone}`, '_blank') }).catch(() => { window.open(`https://zalo.me/${phone}`, '_blank') }) };
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => { const code = e.target.value; setNewCode(code); const p = products.find((x: any) => x.product_code === code); if (p) { setNewName(cleanName(p.name)); setNewCategory(formatCategoryStr(p.category)); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewExpiry(p.expiry_date || ""); const gift = parseGift(p.gift_info); setNewGiftCondition(gift.cond.toString()); setNewGiftInfo(gift.text) } };
 
-  // ĐÃ SỬA LỖI TOAST WARNING Ở ĐÂY
   const syncInventory = async () => {
     if (!navigator.onLine) return toast.error("Mất kết nối mạng!");
     if (Object.keys(actualStockInput).length === 0) return toast.error("Chưa có dữ liệu cập nhật!");
@@ -914,14 +918,7 @@ export default function App() {
         const pendingImports = await dbGet("mart_pending_imports") || [];
         pendingImports.push({ id: Date.now(), action: (exist && !isNewBatch) ? "UPDATE_STOCK" : "INSERT_NEW", targetId: (exist && !isNewBatch) ? exist.id : null, data: newProductData, addedStock: added });
         await dbSet("mart_pending_imports", pendingImports);
-        
-        if (added > 0) { 
-          // ĐÃ VÁ LỖI TYPE STRING BẰNG CÁCH THÊM AS ANY
-          const offlineLog = { id: Date.now(), shift, type: "NHẬP (OFFLINE)", name: finalProductName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') } as any; 
-          setHistory(prev => [offlineLog, ...prev]); 
-          const currentHistory = await dbGet("mart_history") || []; 
-          await dbSet("mart_history", [offlineLog, ...currentHistory]); 
-        }
+        if (added > 0) { const offlineLog = { id: Date.now(), shift, type: "NHẬP (OFFLINE)", name: finalProductName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') } as any; setHistory(prev => [offlineLog, ...prev]); const currentHistory = await dbGet("mart_history") || []; await dbSet("mart_history", [offlineLog, ...currentHistory]); }
         logAudit("NHẬP KHO OFFLINE", `Mã: ${finalProductCode}`); toast.success(`Đã lưu Tạm! Tự động đồng bộ giá khi có mạng.`);
       }
       resetProductForm(); setShowInputForm(false);
@@ -1128,7 +1125,7 @@ export default function App() {
     <div className={`app-container ${darkMode ? "dark-theme" : "light-theme"}`} style={{ padding: "16px", minHeight: "100vh", fontFamily: "'Plus Jakarta Sans', -apple-system, sans-serif" }}>
       <Toaster position="top-right" />
       
-     <Header 
+      <Header 
         role="admin" 
         shift={shift}
         totalValue={totalValue}
@@ -1139,6 +1136,8 @@ export default function App() {
         handleLogoutClick={handleLogoutClick}
         showMainMenu={showMainMenu}
         setShowMainMenu={setShowMainMenu}
+
+        // ĐÃ KHAI BÁO & KẾT NỐI LẠI TOÀN BỘ CÁC POPUP
         setShowStatsModal={setShowStatsModal}
         setShowCustomerModal={setShowCustomerModal}
         setShowInventoryModal={setShowInventoryModal}
@@ -1148,12 +1147,9 @@ export default function App() {
         setShowSupplierModal={setShowSupplierModal}
         setShowMarketingModal={setShowMarketingModal}
         setShowScannerLinkModal={setShowScannerLinkModal}
-        
-        /* --- ĐÃ BỔ SUNG ĐẦY ĐỦ 3 BIẾN BỊ THIẾU --- */
         setShowSettings={setShowSettings}
         setShowStoreSettings={setShowStoreSettings}
         setShowPOModal={setShowPOModal}
-        /* ---------------------------------------- */
 
         lowStockCount={lowStockCount} 
         isOnline={isOnline}
@@ -1163,7 +1159,8 @@ export default function App() {
         bankAcc={bankAcc}
         bankNameStr={bankNameStr}
       />
-      {/* KHỞI TẠO VÙNG CHỨA MÁY ẢNH (KHI BẤM NÚT CAMERA) */}
+
+      {/* KHỞI TẠO VÙNG CHỨA MÁY ẢNH */}
       {scannerMode !== null && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', zIndex: 999999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
           <h2 style={{ color: 'white', marginBottom: '20px', fontSize: '24px' }}>📷 Đưa mã vạch vào khung hình</h2>
@@ -1174,7 +1171,6 @@ export default function App() {
 
       <div className="pos-main-workspace" style={{ display: "grid", gridTemplateColumns: "70% 30%", gap: "16px" }}>
         
-        {/* BÊN TRÁI: KHU VỰC SẢN PHẨM & TÌM KIẾM */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <ProductSearchAndActions 
             barcodeInput={barcodeInput} setBarcodeInput={setBarcodeInput} 
@@ -1202,12 +1198,9 @@ export default function App() {
             handleEdit={handleEdit}
             handleDelete={handleDelete}
             setPrintBarcodeProduct={setPrintBarcodeProduct}
-            sortConfig={sortConfig}
-            setSortConfig={setSortConfig}
           />
         </div>
 
-        {/* BÊN PHẢI: GIỎ HÀNG VÀ LỊCH SỬ GIAO DỊCH */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <CartPanel 
             cart={cart} setCart={setCart}
@@ -1228,8 +1221,9 @@ export default function App() {
         </div>
       </div>
 
+      {/* DANH SÁCH MODAL (POPUP) */}
       {showStoreSettings && <StoreSettingsModal onClose={() => setShowStoreSettings(false)} />}
-      {/* THÊM ĐOẠN NÀY ĐỂ MỞ LẠI SETTINGS MODAL CŨ */}
+      
       {showSettings && (
         <SettingsModal 
           bankBin={bankBin} setBankBin={setNewBankBin} newBankBin={newBankBin}
@@ -1242,6 +1236,7 @@ export default function App() {
           saveSettings={saveSettings} loading={loading} onClose={() => setShowSettings(false)}
         />
       )}
+
       {showPinModal && <PinModal adminPin={adminPin} onSuccess={() => { setShowPinModal(false); if(pendingAction) pendingAction(); setPendingAction(null); }} onClose={() => { setShowPinModal(false); setPendingAction(null); }} />}
       {cashFlowModalInfo && <CashFlowDetailModal flowType={cashFlowModalInfo} onClose={() => setCashFlowModalInfo(null)} allLogs={history} />}
       {isCheckoutOpen && <CheckoutModal checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} customersData={customersData} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} customerInput={customerInput} setCustomerInput={setCustomerInput} custAddress={custAddress} setCustAddress={setCustAddress} handleCustomerInputChange={handleCustomerInputChange} finalToPay={finalToPay} useWallet={useWallet} setUseWallet={setUseWallet} voucherInput={voucherInput} setVoucherInput={setVoucherInput} handleVoucherSubmit={handleVoucherSubmit} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} confirmCheckout={confirmCheckout} closeCheckout={closeCheckout} loading={loading} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} sendReceiptEmail={sendReceiptEmail} setScannerMode={setScannerMode} handleNextToQR={handleNextToQR} setPrintMode={setPrintMode} />}
