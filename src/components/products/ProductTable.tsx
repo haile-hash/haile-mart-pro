@@ -26,7 +26,6 @@ export const ProductTable: React.FC<any> = ({ products, handleSelectSuggest, han
     setActiveFilterMenu(activeFilterMenu === key ? null : (key as string));
   };
 
-  // ĐÃ SỬA LỖI TYPESCRIPT: Thêm <string> và (p: any)
   const getUniqueValues = (key: keyof Product): string[] => {
     return Array.from(new Set<string>(products.map((p: any) => String(p[key] || '---')))).sort();
   };
@@ -43,13 +42,11 @@ export const ProductTable: React.FC<any> = ({ products, handleSelectSuggest, han
     let result = [...products];
     Object.entries(selectedFilters).forEach(([key, allowed]) => { 
       if (allowed.length > 0) {
-        // ĐÃ SỬA LỖI TYPESCRIPT: Thêm (p: any)
         result = result.filter((p: any) => allowed.includes(String(p[key as keyof Product] || '---'))); 
       }
     });
     
     if (sortConfig) {
-      // ĐÃ SỬA LỖI TYPESCRIPT: Thêm (a: any, b: any)
       result.sort((a: any, b: any) => {
         const aVal = a[sortConfig.key] ?? ''; 
         const bVal = b[sortConfig.key] ?? '';
@@ -113,7 +110,6 @@ export const ProductTable: React.FC<any> = ({ products, handleSelectSuggest, han
                 
                 return (
                   <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    {/* GỘP MÃ VÀ TÊN SẢN PHẨM */}
                     <td style={{ padding: '12px' }}>
                       <div style={{ fontWeight: 'bold', color: '#3b82f6', fontSize: '11px', marginBottom: '4px' }}>Mã: {p.product_code}</div>
                       <div onClick={() => handleEdit(p.id, 'name', p.name, true)} style={{ fontWeight: '700', cursor: 'pointer', fontSize: '14px', color: '#1e293b' }} title="Click sửa tên">{cleanName(p.name)}</div>
@@ -123,7 +119,6 @@ export const ProductTable: React.FC<any> = ({ products, handleSelectSuggest, han
                     <td style={{ padding: '12px' }}><span style={{ fontWeight: 'bold', padding: '4px 8px', borderRadius: '8px', background: p.stock <= 5 ? '#fee2e2' : '#dcfce7', color: p.stock <= 5 ? '#ef4444' : '#10b981', fontSize: '13px' }}>{p.stock}</span></td>
                     <td onClick={() => handleEdit(p.id, 'import_price', p.import_price)} style={{ padding: '12px', color: '#64748b', cursor: 'pointer', fontSize: '13px' }}>{(p.import_price || 0).toLocaleString()}đ</td>
                     
-                    {/* GỘP GIÁ BÁN VÀ GIÁ KHUYẾN MÃI */}
                     <td style={{ padding: '12px' }}>
                       <div onClick={() => handleEdit(p.id, 'sale_price', p.sale_price)} style={{ fontWeight: 'bold', color: '#f59e0b', cursor: 'pointer', fontSize: '14px', marginBottom: '4px' }} title="Click sửa Giá Bán">{(p.sale_price || 0).toLocaleString()}đ</div>
                       <div onClick={() => handleEdit(p.id, 'promo_price', p.promo_price)} style={{ color: '#ef4444', fontWeight: '600', cursor: 'pointer', fontSize: '12px' }} title="Click sửa Giá KM">
@@ -131,14 +126,12 @@ export const ProductTable: React.FC<any> = ({ products, handleSelectSuggest, han
                       </div>
                     </td>
 
-                    {/* CỘT QUÀ TẶNG */}
                     <td style={{ padding: '12px' }}>
                       <div onClick={() => handleEdit(p.id, 'gift_info', p.gift_info, true)} style={{ fontSize: '11px', color: '#8b5cf6', cursor: 'pointer', background: '#f3e8ff', padding: '4px 8px', borderRadius: '6px', display: 'inline-block', fontWeight: '600' }} title="Click sửa (ĐK;;;Tên Quà)">
                         {p.gift_info ? `Mua ${giftObj.cond} tặng: ${giftObj.text}` : '🎁 Thêm quà'}
                       </div>
                     </td>
                     
-                    {/* GỘP NGÀY NHẬP VÀ HSD */}
                     <td style={{ padding: '12px', fontSize: '13px', lineHeight: '1.4' }}>
                       <div style={{ color: '#475569', fontWeight: '500' }} title="Ngày nhập kho">📥 {importDate}</div>
                       <div onClick={() => handleEdit(p.id, 'expiry_date', p.expiry_date, true)} style={{ color: '#ea580c', fontWeight: 'bold', cursor: 'pointer', marginTop: '2px' }} title="Hạn sử dụng (Click sửa)">
@@ -148,7 +141,7 @@ export const ProductTable: React.FC<any> = ({ products, handleSelectSuggest, han
 
                     <td style={{ padding: '12px', textAlign: 'center' }}>
                       <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                        <button onClick={() => handleSelectSuggest(p)} style={{ background: '#10b981', color: 'white', border: 'none', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>🛒 Thêm</button>
+                        <button onClick={() => handleSelectSuggest(p)} style={{ background: '#10b981', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>🛒 Thêm</button>
                         <button onClick={() => setPrintBarcodeProduct(p)} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }} title="In tem mã vạch có tên CH">🖨️ Tem</button>
                         <button onClick={() => handleDelete(p.id, p.name)} style={{ background: '#ef4444', color: 'white', border: 'none', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>Xóa</button>
                       </div>
