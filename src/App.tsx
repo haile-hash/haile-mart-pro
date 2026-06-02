@@ -402,7 +402,7 @@ export default function App() {
         .on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData())
         .on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData())
         .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData())
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload) => { 
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload: any) => { 
           setScanQueue(prev => [...prev, payload.new.code]); 
         }).subscribe();
         
