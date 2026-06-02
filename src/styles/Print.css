@@ -1,41 +1,63 @@
+/* TRÊN MÀN HÌNH BÌNH THƯỜNG: Ẩn khu vực in */
 @media screen {
   .print-only-zone {
     display: none !important;
   }
 }
 
+/* KHI RA LỆNH IN (Ctrl+P / Cmd+P) */
 @media print {
   /* Giấu toàn bộ giao diện App đi khi in */
-  .no-print, .custom-modal-overlay, .animated-bg-mesh, .login-wrapper {
+  .no-print, 
+  .custom-modal-overlay, 
+  .animated-bg-mesh, 
+  .login-wrapper,
+  .app-container > *:not(#print-receipt-section) { /* Ẩn toàn bộ App trừ khu vực in */
     display: none !important;
   }
 
-  /* Trả lại màu nền giấy trắng tinh, xóa lề */
-  body, html, #root {
+  /* Trả lại màu nền giấy trắng tinh, xóa lề trang in của Trình duyệt */
+  @page {
+    margin: 0; /* Xóa lề mặc định của trình duyệt */
+  }
+
+  body, html, #root, .app-container {
     background: #ffffff !important;
     color: #000000 !important;
     margin: 0 !important;
     padding: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
   }
 
   /* Kích hoạt hiển thị cho riêng khu vực in */
-  .print-only-zone {
+  .print-only-zone, #print-receipt-section {
     display: block !important;
+    visibility: visible !important;
     width: 100% !important;
     background: #ffffff !important;
-    position: static !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
   
-  /* Lưới in tem mã vạch */
+  /* Lưới in tem mã vạch - Fix không bị vỡ cột */
   .barcode-print-grid {
     display: grid !important;
     grid-template-columns: repeat(4, 1fr) !important;
     gap: 3mm !important;
+    page-break-inside: auto !important;
+  }
+  .barcode-print-grid > div {
+    page-break-inside: avoid !important; /* Không cắt ngang tem khi sang trang */
   }
 
-  /* Ép máy in giữ nguyên màu sắc, hình ảnh */
+  /* Ép máy in giữ nguyên màu sắc, hình ảnh (đặc biệt là QR Code và Màu chữ) */
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    color-adjust: exact !important;
   }
 }
