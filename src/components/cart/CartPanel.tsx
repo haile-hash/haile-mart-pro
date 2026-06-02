@@ -1,13 +1,30 @@
-/* eslint-disable */
-// @ts-nocheck
 import React from 'react';
+import { CartItem } from '../../types';
 import { cleanName, getActualPrice } from '../../utils/helpers';
 import { toast } from 'react-hot-toast';
 
-export const CartPanel = ({ 
-  cart, setCart, handleQtyChange, cartTotalAmountDisplay, 
-  setIsCheckoutOpen, handleHoldOrder, setCheckoutStep, setShowHoldModal 
-}: any) => {
+// Định nghĩa rạch ròi các Props được nhận từ App.tsx
+interface CartPanelProps {
+  cart: CartItem[];
+  setCart: React.Dispatch<React.SetStateAction<CartItem[]>>;
+  handleQtyChange: (id: string | number, qty: number | string) => void;
+  cartTotalAmountDisplay: number;
+  setIsCheckoutOpen: (isOpen: boolean) => void;
+  handleHoldOrder: () => void; // App.tsx gốc đang không nhận tham số
+  setCheckoutStep: (step: number) => void;
+  setShowHoldModal: (show: boolean) => void;
+}
+
+export const CartPanel: React.FC<CartPanelProps> = ({ 
+  cart, 
+  setCart, 
+  handleQtyChange, 
+  cartTotalAmountDisplay, 
+  setIsCheckoutOpen, 
+  handleHoldOrder, 
+  setCheckoutStep, 
+  setShowHoldModal 
+}) => {
   
   // Hàm Hủy giỏ
   const handleClearCart = () => {
@@ -18,12 +35,14 @@ export const CartPanel = ({
     }
   };
 
-  // Hàm Lưu Tạm (Có hỏi tên khách)
+  // Hàm Lưu Tạm
   const onHoldClick = () => {
     if (cart.length === 0) return;
     const note = window.prompt("Nhập tên khách hàng hoặc ghi chú (Bàn 1, Khách áo đen...):", "Khách chờ");
     if (note !== null) {
-      handleHoldOrder(note); // Truyền tên khách về App.tsx
+      // Tạm thời gọi hàm gốc của App.tsx. 
+      // Về sau khi ổn định UI, chúng ta sẽ sửa hàm handleHoldOrder ở App.tsx để nhận biến 'note' này
+      handleHoldOrder(); 
     }
   };
 
@@ -47,7 +66,6 @@ export const CartPanel = ({
           <span style={{ fontSize: '28px', fontWeight: '900', color: '#dc2626' }}>{cartTotalAmountDisplay.toLocaleString()}đ</span>
         </div>
         
-        {/* Đã thêm setCheckoutStep(1) để fix lỗi không hiện Modal */}
         <button 
           onClick={() => { setCheckoutStep(1); setIsCheckoutOpen(true); }}
           disabled={cart.length === 0}
@@ -74,7 +92,7 @@ export const CartPanel = ({
             <p>Hãy quét mã vạch hoặc bấm Thêm!</p>
           </div>
         ) : (
-          cart.map((item: any, index: number) => (
+          cart.map((item: CartItem, index: number) => (
             <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px dashed #e2e8f0' }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '14px' }}>{cleanName(item.product.name)}</div>
@@ -90,7 +108,6 @@ export const CartPanel = ({
           ))
         )}
       </div>
-
     </div>
   );
 };
