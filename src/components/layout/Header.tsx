@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 
 export const Header: React.FC<any> = ({
-  shift, totalValue, currentShiftStats, setCashFlowModalInfo, darkMode, setDarkMode, handleLogoutClick, showMainMenu, setShowMainMenu, setShowStatsModal, setShowCustomerModal, setShowInventoryModal, setShowDebtModal, setShowAuditModal, setShowExpenseModal, setShowSupplierModal, setShowMarketingModal, setShowSettings, lowStockCount, isOnline
+  shift, totalValue, currentShiftStats, setCashFlowModalInfo, darkMode, setDarkMode, handleLogoutClick, showMainMenu, setShowMainMenu, 
+  setShowStatsModal, setShowCustomerModal, setShowInventoryModal, setShowDebtModal, setShowAuditModal, setShowExpenseModal, setShowSupplierModal, setShowMarketingModal, 
+  setShowSettings, setShowStoreSettings, setShowScannerLinkModal, setShowPOModal, lowStockCount, isOnline
 }) => {
   const [storeInfo, setStoreInfo] = useState({ name: "HỆ THỐNG POS PRO", logo: "" });
 
@@ -28,7 +30,7 @@ export const Header: React.FC<any> = ({
       `}</style>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-        <div className="premium-banner" onClick={() => setShowSettings(true)} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '8px 20px', borderRadius: '16px', cursor: 'pointer', border: '1px solid #f87171', minWidth: '300px' }} title="Nhấn để Sửa tên & Logo">
+        <div className="premium-banner" onClick={() => setShowStoreSettings(true)} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '8px 20px', borderRadius: '16px', cursor: 'pointer', border: '1px solid #f87171', minWidth: '300px' }} title="Nhấn để Sửa tên & Logo">
           <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: storeInfo.logo ? 'transparent' : 'linear-gradient(135deg, #fef08a 0%, #eab308 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', overflow: 'hidden' }}>
             {storeInfo.logo ? <img src={storeInfo.logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : "🏪"}
           </div>
@@ -61,16 +63,20 @@ export const Header: React.FC<any> = ({
 
       <div style={{ display: "flex", justifyContent: "flex-start", width: "100%", position: "relative" }}>
         <button className="main-menu-btn" onClick={(e) => { e.stopPropagation(); setShowMainMenu(!showMainMenu); }}>☰ MENU TÍNH NĂNG</button>
+        
+        {/* ĐÃ THÔNG MẠCH TOÀN BỘ CÁC NÚT Ở ĐÂY */}
         {showMainMenu && (
           <div className="dropdown-menu-saas" style={{ position: "absolute", left: 0, top: "100%", marginTop: "8px", width: "260px", zIndex: 99999, padding: "8px", borderRadius: "16px", background: darkMode ? '#1e293b' : '#ffffff', border: `1px solid ${darkMode ? '#334155' : '#e2e8f0'}`, boxShadow: "0 20px 25px -5px rgba(0,0,0,0.15)" }} onClick={e => e.stopPropagation()}>
-            {/* ĐÃ THÔNG MẠCH HOÀN TOÀN CÁC NÚT BẤM BẬT POPUP */}
             <button onClick={() => { setShowMainMenu(false); setShowStatsModal(true); }}>📊 Báo cáo doanh thu</button>
+            <button onClick={() => { setShowMainMenu(false); setShowPOModal(true); }}>📦 Nhập hàng (PO)</button>
             <button onClick={() => { setShowMainMenu(false); setShowInventoryModal(true); }}>🔍 Kiểm kho định kỳ</button>
             <button onClick={() => { setShowMainMenu(false); setShowDebtModal(true); }}>💸 Sổ nợ Khách</button>
             <button onClick={() => { setShowMainMenu(false); setShowExpenseModal(true); }}>📉 Lập Phiếu Chi</button>
             <button onClick={() => { setShowMainMenu(false); setShowCustomerModal(true); }}>💳 Danh sách VIP</button>
+            
             <div style={{ padding: "8px 12px", fontSize: "11px", fontWeight: "700", color: "#94a3b8", textTransform: "uppercase", margin: "4px 0 0 0" }}>Hệ thống</div>
-            <button onClick={() => { setShowMainMenu(false); setShowSettings(true); }}>⚙️ Thiết lập thương hiệu</button>
+            <button onClick={() => { setShowMainMenu(false); setShowSettings(true); }}>⚙️ Cài đặt Thanh toán & Giờ vàng</button>
+            <button onClick={() => { setShowMainMenu(false); setShowStoreSettings(true); }}>🏪 Thiết lập Thương hiệu (Logo)</button>
           </div>
         )}
       </div>
