@@ -6,7 +6,6 @@ import { supabase } from "./supabaseClient";
 import { formatCategoryStr, parseGift, cleanName, getActualPrice, playSound } from "./utils/helpers";
 
 import { useOfflineSync } from "./hooks/useOfflineSync";
-import { useUIState } from "./hooks/useUIState";
 import { useProductInput } from "./hooks/useProductInput";
 import { useCheckoutState } from "./hooks/useCheckoutState";
 
@@ -60,6 +59,7 @@ export default function App() {
   useEffect(() => { emailjs.init("5ric0kxuwNPlUleAv"); }, []);
   useEffect(() => { if (typeof window !== 'undefined' && !(window as any).XLSX) { const script = document.createElement('script'); script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; script.async = true; document.head.appendChild(script); } }, []);
 
+  // --- STATE CHUNG ---
   const [isStorageLoading, setIsStorageLoading] = useState(true); 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
@@ -68,32 +68,41 @@ export default function App() {
   const [shift, setShift] = useState("Ca Sáng");
   const [startingCash, setStartingCash] = useState<number>(5000000);
 
+  // --- STATE CẤU HÌNH ---
   const [bankBin, setBankBin] = useState(""); const [bankAcc, setBankAcc] = useState(""); const [bankNameStr, setBankNameStr] = useState(""); const [zaloPayId, setZaloPayId] = useState(""); const [adminPin, setAdminPin] = useState("1234"); const [pendingAction, setPendingAction] = useState<(() => void) | null>(null); const [happyStart, setHappyStart] = useState("11:00"); const [happyEnd, setHappyEnd] = useState("13:00");
   const [newBankBin, setNewBankBin] = useState(""); const [newBankAcc, setNewBankAcc] = useState(""); const [newBankNameStr, setNewBankNameStr] = useState(""); const [newZaloPayId, setNewZaloPayId] = useState(""); const [newHappyStart, setNewHappyStart] = useState("11:00"); const [newHappyEnd, setNewHappyEnd] = useState("13:00"); const [newAdminPinInput, setNewAdminPinInput] = useState("");
 
+  // --- UI STATES (CHUYỂN HẾT VỀ LOCAL ĐỂ KHÔNG BỊ LIỆT MENU) ---
+  const [darkMode, setDarkMode] = useState(false);
+  const [showMainMenu, setShowMainMenu] = useState(false);
+  const [showInputForm, setShowInputForm] = useState(false);
+  const [scannerMode, setScannerMode] = useState<any>(null);
+  const [printMode, setPrintMode] = useState<any>(null);
+  const [cashFlowModalInfo, setCashFlowModalInfo] = useState<any>(null);
+  
+  const [showStatsModal, setShowStatsModal] = useState(false);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [showInventoryModal, setShowInventoryModal] = useState(false);
+  const [showDebtModal, setShowDebtModal] = useState(false);
+  const [showAuditModal, setShowAuditModal] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [showSupplierModal, setShowSupplierModal] = useState(false);
+  const [showMarketingModal, setShowMarketingModal] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showStoreSettings, setShowStoreSettings] = useState(false);
+  const [showScannerLinkModal, setShowScannerLinkModal] = useState(false);
+  const [showPOModal, setShowPOModal] = useState(false); 
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [showHandoverModal, setShowHandoverModal] = useState(false);
+  const [showHoldModal, setShowHoldModal] = useState(false);
+
+  // --- DỮ LIỆU APP ---
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState(""); const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(""); const [selectedCategory, setSelectedCategory] = useState("Tất cả"); const [loading, setLoading] = useState(false); const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null); const [filters, setFilters] = useState<Record<string, any[]>>({}); const [showSuggestions, setShowSuggestions] = useState(false);
   const [actualStockInput, setActualStockInput] = useState<Record<string, number>>({}); const [inventorySearchTerm, setInventorySearchTerm] = useState(""); const [invFilter, setInvFilter] = useState('ALL'); const [expName, setExpName] = useState(""); const [expAmount, setExpAmount] = useState(""); const [supName, setSupName] = useState(""); const [supPhone, setSupPhone] = useState(""); const [supAddress, setSupAddress] = useState(""); const [supItem, setSupItem] = useState(""); const [supTaxCode, setSupTaxCode] = useState(""); const [supBankAccount, setSupBankAccount] = useState(""); const [marketingTier, setMarketingTier] = useState("Tất cả"); const [marketingMsg, setMarketingMsg] = useState("");
   const [reportStartDate, setReportStartDate] = useState(() => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0]; }); const [reportEndDate, setReportEndDate] = useState(() => { return new Date().toISOString().split('T')[0]; });
   const [scanQueue, setScanQueue] = useState<string[]>([]); const [printBarcodeProduct, setPrintBarcodeProduct] = useState<Product | null>(null); const [printCustomer, setPrintCustomer] = useState<Customer | null>(null); const [barcodeCount, setBarcodeCount] = useState<number>(30); const [selectedAuditLog, setSelectedAuditLog] = useState<AuditLog | null>(null);
   const [localPOs, setLocalPOs] = useState<any[]>([]); const [poTab, setPoTab] = useState<'NEW' | 'RECEIVE'>('NEW'); const [selectedSupplierId, setSelectedSupplierId] = useState(""); const [poItems, setPoItems] = useState<any[]>([]); const [poSearch, setPoSearch] = useState(""); const [poNote, setPoNote] = useState(""); const [paidAmount, setPaidAmount] = useState<number>(0); const [searchPoCode, setSearchPoCode] = useState(""); const [foundPO, setFoundPO] = useState<any>(null); const [receiveItems, setReceiveItems] = useState<any[]>([]); const [allPOs, setAllPOs] = useState<any[]>([]); const [printPOData, setPrintPOData] = useState<any>(null);
-
-  // ĐÃ SỬA: PHỤC HỒI KẾT NỐI VỚI HOOK GLOBAL USEUISTATE
-  const { 
-    darkMode, setDarkMode, showSettings, setShowSettings, showInputForm, setShowInputForm, 
-    showDebtModal, setShowDebtModal, showStatsModal, setShowStatsModal, 
-    showCustomerModal, setShowCustomerModal, showHandoverModal, setShowHandoverModal, 
-    showAuditModal, setShowAuditModal, showHoldModal, setShowHoldModal, 
-    showExpenseModal, setShowExpenseModal, showSupplierModal, setShowSupplierModal, 
-    showMarketingModal, setShowMarketingModal, showInventoryModal, setShowInventoryModal, 
-    showMainMenu, setShowMainMenu, cashFlowModalInfo, setCashFlowModalInfo, 
-    scannerMode, setScannerMode, printMode, setPrintMode 
-  } = useUIState();
-
-  const [showStoreSettings, setShowStoreSettings] = useState(false);
-  const [showPOModal, setShowPOModal] = useState(false); 
-  const [showScannerLinkModal, setShowScannerLinkModal] = useState(false);
-  const [showPinModal, setShowPinModal] = useState(false);
 
   const { newCode, setNewCode, newName, setNewName, newImportPrice, setNewImportPrice, newPrice, setNewPrice, newPromoPrice, setNewPromoPrice, newGiftCondition, setNewGiftCondition, newGiftInfo, setNewGiftInfo, newStock, setNewStock, newExpiry, setNewExpiry, newCategory, setNewCategory, resetProductForm } = useProductInput();
   const { cart, setCart, barcodeInput, setBarcodeInput, isCheckoutOpen, setIsCheckoutOpen, checkoutStep, setCheckoutStep, customerInput, setCustomerInput, custPhone, setCustPhone, custName, setCustName, useWallet, setUseWallet, voucherInput, setVoucherInput, appliedVoucherAmount, setAppliedVoucherAmount, customerGiven, setCustomerGiven, lastOrder, setLastOrder, resetCheckout, custAddress, setCustAddress } = useCheckoutState();
@@ -184,7 +193,7 @@ export default function App() {
     }
   }, [isLoggedIn]);
 
-  useEffect(() => { if (scannerMode !== null) { let scanner: any; let lastScanTime = 0; const loadScanner = () => { if ((window as any).Html5QrcodeScanner) { scanner = new (window as any).Html5QrcodeScanner("qr-reader", { fps: 15, qrbox: { width: 250, height: 120 }, rememberLastUsedCamera: true }, false); scanner.render((text: string) => { const now = Date.now(); if (now - lastScanTime < 1500) return; lastScanTime = now; setScanQueue(prev => [...prev, text]); }, undefined) } }; if (!(window as any).Html5QrcodeScanner) { const script = document.createElement("script"); script.src = "https://unpkg.com/html5-qrcode"; script.onload = loadScanner; document.head.appendChild(script) } else { loadScanner(); } return () => { if (scanner) scanner.clear().catch(() => { }) } } }, [scannerMode]);
+  useEffect(() => { if (scannerMode !== null && scannerMode !== 'barcode') { let scanner: any; let lastScanTime = 0; const loadScanner = () => { if ((window as any).Html5QrcodeScanner) { scanner = new (window as any).Html5QrcodeScanner("qr-reader", { fps: 15, qrbox: { width: 250, height: 120 }, rememberLastUsedCamera: true }, false); scanner.render((text: string) => { const now = Date.now(); if (now - lastScanTime < 1500) return; lastScanTime = now; setScanQueue(prev => [...prev, text]); }, undefined) } }; if (!(window as any).Html5QrcodeScanner) { const script = document.createElement("script"); script.src = "https://unpkg.com/html5-qrcode"; script.onload = loadScanner; document.head.appendChild(script) } else { loadScanner(); } return () => { if (scanner) scanner.clear().catch(() => { }) } } }, [scannerMode]);
 
   useEffect(() => {
     if (scanQueue.length > 0) {
@@ -482,7 +491,7 @@ export default function App() {
         lowStockCount={lowStockCount} isOnline={isOnline} syncStatus={syncStatus} syncAllOfflineData={syncPendingImports} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr}
       />
 
-      {scannerMode !== null && (
+      {scannerMode !== null && scannerMode !== 'barcode' && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', zIndex: 999999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
           <h2 style={{ color: 'white', marginBottom: '20px', fontSize: '24px' }}>📷 Đưa mã vạch vào khung hình</h2>
           <div id="qr-reader" style={{ width: '350px', background: 'white', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}></div>
@@ -522,25 +531,11 @@ export default function App() {
       {showCustomerModal && <CustomerModal customersData={customersData} handleEditPhone={handleEditPhone} printCustomerCard={printCustomerCard} sendCardEmail={sendCardEmail} shareToZalo={shareToZalo} onClose={() => setShowCustomerModal(false)} />}
       {showMarketingModal && <MarketingModal marketingTier={marketingTier} setMarketingTier={setMarketingTier} marketingMsg={marketingMsg} setMarketingMsg={setMarketingMsg} customersData={customersData} onClose={() => setShowMarketingModal(false)} />}
 
+      {/* KHÔNG CÒN LỖI HIỂN THỊ HÓA ĐƠN ĐÈ LÊN MÃ VẠCH NỮA */}
       <div style={{ display: 'none' }}>
-        <PrintManager printMode={printMode} lastOrder={lastOrder} printCustomer={printCustomer} printPOData={printPOData} printBarcodeProduct={printBarcodeProduct} barcodeCount={barcodeCount} />
+        <PrintManager printMode={printMode} lastOrder={lastOrder} printCustomer={printCustomer} printPOData={printPOData} printBarcodeProduct={null} barcodeCount={0} />
       </div>
       
-      <div id="print-receipt-section" className="print-only" style={{ display: 'none' }}>
-        <style>{`@media print { body * { visibility: hidden; } #print-receipt-section, #print-receipt-section * { visibility: visible; } #print-receipt-section { position: absolute; left: 0; top: 0; width: 100%; font-family: monospace; } .no-print { display: none !important; } }`}</style>
-        {(() => {
-          const storeInfo = JSON.parse(window.localStorage.getItem("mart_current_store") || "{}");
-          return (
-            <div style={{ textAlign: "center", borderBottom: "1px dashed #000", paddingBottom: "10px", marginBottom: "10px" }}>
-              <h2 style={{ margin: "0", fontSize: "20px", textTransform: "uppercase", fontWeight: "900" }}>{storeInfo.store_name || "TÊN CỬA HÀNG"}</h2>
-              <p style={{ margin: "4px 0", fontSize: "12px" }}>ĐC: {storeInfo.address || "Chưa cập nhật địa chỉ"}</p>
-              <p style={{ margin: "4px 0", fontSize: "12px" }}>Hotline: {storeInfo.phone || "..."} {storeInfo.tax_code ? `- MST: ${storeInfo.tax_code}` : ""}</p>
-              <h3 style={{ margin: "10px 0 5px 0", fontSize: "16px", textTransform: "uppercase" }}>HÓA ĐƠN THANH TOÁN</h3>
-              <p style={{ margin: "0", fontSize: "12px" }}>Ca: {shift} | Thu ngân: Người dùng</p>
-            </div>
-          );
-        })()}
-      </div>
     </div>
   );
 }
