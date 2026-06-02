@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Product } from '../../types';
 import { cleanName, getActualPrice } from '../../utils/helpers';
 
@@ -56,20 +56,20 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ product, barcodeCoun
         {Array.from({ length: barcodeCount }).map((_, idx) => (
           <div key={idx} style={{ width: '100%', padding: '6px', border: '1px dashed #e2e8f0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box', background: '#fff', height: '100%' }}>
             {/* Tên thương hiệu trên cùng của tem */}
-            <div style={{ fontSize: '10px', fontWeight: '900', color: '#000', marginBottom: '2px', textAlign: 'center', letterSpacing: '0.5px' }}>
+            <div style={{ fontSize: '11px', fontWeight: '900', color: '#000', marginBottom: '2px', textAlign: 'center', letterSpacing: '0.5px' }}>
               {storeBrandName}
             </div>
             {/* Tên sản phẩm */}
-            <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#000', textAlign: 'center', marginBottom: '4px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+            <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#000', textAlign: 'center', marginBottom: '4px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
               {cleanName(product.name)}
             </div>
             {/* Mã Vạch */}
-            <img src={barcodeUrl} alt="barcode" style={{ width: '90%', height: '35px', objectFit: 'contain' }} />
+            <img src={barcodeUrl} alt="barcode" style={{ width: '90%', height: '40px', objectFit: 'contain' }} />
             {/* Mã số và Giá */}
             <div style={{ fontSize: '10px', color: '#000', marginTop: '4px', textAlign: 'center', fontFamily: 'monospace' }}>
               {product.product_code}
             </div>
-            <div style={{ fontSize: '12px', fontWeight: '900', color: '#000', marginTop: '2px' }}>
+            <div style={{ fontSize: '14px', fontWeight: '900', color: '#000', marginTop: '2px' }}>
               {getActualPrice(product).toLocaleString()}đ
             </div>
           </div>
