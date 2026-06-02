@@ -1129,7 +1129,6 @@ export default function App() {
       <Toaster position="top-right" />
       
       <Header 
-        role="admin" 
         shift={shift}
         totalValue={totalValue}
         currentShiftStats={currentShiftStats}
@@ -1139,6 +1138,8 @@ export default function App() {
         handleLogoutClick={handleLogoutClick}
         showMainMenu={showMainMenu}
         setShowMainMenu={setShowMainMenu}
+        
+        // NHỮNG DÒNG DƯỚI ĐÂY LÀ CHÌA KHÓA MỞ TOÀN BỘ MODAL:
         setShowStatsModal={setShowStatsModal}
         setShowCustomerModal={setShowCustomerModal}
         setShowInventoryModal={setShowInventoryModal}
@@ -1147,7 +1148,7 @@ export default function App() {
         setShowExpenseModal={setShowExpenseModal}
         setShowSupplierModal={setShowSupplierModal}
         setShowMarketingModal={setShowMarketingModal}
-        setShowSettings={setShowStoreSettings}
+        setShowSettings={setShowStoreSettings} // Map StoreSettingsModal vào đây
         setShowScannerLinkModal={setShowScannerLinkModal}
         setShowPOModal={setShowPOModal}
         lowStockCount={lowStockCount} 
@@ -1158,7 +1159,6 @@ export default function App() {
         bankAcc={bankAcc}
         bankNameStr={bankNameStr}
       />
-
       {/* KHỞI TẠO VÙNG CHỨA MÁY ẢNH (KHI BẤM NÚT CAMERA) */}
       {scannerMode !== null && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', zIndex: 999999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
