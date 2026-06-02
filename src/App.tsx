@@ -6,6 +6,7 @@ import { supabase } from "./supabaseClient";
 import { formatCategoryStr, parseGift, cleanName, getActualPrice, playSound } from "./utils/helpers";
 
 import { useOfflineSync } from "./hooks/useOfflineSync";
+import { useUIState } from "./hooks/useUIState";
 import { useProductInput } from "./hooks/useProductInput";
 import { useCheckoutState } from "./hooks/useCheckoutState";
 
@@ -72,14 +73,14 @@ export default function App() {
   const [bankBin, setBankBin] = useState(""); const [bankAcc, setBankAcc] = useState(""); const [bankNameStr, setBankNameStr] = useState(""); const [zaloPayId, setZaloPayId] = useState(""); const [adminPin, setAdminPin] = useState("1234"); const [pendingAction, setPendingAction] = useState<(() => void) | null>(null); const [happyStart, setHappyStart] = useState("11:00"); const [happyEnd, setHappyEnd] = useState("13:00");
   const [newBankBin, setNewBankBin] = useState(""); const [newBankAcc, setNewBankAcc] = useState(""); const [newBankNameStr, setNewBankNameStr] = useState(""); const [newZaloPayId, setNewZaloPayId] = useState(""); const [newHappyStart, setNewHappyStart] = useState("11:00"); const [newHappyEnd, setNewHappyEnd] = useState("13:00"); const [newAdminPinInput, setNewAdminPinInput] = useState("");
 
-  // --- UI STATES (CHUYỂN HẾT VỀ LOCAL ĐỂ KHÔNG BỊ LIỆT MENU) ---
-  const [darkMode, setDarkMode] = useState(false);
-  const [showMainMenu, setShowMainMenu] = useState(false);
-  const [showInputForm, setShowInputForm] = useState(false);
-  const [scannerMode, setScannerMode] = useState<any>(null);
-  const [printMode, setPrintMode] = useState<any>(null);
-  const [cashFlowModalInfo, setCashFlowModalInfo] = useState<any>(null);
-  
+  // --- UI STATES GLOBAL (Chỉ giữ các state không gây lỗi) ---
+  const { 
+    darkMode, setDarkMode, showInputForm, setShowInputForm, 
+    showMainMenu, setShowMainMenu, cashFlowModalInfo, setCashFlowModalInfo, 
+    scannerMode, setScannerMode, printMode, setPrintMode 
+  } = useUIState();
+
+  // ĐÃ SỬA: SỬ DỤNG HOÀN TOÀN REACT LOCAL STATE ĐỂ CHỐNG "LIỆT" MENU
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [showInventoryModal, setShowInventoryModal] = useState(false);
@@ -90,8 +91,8 @@ export default function App() {
   const [showMarketingModal, setShowMarketingModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showStoreSettings, setShowStoreSettings] = useState(false);
-  const [showScannerLinkModal, setShowScannerLinkModal] = useState(false);
   const [showPOModal, setShowPOModal] = useState(false); 
+  const [showScannerLinkModal, setShowScannerLinkModal] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
   const [showHandoverModal, setShowHandoverModal] = useState(false);
   const [showHoldModal, setShowHoldModal] = useState(false);
@@ -487,7 +488,21 @@ export default function App() {
       <Header 
         shift={shift} totalValue={totalValue} currentShiftStats={currentShiftStats} setCashFlowModalInfo={setCashFlowModalInfo} darkMode={darkMode} setDarkMode={setDarkMode} handleLogoutClick={handleLogoutClick}
         showMainMenu={showMainMenu} setShowMainMenu={setShowMainMenu}
-        setShowStatsModal={setShowStatsModal} setShowCustomerModal={setShowCustomerModal} setShowInventoryModal={setShowInventoryModal} setShowDebtModal={setShowDebtModal} setShowAuditModal={setShowAuditModal} setShowExpenseModal={setShowExpenseModal} setShowSupplierModal={setShowSupplierModal} setShowMarketingModal={setShowMarketingModal} setShowScannerLinkModal={setShowScannerLinkModal} setShowSettings={setShowSettings} setShowStoreSettings={setShowStoreSettings} setShowPOModal={setShowPOModal}
+        
+        // TRUYỀN TOÀN BỘ LOCAL STATE SETTER VÀO HEADER ĐỂ BẢO ĐẢM POPUP BẬT LÊN
+        setShowStatsModal={setShowStatsModal} 
+        setShowCustomerModal={setShowCustomerModal} 
+        setShowInventoryModal={setShowInventoryModal} 
+        setShowDebtModal={setShowDebtModal} 
+        setShowAuditModal={setShowAuditModal} 
+        setShowExpenseModal={setShowExpenseModal} 
+        setShowSupplierModal={setShowSupplierModal} 
+        setShowMarketingModal={setShowMarketingModal} 
+        setShowScannerLinkModal={setShowScannerLinkModal} 
+        setShowSettings={setShowSettings} 
+        setShowStoreSettings={setShowStoreSettings} 
+        setShowPOModal={setShowPOModal}
+        
         lowStockCount={lowStockCount} isOnline={isOnline} syncStatus={syncStatus} syncAllOfflineData={syncPendingImports} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr}
       />
 
@@ -511,11 +526,14 @@ export default function App() {
         </div>
       </div>
 
+      {/* DANH SÁCH MODAL (POPUP) BỊ LIỆT ĐÃ ĐƯỢC CHỮA KHỎI */}
       {showStoreSettings && <StoreSettingsModal onClose={() => setShowStoreSettings(false)} />}
       {showSettings && <SettingsModal bankBin={bankBin} setBankBin={setNewBankBin} newBankBin={newBankBin} bankAcc={bankAcc} setBankAcc={setNewBankAcc} newBankAcc={newBankAcc} bankNameStr={bankNameStr} setBankNameStr={setNewBankNameStr} newBankNameStr={newBankNameStr} zaloPayId={zaloPayId} setZaloPayId={setNewZaloPayId} newZaloPayId={newZaloPayId} happyStart={happyStart} setHappyStart={setNewHappyStart} newHappyStart={newHappyStart} happyEnd={happyEnd} setHappyEnd={setNewHappyEnd} newHappyEnd={newHappyEnd} adminPin={adminPin} setAdminPinInput={setNewAdminPinInput} newAdminPinInput={newAdminPinInput} saveSettings={saveSettings} loading={loading} onClose={() => setShowSettings(false)} />}
       {showPinModal && <PinModal adminPin={adminPin} onSuccess={() => { setShowPinModal(false); if(pendingAction) pendingAction(); setPendingAction(null); }} onClose={() => { setShowPinModal(false); setPendingAction(null); }} />}
       {cashFlowModalInfo && <CashFlowDetailModal flowType={cashFlowModalInfo} onClose={() => setCashFlowModalInfo(null)} allLogs={history} />}
       {isCheckoutOpen && <CheckoutModal checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} customersData={customersData} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} customerInput={customerInput} setCustomerInput={setCustomerInput} custAddress={custAddress} setCustAddress={setCustAddress} handleCustomerInputChange={handleCustomerInputChange} finalToPay={finalToPay} useWallet={useWallet} setUseWallet={setUseWallet} voucherInput={voucherInput} setVoucherInput={setVoucherInput} handleVoucherSubmit={handleVoucherSubmit} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} confirmCheckout={confirmCheckout} closeCheckout={closeCheckout} loading={loading} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} sendReceiptEmail={sendReceiptEmail} setScannerMode={setScannerMode} handleNextToQR={handleNextToQR} setPrintMode={setPrintMode} />}
+      
+      {/* CÁC MODAL HỆ THỐNG */}
       {printBarcodeProduct && <ScannerModal product={printBarcodeProduct} barcodeCount={barcodeCount} setBarcodeCount={setBarcodeCount} onClose={() => setPrintBarcodeProduct(null)} />}
       {showScannerLinkModal && <ScannerLinkModal onClose={() => setShowScannerLinkModal(false)} />}
       {showHandoverModal && <HandoverModal shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onConfirm={confirmHandover} onClose={() => setShowHandoverModal(false)} />}
@@ -531,11 +549,9 @@ export default function App() {
       {showCustomerModal && <CustomerModal customersData={customersData} handleEditPhone={handleEditPhone} printCustomerCard={printCustomerCard} sendCardEmail={sendCardEmail} shareToZalo={shareToZalo} onClose={() => setShowCustomerModal(false)} />}
       {showMarketingModal && <MarketingModal marketingTier={marketingTier} setMarketingTier={setMarketingTier} marketingMsg={marketingMsg} setMarketingMsg={setMarketingMsg} customersData={customersData} onClose={() => setShowMarketingModal(false)} />}
 
-      {/* KHÔNG CÒN LỖI HIỂN THỊ HÓA ĐƠN ĐÈ LÊN MÃ VẠCH NỮA */}
       <div style={{ display: 'none' }}>
         <PrintManager printMode={printMode} lastOrder={lastOrder} printCustomer={printCustomer} printPOData={printPOData} printBarcodeProduct={null} barcodeCount={0} />
       </div>
-      
     </div>
   );
 }
