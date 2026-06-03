@@ -462,6 +462,7 @@ export default function App() {
       <Toaster position="top-right" />
       
       <Header 
+        ui={ui}
         shift={shift} totalValue={totalValue} currentShiftStats={currentShiftStats} setCashFlowModalInfo={ui.setCashFlowModalInfo} darkMode={ui.darkMode} setDarkMode={ui.setDarkMode} handleLogoutClick={handleLogoutClick}
         lowStockCount={lowStockCount} isOnline={isOnline} syncStatus={syncStatus} syncAllOfflineData={syncPendingImports} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr}
       />
