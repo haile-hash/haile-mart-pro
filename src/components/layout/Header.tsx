@@ -6,6 +6,7 @@ export const Header = (props) => {
   const [storeInfo, setStoreInfo] = useState({ name: "HỆ THỐNG POS PRO", logo: "" });
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => {
     try {
@@ -23,6 +24,12 @@ export const Header = (props) => {
     else { audioRef.current.play().catch(err => console.log(err)); setIsPlaying(true); }
   };
 
+  // PHÁT TÍN HIỆU CHỐNG ĐƠ MENU
+  const fireMenuAction = (actionName) => {
+    setShowMenu(false);
+    window.dispatchEvent(new CustomEvent('MENU_ACTION', { detail: actionName }));
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "20px" }} className="no-print">
       <style>{`
@@ -37,7 +44,6 @@ export const Header = (props) => {
       `}</style>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-        
         <div className="premium-banner" onClick={toggleWindyMusic} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '8px 20px', borderRadius: '16px', cursor: 'pointer', border: '1px solid #f87171', minWidth: '300px' }} title="Bật/Tắt nhạc">
           <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: storeInfo.logo ? 'transparent' : 'linear-gradient(135deg, #fef08a 0%, #eab308 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', overflow: 'hidden', transform: isPlaying ? 'scale(1.1)' : 'none', transition: 'all 0.3s ease' }}>
             {storeInfo.logo ? <img src={storeInfo.logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (isPlaying ? <span style={{ animation: 'spinSlow 3s linear infinite' }}>📀</span> : "🎵")}
@@ -66,22 +72,19 @@ export const Header = (props) => {
       </div>
 
       <div style={{ display: "flex", justifyContent: "flex-start", width: "100%", position: "relative" }}>
+        <button className="main-menu-btn" onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}>☰ MENU TÍNH NĂNG</button>
         
-        {/* NÚT BẬT MENU - TRUYỀN PROPS TRỰC TIẾP CHỐNG LỖI */}
-        <button className="main-menu-btn" onClick={(e) => { e.stopPropagation(); props.setShowMainMenu(!props.showMainMenu); }}>☰ MENU TÍNH NĂNG</button>
-        
-        {props.showMainMenu && (
+        {showMenu && (
           <div className="dropdown-menu-saas" style={{ position: "absolute", left: 0, top: "100%", marginTop: "8px", width: "260px", zIndex: 99999, padding: "8px", borderRadius: "16px", background: props.darkMode ? '#1e293b' : '#ffffff', border: `1px solid ${props.darkMode ? '#334155' : '#e2e8f0'}`, boxShadow: "0 20px 25px -5px rgba(0,0,0,0.15)" }} onClick={e => e.stopPropagation()}>
-            <button onClick={() => { props.setShowMainMenu(false); props.setShowStatsModal(true); }}>📊 Báo cáo doanh thu</button>
-            <button onClick={() => { props.setShowMainMenu(false); props.setShowPOModal(true); }}>📦 Nhập hàng (PO)</button>
-            <button onClick={() => { props.setShowMainMenu(false); props.setShowInventoryModal(true); }}>🔍 Kiểm kho định kỳ</button>
-            <button onClick={() => { props.setShowMainMenu(false); props.setShowDebtModal(true); }}>💸 Sổ nợ Khách</button>
-            <button onClick={() => { props.setShowMainMenu(false); props.setShowExpenseModal(true); }}>📉 Lập Phiếu Chi</button>
-            <button onClick={() => { props.setShowMainMenu(false); props.setShowCustomerModal(true); }}>💳 Danh sách VIP</button>
-            
+            <button onClick={() => fireMenuAction('STATS')}>📊 Báo cáo doanh thu</button>
+            <button onClick={() => fireMenuAction('PO')}>📦 Nhập hàng (PO)</button>
+            <button onClick={() => fireMenuAction('INVENTORY')}>🔍 Kiểm kho định kỳ</button>
+            <button onClick={() => fireMenuAction('DEBT')}>💸 Sổ nợ Khách</button>
+            <button onClick={() => fireMenuAction('EXPENSE')}>📉 Lập Phiếu Chi</button>
+            <button onClick={() => fireMenuAction('CUSTOMER')}>💳 Danh sách VIP</button>
             <div style={{ padding: "8px 12px", fontSize: "11px", fontWeight: "700", color: "#94a3b8", textTransform: "uppercase", margin: "4px 0 0 0" }}>Hệ thống</div>
-            <button onClick={() => { props.setShowMainMenu(false); props.setShowSettings(true); }}>⚙️ Cài đặt Thanh toán & Giờ vàng</button>
-            <button onClick={() => { props.setShowMainMenu(false); props.setShowStoreSettings(true); }}>🏪 Thiết lập Thương hiệu (Logo)</button>
+            <button onClick={() => fireMenuAction('SETTINGS')}>⚙️ Cài đặt Thanh toán & Giờ vàng</button>
+            <button onClick={() => fireMenuAction('STORE_SETTINGS')}>🏪 Thiết lập Thương hiệu (Logo)</button>
           </div>
         )}
       </div>
