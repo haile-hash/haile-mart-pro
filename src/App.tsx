@@ -71,7 +71,6 @@ export default function App() {
   const [bankBin, setBankBin] = useState(""); const [bankAcc, setBankAcc] = useState(""); const [bankNameStr, setBankNameStr] = useState(""); const [zaloPayId, setZaloPayId] = useState(""); const [adminPin, setAdminPin] = useState("1234"); const [pendingAction, setPendingAction] = useState<(() => void) | null>(null); const [happyStart, setHappyStart] = useState("11:00"); const [happyEnd, setHappyEnd] = useState("13:00");
   const [newBankBin, setNewBankBin] = useState(""); const [newBankAcc, setNewBankAcc] = useState(""); const [newBankNameStr, setNewBankNameStr] = useState(""); const [newZaloPayId, setNewZaloPayId] = useState(""); const [newHappyStart, setNewHappyStart] = useState("11:00"); const [newHappyEnd, setNewHappyEnd] = useState("13:00"); const [newAdminPinInput, setNewAdminPinInput] = useState("");
 
-  // BẮT GLOBAL STATE 
   const ui = useUIState();
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -487,26 +486,45 @@ export default function App() {
         </div>
       </div>
 
-      {/* RENDER TOÀN BỘ MODAL BẰNG GLOBAL STATE `ui` */}
+      {/* RENDER TOÀN BỘ MODAL ĐÃ ĐƯỢC CẬP NHẬT PROPS ĐẦY ĐỦ */}
+      
       {ui.showStoreSettings && <StoreSettingsModal role="admin" onClose={() => ui.setShowStoreSettings(false)} />}
-      {ui.showSettings && <SettingsModal role="admin" bankBin={bankBin} setBankBin={setNewBankBin} newBankBin={newBankBin} bankAcc={bankAcc} setBankAcc={setNewBankAcc} newBankAcc={newBankAcc} bankNameStr={bankNameStr} setBankNameStr={setNewBankNameStr} newBankNameStr={newBankNameStr} zaloPayId={zaloPayId} setZaloPayId={setNewZaloPayId} newZaloPayId={newZaloPayId} happyStart={happyStart} setHappyStart={setNewHappyStart} newHappyStart={newHappyStart} happyEnd={happyEnd} setHappyEnd={setNewHappyEnd} newHappyEnd={newHappyEnd} adminPin={adminPin} setAdminPinInput={setNewAdminPinInput} newAdminPinInput={newAdminPinInput} saveSettings={saveSettings} loading={loading} onClose={() => ui.setShowSettings(false)} />}
-      {ui.showPinModal && <PinModal adminPin={adminPin} onSuccess={() => { ui.setShowPinModal(false); if(pendingAction) pendingAction(); setPendingAction(null); }} onClose={() => { ui.setShowPinModal(false); setPendingAction(null); }} />}
+      
+      {ui.showSettings && <SettingsModal showSettings={ui.showSettings} setShowSettings={ui.setShowSettings} newBankBin={newBankBin} setNewBankBin={setNewBankBin} newBankAcc={newBankAcc} setNewBankAcc={setNewBankAcc} newBankNameStr={newBankNameStr} setNewBankNameStr={setNewBankNameStr} newZaloPayId={newZaloPayId} setNewZaloPayId={setNewZaloPayId} newHappyStart={newHappyStart} setNewHappyStart={setNewHappyStart} newHappyEnd={newHappyEnd} setNewHappyEnd={setNewHappyEnd} newAdminPinInput={newAdminPinInput} setNewAdminPinInput={setNewAdminPinInput} saveSettings={saveSettings} loading={loading} />}
+      
+      {ui.showPinModal && <PinModal showPinModal={ui.showPinModal} setShowPinModal={ui.setShowPinModal} correctPin={adminPin} onSuccess={() => { if(pendingAction) pendingAction(); setPendingAction(null); }} />}
+      
       {ui.cashFlowModalInfo && <CashFlowDetailModal flowType={ui.cashFlowModalInfo} onClose={() => ui.setCashFlowModalInfo(null)} allLogs={history} />}
-      {isCheckoutOpen && <CheckoutModal role="admin" checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} customersData={customersData} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} customerInput={customerInput} setCustomerInput={setCustomerInput} custAddress={custAddress} setCustAddress={setCustAddress} handleCustomerInputChange={handleCustomerInputChange} finalToPay={finalToPay} useWallet={useWallet} setUseWallet={setUseWallet} voucherInput={voucherInput} setVoucherInput={setVoucherInput} handleVoucherSubmit={handleVoucherSubmit} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} confirmCheckout={confirmCheckout} closeCheckout={closeCheckout} loading={loading} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} sendReceiptEmail={sendReceiptEmail} setScannerMode={ui.setScannerMode} handleNextToQR={handleNextToQR} setPrintMode={ui.setPrintMode} />}
+      
+      {isCheckoutOpen && <CheckoutModal checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} customersData={customersData} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} customerInput={customerInput} setCustomerInput={setCustomerInput} custAddress={custAddress} setCustAddress={setCustAddress} handleCustomerInputChange={handleCustomerInputChange} finalToPay={finalToPay} useWallet={useWallet} setUseWallet={setUseWallet} voucherInput={voucherInput} setVoucherInput={setVoucherInput} handleVoucherSubmit={handleVoucherSubmit} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} confirmCheckout={confirmCheckout} closeCheckout={closeCheckout} loading={loading} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} sendReceiptEmail={sendReceiptEmail} setScannerMode={ui.setScannerMode} handleNextToQR={handleNextToQR} setPrintMode={ui.setPrintMode} />}
+      
       {printBarcodeProduct && <ScannerModal product={printBarcodeProduct} barcodeCount={barcodeCount} setBarcodeCount={setBarcodeCount} onClose={() => setPrintBarcodeProduct(null)} />}
-      {ui.showScannerLinkModal && <ScannerLinkModal onClose={() => ui.setShowScannerLinkModal(false)} />}
-      {ui.showHandoverModal && <HandoverModal shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onConfirm={confirmHandover} onClose={() => ui.setShowHandoverModal(false)} />}
-      {ui.showAuditModal && <AuditModal role="admin" auditLogs={auditLogs} onClose={() => ui.setShowAuditModal(false)} onViewDetail={(log: AuditLog) => setSelectedAuditLog(log)} />}
-      {selectedAuditLog && <AuditDetailModal log={selectedAuditLog} onClose={() => setSelectedAuditLog(null)} />}
-      {ui.showHoldModal && <HoldOrdersModal role="admin" heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={deleteHeldOrder} onClose={() => ui.setShowHoldModal(false)} />}
-      {ui.showExpenseModal && <ExpenseModal role="admin" expenses={expenses} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} addExpense={addExpense} deleteExpense={deleteExpense} onClose={() => ui.setShowExpenseModal(false)} />}
-      {ui.showSupplierModal && <SupplierModal role="admin" suppliers={suppliers} supName={supName} setSupName={setSupName} supPhone={supPhone} setSupPhone={setSupPhone} supAddress={supAddress} setSupAddress={setSupAddress} supItem={supItem} setSupItem={setSupItem} supTaxCode={supTaxCode} setSupTaxCode={setSupTaxCode} supBankAccount={supBankAccount} setSupBankAccount={setSupBankAccount} addSupplier={addSupplier} deleteSupplier={deleteSupplier} onClose={() => ui.setShowSupplierModal(false)} />}
-      {ui.showPOModal && <POModal role="admin" poTab={poTab} setPoTab={setPoTab} suppliers={suppliers} selectedSupplierId={selectedSupplierId} setSelectedSupplierId={setSelectedSupplierId} products={products} poSearch={poSearch} setPoSearch={setPoSearch} poItems={poItems} setPoItems={setPoItems} poNote={poNote} setPoNote={setPoNote} paidAmount={paidAmount} setPaidAmount={setPaidAmount} searchPoCode={searchPoCode} setSearchPoCode={setSearchPoCode} foundPO={foundPO} setFoundPO={setFoundPO} receiveItems={receiveItems} setReceiveItems={setReceiveItems} allPOs={allPOs} loading={loading} setLoading={setLoading} downloadPO={downloadPO} setPrintPOData={setPrintPOData} onClose={() => ui.setShowPOModal(false)} logAudit={logAudit} addTransactionAndSync={addTransactionAndSync} fetchProducts={fetchProducts} setProducts={setProducts} setSuppliers={setSuppliers} setHistory={setHistory} />}
-      {ui.showStatsModal && <StatsModal role="admin" reportStartDate={reportStartDate} setReportStartDate={setReportStartDate} reportEndDate={reportEndDate} setReportEndDate={setReportEndDate} history={history} onClose={() => ui.setShowStatsModal(false)} />}
-      {ui.showInventoryModal && <InventoryModal role="admin" products={products} inventorySearchTerm={inventorySearchTerm} setInventorySearchTerm={setInventorySearchTerm} invFilter={invFilter} setInvFilter={setInvFilter} actualStockInput={actualStockInput} setActualStockInput={setActualStockInput} syncInventory={syncInventory} handleImportInventoryCSV={handleImportInventoryCSV} loading={loading} onClose={() => ui.setShowInventoryModal(false)} />}
-      {ui.showDebtModal && <DebtModal role="admin" customersData={customersData} handlePayDebt={handlePayDebt} onClose={() => ui.setShowDebtModal(false)} />}
-      {ui.showCustomerModal && <CustomerModal role="admin" customersData={customersData} handleEditPhone={handleEditPhone} printCustomerCard={printCustomerCard} sendCardEmail={sendCardEmail} shareToZalo={shareToZalo} onClose={() => ui.setShowCustomerModal(false)} />}
-      {ui.showMarketingModal && <MarketingModal role="admin" marketingTier={marketingTier} setMarketingTier={setMarketingTier} marketingMsg={marketingMsg} setMarketingMsg={setMarketingMsg} customersData={customersData} onClose={() => ui.setShowMarketingModal(false)} />}
+      
+      {ui.showScannerLinkModal && <ScannerLinkModal showModal={ui.showScannerLinkModal} setShowModal={ui.setShowScannerLinkModal} />}
+      
+      {ui.showHandoverModal && <HandoverModal role="admin" shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onConfirm={confirmHandover} onClose={() => ui.setShowHandoverModal(false)} />}
+      
+      {ui.showAuditModal && <AuditModal showAuditModal={ui.showAuditModal} setShowAuditModal={ui.setShowAuditModal} auditLogs={auditLogs} exportAuditToCSV={() => {}} setSelectedAuditLog={(log: AuditLog) => setSelectedAuditLog(log)} />}
+      
+      {selectedAuditLog && <AuditDetailModal selectedAuditLog={selectedAuditLog} setSelectedAuditLog={setSelectedAuditLog} />}
+      
+      {ui.showHoldModal && <HoldOrdersModal onClose={() => ui.setShowHoldModal(false)} heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={deleteHeldOrder} />}
+      
+      {ui.showExpenseModal && <ExpenseModal showExpenseModal={ui.showExpenseModal} setShowExpenseModal={ui.setShowExpenseModal} expenses={expenses} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} addExpense={addExpense} deleteExpense={deleteExpense} />}
+      
+      {ui.showSupplierModal && <SupplierModal showSupplierModal={ui.showSupplierModal} setShowSupplierModal={ui.setShowSupplierModal} suppliers={suppliers} supName={supName} setSupName={setSupName} supPhone={supPhone} setSupPhone={setSupPhone} supAddress={supAddress} setSupAddress={setSupAddress} supItem={supItem} setSupItem={setSupItem} supTaxCode={supTaxCode} setSupTaxCode={setSupTaxCode} supBankAccount={supBankAccount} setSupBankAccount={setSupBankAccount} addSupplier={addSupplier} deleteSupplier={deleteSupplier} />}
+      
+      {ui.showPOModal && <POModal showPOModal={ui.showPOModal} setShowPOModal={ui.setShowPOModal} poTab={poTab} setPoTab={setPoTab} suppliers={suppliers} selectedSupplierId={selectedSupplierId} setSelectedSupplierId={setSelectedSupplierId} products={products} poSearch={poSearch} setPoSearch={setPoSearch} poItems={poItems} setPoItems={setPoItems} poNote={poNote} setPoNote={setPoNote} paidAmount={paidAmount} setPaidAmount={setPaidAmount} searchPoCode={searchPoCode} setSearchPoCode={setSearchPoCode} foundPO={foundPO} setFoundPO={setFoundPO} receiveItems={receiveItems} setReceiveItems={setReceiveItems} allPOs={allPOs} loading={loading} onSaveNewPO={() => toast.error('Tính năng đang phát triển')} onConfirmReceipt={() => toast.error('Tính năng đang phát triển')} handlePrintPO={() => {}} />}
+      
+      {ui.showStatsModal && <StatsModal reportStartDate={reportStartDate} setReportStartDate={setReportStartDate} reportEndDate={reportEndDate} setReportEndDate={setReportEndDate} history={history} onClose={() => ui.setShowStatsModal(false)} />}
+      
+      {ui.showInventoryModal && <InventoryModal showInventoryModal={ui.showInventoryModal} setShowInventoryModal={ui.setShowInventoryModal} products={products} inventorySearchTerm={inventorySearchTerm} setInventorySearchTerm={setInventorySearchTerm} invFilter={invFilter} setInvFilter={setInvFilter} actualStockInput={actualStockInput} setActualStockInput={setActualStockInput} syncInventoryCheck={syncInventory} handleImportInventoryCSV={handleImportInventoryCSV} loading={loading} handleInventorySearchEnter={() => {}} exportInventoryCSV={() => {}} />}
+      
+      {ui.showDebtModal && <DebtModal showDebtModal={ui.showDebtModal} setShowDebtModal={ui.setShowDebtModal} customers={customersData} handlePayDebt={handlePayDebt} />}
+      
+      {ui.showCustomerModal && <CustomerModal showCustomerModal={ui.showCustomerModal} setShowCustomerModal={ui.setShowCustomerModal} customers={customersData} setCustomers={setCustomers} logAudit={logAudit} handleEditPhone={handleEditPhone} printCustomerCard={printCustomerCard} sendCardEmail={sendCardEmail} shareToZalo={shareToZalo} />}
+      
+      {ui.showMarketingModal && <MarketingModal showMarketingModal={ui.showMarketingModal} setShowMarketingModal={ui.setShowMarketingModal} marketingTier={marketingTier} setMarketingTier={setMarketingTier} marketingMsg={marketingMsg} setMarketingMsg={setMarketingMsg} customersData={customersData} />}
 
       <div style={{ display: 'none' }}>
         <PrintManager printMode={ui.printMode} lastOrder={lastOrder} printCustomer={printCustomer} printPOData={printPOData} printBarcodeProduct={null} barcodeCount={0} />
