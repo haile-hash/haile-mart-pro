@@ -1,15 +1,14 @@
 /* eslint-disable */
 // @ts-nocheck
 import React, { useEffect, useState, useRef } from "react";
-import { useUIState } from "../../hooks/useUIState";
 
 export const Header = (props) => {
   const [storeInfo, setStoreInfo] = useState({ name: "HỆ THỐNG POS PRO", logo: "" });
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   
-  // GỌI TRỰC TIẾP GLOBAL STATE
-  const ui = useUIState();
+  // NHẬN GLOBAL STATE TỪ APP.TSX TRUYỀN XUỐNG
+  const ui = props.ui;
 
   useEffect(() => {
     try {
@@ -76,7 +75,7 @@ export const Header = (props) => {
         
         {ui.showMainMenu && (
           <div className="dropdown-menu-saas" style={{ position: "absolute", left: 0, top: "100%", marginTop: "8px", width: "260px", zIndex: 99999, padding: "8px", borderRadius: "16px", background: ui.darkMode ? '#1e293b' : '#ffffff', border: `1px solid ${ui.darkMode ? '#334155' : '#e2e8f0'}`, boxShadow: "0 20px 25px -5px rgba(0,0,0,0.15)" }} onClick={e => e.stopPropagation()}>
-            {/* LỆNH MỞ MODAL BẮN THẲNG VÀO GLOBAL HOOK */}
+            {/* LỆNH MỞ MODAL BẮN THẲNG VÀO GLOBAL HOOK THÔNG QUA PROPS */}
             <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowStatsModal?.(true); }}>📊 Báo cáo doanh thu</button>
             <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowPOModal?.(true); }}>📦 Nhập hàng (PO)</button>
             <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowInventoryModal?.(true); }}>🔍 Kiểm kho định kỳ</button>
