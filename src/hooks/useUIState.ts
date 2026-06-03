@@ -2,11 +2,10 @@ import { useState } from 'react';
 
 export type CashFlowType = 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | null;
 export type ScannerMode = 'product' | 'voucher' | 'customer' | null;
-// Đã sửa lại PrintMode để khớp hoàn toàn với các hàm trong App.tsx
 export type PrintMode = 'receipt_thermal' | 'receipt_a4' | 'barcode' | 'customer_card' | null;
 
 export const useUIState = () => {
-  // Theme state (An toàn hơn khi kiểm tra window)
+  // Theme state
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem("mart_theme") === "dark";
@@ -14,7 +13,7 @@ export const useUIState = () => {
     return false;
   });
 
-  // Modal Boolean States (Giữ nguyên cấu trúc để không break App.tsx)
+  // Modal Boolean States
   const [showSettings, setShowSettings] = useState<boolean>(false); 
   const [showInputForm, setShowInputForm] = useState<boolean>(false);
   const [showDebtModal, setShowDebtModal] = useState<boolean>(false); 
@@ -28,6 +27,12 @@ export const useUIState = () => {
   const [showMarketingModal, setShowMarketingModal] = useState<boolean>(false); 
   const [showInventoryModal, setShowInventoryModal] = useState<boolean>(false);
   const [showMainMenu, setShowMainMenu] = useState<boolean>(false);
+  
+  // 👉 CÁC STATE BỊ THIẾU ĐÃ ĐƯỢC BỔ SUNG Ở ĐÂY:
+  const [showPOModal, setShowPOModal] = useState<boolean>(false);
+  const [showStoreSettings, setShowStoreSettings] = useState<boolean>(false);
+  const [showPinModal, setShowPinModal] = useState<boolean>(false);
+  const [showScannerLinkModal, setShowScannerLinkModal] = useState<boolean>(false);
   
   // Specific Tool States
   const [cashFlowModalInfo, setCashFlowModalInfo] = useState<CashFlowType>(null);
@@ -49,6 +54,13 @@ export const useUIState = () => {
     showMarketingModal, setShowMarketingModal, 
     showInventoryModal, setShowInventoryModal, 
     showMainMenu, setShowMainMenu, 
+    
+    // 👉 ĐỪNG QUÊN RETURN CHÚNG RA NGOÀI ĐỂ APP.TSX CÓ THỂ GỌI ĐƯỢC:
+    showPOModal, setShowPOModal,
+    showStoreSettings, setShowStoreSettings,
+    showPinModal, setShowPinModal,
+    showScannerLinkModal, setShowScannerLinkModal,
+
     cashFlowModalInfo, setCashFlowModalInfo, 
     scannerMode, setScannerMode, 
     printMode, setPrintMode 
