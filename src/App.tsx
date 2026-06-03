@@ -70,11 +70,10 @@ export default function App() {
   const [bankBin, setBankBin] = useState(""); const [bankAcc, setBankAcc] = useState(""); const [bankNameStr, setBankNameStr] = useState(""); const [zaloPayId, setZaloPayId] = useState(""); const [adminPin, setAdminPin] = useState("1234"); const [pendingAction, setPendingAction] = useState<(() => void) | null>(null); const [happyStart, setHappyStart] = useState("11:00"); const [happyEnd, setHappyEnd] = useState("13:00");
   const [newBankBin, setNewBankBin] = useState(""); const [newBankAcc, setNewBankAcc] = useState(""); const [newBankNameStr, setNewBankNameStr] = useState(""); const [newZaloPayId, setNewZaloPayId] = useState(""); const [newHappyStart, setNewHappyStart] = useState("11:00"); const [newHappyEnd, setNewHappyEnd] = useState("13:00"); const [newAdminPinInput, setNewAdminPinInput] = useState("");
 
-  // ==============================================================
-  // ĐÃ SỬA LỖI MÀN TRẮNG: KHAI BÁO CỤC BỘ TOÀN BỘ BIẾN CHỐNG LỖI
-  // ==============================================================
+  // ===============================================
+  // STATE CỤC BỘ DÙNG ĐỂ BẬT TẮT MODAL (ĐÃ CHỐNG LỖI)
+  // ===============================================
   const [darkMode, setDarkMode] = useState(false);
-  const [showMainMenu, setShowMainMenu] = useState(false);
   const [showInputForm, setShowInputForm] = useState(false);
   const [scannerMode, setScannerMode] = useState<any>(null);
   const [printMode, setPrintMode] = useState<any>(null);
@@ -95,6 +94,25 @@ export default function App() {
   const [showPinModal, setShowPinModal] = useState(false);
   const [showHandoverModal, setShowHandoverModal] = useState(false);
   const [showHoldModal, setShowHoldModal] = useState(false);
+
+  // Lắng nghe tín hiệu từ MENU (Header) để mở cửa sổ
+  useEffect(() => {
+    const handleMenuAction = (e: any) => {
+      const action = e.detail;
+      if (action === 'STATS') setShowStatsModal(true);
+      if (action === 'PO') setShowPOModal(true);
+      if (action === 'INVENTORY') setShowInventoryModal(true);
+      if (action === 'DEBT') setShowDebtModal(true);
+      if (action === 'EXPENSE') setShowExpenseModal(true);
+      if (action === 'CUSTOMER') setShowCustomerModal(true);
+      if (action === 'SETTINGS') setShowSettings(true);
+      if (action === 'STORE_SETTINGS') setShowStoreSettings(true);
+    };
+    window.addEventListener('MENU_ACTION', handleMenuAction);
+    return () => window.removeEventListener('MENU_ACTION', handleMenuAction);
+  }, []);
+
+  // ===============================================
 
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState(""); const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(""); const [selectedCategory, setSelectedCategory] = useState("Tất cả"); const [loading, setLoading] = useState(false); const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null); const [filters, setFilters] = useState<Record<string, any[]>>({}); const [showSuggestions, setShowSuggestions] = useState(false);
@@ -486,9 +504,6 @@ export default function App() {
       <Header 
         shift={shift} totalValue={totalValue} currentShiftStats={currentShiftStats} setCashFlowModalInfo={setCashFlowModalInfo} darkMode={darkMode} setDarkMode={setDarkMode} handleLogoutClick={handleLogoutClick}
         showMainMenu={showMainMenu} setShowMainMenu={setShowMainMenu}
-        
-        setShowStatsModal={setShowStatsModal} setShowCustomerModal={setShowCustomerModal} setShowInventoryModal={setShowInventoryModal} setShowDebtModal={setShowDebtModal} setShowAuditModal={setShowAuditModal} setShowExpenseModal={setShowExpenseModal} setShowSupplierModal={setShowSupplierModal} setShowMarketingModal={setShowMarketingModal} setShowScannerLinkModal={setShowScannerLinkModal} setShowSettings={setShowSettings} setShowStoreSettings={setShowStoreSettings} setShowPOModal={setShowPOModal}
-        
         lowStockCount={lowStockCount} isOnline={isOnline} syncStatus={syncStatus} syncAllOfflineData={syncPendingImports} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr}
       />
 
@@ -517,6 +532,7 @@ export default function App() {
       {showPinModal && <PinModal adminPin={adminPin} onSuccess={() => { setShowPinModal(false); if(pendingAction) pendingAction(); setPendingAction(null); }} onClose={() => { setShowPinModal(false); setPendingAction(null); }} />}
       {cashFlowModalInfo && <CashFlowDetailModal flowType={cashFlowModalInfo} onClose={() => setCashFlowModalInfo(null)} allLogs={history} />}
       {isCheckoutOpen && <CheckoutModal role="admin" checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} customersData={customersData} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} customerInput={customerInput} setCustomerInput={setCustomerInput} custAddress={custAddress} setCustAddress={setCustAddress} handleCustomerInputChange={handleCustomerInputChange} finalToPay={finalToPay} useWallet={useWallet} setUseWallet={setUseWallet} voucherInput={voucherInput} setVoucherInput={setVoucherInput} handleVoucherSubmit={handleVoucherSubmit} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} confirmCheckout={confirmCheckout} closeCheckout={closeCheckout} loading={loading} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} sendReceiptEmail={sendReceiptEmail} setScannerMode={setScannerMode} handleNextToQR={handleNextToQR} setPrintMode={setPrintMode} />}
+      {printBarcodeProduct && <ScannerModal product={printBarcodeProduct} barcodeCount={barcodeCount} setBarcodeCount={setBarcodeCount} onClose={() => setPrintBarcodeProduct(null)} />}
       {showScannerLinkModal && <ScannerLinkModal onClose={() => setShowScannerLinkModal(false)} />}
       {showHandoverModal && <HandoverModal shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onConfirm={confirmHandover} onClose={() => setShowHandoverModal(false)} />}
       {showAuditModal && <AuditModal role="admin" auditLogs={auditLogs} onClose={() => setShowAuditModal(false)} onViewDetail={(log: AuditLog) => setSelectedAuditLog(log)} />}
@@ -535,7 +551,6 @@ export default function App() {
         <PrintManager printMode={printMode} lastOrder={lastOrder} printCustomer={printCustomer} printPOData={printPOData} printBarcodeProduct={null} barcodeCount={0} />
       </div>
 
-      {/* ĐÃ SỬA LỖI IN HÓA ĐƠN TRẮNG: THÊM DỮ LIỆU ĐẦY ĐỦ */}
       <div id="print-receipt-section" className="print-only" style={{ display: 'none' }}>
         <style>{`
           @media print { 
