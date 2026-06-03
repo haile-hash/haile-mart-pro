@@ -8,23 +8,23 @@ export const CartPanel: React.FC<any> = ({
   return (
     <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
       
-      {/* KHU VỰC TRÊN CÙNG: THANH TOÁN VÀ TỔNG TIỀN */}
+      {/* HEADER GIỎ HÀNG: ÉP SÁT SỐ VÀO CHỮ, THANH TOÁN ĐƯA LÊN ĐẦU */}
       <div style={{ padding: '16px', borderBottom: '2px dashed #e2e8f0', background: '#f8fafc', borderRadius: '12px 12px 0 0' }}>
         
-        {/* Hàng 1: Tiêu đề và Nút phụ */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <div style={{ fontWeight: '900', display: 'flex', alignItems: 'center', gap: '4px', color: '#1e293b', fontSize: '15px' }}>
-            🛒 GIỎ HÀNG <span style={{ background: '#ef4444', color: 'white', padding: '2px 6px', borderRadius: '10px', fontSize: '12px', lineHeight: '1' }}>{cart.length}</span>
+          {/* CỤM BÊN TRÁI: Chữ Giỏ Hàng và Con Số ép sát nhau */}
+          <div style={{ display: 'flex', alignItems: 'center', fontWeight: '900', color: '#1e293b', fontSize: '15px' }}>
+            🛒 GIỎ HÀNG<span style={{ background: '#ef4444', color: 'white', padding: '2px 6px', borderRadius: '12px', fontSize: '12px', marginLeft: '4px', lineHeight: '1' }}>{cart.length}</span>
           </div>
-
+          
+          {/* CỤM BÊN PHẢI: Các Nút Chức Năng */}
           <div style={{ display: 'flex', gap: '6px' }}>
-            <button onClick={handleHoldOrder} disabled={cart.length === 0} style={{ padding: '6px 10px', background: cart.length === 0 ? '#cbd5e1' : '#f59e0b', color: 'white', border: 'none', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: cart.length === 0 ? 'not-allowed' : 'pointer' }}>⏸️ Lưu</button>
-            <button onClick={() => { if(window.confirm('Xóa toàn bộ giỏ hàng?')) setCart([]); }} disabled={cart.length === 0} style={{ padding: '6px 10px', background: cart.length === 0 ? '#cbd5e1' : '#ef4444', color: 'white', border: 'none', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: cart.length === 0 ? 'not-allowed' : 'pointer' }}>🗑️ Hủy</button>
-            <button onClick={() => setShowHoldModal(true)} style={{ padding: '6px 10px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>🕒 Mở Đơn</button>
+            <button onClick={handleHoldOrder} disabled={cart.length === 0} style={{ padding: '6px 10px', background: cart.length === 0 ? '#cbd5e1' : '#f59e0b', color: 'white', border: 'none', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: cart.length === 0 ? 'not-allowed' : 'pointer' }} title="Lưu tạm giỏ hàng (F4)">⏸️ Lưu Tạm</button>
+            <button onClick={() => { if(window.confirm('Xóa toàn bộ giỏ hàng?')) setCart([]); }} disabled={cart.length === 0} style={{ padding: '6px 10px', background: cart.length === 0 ? '#cbd5e1' : '#ef4444', color: 'white', border: 'none', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: cart.length === 0 ? 'not-allowed' : 'pointer' }} title="Hủy toàn bộ">🗑️ Hủy</button>
+            <button onClick={() => setShowHoldModal(true)} style={{ padding: '6px 10px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }} title="Mở các đơn đang lưu">🕒 Mở Đơn</button>
           </div>
         </div>
 
-        {/* Hàng 2: Nút Thanh Toán To Nhất */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#475569' }}>TỔNG CỘNG:</span>
           <span style={{ fontSize: '26px', fontWeight: '900', color: '#dc2626' }}>{cartTotalAmountDisplay.toLocaleString()}đ</span>
@@ -35,10 +35,10 @@ export const CartPanel: React.FC<any> = ({
         </button>
       </div>
 
-      {/* KHU VỰC DƯỚI: DANH SÁCH MÓN HÀNG */}
+      {/* DANH SÁCH SẢN PHẨM */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
         {cart.length === 0 ? (
-          <div style={{ textAlign: 'center', color: '#94a3b8', marginTop: '20px', fontSize: '13px' }}>
+          <div style={{ textAlign: 'center', color: '#94a3b8', marginTop: '30px', fontSize: '13px' }}>
             <div style={{ fontSize: '36px', marginBottom: '8px', opacity: 0.5 }}>📦</div>
             Giỏ hàng trống.<br/>Quét mã vạch hoặc bấm Thêm!
           </div>
