@@ -71,9 +71,10 @@ export default function App() {
   const [newBankBin, setNewBankBin] = useState(""); const [newBankAcc, setNewBankAcc] = useState(""); const [newBankNameStr, setNewBankNameStr] = useState(""); const [newZaloPayId, setNewZaloPayId] = useState(""); const [newHappyStart, setNewHappyStart] = useState("11:00"); const [newHappyEnd, setNewHappyEnd] = useState("13:00"); const [newAdminPinInput, setNewAdminPinInput] = useState("");
 
   // ===============================================
-  // STATE CỤC BỘ DÙNG ĐỂ BẬT TẮT MODAL (ĐÃ CHỐNG LỖI)
+  // ĐÃ SỬA LỖI: BỔ SUNG BIẾN showMainMenu BỊ THIẾU
   // ===============================================
   const [darkMode, setDarkMode] = useState(false);
+  const [showMainMenu, setShowMainMenu] = useState(false);
   const [showInputForm, setShowInputForm] = useState(false);
   const [scannerMode, setScannerMode] = useState<any>(null);
   const [printMode, setPrintMode] = useState<any>(null);
@@ -504,6 +505,9 @@ export default function App() {
       <Header 
         shift={shift} totalValue={totalValue} currentShiftStats={currentShiftStats} setCashFlowModalInfo={setCashFlowModalInfo} darkMode={darkMode} setDarkMode={setDarkMode} handleLogoutClick={handleLogoutClick}
         showMainMenu={showMainMenu} setShowMainMenu={setShowMainMenu}
+        
+        setShowStatsModal={setShowStatsModal} setShowCustomerModal={setShowCustomerModal} setShowInventoryModal={setShowInventoryModal} setShowDebtModal={setShowDebtModal} setShowAuditModal={setShowAuditModal} setShowExpenseModal={setShowExpenseModal} setShowSupplierModal={setShowSupplierModal} setShowMarketingModal={setShowMarketingModal} setShowScannerLinkModal={setShowScannerLinkModal} setShowSettings={setShowSettings} setShowStoreSettings={setShowStoreSettings} setShowPOModal={setShowPOModal}
+        
         lowStockCount={lowStockCount} isOnline={isOnline} syncStatus={syncStatus} syncAllOfflineData={syncPendingImports} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr}
       />
 
