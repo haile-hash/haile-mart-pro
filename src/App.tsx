@@ -70,6 +70,10 @@ export default function App() {
 
   const [bankBin, setBankBin] = useState(""); const [bankAcc, setBankAcc] = useState(""); const [bankNameStr, setBankNameStr] = useState(""); const [zaloPayId, setZaloPayId] = useState(""); const [adminPin, setAdminPin] = useState("1234"); const [pendingAction, setPendingAction] = useState<(() => void) | null>(null); const [happyStart, setHappyStart] = useState("11:00"); const [happyEnd, setHappyEnd] = useState("13:00");
   const [newBankBin, setNewBankBin] = useState(""); const [newBankAcc, setNewBankAcc] = useState(""); const [newBankNameStr, setNewBankNameStr] = useState(""); const [newZaloPayId, setNewZaloPayId] = useState(""); const [newHappyStart, setNewHappyStart] = useState("11:00"); const [newHappyEnd, setNewHappyEnd] = useState("13:00"); const [newAdminPinInput, setNewAdminPinInput] = useState("");
+  
+  // STATE CẤU HÌNH HẠN MỨC VIP THÊM MỚI
+  const [tierConfig, setTierConfig] = useState({ bronze: 1000000, silver: 5000000, gold: 10000000, diamond: 20000000 });
+  const [newTierConfig, setNewTierConfig] = useState({ bronze: 1000000, silver: 5000000, gold: 10000000, diamond: 20000000 });
 
   const ui = useUIState();
 
@@ -186,10 +190,53 @@ export default function App() {
   const executeWithAdminCheck = (action: () => void) => { action(); };
   const addTransactionAndSync = async (logData: any) => { setHistory(prev => [logData, ...prev]); if (navigator.onLine) { try { await supabase.from("history").insert([logData]); } catch (err) {} } };
   const logAudit = async (action: string, detail: string, extraData: any = null) => { const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user_name: 'Người Dùng', shift, action, detail, extra_data: extraData ? JSON.stringify(extraData) : null }; setAuditLogs(prev => [newLog, ...prev].slice(0, 300)); };
+  
+  // ĐÃ SỬA CẬP NHẬT FETCH ĐỂ ĐỌC TIER
   const fetchProducts = async () => { try { if (navigator.onLine) { const { data, error } = await supabase.from("products").select("*").order("created_at", { ascending: false }); if (data && !error) { setProducts(data); await dbSet("mart_products_cache", data); } } else { const localData = await dbGet("mart_products_cache"); if (localData) setProducts(localData); } } catch (err) { const localData = await dbGet("mart_products_cache"); if (localData) setProducts(localData); } };
-  const fetchSettingsFromCloud = async () => { try { const { data } = await supabase.from("settings").select("*").eq("id", 1).single(); if (data) { setBankBin(data.bank_bin); setBankAcc(data.bank_acc); setBankNameStr(data.bank_name_str); setZaloPayId(data.zalopay_id || ""); setNewBankBin(data.bank_bin); setNewBankAcc(data.bank_acc); setNewBankNameStr(data.bank_name_str); setNewZaloPayId(data.zalopay_id || ""); if (data.admin_pin) { setAdminPin(data.admin_pin); setNewAdminPinInput(data.admin_pin); } if (data.happy_hour_start) { setHappyStart(data.happy_hour_start); setNewHappyStart(data.happy_hour_start); } if (data.happy_hour_end) { setHappyEnd(data.happy_hour_end); setNewHappyEnd(data.happy_hour_end); } } } catch (err) {} };
-  const updateSettingsToCloud = async (bin: string, acc: string, nameStr: string, zaloId: string, hStart: string, hEnd: string, pin: string) => { if (!navigator.onLine) return toast.error("Mất mạng! Không thể lưu Cài đặt."); setLoading(true); try { const { error } = await supabase.from("settings").update({ bank_bin: bin, bank_acc: acc, bank_name_str: nameStr, zalopay_id: zaloId, happy_hour_start: hStart, happy_hour_end: hEnd, admin_pin: pin, updated_at: new Date().toISOString() }).eq("id", 1); if (!error) { setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr); setZaloPayId(zaloId); setHappyStart(hStart); setHappyEnd(hEnd); setAdminPin(pin); toast.success("Lưu Cài đặt thành công!"); ui.setShowSettings?.(false); logAudit("CÀI ĐẶT", "Cập nhật hệ thống"); } } catch (err) {} finally { setLoading(false); } };
+  const fetchSettingsFromCloud = async () => { 
+    try { 
+      const { data } = await supabase.from("settings").select("*").eq("id", 1).single(); 
+      if (data) { 
+        setBankBin(data.bank_bin); setBankAcc(data.bank_acc); setBankNameStr(data.bank_name_str); setZaloPayId(data.zalopay_id || ""); 
+        setNewBankBin(data.bank_bin); setNewBankAcc(data.bank_acc); setNewBankNameStr(data.bank_name_str); setNewZaloPayId(data.zalopay_id || ""); 
+        if (data.admin_pin) { setAdminPin(data.admin_pin); setNewAdminPinInput(data.admin_pin); } 
+        if (data.happy_hour_start) { setHappyStart(data.happy_hour_start); setNewHappyStart(data.happy_hour_start); } 
+        if (data.happy_hour_end) { setHappyEnd(data.happy_hour_end); setNewHappyEnd(data.happy_hour_end); } 
+        
+        // Bổ sung đọc Tier từ Cloud
+        if (data.tier_bronze) {
+          const loadedTiers = { bronze: data.tier_bronze, silver: data.tier_silver, gold: data.tier_gold, diamond: data.tier_diamond };
+          setTierConfig(loadedTiers);
+          setNewTierConfig(loadedTiers);
+        }
+      } 
+    } catch (err) {} 
+  };
+  
+  // ĐÃ SỬA LƯU CẬP NHẬT ĐỂ LƯU TIER
+  const updateSettingsToCloud = async (bin: string, acc: string, nameStr: string, zaloId: string, hStart: string, hEnd: string, pin: string) => { 
+    if (!navigator.onLine) return toast.error("Mất mạng! Không thể lưu Cài đặt."); 
+    setLoading(true); 
+    try { 
+      const { error } = await supabase.from("settings").update({ 
+        bank_bin: bin, bank_acc: acc, bank_name_str: nameStr, zalopay_id: zaloId, 
+        happy_hour_start: hStart, happy_hour_end: hEnd, admin_pin: pin, 
+        // Bổ sung lưu Tier lên Cloud
+        tier_bronze: newTierConfig.bronze, tier_silver: newTierConfig.silver, 
+        tier_gold: newTierConfig.gold, tier_diamond: newTierConfig.diamond,
+        updated_at: new Date().toISOString() 
+      }).eq("id", 1); 
+      if (!error) { 
+        setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr); setZaloPayId(zaloId); 
+        setHappyStart(hStart); setHappyEnd(hEnd); setAdminPin(pin); 
+        // Lưu State Tiers
+        setTierConfig(newTierConfig);
+        toast.success("Lưu Cài đặt thành công!"); ui.setShowSettings?.(false); logAudit("CÀI ĐẶT", "Cập nhật hệ thống"); 
+      } 
+    } catch (err) {} finally { setLoading(false); } 
+  };
   const saveSettings = () => { const bin = newBankBin.trim(); const acc = newBankAcc.trim(); const nameStr = newBankNameStr.trim().toUpperCase(); const zaloId = newZaloPayId.trim(); const pin = newAdminPinInput.trim(); if (!bin || !acc || !nameStr || !pin) return toast.error("Vui lòng điền đủ thông tin & Mã PIN!"); updateSettingsToCloud(bin, acc, nameStr, zaloId, newHappyStart, newHappyEnd, pin); };
+  
   const handleLogoutClick = () => { logAudit("ĐĂNG XUẤT", `Thoát ca ${shift}`); ui.setShowHandoverModal?.(true); };
   const confirmHandover = async () => { try { if (navigator.onLine) { await supabase.auth.signOut(); } } catch (error) {} finally { await dbRemove("mart_logged_in"); await dbRemove("mart_shift"); await dbRemove("mart_current_store"); localStorage.removeItem("mart_was_logged_in"); setIsLoggedIn(false); window.location.reload(); } };
   const handleEditPhone = async (oldPhone: string) => { executeWithAdminCheck(() => { const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customersData[newPhone]) return toast.error("SĐT đã tồn tại!"); const cData = customersData[oldPhone]; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = { ...cData, phone: newPhone }; delete updated[oldPhone]; return updated }); logAudit("SỬA KHÁCH HÀNG", `Đổi SĐT ${oldPhone} -> ${newPhone}`); toast.success("Cập nhật thành công!"); } }); };
@@ -486,43 +533,29 @@ export default function App() {
         </div>
       </div>
 
-      {/* RENDER TOÀN BỘ MODAL ĐÃ ĐƯỢC CẬP NHẬT PROPS ĐẦY ĐỦ */}
-      
       {ui.showStoreSettings && <StoreSettingsModal role="admin" onClose={() => ui.setShowStoreSettings(false)} />}
       
-      {ui.showSettings && <SettingsModal showSettings={ui.showSettings} setShowSettings={ui.setShowSettings} newBankBin={newBankBin} setNewBankBin={setNewBankBin} newBankAcc={newBankAcc} setNewBankAcc={setNewBankAcc} newBankNameStr={newBankNameStr} setNewBankNameStr={setNewBankNameStr} newZaloPayId={newZaloPayId} setNewZaloPayId={setNewZaloPayId} newHappyStart={newHappyStart} setNewHappyStart={setNewHappyStart} newHappyEnd={newHappyEnd} setNewHappyEnd={setNewHappyEnd} newAdminPinInput={newAdminPinInput} setNewAdminPinInput={setNewAdminPinInput} saveSettings={saveSettings} loading={loading} />}
+      {/* THÊM TIER CONFIG VÀO SETTINGS MODAL */}
+      {ui.showSettings && <SettingsModal showSettings={ui.showSettings} setShowSettings={ui.setShowSettings} newBankBin={newBankBin} setNewBankBin={setNewBankBin} newBankAcc={newBankAcc} setNewBankAcc={setNewBankAcc} newBankNameStr={newBankNameStr} setNewBankNameStr={setNewBankNameStr} newZaloPayId={newZaloPayId} setNewZaloPayId={setNewZaloPayId} newHappyStart={newHappyStart} setNewHappyStart={setNewHappyStart} newHappyEnd={newHappyEnd} setNewHappyEnd={setNewHappyEnd} newAdminPinInput={newAdminPinInput} setNewAdminPinInput={setNewAdminPinInput} newTierConfig={newTierConfig} setNewTierConfig={setNewTierConfig} saveSettings={saveSettings} loading={loading} />}
       
       {ui.showPinModal && <PinModal showPinModal={ui.showPinModal} setShowPinModal={ui.setShowPinModal} correctPin={adminPin} onSuccess={() => { if(pendingAction) pendingAction(); setPendingAction(null); }} />}
-      
       {ui.cashFlowModalInfo && <CashFlowDetailModal flowType={ui.cashFlowModalInfo} onClose={() => ui.setCashFlowModalInfo(null)} allLogs={history} />}
-      
       {isCheckoutOpen && <CheckoutModal checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} customersData={customersData} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} customerInput={customerInput} setCustomerInput={setCustomerInput} custAddress={custAddress} setCustAddress={setCustAddress} handleCustomerInputChange={handleCustomerInputChange} finalToPay={finalToPay} useWallet={useWallet} setUseWallet={setUseWallet} voucherInput={voucherInput} setVoucherInput={setVoucherInput} handleVoucherSubmit={handleVoucherSubmit} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} confirmCheckout={confirmCheckout} closeCheckout={closeCheckout} loading={loading} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} sendReceiptEmail={sendReceiptEmail} setScannerMode={ui.setScannerMode} handleNextToQR={handleNextToQR} setPrintMode={ui.setPrintMode} />}
-      
       {printBarcodeProduct && <ScannerModal product={printBarcodeProduct} barcodeCount={barcodeCount} setBarcodeCount={setBarcodeCount} onClose={() => setPrintBarcodeProduct(null)} />}
-      
       {ui.showScannerLinkModal && <ScannerLinkModal showModal={ui.showScannerLinkModal} setShowModal={ui.setShowScannerLinkModal} />}
-      
       {ui.showHandoverModal && <HandoverModal role="admin" shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onConfirm={confirmHandover} onClose={() => ui.setShowHandoverModal(false)} />}
-      
       {ui.showAuditModal && <AuditModal showAuditModal={ui.showAuditModal} setShowAuditModal={ui.setShowAuditModal} auditLogs={auditLogs} exportAuditToCSV={() => {}} setSelectedAuditLog={(log: AuditLog) => setSelectedAuditLog(log)} />}
-      
       {selectedAuditLog && <AuditDetailModal selectedAuditLog={selectedAuditLog} setSelectedAuditLog={setSelectedAuditLog} />}
-      
       {ui.showHoldModal && <HoldOrdersModal onClose={() => ui.setShowHoldModal(false)} heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={deleteHeldOrder} />}
-      
       {ui.showExpenseModal && <ExpenseModal showExpenseModal={ui.showExpenseModal} setShowExpenseModal={ui.setShowExpenseModal} expenses={expenses} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} addExpense={addExpense} deleteExpense={deleteExpense} />}
-      
       {ui.showSupplierModal && <SupplierModal showSupplierModal={ui.showSupplierModal} setShowSupplierModal={ui.setShowSupplierModal} suppliers={suppliers} supName={supName} setSupName={setSupName} supPhone={supPhone} setSupPhone={setSupPhone} supAddress={supAddress} setSupAddress={setSupAddress} supItem={supItem} setSupItem={setSupItem} supTaxCode={supTaxCode} setSupTaxCode={setSupTaxCode} supBankAccount={supBankAccount} setSupBankAccount={setSupBankAccount} addSupplier={addSupplier} deleteSupplier={deleteSupplier} />}
-      
       {ui.showPOModal && <POModal showPOModal={ui.showPOModal} setShowPOModal={ui.setShowPOModal} poTab={poTab} setPoTab={setPoTab} suppliers={suppliers} selectedSupplierId={selectedSupplierId} setSelectedSupplierId={setSelectedSupplierId} products={products} poSearch={poSearch} setPoSearch={setPoSearch} poItems={poItems} setPoItems={setPoItems} poNote={poNote} setPoNote={setPoNote} paidAmount={paidAmount} setPaidAmount={setPaidAmount} searchPoCode={searchPoCode} setSearchPoCode={setSearchPoCode} foundPO={foundPO} setFoundPO={setFoundPO} receiveItems={receiveItems} setReceiveItems={setReceiveItems} allPOs={allPOs} loading={loading} onSaveNewPO={() => toast.error('Tính năng đang phát triển')} onConfirmReceipt={() => toast.error('Tính năng đang phát triển')} handlePrintPO={() => {}} />}
-      
       {ui.showStatsModal && <StatsModal reportStartDate={reportStartDate} setReportStartDate={setReportStartDate} reportEndDate={reportEndDate} setReportEndDate={setReportEndDate} history={history} onClose={() => ui.setShowStatsModal(false)} />}
-      
       {ui.showInventoryModal && <InventoryModal showInventoryModal={ui.showInventoryModal} setShowInventoryModal={ui.setShowInventoryModal} products={products} inventorySearchTerm={inventorySearchTerm} setInventorySearchTerm={setInventorySearchTerm} invFilter={invFilter} setInvFilter={setInvFilter} actualStockInput={actualStockInput} setActualStockInput={setActualStockInput} syncInventoryCheck={syncInventory} handleImportInventoryCSV={handleImportInventoryCSV} loading={loading} handleInventorySearchEnter={() => {}} exportInventoryCSV={() => {}} />}
-      
       {ui.showDebtModal && <DebtModal showDebtModal={ui.showDebtModal} setShowDebtModal={ui.setShowDebtModal} customers={customersData} handlePayDebt={handlePayDebt} />}
       
-      {ui.showCustomerModal && <CustomerModal showCustomerModal={ui.showCustomerModal} setShowCustomerModal={ui.setShowCustomerModal} customers={customersData} setCustomers={setCustomers} logAudit={logAudit} handleEditPhone={handleEditPhone} printCustomerCard={printCustomerCard} sendCardEmail={sendCardEmail} shareToZalo={shareToZalo} />}
+      {/* THÊM TIER CONFIG VÀO CUSTOMER MODAL */}
+      {ui.showCustomerModal && <CustomerModal showCustomerModal={ui.showCustomerModal} setShowCustomerModal={ui.setShowCustomerModal} customers={customersData} setCustomers={setCustomers} logAudit={logAudit} handleEditPhone={handleEditPhone} printCustomerCard={printCustomerCard} sendCardEmail={sendCardEmail} shareToZalo={shareToZalo} tierConfig={tierConfig} />}
       
       {ui.showMarketingModal && <MarketingModal showMarketingModal={ui.showMarketingModal} setShowMarketingModal={ui.setShowMarketingModal} marketingTier={marketingTier} setMarketingTier={setMarketingTier} marketingMsg={marketingMsg} setMarketingMsg={setMarketingMsg} customersData={customersData} />}
 
