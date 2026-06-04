@@ -152,6 +152,9 @@ export default function App() {
         const loggedIn = await dbGet("mart_logged_in") === "true"; const savedShift = await dbGet("mart_shift") || "Ca Sáng"; const savedCash = Number(await dbGet("mart_starting_cash") || 5000000); 
         setIsLoggedIn(loggedIn); setShift(savedShift); setStartingCash(savedCash);
         setLocalPOs(await dbGet("mart_pos") || []); setCustomers(await dbGet("mart_customers") || {}); setHeldOrders(await dbGet("mart_held_orders") || []); setAuditLogs(await dbGet("mart_audit") || []); setExpenses(await dbGet("mart_expenses") || []); setSuppliers(await dbGet("mart_suppliers") || []); setHistory(await dbGet("mart_history") || []);
+        // Setup initial allPOs state with localPOs
+        const storedPOs = await dbGet("mart_pos") || [];
+        setAllPOs(storedPOs);
       } catch (err) {} finally { setIsStorageLoading(false); }
     };
     initializeEnterpriseStorage();
@@ -537,6 +540,29 @@ export default function App() {
     }
   };
 
+  // HÀM XÁC NHẬN NHẬP KHO (CẬP NHẬT TRẠNG THÁI PO)
+  const handleConfirmReceipt = async (updatedPO: any, finalReceiveItems: any) => {
+    setLoading(true);
+    try {
+      const finalPO = { ...updatedPO, items: finalReceiveItems };
+      
+      // Cập nhật State
+      setAllPOs(prev => prev.map(po => po.id === finalPO.id ? finalPO : po));
+      
+      // Cập nhật Database (IndexedDB)
+      const currentPOs = await dbGet("mart_pos") || [];
+      const savedPOs = currentPOs.map((po: any) => po.id === finalPO.id ? finalPO : po);
+      await dbSet("mart_pos", savedPOs);
+      
+      logAudit("NHẬP KHO PO", `Hoàn tất PO: ${finalPO.po_code}`);
+      toast.success(`Nhập kho thành công mã PO: ${finalPO.po_code}`);
+    } catch (e) {
+      toast.error("Lỗi khi cập nhật trạng thái PO!");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!isStorageLoading && (!isLoggedIn || isLocked)) {
     return (
       <div className={`app-container ${ui.darkMode ? "dark-theme" : "light-theme"}`} style={{ minHeight: "100vh", position: "relative" }}>
@@ -602,8 +628,8 @@ export default function App() {
       {ui.showExpenseModal && <ExpenseModal showExpenseModal={ui.showExpenseModal} setShowExpenseModal={ui.setShowExpenseModal} expenses={expenses} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} addExpense={addExpense} deleteExpense={deleteExpense} />}
       {ui.showSupplierModal && <SupplierModal showSupplierModal={ui.showSupplierModal} setShowSupplierModal={ui.setShowSupplierModal} suppliers={suppliers} supName={supName} setSupName={setSupName} supPhone={supPhone} setSupPhone={setSupPhone} supAddress={supAddress} setSupAddress={setSupAddress} supItem={supItem} setSupItem={setSupItem} supTaxCode={supTaxCode} setSupTaxCode={setSupTaxCode} supBankAccount={supBankAccount} setSupBankAccount={setSupBankAccount} addSupplier={addSupplier} deleteSupplier={deleteSupplier} />}
       
-      {/* TRUYỀN HÀM handleSaveNewPO VÀO POModal */}
-      {ui.showPOModal && <POModal showPOModal={ui.showPOModal} setShowPOModal={ui.setShowPOModal} poTab={poTab} setPoTab={setPoTab} suppliers={suppliers} selectedSupplierId={selectedSupplierId} setSelectedSupplierId={setSelectedSupplierId} products={products} poSearch={poSearch} setPoSearch={setPoSearch} poItems={poItems} setPoItems={setPoItems} poNote={poNote} setPoNote={setPoNote} paidAmount={paidAmount} setPaidAmount={setPaidAmount} searchPoCode={searchPoCode} setSearchPoCode={setSearchPoCode} foundPO={foundPO} setFoundPO={setFoundPO} receiveItems={receiveItems} setReceiveItems={setReceiveItems} allPOs={allPOs} loading={loading} onSaveNewPO={handleSaveNewPO} onConfirmReceipt={() => toast.error('Tính năng đang phát triển')} handlePrintPO={() => {}} />}
+      {/* TRUYỀN HÀM handleSaveNewPO VÀ handleConfirmReceipt VÀO POModal */}
+      {ui.showPOModal && <POModal showPOModal={ui.showPOModal} setShowPOModal={ui.setShowPOModal} poTab={poTab} setPoTab={setPoTab} suppliers={suppliers} selectedSupplierId={selectedSupplierId} setSelectedSupplierId={setSelectedSupplierId} products={products} poSearch={poSearch} setPoSearch={setPoSearch} poItems={poItems} setPoItems={setPoItems} poNote={poNote} setPoNote={setPoNote} paidAmount={paidAmount} setPaidAmount={setPaidAmount} searchPoCode={searchPoCode} setSearchPoCode={setSearchPoCode} foundPO={foundPO} setFoundPO={setFoundPO} receiveItems={receiveItems} setReceiveItems={setReceiveItems} allPOs={allPOs} loading={loading} onSaveNewPO={handleSaveNewPO} onConfirmReceipt={handleConfirmReceipt} />}
       
       {ui.showStatsModal && <StatsModal reportStartDate={reportStartDate} setReportStartDate={setReportStartDate} reportEndDate={reportEndDate} setReportEndDate={setReportEndDate} history={history} onClose={() => ui.setShowStatsModal(false)} />}
       {ui.showInventoryModal && <InventoryModal showInventoryModal={ui.showInventoryModal} setShowInventoryModal={ui.setShowInventoryModal} products={products} inventorySearchTerm={inventorySearchTerm} setInventorySearchTerm={setInventorySearchTerm} invFilter={invFilter} setInvFilter={setInvFilter} actualStockInput={actualStockInput} setActualStockInput={setActualStockInput} syncInventoryCheck={syncInventory} handleImportInventoryCSV={handleImportInventoryCSV} loading={loading} handleInventorySearchEnter={() => {}} exportInventoryCSV={() => {}} />}
