@@ -1,3 +1,4 @@
+/* eslint-disable */
 // @ts-nocheck
 import React from 'react';
 
@@ -40,7 +41,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.7)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 99999, backdropFilter: "blur(4px)" }} onClick={() => setShowSettings(false)}>
-      <div style={{ background: "#fff", width: "650px", maxWidth: "95vw", maxHeight: "90vh", borderRadius: "20px", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.4)" }} onClick={e => e.stopPropagation()}>
+      <div style={{ background: "#fff", width: "700px", maxWidth: "95vw", maxHeight: "90vh", borderRadius: "20px", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.4)" }} onClick={e => e.stopPropagation()}>
         
         <div style={{ padding: "20px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc" }}>
           <h2 style={{ margin: 0, fontSize: "18px", color: "#0f172a", fontWeight: "800", display: "flex", alignItems: "center", gap: "10px" }}>
@@ -75,7 +76,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
-          {/* 2. THIẾT LẬP GIỜ VÀNG (CÓ TÙY CHỈNH %) */}
+          {/* 2. THIẾT LẬP GIỜ VÀNG */}
           <div style={{ marginBottom: "24px", background: "#f8fafc", padding: "20px", borderRadius: "16px", border: "1px solid #e2e8f0" }}>
             <h3 style={{ margin: "0 0 16px 0", fontSize: "14px", color: "#0f172a", textTransform: "uppercase", fontWeight: "800" }}>2. THIẾT LẬP GIỜ VÀNG (HAPPY HOUR)</h3>
             <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
@@ -100,9 +101,60 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
-          {/* 3. THIẾT LẬP MÃ PIN QUẢN LÝ */}
+          {/* 3. THIẾT LẬP HẠNG MỨC VIP */}
+          <div style={{ marginBottom: "24px", background: "#f8fafc", padding: "20px", borderRadius: "16px", border: "1px solid #e2e8f0" }}>
+            <h3 style={{ margin: "0 0 16px 0", fontSize: "14px", color: "#0f172a", textTransform: "uppercase", fontWeight: "800" }}>3. HẠNG MỨC VIP & CHIẾT KHẤU</h3>
+            
+            {/* KIM CƯƠNG */}
+            <div style={{ display: "flex", gap: "16px", marginBottom: "12px", alignItems: "center" }}>
+              <div style={{ width: "110px", fontWeight: "bold", color: "#8b5cf6", fontSize: "14px" }}>💎 Kim Cương</div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: "11px", color: "#64748b", fontWeight: "600", display: "block", marginBottom: "4px" }}>Chi tiêu tối thiểu (đ)</label>
+                <input type="number" value={newTierConfig?.diamond || 0} onChange={e => setNewTierConfig({...newTierConfig, diamond: Number(e.target.value)})} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", boxSizing: "border-box" }} />
+              </div>
+              <div style={{ width: "100px" }}>
+                <label style={{ fontSize: "11px", color: "#64748b", fontWeight: "600", display: "block", marginBottom: "4px" }}>Giảm giá (%)</label>
+                <input type="number" value={newTierConfig?.diamond_discount || 0} onChange={e => setNewTierConfig({...newTierConfig, diamond_discount: Number(e.target.value)})} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", boxSizing: "border-box", textAlign: "center" }} />
+              </div>
+            </div>
+
+            {/* VÀNG */}
+            <div style={{ display: "flex", gap: "16px", marginBottom: "12px", alignItems: "center" }}>
+              <div style={{ width: "110px", fontWeight: "bold", color: "#eab308", fontSize: "14px" }}>👑 Vàng</div>
+              <div style={{ flex: 1 }}>
+                <input type="number" value={newTierConfig?.gold || 0} onChange={e => setNewTierConfig({...newTierConfig, gold: Number(e.target.value)})} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", boxSizing: "border-box" }} />
+              </div>
+              <div style={{ width: "100px" }}>
+                <input type="number" value={newTierConfig?.gold_discount || 0} onChange={e => setNewTierConfig({...newTierConfig, gold_discount: Number(e.target.value)})} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", boxSizing: "border-box", textAlign: "center" }} />
+              </div>
+            </div>
+
+            {/* BẠC */}
+            <div style={{ display: "flex", gap: "16px", marginBottom: "12px", alignItems: "center" }}>
+              <div style={{ width: "110px", fontWeight: "bold", color: "#94a3b8", fontSize: "14px" }}>🥈 Bạc</div>
+              <div style={{ flex: 1 }}>
+                <input type="number" value={newTierConfig?.silver || 0} onChange={e => setNewTierConfig({...newTierConfig, silver: Number(e.target.value)})} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", boxSizing: "border-box" }} />
+              </div>
+              <div style={{ width: "100px" }}>
+                <input type="number" value={newTierConfig?.silver_discount || 0} onChange={e => setNewTierConfig({...newTierConfig, silver_discount: Number(e.target.value)})} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", boxSizing: "border-box", textAlign: "center" }} />
+              </div>
+            </div>
+
+            {/* ĐỒNG */}
+            <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+              <div style={{ width: "110px", fontWeight: "bold", color: "#d97706", fontSize: "14px" }}>🥉 Đồng</div>
+              <div style={{ flex: 1 }}>
+                <input type="number" value={newTierConfig?.bronze || 0} onChange={e => setNewTierConfig({...newTierConfig, bronze: Number(e.target.value)})} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", boxSizing: "border-box" }} />
+              </div>
+              <div style={{ width: "100px" }}>
+                <input type="number" value={newTierConfig?.bronze_discount || 0} onChange={e => setNewTierConfig({...newTierConfig, bronze_discount: Number(e.target.value)})} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", boxSizing: "border-box", textAlign: "center" }} />
+              </div>
+            </div>
+          </div>
+
+          {/* 4. THIẾT LẬP MÃ PIN QUẢN LÝ */}
           <div style={{ background: "#f8fafc", padding: "20px", borderRadius: "16px", border: "1px solid #e2e8f0" }}>
-            <h3 style={{ margin: "0 0 16px 0", fontSize: "14px", color: "#0f172a", textTransform: "uppercase", fontWeight: "800" }}>3. BẢO MẬT</h3>
+            <h3 style={{ margin: "0 0 16px 0", fontSize: "14px", color: "#0f172a", textTransform: "uppercase", fontWeight: "800" }}>4. BẢO MẬT</h3>
             <div>
               <label style={{ fontSize: "12px", color: "#64748b", fontWeight: "700", display: "block", marginBottom: "8px" }}>MÃ PIN QUẢN LÝ (MỞ KHÓA MÀN HÌNH / XÓA SỬA)</label>
               <input type="password" value={newAdminPinInput} onChange={e => setNewAdminPinInput(e.target.value)} placeholder="Nhập mã PIN số..." style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", boxSizing: "border-box", letterSpacing: "4px", fontWeight: "bold" }} />
