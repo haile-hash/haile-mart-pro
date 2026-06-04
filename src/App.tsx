@@ -681,9 +681,20 @@ export default function App() {
       
       {ui.showMarketingModal && <MarketingModal showMarketingModal={ui.showMarketingModal} setShowMarketingModal={ui.setShowMarketingModal} marketingTier={marketingTier} setMarketingTier={setMarketingTier} marketingMsg={marketingMsg} setMarketingMsg={setMarketingMsg} customersData={customersData} />}
 
-      <div className="print-only">
-  <PrintManager printMode={ui.printMode} lastOrder={lastOrder} ... />
-</div>
+   <div className="print-only">
+        <PrintManager 
+          printMode={ui.printMode} 
+          lastOrder={lastOrder} 
+          shift={shift}
+          role="admin"
+          customers={customersData}
+          VAT_RATE={VAT_RATE}
+          printCustomer={printCustomer} 
+          printPOData={printPOData} 
+          printBarcodeProduct={printBarcodeProduct} 
+          barcodeCount={barcodeCount} 
+        />
+      </div>
 
       <div id="print-receipt-section" className="print-only" style={{ display: 'none' }}>
         <style>{`
