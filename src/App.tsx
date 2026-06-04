@@ -75,7 +75,6 @@ export default function App() {
 
   const [bankBin, setBankBin] = useState(""); const [bankAcc, setBankAcc] = useState(""); const [bankNameStr, setBankNameStr] = useState(""); const [zaloPayId, setZaloPayId] = useState(""); const [adminPin, setAdminPin] = useState("1234"); const [pendingAction, setPendingAction] = useState<(() => void) | null>(null); 
   
-  // --- BỔ SUNG STATE HAPPY DISCOUNT ---
   const [happyStart, setHappyStart] = useState("11:00"); 
   const [happyEnd, setHappyEnd] = useState("13:00");
   const [happyDiscount, setHappyDiscount] = useState(20);
@@ -262,7 +261,6 @@ export default function App() {
   
   const fetchProducts = async () => { try { if (navigator.onLine) { const { data, error } = await supabase.from("products").select("*").order("created_at", { ascending: false }); if (data && !error) { setProducts(data); await dbSet("mart_products_cache", data); } } else { const localData = await dbGet("mart_products_cache"); if (localData) setProducts(localData); } } catch (err) { const localData = await dbGet("mart_products_cache"); if (localData) setProducts(localData); } };
   
-  // --- BỔ SUNG LƯU LOCALSTORAGE CHO KHUYẾN MÃI % ---
   const fetchSettingsFromCloud = async () => { 
     try { 
       const { data } = await supabase.from("settings").select("*").eq("id", 1).single(); 
@@ -294,13 +292,12 @@ export default function App() {
     } catch (err) {} 
   };
   
-  // FIX 1: Dùng upsert({ id: 1, ... }) thay vì update(...).eq("id", 1)
+  // FIX BẢN CHUẨN: Dùng .update() trước, nếu lỗi hoặc bảng trống thì .insert() để không bị dính lỗi RLS chặn upsert
   const updateSettingsToCloud = async (bin: string, acc: string, nameStr: string, zaloId: string, hStart: string, hEnd: string, pin: string) => { 
     if (!navigator.onLine) return toast.error("Mất mạng! Không thể lưu Cài đặt."); 
     setLoading(true); 
     try { 
-      const { error } = await supabase.from("settings").upsert({ 
-        id: 1,
+      const payload = { 
         bank_bin: bin, bank_acc: acc, bank_name_str: nameStr, zalopay_id: zaloId, 
         happy_hour_start: hStart, happy_hour_end: hEnd, 
         happy_hour_discount: newHappyDiscount, 
@@ -310,20 +307,41 @@ export default function App() {
         tier_gold: newTierConfig.gold, tier_gold_discount: newTierConfig.gold_discount, 
         tier_diamond: newTierConfig.diamond, tier_diamond_discount: newTierConfig.diamond_discount,
         updated_at: new Date().toISOString() 
-      }); 
-      if (!error) { 
-        setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr); setZaloPayId(zaloId); 
-        setHappyStart(hStart); setHappyEnd(hEnd); setAdminPin(pin); 
-        setTierConfig(newTierConfig);
-        
-        setHappyDiscount(newHappyDiscount);
-        window.localStorage.setItem('mart_happy_start', hStart);
-        window.localStorage.setItem('mart_happy_end', hEnd);
-        window.localStorage.setItem('mart_happy_discount', newHappyDiscount.toString());
+      };
 
-        toast.success("Lưu Cài đặt thành công!"); ui.setShowSettings?.(false); logAudit("CÀI ĐẶT", "Cập nhật hệ thống"); 
-      } 
-    } catch (err) {} finally { setLoading(false); } 
+      const { data, error } = await supabase.from("settings").update(payload).eq("id", 1).select(); 
+      
+      if (error) {
+        toast.error("Lỗi cập nhật Cài đặt: " + error.message);
+        setLoading(false);
+        return;
+      }
+
+      // Nếu không có dòng nào được cập nhật (bảng trắng trơn), tiến hành chèn dòng đầu tiên
+      if (!data || data.length === 0) {
+         const { error: insertErr } = await supabase.from("settings").insert([{ id: 1, ...payload }]);
+         if (insertErr) {
+             toast.error("Lỗi tạo mới Cài đặt: " + insertErr.message);
+             setLoading(false);
+             return;
+         }
+      }
+
+      setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr); setZaloPayId(zaloId); 
+      setHappyStart(hStart); setHappyEnd(hEnd); setAdminPin(pin); 
+      setTierConfig(newTierConfig);
+      
+      setHappyDiscount(newHappyDiscount);
+      window.localStorage.setItem('mart_happy_start', hStart);
+      window.localStorage.setItem('mart_happy_end', hEnd);
+      window.localStorage.setItem('mart_happy_discount', newHappyDiscount.toString());
+
+      toast.success("Lưu Cài đặt thành công!"); 
+      ui.setShowSettings?.(false); 
+      logAudit("CÀI ĐẶT", "Cập nhật hệ thống"); 
+    } catch (err: any) { 
+      toast.error("Lỗi hệ thống: " + err.message);
+    } finally { setLoading(false); } 
   };
   const saveSettings = () => { const bin = newBankBin.trim(); const acc = newBankAcc.trim(); const nameStr = newBankNameStr.trim().toUpperCase(); const zaloId = newZaloPayId.trim(); const pin = newAdminPinInput.trim(); if (!bin || !acc || !nameStr || !pin) return toast.error("Vui lòng điền đủ thông tin & Mã PIN!"); updateSettingsToCloud(bin, acc, nameStr, zaloId, newHappyStart, newHappyEnd, pin); };
   
@@ -445,7 +463,7 @@ export default function App() {
   const shareToZalo = (phone: string) => { const cust = customersData[phone]; const code = cust.cardCode || phone; navigator.clipboard.writeText(`Chào ${cust.name},\nMã Thẻ VIP của bạn là: ${code}`).then(() => { toast.success(`Đang mở Zalo...`); logAudit("CHIA SẺ ZALO", phone); window.open(`https://zalo.me/${phone}`, '_blank') }).catch(() => { window.open(`https://zalo.me/${phone}`, '_blank') }) };
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => { const code = e.target.value; setNewCode(code); const p = products.find((x: any) => x.product_code === code); if (p) { setNewName(cleanName(p.name)); setNewCategory(formatCategoryStr(p.category)); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewExpiry(p.expiry_date || ""); const gift = parseGift(p.gift_info); setNewGiftCondition(gift.cond.toString()); setNewGiftInfo(gift.text) } };
 
-  // FIX 2: Dùng Promise.all() để khóa luồng và chờ cập nhật kho xong
+  // FIX BẢN CHUẨN: CHUNKING (Gửi từng nhóm 20 sản phẩm thay vì đẩy 1 lúc hàng trăm cái gây treo API làm mất dữ liệu)
   const syncInventory = async () => {
     if (Object.keys(actualStockInput).length === 0) return toast.error("Chưa có dữ liệu cập nhật!");
     if (!window.confirm("Hệ thống sẽ cập nhật số lượng tồn kho theo số liệu thực tế.\nXác nhận đồng bộ?")) return;
@@ -453,6 +471,32 @@ export default function App() {
     setLoading(true); 
     try { 
       let count = 0; 
+      
+      if (navigator.onLine) {
+        const entries = Object.entries(actualStockInput);
+        // Chia nhỏ mỗi đợt 20 sản phẩm để tránh Supabase chặn vì Rate Limit (Lỗi 429)
+        for (let i = 0; i < entries.length; i += 20) {
+           const chunk = entries.slice(i, i + 20);
+           const updatePromises = chunk.map(([id, actualQty]) => 
+              supabase.from("products").update({ stock: Number(actualQty), updated_at: new Date().toISOString() }).eq("id", id)
+           );
+           const results = await Promise.all(updatePromises);
+           
+           // Nếu có lỗi ở từng block, báo lỗi cho người dùng biết thay vì chạy ngầm
+           const errors = results.filter((r: any) => r.error);
+           if (errors.length > 0) {
+              toast.error("Lỗi cập nhật mạng: " + errors[0].error.message);
+              setLoading(false);
+              return; // Dừng lại không cập nhật giao diện nếu thực tế Database bị lỗi
+           }
+        }
+        count = entries.length;
+      } else {
+        count = Object.keys(actualStockInput).length;
+        toast.error("Mất mạng! Đã lưu tạm bộ nhớ máy, dữ liệu sẽ tự đẩy lên khi có mạng.");
+      }
+
+      // Chỉ khi DB trên mạng thành công 100% thì mới cập nhật State giao diện 
       setProducts(prevProducts => {
         const updatedProducts = prevProducts.map(p => {
           if (actualStockInput[p.id] !== undefined) {
@@ -464,24 +508,13 @@ export default function App() {
         return updatedProducts;
       });
 
-      if (navigator.onLine) {
-        const updatePromises = Object.entries(actualStockInput).map(([id, actualQty]) => 
-          supabase.from("products").update({ stock: Number(actualQty), updated_at: new Date().toISOString() }).eq("id", id)
-        );
-        await Promise.all(updatePromises);
-        count = updatePromises.length;
-      } else {
-        count = Object.keys(actualStockInput).length;
-        toast.error("Mất mạng! Đã lưu tạm bộ nhớ máy, dữ liệu sẽ tự đẩy lên khi có mạng.");
-      }
-
       toast.success(`Đã cập nhật chênh lệch ${count} mã sản phẩm vào sổ kho!`); 
       logAudit("KIỂM KHO", `Cập nhật tồn kho ${count} mã`); 
       setActualStockInput({}); 
       ui.setShowInventoryModal?.(false); 
       
-    } catch (e) { 
-      toast.error("Lỗi đồng bộ kho!"); 
+    } catch (e: any) { 
+      toast.error("Lỗi đồng bộ kho: " + e.message); 
     } finally { 
       setLoading(false); 
     }
