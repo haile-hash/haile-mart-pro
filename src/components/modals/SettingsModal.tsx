@@ -39,8 +39,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   if (!showSettings) return null;
 
-  // DANH SÁCH MÃ BIN CÁC NGÂN HÀNG PHỔ BIẾN TẠI VIỆT NAM (VietQR chuẩn)
-  const VIETNAM_BANKS = [
+  // DANH SÁCH MÃ BIN CHUẨN NAPAS / VIETQR
+  const TRADITIONAL_BANKS = [
     { bin: "970436", name: "Vietcombank (VCB)" },
     { bin: "970415", name: "VietinBank (CTG)" },
     { bin: "970418", name: "BIDV" },
@@ -65,8 +65,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     { bin: "970419", name: "NCB" },
     { bin: "970439", name: "PublicBank" },
     { bin: "970449", name: "LienVietPostBank" },
-    { bin: "970452", name: "KienLongBank" },
+    { bin: "970452", name: "KienLongBank" }
   ];
+
+  const E_WALLETS_AND_DIGITAL = [
+    { bin: "970490", name: "Ví Viettel Money" },
+    { bin: "970495", name: "Ví VNPT Money" },
+    { bin: "546034", name: "Cake by VPBank" },
+    { bin: "970450", name: "Timo" },
+    { bin: "970425", name: "Ubank" },
+    { bin: "970462", name: "KBank Vietnam" }
+  ];
+
+  const isKnownBin = TRADITIONAL_BANKS.find(b => b.bin === newBankBin) || E_WALLETS_AND_DIGITAL.find(b => b.bin === newBankBin);
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.7)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 99999, backdropFilter: "blur(4px)" }} onClick={() => setShowSettings(false)}>
@@ -82,21 +93,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div style={{ padding: "24px", overflowY: "auto", flex: 1 }}>
           {/* 1. THIẾT LẬP THANH TOÁN */}
           <div style={{ marginBottom: "24px", background: "#f8fafc", padding: "20px", borderRadius: "16px", border: "1px solid #e2e8f0" }}>
-            <h3 style={{ margin: "0 0 16px 0", fontSize: "14px", color: "#0f172a", textTransform: "uppercase", fontWeight: "800" }}>1. TÀI KHOẢN NGÂN HÀNG (QR CODE)</h3>
+            <h3 style={{ margin: "0 0 16px 0", fontSize: "14px", color: "#0f172a", textTransform: "uppercase", fontWeight: "800" }}>1. TÀI KHOẢN NGÂN HÀNG (VIETQR)</h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
               <div>
-                <label style={{ fontSize: "12px", color: "#64748b", fontWeight: "700", display: "block", marginBottom: "8px" }}>CHỌN NGÂN HÀNG</label>
+                <label style={{ fontSize: "12px", color: "#64748b", fontWeight: "700", display: "block", marginBottom: "8px" }}>CHỌN NGÂN HÀNG / VÍ</label>
                 <select 
                   value={newBankBin} 
                   onChange={e => setNewBankBin(e.target.value)} 
                   style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", boxSizing: "border-box", background: "#fff", cursor: "pointer" }}
                 >
-                  <option value="">-- Chọn ngân hàng --</option>
-                  {VIETNAM_BANKS.map(bank => (
-                    <option key={bank.bin} value={bank.bin}>{bank.name}</option>
-                  ))}
-                  {/* Option phòng hờ nếu database cũ lưu mã BIN không có trong list */}
-                  {newBankBin && !VIETNAM_BANKS.find(b => b.bin === newBankBin) && (
+                  <option value="">-- Chọn ngân hàng hoặc ví --</option>
+                  
+                  <optgroup label="Ví Điện Tử & Ngân Hàng Số (Napas)">
+                    {E_WALLETS_AND_DIGITAL.map(bank => (
+                      <option key={bank.bin} value={bank.bin}>{bank.name}</option>
+                    ))}
+                  </optgroup>
+
+                  <optgroup label="Ngân Hàng Truyền Thống">
+                    {TRADITIONAL_BANKS.map(bank => (
+                      <option key={bank.bin} value={bank.bin}>{bank.name}</option>
+                    ))}
+                  </optgroup>
+
+                  {newBankBin && !isKnownBin && (
                     <option value={newBankBin}>Khác (BIN: {newBankBin})</option>
                   )}
                 </select>
@@ -112,7 +132,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <input type="text" value={newBankNameStr} onChange={e => setNewBankNameStr(e.target.value)} placeholder="VD: NGUYEN VAN A" style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", boxSizing: "border-box", textTransform: "uppercase" }} />
               </div>
               <div>
-                <label style={{ fontSize: "12px", color: "#64748b", fontWeight: "700", display: "block", marginBottom: "8px" }}>ZALOPAY ID (NẾU CÓ)</label>
+                <label style={{ fontSize: "12px", color: "#64748b", fontWeight: "700", display: "block", marginBottom: "8px" }}>SĐT VÍ MOMO / ZALOPAY (NẾU CÓ)</label>
                 <input type="text" value={newZaloPayId} onChange={e => setNewZaloPayId(e.target.value)} placeholder="VD: 090..." style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", boxSizing: "border-box" }} />
               </div>
             </div>
