@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import emailjs from '@emailjs/browser';
 import { supabase } from "./supabaseClient";
-import { formatCategoryStr, parseGift, cleanName, getActualPrice, playSound } from "./utils/helpers";
+import { formatCategoryStr, parseGift, cleanName, getActualPrice, playSound, getCustomerTier } from "./utils/helpers";
 
 import { useOfflineSync } from "./hooks/useOfflineSync";
 import { useUIState } from "./hooks/useUIState";
@@ -71,9 +71,9 @@ export default function App() {
   const [bankBin, setBankBin] = useState(""); const [bankAcc, setBankAcc] = useState(""); const [bankNameStr, setBankNameStr] = useState(""); const [zaloPayId, setZaloPayId] = useState(""); const [adminPin, setAdminPin] = useState("1234"); const [pendingAction, setPendingAction] = useState<(() => void) | null>(null); const [happyStart, setHappyStart] = useState("11:00"); const [happyEnd, setHappyEnd] = useState("13:00");
   const [newBankBin, setNewBankBin] = useState(""); const [newBankAcc, setNewBankAcc] = useState(""); const [newBankNameStr, setNewBankNameStr] = useState(""); const [newZaloPayId, setNewZaloPayId] = useState(""); const [newHappyStart, setNewHappyStart] = useState("11:00"); const [newHappyEnd, setNewHappyEnd] = useState("13:00"); const [newAdminPinInput, setNewAdminPinInput] = useState("");
   
-  // STATE CẤU HÌNH HẠN MỨC VIP THÊM MỚI
-  const [tierConfig, setTierConfig] = useState({ bronze: 1000000, silver: 5000000, gold: 10000000, diamond: 20000000 });
-  const [newTierConfig, setNewTierConfig] = useState({ bronze: 1000000, silver: 5000000, gold: 10000000, diamond: 20000000 });
+  // STATE CẤU HÌNH HẠN MỨC VIP VÀ % GIẢM GIÁ
+  const [tierConfig, setTierConfig] = useState({ bronze: 1000000, bronze_discount: 0, silver: 5000000, silver_discount: 1, gold: 10000000, gold_discount: 3, diamond: 20000000, diamond_discount: 5 });
+  const [newTierConfig, setNewTierConfig] = useState({ bronze: 1000000, bronze_discount: 0, silver: 5000000, silver_discount: 1, gold: 10000000, gold_discount: 3, diamond: 20000000, diamond_discount: 5 });
 
   const ui = useUIState();
 
@@ -98,8 +98,15 @@ export default function App() {
   const isPrintingRef = useRef(false);
 
   const findProductByCode = (code: string) => products.find(p => p.product_code === code);
+  
+  // TÍNH TOÁN GIỎ HÀNG VÀ ÁP DỤNG GIẢM GIÁ VIP TỰ ĐỘNG
   const cartTotalAmountDisplay = cart.reduce((sum, item) => sum + (item.total || 0), 0);
-  const tierDiscountAmount = 0; 
+  
+  const currentTier = (custPhone && customersData[custPhone]) 
+    ? getCustomerTier(Number(customersData[custPhone].totalSpent) || 0, tierConfig) 
+    : { discount: 0 };
+  const tierDiscountAmount = Math.round(cartTotalAmountDisplay * (currentTier.discount / 100));
+
   const amountAfterTierAndVoucher = cartTotalAmountDisplay - tierDiscountAmount - appliedVoucherAmount;
   const walletUsedAmount = (useWallet && custPhone && customersData[custPhone]) ? Math.min(amountAfterTierAndVoucher, customersData[custPhone].wallet || 0) : 0;
   const finalToPay = amountAfterTierAndVoucher - walletUsedAmount;
@@ -191,7 +198,6 @@ export default function App() {
   const addTransactionAndSync = async (logData: any) => { setHistory(prev => [logData, ...prev]); if (navigator.onLine) { try { await supabase.from("history").insert([logData]); } catch (err) {} } };
   const logAudit = async (action: string, detail: string, extraData: any = null) => { const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user_name: 'Người Dùng', shift, action, detail, extra_data: extraData ? JSON.stringify(extraData) : null }; setAuditLogs(prev => [newLog, ...prev].slice(0, 300)); };
   
-  // ĐÃ SỬA CẬP NHẬT FETCH ĐỂ ĐỌC TIER
   const fetchProducts = async () => { try { if (navigator.onLine) { const { data, error } = await supabase.from("products").select("*").order("created_at", { ascending: false }); if (data && !error) { setProducts(data); await dbSet("mart_products_cache", data); } } else { const localData = await dbGet("mart_products_cache"); if (localData) setProducts(localData); } } catch (err) { const localData = await dbGet("mart_products_cache"); if (localData) setProducts(localData); } };
   const fetchSettingsFromCloud = async () => { 
     try { 
@@ -203,9 +209,13 @@ export default function App() {
         if (data.happy_hour_start) { setHappyStart(data.happy_hour_start); setNewHappyStart(data.happy_hour_start); } 
         if (data.happy_hour_end) { setHappyEnd(data.happy_hour_end); setNewHappyEnd(data.happy_hour_end); } 
         
-        // Bổ sung đọc Tier từ Cloud
-        if (data.tier_bronze) {
-          const loadedTiers = { bronze: data.tier_bronze, silver: data.tier_silver, gold: data.tier_gold, diamond: data.tier_diamond };
+        if (data.tier_bronze !== undefined) {
+          const loadedTiers = { 
+            bronze: data.tier_bronze, bronze_discount: data.tier_bronze_discount || 0,
+            silver: data.tier_silver, silver_discount: data.tier_silver_discount || 0, 
+            gold: data.tier_gold, gold_discount: data.tier_gold_discount || 0, 
+            diamond: data.tier_diamond, diamond_discount: data.tier_diamond_discount || 0 
+          };
           setTierConfig(loadedTiers);
           setNewTierConfig(loadedTiers);
         }
@@ -213,7 +223,6 @@ export default function App() {
     } catch (err) {} 
   };
   
-  // ĐÃ SỬA LƯU CẬP NHẬT ĐỂ LƯU TIER
   const updateSettingsToCloud = async (bin: string, acc: string, nameStr: string, zaloId: string, hStart: string, hEnd: string, pin: string) => { 
     if (!navigator.onLine) return toast.error("Mất mạng! Không thể lưu Cài đặt."); 
     setLoading(true); 
@@ -221,15 +230,15 @@ export default function App() {
       const { error } = await supabase.from("settings").update({ 
         bank_bin: bin, bank_acc: acc, bank_name_str: nameStr, zalopay_id: zaloId, 
         happy_hour_start: hStart, happy_hour_end: hEnd, admin_pin: pin, 
-        // Bổ sung lưu Tier lên Cloud
-        tier_bronze: newTierConfig.bronze, tier_silver: newTierConfig.silver, 
-        tier_gold: newTierConfig.gold, tier_diamond: newTierConfig.diamond,
+        tier_bronze: newTierConfig.bronze, tier_bronze_discount: newTierConfig.bronze_discount, 
+        tier_silver: newTierConfig.silver, tier_silver_discount: newTierConfig.silver_discount, 
+        tier_gold: newTierConfig.gold, tier_gold_discount: newTierConfig.gold_discount, 
+        tier_diamond: newTierConfig.diamond, tier_diamond_discount: newTierConfig.diamond_discount,
         updated_at: new Date().toISOString() 
       }).eq("id", 1); 
       if (!error) { 
         setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr); setZaloPayId(zaloId); 
         setHappyStart(hStart); setHappyEnd(hEnd); setAdminPin(pin); 
-        // Lưu State Tiers
         setTierConfig(newTierConfig);
         toast.success("Lưu Cài đặt thành công!"); ui.setShowSettings?.(false); logAudit("CÀI ĐẶT", "Cập nhật hệ thống"); 
       } 
@@ -257,20 +266,20 @@ export default function App() {
     if (payMethod === 'GHI NỢ' && !custPhone) return toast.error("Thanh toán Ghi nợ cần SĐT Khách hàng!");
     setLoading(true); 
     try {
-      let newLogs: any[] = []; const baseTotal = cartTotalAmountDisplay; const subTotal = Math.round(baseTotal / (1 + VAT_RATE)); const vatTotal = baseTotal - subTotal; const finalTotal = amountAfterTierAndVoucher - walletUsedAmount; const orderIdStr = "HD" + Date.now().toString().slice(-6);
+      let newLogs: any[] = []; const baseTotal = cartTotalAmountDisplay; const subTotal = Math.round(baseTotal / (1 + VAT_RATE)); const vatTotal = baseTotal - subTotal; const orderIdStr = "HD" + Date.now().toString().slice(-6);
       for (const item of cart) {
         if (navigator.onLine) await supabase.from("products").update({ stock: Math.max(0, item.product.stock - item.qty) }).eq("id", item.product.id);
-        let splitCashAmt = 0; if(payMethod === 'KẾT HỢP') { const safeRatio = finalTotal > 0 ? (Number(customerGiven) / finalTotal) : 0; splitCashAmt = Math.round(safeRatio * Math.round(item.qty * getActualPrice(item.product) * (1 + VAT_RATE))); }
+        let splitCashAmt = 0; if(payMethod === 'KẾT HỢP') { const safeRatio = finalToPay > 0 ? (Number(customerGiven) / finalToPay) : 0; splitCashAmt = Math.round(safeRatio * Math.round(item.qty * getActualPrice(item.product) * (1 + VAT_RATE))); }
         newLogs.push({ id: Date.now() + Math.random(), shift, type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", name: cleanName(item.product.name), qty: item.qty, total: item.total, profit: Math.round(item.qty * (getActualPrice(item.product) - (item.product.import_price || 0))), customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id, paymentMethod: payMethod, split_cash: splitCashAmt, time: new Date().toLocaleString('vi-VN'), order_id: orderIdStr });
       }
       if (custPhone) {
-        const earned = payMethod === 'GHI NỢ' ? 0 : Math.round(finalTotal * 0.02); const currentCust = customersData[custPhone] || {};
-        const updatedCust = { name: custName, wallet: payMethod === 'GHI NỢ' ? (currentCust.wallet || 0) : Math.round((currentCust.wallet || 0) - walletUsedAmount + earned), debt: (currentCust.debt || 0) + (payMethod === 'GHI NỢ' ? finalTotal : 0), totalSpent: (currentCust.totalSpent || 0) + (payMethod !== 'GHI NỢ' ? finalTotal : 0), email: currentCust.email || "", address: custAddress || currentCust.address || "", cardCode: currentCust.cardCode || "" }; 
+        const earned = payMethod === 'GHI NỢ' ? 0 : Math.round(finalToPay * 0.02); const currentCust = customersData[custPhone] || {};
+        const updatedCust = { name: custName, wallet: payMethod === 'GHI NỢ' ? (currentCust.wallet || 0) : Math.round((currentCust.wallet || 0) - walletUsedAmount + earned), debt: (currentCust.debt || 0) + (payMethod === 'GHI NỢ' ? finalToPay : 0), totalSpent: (currentCust.totalSpent || 0) + (payMethod !== 'GHI NỢ' ? finalToPay : 0), email: currentCust.email || "", address: custAddress || currentCust.address || "", cardCode: currentCust.cardCode || "" }; 
         setCustomers(prev => ({ ...prev, [custPhone]: updatedCust })); if (navigator.onLine) { await supabase.from("customers").upsert({ phone: custPhone, ...updatedCust }); }
       }
       setHistory(prev => [...newLogs, ...prev]); if (navigator.onLine) { try { await supabase.from("history").insert(newLogs); } catch(err) {} }
-      setLastOrder({ orderId: orderIdStr, shift, cart: [...cart], subTotal, vatTotal, finalTotal, debtAmount: payMethod === 'GHI NỢ' ? finalTotal : 0, discount: appliedVoucherAmount + tierDiscountAmount, time: new Date().toLocaleString('vi-VN'), paymentMethod: payMethod, customerGiven: Number(customerGiven) || 0, custPhone, custName, isRefund: false });
-      logAudit("THANH TOÁN", `${orderIdStr} - ${payMethod} - ${finalTotal.toLocaleString()}đ`);
+      setLastOrder({ orderId: orderIdStr, shift, cart: [...cart], subTotal, vatTotal, finalTotal: finalToPay, debtAmount: payMethod === 'GHI NỢ' ? finalToPay : 0, discount: appliedVoucherAmount + tierDiscountAmount, time: new Date().toLocaleString('vi-VN'), paymentMethod: payMethod, customerGiven: Number(customerGiven) || 0, custPhone, custName, isRefund: false });
+      logAudit("THANH TOÁN", `${orderIdStr} - ${payMethod} - ${finalToPay.toLocaleString()}đ`);
       setCheckoutStep(3); fetchProducts(); 
     } catch (err: any) { toast.error("Lỗi thanh toán: " + err.message); } finally { setLoading(false); }
   };
@@ -535,7 +544,6 @@ export default function App() {
 
       {ui.showStoreSettings && <StoreSettingsModal role="admin" onClose={() => ui.setShowStoreSettings(false)} />}
       
-      {/* THÊM TIER CONFIG VÀO SETTINGS MODAL */}
       {ui.showSettings && <SettingsModal showSettings={ui.showSettings} setShowSettings={ui.setShowSettings} newBankBin={newBankBin} setNewBankBin={setNewBankBin} newBankAcc={newBankAcc} setNewBankAcc={setNewBankAcc} newBankNameStr={newBankNameStr} setNewBankNameStr={setNewBankNameStr} newZaloPayId={newZaloPayId} setNewZaloPayId={setNewZaloPayId} newHappyStart={newHappyStart} setNewHappyStart={setNewHappyStart} newHappyEnd={newHappyEnd} setNewHappyEnd={setNewHappyEnd} newAdminPinInput={newAdminPinInput} setNewAdminPinInput={setNewAdminPinInput} newTierConfig={newTierConfig} setNewTierConfig={setNewTierConfig} saveSettings={saveSettings} loading={loading} />}
       
       {ui.showPinModal && <PinModal showPinModal={ui.showPinModal} setShowPinModal={ui.setShowPinModal} correctPin={adminPin} onSuccess={() => { if(pendingAction) pendingAction(); setPendingAction(null); }} />}
@@ -554,7 +562,6 @@ export default function App() {
       {ui.showInventoryModal && <InventoryModal showInventoryModal={ui.showInventoryModal} setShowInventoryModal={ui.setShowInventoryModal} products={products} inventorySearchTerm={inventorySearchTerm} setInventorySearchTerm={setInventorySearchTerm} invFilter={invFilter} setInvFilter={setInvFilter} actualStockInput={actualStockInput} setActualStockInput={setActualStockInput} syncInventoryCheck={syncInventory} handleImportInventoryCSV={handleImportInventoryCSV} loading={loading} handleInventorySearchEnter={() => {}} exportInventoryCSV={() => {}} />}
       {ui.showDebtModal && <DebtModal showDebtModal={ui.showDebtModal} setShowDebtModal={ui.setShowDebtModal} customers={customersData} handlePayDebt={handlePayDebt} />}
       
-      {/* THÊM TIER CONFIG VÀO CUSTOMER MODAL */}
       {ui.showCustomerModal && <CustomerModal showCustomerModal={ui.showCustomerModal} setShowCustomerModal={ui.setShowCustomerModal} customers={customersData} setCustomers={setCustomers} logAudit={logAudit} handleEditPhone={handleEditPhone} printCustomerCard={printCustomerCard} sendCardEmail={sendCardEmail} shareToZalo={shareToZalo} tierConfig={tierConfig} />}
       
       {ui.showMarketingModal && <MarketingModal showMarketingModal={ui.showMarketingModal} setShowMarketingModal={ui.setShowMarketingModal} marketingTier={marketingTier} setMarketingTier={setMarketingTier} marketingMsg={marketingMsg} setMarketingMsg={setMarketingMsg} customersData={customersData} />}
