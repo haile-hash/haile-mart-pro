@@ -14,13 +14,40 @@ export const ProductTable: React.FC<ProductTableProps> = ({
   products, handleSelectSuggest, handleEdit, handleDelete, setPrintBarcodeProduct
 }) => {
 
-  // ĐÃ FIX LỖI TYPESCRIPT: Thêm dấu ? vào dateStr để cho phép giá trị undefined
-  const formatDateStr = (dateStr?: string) => {
-    if (!dateStr) return "---";
+  // Thuật toán tính số ngày tồn kho & định dạng màu sắc
+  const getInventoryAge = (dateStr?: string) => {
+    if (!dateStr) return { text: "---", color: "#64748b", bg: "#f1f5f9" };
     try {
       const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return dateStr.split('T')[0];
-      return d.toLocaleDateString('vi-VN');
+      if (isNaN(d.getTime())) return { text: dateStr.split('T')[0], color: "#64748b", bg: "#f1f5f9" };
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const created = new Date(d);
+      created.setHours(0, 0, 0, 0);
+
+      const diffTime = today.getTime() - created.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays <= 0) {
+        return { text: "Mới nhập hôm nay", color: "#059669", bg: "#dcfce7" }; // Xanh lá cho hàng mới
+      } else if (diffDays <= 30) {
+        return { text: `Tồn ${diffDays} ngày`, color: "#475569", bg: "#f8fafc" }; // Xám/Đen cho hàng thường
+      } else {
+        return { text: `Tồn ${diffDays} ngày`, color: "#ef4444", bg: "#fef2f2" }; // Đỏ cảnh báo tồn lâu
+      }
+    } catch {
+      return { text: dateStr, color: "#64748b", bg: "#f1f5f9" };
+    }
+  };
+
+  // Hàm lấy ngày giờ chính xác để hiển thị khi rê chuột vào (Tooltip)
+  const getExactDateStr = (dateStr?: string) => {
+    if (!dateStr) return "Không có thông tin ngày nhập";
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return `Nhập lúc: ${d.toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})} ngày ${d.toLocaleDateString('vi-VN')}`;
     } catch {
       return dateStr;
     }
@@ -46,6 +73,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
             ) : (
               products.map((p, idx) => {
                 const gift = parseGift(p.gift_info);
+                const ageInfo = getInventoryAge(p.created_at);
                 
                 return (
                   <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.background = '#f8fafc'} onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
@@ -67,7 +95,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
                         {cleanName(p.name)}
                       </div>
                       
-                      {/* TAG QUÀ TẶNG GỘP VÀO ĐÂY */}
+                      {/* TAG QUÀ TẶNG */}
                       {gift.text && (
                         <div 
                           onClick={() => handleEdit(p.id, 'gift_info', p.gift_info, true)}
@@ -114,29 +142,33 @@ export const ProductTable: React.FC<ProductTableProps> = ({
                       )}
                     </td>
 
-                    {/* CỘT 5: NGÀY NHẬP & HSD (DESIGN MỚI) */}
+                    {/* CỘT 5: NGÀY NHẬP (Tuổi tồn kho) & HSD */}
                     <td style={{ padding: '14px 16px' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        {/* Dòng 1: Ngày nhập */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b' }}>
-                          <span style={{ padding: '2px 4px', background: '#f1f5f9', borderRadius: '4px', fontSize: '10px' }}>📥</span>
-                          <span title="Ngày tạo/nhập kho">{formatDateStr(p.created_at)}</span>
+                        
+                        {/* Dòng 1: Ngày nhập hiển thị theo Tuổi tồn kho */}
+                        <div 
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '4px 6px', background: ageInfo.bg, borderRadius: '6px', width: 'fit-content', border: `1px solid ${ageInfo.bg !== '#f8fafc' ? ageInfo.color : '#e2e8f0'}` }} 
+                          title={getExactDateStr(p.created_at)}
+                        >
+                          <span style={{ fontSize: '10px' }}>📥</span>
+                          <span style={{ color: ageInfo.color, fontWeight: 'bold' }}>{ageInfo.text}</span>
                         </div>
                         
                         {/* Dòng 2: Hạn sử dụng */}
                         <div 
                           onClick={() => handleEdit(p.id, 'expiry_date', p.expiry_date, true)}
-                          style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer' }}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer', padding: '2px 4px', width: 'fit-content' }}
                           title="Click để sửa HSD"
                         >
                           {p.expiry_date ? (
                             <>
-                              <span style={{ padding: '2px 4px', background: '#ecfdf5', borderRadius: '4px', fontSize: '10px' }}>⏳</span>
+                              <span style={{ fontSize: '10px' }}>⏳</span>
                               <span style={{ color: '#059669', fontWeight: 'bold' }}>{p.expiry_date}</span>
                             </>
                           ) : (
                             <>
-                              <span style={{ padding: '2px 4px', background: '#f8fafc', borderRadius: '4px', fontSize: '10px', opacity: 0.5 }}>➖</span>
+                              <span style={{ fontSize: '10px', opacity: 0.5 }}>➖</span>
                               <span style={{ color: '#cbd5e1', fontStyle: 'italic' }}>Không có HSD</span>
                             </>
                           )}
