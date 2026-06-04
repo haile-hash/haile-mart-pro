@@ -52,7 +52,7 @@ export const POModal = ({
       <div className="custom-modal-box" style={{ background: "#fff", width: "1100px", maxWidth: "95vw", height: "85vh", borderRadius: "16px", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)" }}>
         
         {/* HEADER */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 24px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 24px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", flex: "0 0 auto" }}>
           <h2 style={{ margin: 0, fontSize: "20px", color: "#0f172a", display: "flex", alignItems: "center", gap: "10px" }}>
             📦 <span>QUẢN LÝ PHIẾU NHẬP (PO)</span>
           </h2>
@@ -60,7 +60,7 @@ export const POModal = ({
         </div>
 
         {/* TABS */}
-        <div style={{ display: "flex", gap: "10px", padding: "12px 24px", borderBottom: "1px solid #e2e8f0", background: "#ffffff" }}>
+        <div style={{ display: "flex", gap: "10px", padding: "12px 24px", borderBottom: "1px solid #e2e8f0", background: "#ffffff", flex: "0 0 auto" }}>
           <button onClick={() => setPoTab("NEW")} style={{ padding: "10px 20px", fontWeight: "bold", border: "none", borderRadius: "8px", cursor: "pointer", background: poTab === "NEW" ? "#3b82f6" : "#f1f5f9", color: poTab === "NEW" ? "white" : "#64748b", transition: "0.2s" }}>
             + TẠO PO MỚI (CHỜ NHẬN)
           </button>
@@ -70,14 +70,14 @@ export const POModal = ({
         </div>
 
         {/* BODY */}
-        <div style={{ display: "grid", gridTemplateColumns: "3.5fr 6.5fr", gap: "20px", background: "#f1f5f9", padding: "20px", flex: 1, overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "3.5fr 6.5fr", gap: "20px", background: "#f1f5f9", padding: "20px", flex: "1 1 auto", minHeight: 0 }}>
           
           {/* ==================== TAB 1: TẠO PO MỚI ==================== */}
           {poTab === "NEW" && (
             <>
               {/* CỘT TRÁI: NHẬP LIỆU */}
-              <div style={{ background: "#fff", padding: "20px", borderRadius: "12px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", gap: "20px", overflowY: "auto" }}>
-                <div>
+              <div style={{ background: "#fff", padding: "20px", borderRadius: "12px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", gap: "20px", overflowY: "auto", height: "100%" }}>
+                <div style={{ flex: "0 0 auto" }}>
                   <h3 style={{ margin: "0 0 10px 0", fontSize: "14px", color: "#475569", textTransform: "uppercase" }}>1. Chọn Nhà Cung Cấp</h3>
                   <select value={selectedSupplierId || ""} onChange={(e) => setSelectedSupplierId(e.target.value)} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", fontSize: "14px", fontWeight: "bold", color: "#1e293b", background: "#f8fafc" }}>
                     <option value="">-- Click để chọn NCC --</option>
@@ -87,7 +87,7 @@ export const POModal = ({
                   </select>
                 </div>
 
-                <div>
+                <div style={{ flex: "0 0 auto" }}>
                   <h3 style={{ margin: "0 0 10px 0", fontSize: "14px", color: "#475569", textTransform: "uppercase" }}>2. Tìm Sản Phẩm</h3>
                   <input type="text" placeholder="Nhập tên hoặc mã SP..." value={poSearch || ""} onChange={(e) => setPoSearch(e.target.value)} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", boxSizing: "border-box" }} />
                   <div style={{ maxHeight: "250px", overflowY: "auto", background: "#fff", border: (poSearch || "").trim() ? "1px solid #e2e8f0" : "none", borderRadius: "8px", marginTop: "8px", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" }}>
@@ -115,17 +115,18 @@ export const POModal = ({
                   </div>
                 </div>
 
-                <div>
+                <div style={{ flex: "1 1 auto", display: "flex", flexDirection: "column" }}>
                   <label style={{ fontSize: "14px", color: "#475569", fontWeight: "bold", display: "block", marginBottom: "8px" }}>Ghi chú (Tùy chọn):</label>
-                  <textarea placeholder="Ghi chú phiếu nhập..." value={poNote || ""} onChange={(e) => setPoNote(e.target.value)} rows={3} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
+                  <textarea placeholder="Ghi chú phiếu nhập..." value={poNote || ""} onChange={(e) => setPoNote(e.target.value)} style={{ width: "100%", flex: 1, padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", resize: "none", boxSizing: "border-box" }} />
                 </div>
               </div>
 
               {/* CỘT PHẢI: BẢNG SẢN PHẨM */}
-              <div style={{ background: "#fff", padding: "0", borderRadius: "12px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-                <h3 style={{ margin: 0, padding: "16px 20px", fontSize: "15px", color: "#0f172a", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>Danh sách Sản Phẩm Sẽ Đặt</h3>
+              <div style={{ background: "#fff", padding: "0", borderRadius: "12px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+                <h3 style={{ margin: 0, padding: "16px 20px", fontSize: "15px", color: "#0f172a", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", flex: "0 0 auto" }}>Danh sách Sản Phẩm Sẽ Đặt</h3>
                 
-                <div style={{ flex: 1, overflowY: "auto" }}>
+                {/* ĐÂY LÀ CHỖ ĐÃ ĐƯỢC FIX LẠI CSS ĐỂ KHÔNG BỊ XẸP */}
+                <div style={{ flex: "1 1 auto", overflowY: "auto", minHeight: "150px" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
                     <thead style={{ position: "sticky", top: 0, background: "#f1f5f9", zIndex: 1 }}>
                       <tr style={{ color: "#475569", textAlign: "left" }}>
@@ -137,29 +138,30 @@ export const POModal = ({
                       </tr>
                     </thead>
                     <tbody>
-                      {(!poItems || poItems.length === 0) && (
+                      {(!poItems || poItems.length === 0) ? (
                         <tr><td colSpan={5} style={{ textAlign: "center", padding: "60px", color: "#94a3b8", fontSize: "15px" }}>Chưa có sản phẩm nào được chọn</td></tr>
+                      ) : (
+                        poItems.map((item: any, idx: number) => (
+                          <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                            <td style={{ padding: "12px 16px", fontWeight: "700", color: "#1e293b" }}>{cleanName(item?.product?.name || "SP Không rõ")}</td>
+                            <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                              <input type="number" style={{ padding: "8px", width: "100%", textAlign: "center", border: "1px solid #cbd5e1", borderRadius: "6px", outline: "none", boxSizing: "border-box" }} value={item?.qty || 1} onChange={(e) => { const val = parseInt(e.target.value) || 1; setPoItems((poItems || []).map((i, ix) => (ix === idx ? { ...i, qty: val } : i))); }} min="1" />
+                            </td>
+                            <td style={{ padding: "12px 16px", textAlign: "right" }}>
+                              <input type="number" style={{ padding: "8px", width: "100%", textAlign: "right", border: "1px solid #cbd5e1", borderRadius: "6px", outline: "none", boxSizing: "border-box" }} value={item?.importPrice || 0} onChange={(e) => { const val = parseInt(e.target.value) || 0; setPoItems((poItems || []).map((i, ix) => (ix === idx ? { ...i, importPrice: val } : i))); }} min="0" />
+                            </td>
+                            <td style={{ padding: "12px 16px", fontWeight: "bold", textAlign: "right", color: "#3b82f6", fontSize: "14px" }}>{((item?.qty || 0) * (item?.importPrice || 0)).toLocaleString()}</td>
+                            <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                              <button onClick={() => setPoItems((poItems || []).filter((_, ix) => ix !== idx))} style={{ background: "#fef2f2", color: "#ef4444", border: "none", borderRadius: "6px", padding: "6px 10px", cursor: "pointer", transition: "0.2s" }}>🗑️</button>
+                            </td>
+                          </tr>
+                        ))
                       )}
-                      {(poItems || []).map((item, idx) => (
-                        <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                          <td style={{ padding: "12px 16px", fontWeight: "700", color: "#1e293b" }}>{cleanName(item?.product?.name || "SP Không rõ")}</td>
-                          <td style={{ padding: "12px 16px", textAlign: "center" }}>
-                            <input type="number" style={{ padding: "8px", width: "100%", textAlign: "center", border: "1px solid #cbd5e1", borderRadius: "6px", outline: "none", boxSizing: "border-box" }} value={item?.qty || 1} onChange={(e) => { const val = parseInt(e.target.value) || 1; setPoItems((poItems || []).map((i, ix) => (ix === idx ? { ...i, qty: val } : i))); }} min="1" />
-                          </td>
-                          <td style={{ padding: "12px 16px", textAlign: "right" }}>
-                            <input type="number" style={{ padding: "8px", width: "100%", textAlign: "right", border: "1px solid #cbd5e1", borderRadius: "6px", outline: "none", boxSizing: "border-box" }} value={item?.importPrice || 0} onChange={(e) => { const val = parseInt(e.target.value) || 0; setPoItems((poItems || []).map((i, ix) => (ix === idx ? { ...i, importPrice: val } : i))); }} min="0" />
-                          </td>
-                          <td style={{ padding: "12px 16px", fontWeight: "bold", textAlign: "right", color: "#3b82f6", fontSize: "14px" }}>{((item?.qty || 0) * (item?.importPrice || 0)).toLocaleString()}</td>
-                          <td style={{ padding: "12px 16px", textAlign: "center" }}>
-                            <button onClick={() => setPoItems((poItems || []).filter((_, ix) => ix !== idx))} style={{ background: "#fef2f2", color: "#ef4444", border: "none", borderRadius: "6px", padding: "6px", cursor: "pointer", transition: "0.2s" }}>🗑️</button>
-                          </td>
-                        </tr>
-                      ))}
                     </tbody>
                   </table>
                 </div>
 
-                <div style={{ background: "#f8fafc", padding: "20px", borderTop: "1px solid #e2e8f0" }}>
+                <div style={{ flex: "0 0 auto", background: "#f8fafc", padding: "20px", borderTop: "1px solid #e2e8f0" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
                     <span style={{ fontSize: "14px", color: "#64748b", fontWeight: "bold" }}>Tổng giá trị đơn hàng:</span>
                     <b style={{ fontSize: "24px", color: "#0f172a" }}>{(poItems || []).reduce((sum, item) => sum + (item?.qty || 0) * (item?.importPrice || 0), 0).toLocaleString()}đ</b>
@@ -189,7 +191,7 @@ export const POModal = ({
 
           {/* ==================== TAB 2: TÌM & NHẬN HÀNG ==================== */}
           {poTab === "RECEIVE" && (
-            <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "100px", color: "#94a3b8", fontSize: "18px", fontStyle: "italic", background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+            <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "100px", color: "#94a3b8", fontSize: "18px", fontStyle: "italic", background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0", height: "100%" }}>
               Tính năng Đối soát & Nhận hàng sẽ sớm được hoàn thiện. Vui lòng sử dụng tính năng "Tạo PO Mới".
             </div>
           )}
