@@ -54,17 +54,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <label style={{ fontSize: "12px", fontWeight: "bold", color: "#475569", marginBottom: "4px", display: "block" }}>NGÂN HÀNG / VÍ</label>
                 <select value={newBankBin || ""} onChange={e => setNewBankBin(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1", outline: "none", fontSize: "14px", boxSizing: "border-box" }}>
                   <option value="">-- Chọn Ngân Hàng / Ví --</option>
-                  <optgroup label="Ngân Hàng Phổ Biến">
+                  <optgroup label="Ngân Hàng TMCP Nhà Nước">
                     <option value="970436">Vietcombank</option>
                     <option value="970415">VietinBank</option>
                     <option value="970418">BIDV</option>
                     <option value="970405">Agribank</option>
+                  </optgroup>
+                  <optgroup label="Ngân Hàng TMCP Phổ Biến">
                     <option value="970407">Techcombank</option>
                     <option value="970422">MBBank</option>
                     <option value="970416">ACB</option>
+                    <option value="970432">VPBank</option>
+                    <option value="970423">TPBank</option>
+                    <option value="970403">Sacombank</option>
+                    <option value="970437">HDBank</option>
+                    <option value="970441">VIB</option>
+                    <option value="970443">SHB</option>
+                    <option value="970431">Eximbank</option>
+                    <option value="970448">OCB (Phương Đông)</option>
+                    <option value="970426">MSB (Hàng Hải)</option>
+                    <option value="970449">LPBank (Lưu Việt)</option>
+                    <option value="970440">SeABank</option>
+                    <option value="970425">ABBank</option>
+                  </optgroup>
+                  <optgroup label="Các Ngân Hàng Khác">
+                    <option value="970428">NamABank</option>
+                    <option value="970427">VietABank</option>
+                    <option value="970452">KienLongBank</option>
+                    <option value="970419">NCB (Quốc Dân)</option>
+                    <option value="970433">VietBank</option>
+                    <option value="970406">DongABank</option>
+                    <option value="970409">BacABank</option>
+                    <option value="970438">BaoVietBank</option>
+                    <option value="970430">PGBank</option>
+                    <option value="970400">Saigonbank</option>
+                    <option value="970444">SCB</option>
                   </optgroup>
                   <optgroup label="Ví Điện Tử">
                     <option value="970490">Viettel Money</option>
+                    <option value="970454">VNPT Money</option>
                     <option value="MOMO">Ví MoMo</option>
                     <option value="ZALOPAY">Ví ZaloPay</option>
                   </optgroup>
