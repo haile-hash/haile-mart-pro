@@ -29,8 +29,12 @@ export const Header = (props: any) => {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "20px" }} className="no-print">
       <style>{`
-        .premium-banner { background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); box-shadow: 0 4px 15px -3px rgba(220, 38, 38, 0.4); transition: all 0.3s ease; }
-        .premium-banner:hover { transform: translateY(-2px); box-shadow: 0 8px 20px -4px rgba(220, 38, 38, 0.5); }
+        .premium-banner { 
+          background: linear-gradient(135deg, #DA251D 0%, #A61611 100%); 
+          box-shadow: 0 10px 20px -5px rgba(218, 37, 29, 0.4); 
+          transition: all 0.3s ease; 
+        }
+        .premium-banner:hover { transform: translateY(-2px); box-shadow: 0 12px 25px -4px rgba(218, 37, 29, 0.5); }
         .modern-stat-card { background: ${ui.darkMode ? 'rgba(255, 255, 255, 0.05)' : '#ffffff'}; border: 1px solid ${ui.darkMode ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0'}; border-radius: 12px; padding: 8px 16px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; min-width: 120px; box-shadow: 0 2px 6px rgba(0,0,0,0.02); }
         .main-menu-btn { background: ${ui.darkMode ? '#334155' : '#1e293b'}; color: white; padding: 8px 20px; border-radius: 10px; display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; border: none; cursor: pointer; transition: 0.2s; }
         .main-menu-btn:hover { background: #0f172a; }
@@ -41,13 +45,34 @@ export const Header = (props: any) => {
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
         
-        <div className="premium-banner" onClick={toggleWindyMusic} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '8px 20px', borderRadius: '16px', cursor: 'pointer', border: '1px solid #f87171', minWidth: '300px' }} title="Bật/Tắt nhạc">
-          <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: storeInfo.logo ? 'transparent' : 'linear-gradient(135deg, #fef08a 0%, #eab308 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', overflow: 'hidden', transform: isPlaying ? 'scale(1.1)' : 'none', transition: 'all 0.3s ease' }}>
-            {storeInfo.logo ? <img src={storeInfo.logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (isPlaying ? <span style={{ animation: 'spinSlow 3s linear infinite' }}>📀</span> : "🎵")}
+        {/* LOGO GIAO DIỆN CỜ ĐỎ SAO VÀNG VÀ SÓNG ERP */}
+        <div className="premium-banner" onClick={toggleWindyMusic} style={{ display: 'flex', alignItems: 'center', padding: '10px 24px', borderRadius: '16px', cursor: 'pointer', minWidth: '320px', position: 'relative', overflow: 'hidden' }} title="Bật/Tắt nhạc">
+          
+          {/* Lớp Sóng 1 (Vàng nhạt) */}
+          <svg style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '55%', pointerEvents: 'none' }} preserveAspectRatio="none" viewBox="0 0 300 50">
+            <path d="M0,50 L0,20 C60,45 120,-10 200,20 C260,35 300,10 300,10 L300,50 Z" fill="rgba(255, 206, 0, 0.15)" />
+          </svg>
+          {/* Lớp Sóng 2 (Trắng mờ) */}
+          <svg style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '70%', pointerEvents: 'none' }} preserveAspectRatio="none" viewBox="0 0 300 60">
+            <path d="M0,60 L0,40 C100,-15 150,55 300,20 L300,60 Z" fill="rgba(255, 255, 255, 0.08)" />
+          </svg>
+
+          {/* Icon Hiển thị (Logo tùy chỉnh / CD Nhạc / Ngôi sao vàng mặc định) */}
+          <div style={{ position: 'relative', zIndex: 1, marginRight: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: storeInfo.logo ? '8px' : '0', overflow: 'hidden', transform: isPlaying ? 'scale(1.1)' : 'none', transition: 'all 0.3s ease' }}>
+            {storeInfo.logo ? (
+               <img src={storeInfo.logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : isPlaying ? (
+               <span style={{ animation: 'spinSlow 3s linear infinite', fontSize: '26px' }}>📀</span>
+            ) : (
+               <svg width="34" height="34" viewBox="0 0 50 50" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.25))' }}>
+                 <polygon points="25,2 32.35,17.15 48.77,19.54 36.88,31.13 39.69,47.5 25,39.77 10.31,47.5 13.12,31.13 1.23,19.54 17.65,17.15" fill="#FFCE00" />
+               </svg>
+            )}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '18px', fontWeight: '800', color: '#ffffff' }}>{storeInfo.name}</span>
-            <span style={{ fontSize: '11px', fontWeight: '600', color: '#fef08a' }}>CLOUD ENTERPRISE ERP</span>
+
+          <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: '18px', fontWeight: '900', color: '#ffffff', letterSpacing: '0.5px' }}>{storeInfo.name}</span>
+            <span style={{ fontSize: '11px', fontWeight: '800', color: '#FFCE00', letterSpacing: '0.5px' }}>CLOUD ENTERPRISE ERP</span>
           </div>
         </div>
 
@@ -76,12 +101,12 @@ export const Header = (props: any) => {
         {ui.showMainMenu && (
           <div className="dropdown-menu-saas" style={{ 
             position: "absolute", left: 0, top: "100%", marginTop: "8px", 
-            width: "480px", /* Mở rộng chiều ngang để chứa 2 cột */
+            width: "480px", 
             zIndex: 99999, padding: "12px", borderRadius: "16px", 
             background: ui.darkMode ? '#1e293b' : '#ffffff', 
             border: `1px solid ${ui.darkMode ? '#334155' : '#e2e8f0'}`, 
             boxShadow: "0 20px 25px -5px rgba(0,0,0,0.15)",
-            display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" /* CSS Grid 2 cột */
+            display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" 
           }} onClick={e => e.stopPropagation()}>
             
             {/* Cột 1 */}
