@@ -13,7 +13,8 @@ interface ProductSearchAndActionsProps {
   categories: string[];
   sortedAndFilteredProducts: any[];
   handleSelectSuggest: (p: any) => void;
-  setShowInputForm: (val: boolean) => void;
+  // Cập nhật kiểu dữ liệu để hỗ trợ toggle (prev => !prev)
+  setShowInputForm: React.Dispatch<React.SetStateAction<boolean>> | any; 
   handleFileUpload: (e: any) => void;
   downloadSampleExcel: () => void;
 }
@@ -75,7 +76,8 @@ export const ProductSearchAndActions: React.FC<ProductSearchAndActionsProps> = (
 
         {/* Cụm Nút Thao Tác */}
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={() => setShowInputForm(true)} style={{ padding: '10px 16px', background: '#fff', color: '#6366f1', border: '2px dashed #a5b4fc', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {/* NÚT ĐÃ ĐƯỢC CHUYỂN THÀNH DẠNG TOGGLE BẬT/TẮT */}
+          <button onClick={() => setShowInputForm((prev: boolean) => !prev)} style={{ padding: '10px 16px', background: '#fff', color: '#6366f1', border: '2px dashed #a5b4fc', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
             ➕ NHẬP LẺ / SỬA SP
           </button>
           <label style={{ padding: '10px 16px', background: '#fff', color: '#10b981', border: '2px dashed #6ee7b7', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
