@@ -21,35 +21,204 @@ export const POModal = ({
     setReceiveItems((po.items || []).map(i => ({ ...i, actualQty: i.qty })));
   };
 
+  // 1. HÀM XUẤT EXCEL CHUYÊN NGHIỆP
   const handleExportDraft = () => {
     if (!poItems || poItems.length === 0) return alert("Chưa có sản phẩm nào trong phiếu!");
     try {
-      const supplierName = (suppliers || []).find((s: any) => s.id == selectedSupplierId)?.name || "Chưa chọn NCC";
+      const supplier = (suppliers || []).find((s: any) => String(s.id) === String(selectedSupplierId)) || {};
+      const storeInfo = JSON.parse(window.localStorage.getItem("mart_current_store") || "{}");
       const wb = (window as any).XLSX.utils.book_new();
+      
       const wsData = [
-        ["PHIẾU ĐẶT HÀNG (PO) - BẢN NHÁP"],
-        ["Nhà cung cấp:", supplierName],
-        ["Ghi chú:", poNote || ""],
-        [],
-        ["STT", "Tên Sản Phẩm", "Số Lượng", "Giá Nhập (đ)", "Thành Tiền (đ)"]
+        ["ĐƠN ĐẶT HÀNG (PURCHASE ORDER)"],
+        [""],
+        ["THÔNG TIN BÊN MUA (BUYER)", "", "", "", "THÔNG TIN BÊN BÁN (SELLER)"],
+        ["Tên đơn vị:", storeInfo.store_name || "HỆ THỐNG POS PRO", "", "", "Nhà cung cấp:", supplier.name || "Chưa chọn"],
+        ["Địa chỉ:", storeInfo.address || "Chưa cập nhật", "", "", "Địa chỉ:", supplier.address || "Chưa cập nhật"],
+        ["Điện thoại:", storeInfo.phone || "Chưa cập nhật", "", "", "Điện thoại:", supplier.phone || "Chưa cập nhật"],
+        ["Mã số thuế:", storeInfo.tax_code || "Chưa cập nhật", "", "", "Mã số thuế:", supplier.taxCode || "Chưa cập nhật"],
+        ["Email:", storeInfo.email || "Chưa cập nhật", "", "", "STK Ngân hàng:", supplier.bankAccount || "Chưa cập nhật"],
+        [""],
+        ["THÔNG TIN ĐƠN ĐẶT HÀNG"],
+        ["Mã phiếu:", `PO_DRAFT_${Date.now().toString().slice(-6)}`, "", "", "Ngày lập:", new Date().toLocaleDateString('vi-VN')],
+        ["Ghi chú:", poNote || "Không có", "", "", "Trạng thái:", "Bản nháp (Draft)"],
+        [""],
+        ["STT", "Mã Sản Phẩm", "Tên Sản Phẩm", "Số Lượng", "Đơn Giá Nhập (VNĐ)", "Thành Tiền (VNĐ)"]
       ];
+
+      let totalAmount = 0;
       poItems.forEach((item: any, index: number) => {
-        wsData.push([
-          index + 1,
-          cleanName(item?.product?.name || "SP"),
-          item?.qty || 0,
-          item?.importPrice || 0,
-          (Number(item?.qty) || 0) * (Number(item?.importPrice) || 0)
-        ]);
+        const qty = Number(item?.qty) || 0;
+        const price = Number(item?.importPrice) || 0;
+        const rowTotal = qty * price;
+        totalAmount += rowTotal;
+        
+        wsData.push([index + 1, item?.product?.product_code || "", cleanName(item?.product?.name || "SP"), qty, price, rowTotal]);
       });
-      const total = poItems.reduce((sum: number, item: any) => sum + ((Number(item?.qty) || 0) * (Number(item?.importPrice) || 0)), 0);
-      wsData.push([]); wsData.push(["", "", "", "TỔNG CỘNG:", total]);
+
+      wsData.push([""]);
+      wsData.push(["", "", "", "", "TỔNG TIỀN HÀNG:", totalAmount]);
+      wsData.push(["", "", "", "", "ĐÃ TRẢ TRƯỚC:", Number(paidAmount) || 0]);
+      wsData.push(["", "", "", "", "SỐ TIỀN CÒN LẠI:", totalAmount - (Number(paidAmount) || 0)]);
+      
+      wsData.push([""]); wsData.push([""]);
+      wsData.push(["", "ĐẠI DIỆN BÊN MUA", "", "", "", "ĐẠI DIỆN BÊN BÁN"]);
+      wsData.push(["", "(Ký, ghi rõ họ tên & đóng dấu)", "", "", "", "(Ký, ghi rõ họ tên & đóng dấu)"]);
+
       const ws = (window as any).XLSX.utils.aoa_to_sheet(wsData);
-      (window as any).XLSX.utils.book_append_sheet(wb, ws, "PO_Draft");
-      (window as any).XLSX.writeFile(wb, `PO_Draft_${Date.now()}.xlsx`);
-    } catch (e) { alert("Lỗi xuất Excel!"); }
+
+      ws['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: 2 } },
+        { s: { r: 2, c: 4 }, e: { r: 2, c: 5 } },
+        { s: { r: 9, c: 0 }, e: { r: 9, c: 5 } },
+      ];
+      ws['!cols'] = [{ wch: 8 }, { wch: 20 }, { wch: 40 }, { wch: 12 }, { wch: 22 }, { wch: 22 }];
+
+      (window as any).XLSX.utils.book_append_sheet(wb, ws, "Don_Dat_Hang");
+      (window as any).XLSX.writeFile(wb, `DonDatHang_${Date.now()}.xlsx`);
+    } catch (e) { alert("Lỗi xuất Excel! Vui lòng thử lại."); }
   };
 
+  // 2. HÀM XUẤT PDF CHUYÊN NGHIỆP (Qua Print Dialog)
+  const handleExportPDF = () => {
+    if (!poItems || poItems.length === 0) return alert("Chưa có sản phẩm nào trong phiếu!");
+    
+    const supplier = (suppliers || []).find((s: any) => String(s.id) === String(selectedSupplierId)) || {};
+    const storeInfo = JSON.parse(window.localStorage.getItem("mart_current_store") || "{}");
+    const poCode = `PO_DRAFT_${Date.now().toString().slice(-6)}`;
+    const dateStr = new Date().toLocaleDateString('vi-VN');
+
+    let itemsHtml = "";
+    let totalAmount = 0;
+    
+    poItems.forEach((item: any, index: number) => {
+      const qty = Number(item?.qty) || 0;
+      const price = Number(item?.importPrice) || 0;
+      const rowTotal = qty * price;
+      totalAmount += rowTotal;
+      
+      itemsHtml += `
+        <tr>
+          <td style="padding: 10px 8px; border: 1px solid #cbd5e1; text-align: center;">${index + 1}</td>
+          <td style="padding: 10px 8px; border: 1px solid #cbd5e1;">${item?.product?.product_code || ""}</td>
+          <td style="padding: 10px 8px; border: 1px solid #cbd5e1;">${cleanName(item?.product?.name || "SP")}</td>
+          <td style="padding: 10px 8px; border: 1px solid #cbd5e1; text-align: center;">${qty}</td>
+          <td style="padding: 10px 8px; border: 1px solid #cbd5e1; text-align: right;">${price.toLocaleString('vi-VN')} đ</td>
+          <td style="padding: 10px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold;">${rowTotal.toLocaleString('vi-VN')} đ</td>
+        </tr>
+      `;
+    });
+
+    const remain = totalAmount - (Number(paidAmount) || 0);
+
+    const htmlContent = `
+      <html>
+        <head>
+          <title>Phieu_Dat_Hang_${poCode}</title>
+          <style>
+            @page { size: A4; margin: 15mm; }
+            body { font-family: 'Times New Roman', Times, serif; font-size: 14px; line-height: 1.5; color: #000; margin: 0; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .title { font-size: 24px; font-weight: bold; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px; }
+            .flex-container { display: flex; justify-content: space-between; margin-bottom: 25px; }
+            .box { width: 48%; padding: 15px; border: 1px solid #000; border-radius: 8px; }
+            .box-title { font-weight: bold; text-decoration: underline; margin-bottom: 8px; font-size: 15px; text-transform: uppercase; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
+            th { padding: 12px 8px; border: 1px solid #cbd5e1; background-color: #f1f5f9; font-weight: bold; text-transform: uppercase; font-size: 13px; }
+            .total-section { text-align: right; font-size: 15px; margin-bottom: 40px; }
+            .total-line { margin-bottom: 8px; }
+            .signature-section { display: flex; justify-content: space-between; padding: 0 40px; text-align: center; }
+            .sig-title { font-weight: bold; font-size: 15px; margin-bottom: 5px; }
+            .sig-sub { font-style: italic; font-size: 13px; color: #475569; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1 class="title">ĐƠN ĐẶT HÀNG (PURCHASE ORDER)</h1>
+            <div>Mã phiếu: <strong>${poCode}</strong> &nbsp;|&nbsp; Ngày lập: ${dateStr}</div>
+            <div style="margin-top: 4px; font-style: italic;">Trạng thái: Bản nháp</div>
+          </div>
+
+          <div class="flex-container">
+            <div class="box">
+              <div class="box-title">Thông tin Bên Mua (Buyer)</div>
+              <table style="width: 100%; border: none; margin: 0; font-size: 14px;">
+                <tr><td style="width: 90px; border: none; padding: 3px 0;"><strong>Tên ĐV:</strong></td><td style="border: none; padding: 3px 0;">${storeInfo.store_name || "HỆ THỐNG POS PRO"}</td></tr>
+                <tr><td style="border: none; padding: 3px 0;"><strong>Địa chỉ:</strong></td><td style="border: none; padding: 3px 0;">${storeInfo.address || "Chưa cập nhật"}</td></tr>
+                <tr><td style="border: none; padding: 3px 0;"><strong>Điện thoại:</strong></td><td style="border: none; padding: 3px 0;">${storeInfo.phone || "Chưa cập nhật"}</td></tr>
+                <tr><td style="border: none; padding: 3px 0;"><strong>MST:</strong></td><td style="border: none; padding: 3px 0;">${storeInfo.tax_code || "Chưa cập nhật"}</td></tr>
+              </table>
+            </div>
+            <div class="box">
+              <div class="box-title">Thông tin Bên Bán (Seller)</div>
+              <table style="width: 100%; border: none; margin: 0; font-size: 14px;">
+                <tr><td style="width: 90px; border: none; padding: 3px 0;"><strong>Nhà CC:</strong></td><td style="border: none; padding: 3px 0;">${supplier.name || "Chưa chọn"}</td></tr>
+                <tr><td style="border: none; padding: 3px 0;"><strong>Địa chỉ:</strong></td><td style="border: none; padding: 3px 0;">${supplier.address || "Chưa cập nhật"}</td></tr>
+                <tr><td style="border: none; padding: 3px 0;"><strong>Điện thoại:</strong></td><td style="border: none; padding: 3px 0;">${supplier.phone || "Chưa cập nhật"}</td></tr>
+                <tr><td style="border: none; padding: 3px 0;"><strong>STK/MST:</strong></td><td style="border: none; padding: 3px 0;">${supplier.taxCode || supplier.bankAccount || "Chưa cập nhật"}</td></tr>
+              </table>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 15px; padding-left: 5px;"><strong>Ghi chú:</strong> ${poNote || "Không có"}</div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 5%;">STT</th>
+                <th style="width: 15%;">Mã SP</th>
+                <th style="width: 35%; text-align: left;">Tên Sản Phẩm</th>
+                <th style="width: 10%;">SL</th>
+                <th style="width: 15%; text-align: right;">Đơn Giá</th>
+                <th style="width: 20%; text-align: right;">Thành Tiền</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
+
+          <div class="total-section">
+            <div class="total-line"><strong>Tổng tiền hàng:</strong> &nbsp;&nbsp;&nbsp;&nbsp; ${totalAmount.toLocaleString('vi-VN')} đ</div>
+            <div class="total-line"><strong>Đã trả trước:</strong> &nbsp;&nbsp;&nbsp;&nbsp; ${(Number(paidAmount) || 0).toLocaleString('vi-VN')} đ</div>
+            <div class="total-line" style="font-size: 18px; margin-top: 10px;"><strong>SỐ TIỀN CÒN LẠI:</strong> &nbsp;&nbsp;&nbsp;&nbsp; ${remain.toLocaleString('vi-VN')} đ</div>
+          </div>
+
+          <div class="signature-section">
+            <div>
+              <div class="sig-title">ĐẠI DIỆN BÊN MUA</div>
+              <div class="sig-sub">(Ký, ghi rõ họ tên & đóng dấu)</div>
+            </div>
+            <div>
+              <div class="sig-title">ĐẠI DIỆN BÊN BÁN</div>
+              <div class="sig-sub">(Ký, ghi rõ họ tên & đóng dấu)</div>
+            </div>
+          </div>
+
+          <script>
+            window.onload = function() { 
+              setTimeout(function() {
+                window.print(); 
+                window.onafterprint = function() { window.close(); }
+              }, 500);
+            }
+          </script>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.open();
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+    } else {
+      alert("Trình duyệt đã chặn popup. Vui lòng cho phép popup để Xuất PDF.");
+    }
+  };
+
+  // Cập nhật State
   const updateItemField = (idx, field, value) => {
     const newItems = [...poItems];
     newItems[idx][field] = value === "" ? "" : Number(value);
@@ -70,54 +239,45 @@ export const POModal = ({
         input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; }
 
-        /* Typography & Scrollbar */
         .po-modal-container { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         .po-modal-container *::-webkit-scrollbar { width: 6px; height: 6px; }
         .po-modal-container *::-webkit-scrollbar-track { background: transparent; }
         .po-modal-container *::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         .po-modal-container *::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-        /* General Inputs */
         .po-input { width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; color: #1e293b; background: #fff; transition: all 0.2s; box-sizing: border-box; }
         .po-input:hover { border-color: #94a3b8; }
         .po-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); outline: none; }
 
-        /* Editable Table Inputs (Số lượng & Giá) */
         .po-editable-input { width: 100%; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px; font-weight: 600; color: #0f172a; background: #f8fafc; transition: all 0.2s; box-sizing: border-box; text-align: right; }
         .po-editable-input:hover { border-color: #cbd5e1; background: #fff; }
         .po-editable-input:focus { border-color: #3b82f6; background: #fff; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); outline: none; }
 
-        /* Tabs */
         .po-tab { padding: 10px 20px; font-size: 14px; font-weight: 600; border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s ease; background: transparent; color: #64748b; }
         .po-tab:hover { color: #1e293b; background: #f1f5f9; }
         .po-tab.active { background: #fff; color: #2563eb; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
-        /* Buttons */
-        .po-btn { padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; border: none; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .po-btn { padding: 12px 14px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; border: none; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .po-btn-primary { background: #2563eb; color: #fff; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2); }
         .po-btn-primary:hover:not(:disabled) { background: #1d4ed8; }
         .po-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
         
-        .po-btn-outline { background: #fff; color: #475569; border: 1px solid #cbd5e1; }
-        .po-btn-outline:hover { background: #f8fafc; border-color: #94a3b8; color: #1e293b; }
+        .po-btn-outline { background: #fff; border: 1px solid #cbd5e1; }
+        .po-btn-outline:hover { background: #f8fafc; }
 
         .po-btn-success { background: #10b981; color: #fff; }
         .po-btn-success:hover:not(:disabled) { background: #059669; }
 
-        /* List Items */
         .po-list-item { padding: 16px; border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: 0.2s; background: #fff; border-left: 3px solid transparent; }
         .po-list-item:hover { background: #f8fafc; }
         .po-list-item.active { background: #eff6ff; border-left-color: #2563eb; }
 
-        /* Table styles */
         .po-table th { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
         .po-table td { border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
       `}</style>
 
-      {/* Main Container */}
       <div className="po-modal-container" style={{ background: "#f8fafc", width: "1280px", maxWidth: "95vw", height: "85vh", borderRadius: "16px", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.1) inset" }}>
         
-        {/* Header */}
         <div style={{ flexShrink: 0, background: "#fff", borderBottom: "1px solid #e2e8f0" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 24px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -144,13 +304,11 @@ export const POModal = ({
           </div>
         </div>
 
-        {/* Content Area */}
         <div style={{ flex: 1, display: "flex", gap: "20px", padding: "20px", overflow: "hidden" }}>
           
-          {/* ==================== TAB 1: TẠO PO MỚI ==================== */}
+          {/* TAB 1: TẠO PO MỚI */}
           {poTab === "NEW" && (
             <>
-              {/* Left Panel: Inputs */}
               <div style={{ width: "340px", flexShrink: 0, height: "100%", background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
                 <div style={{ padding: "20px", borderBottom: "1px solid #e2e8f0" }}>
                   <h3 style={{ margin: "0 0 16px 0", fontSize: "15px", color: "#1e293b", fontWeight: "600" }}>Thông tin Đặt hàng</h3>
@@ -170,7 +328,6 @@ export const POModal = ({
                       <input type="text" className="po-input" style={{ paddingLeft: "34px" }} placeholder="Tên hoặc mã vạch..." value={poSearch || ""} onChange={(e) => setPoSearch(e.target.value)} />
                     </div>
 
-                    {/* Search Dropdown */}
                     {(poSearch || "").trim() && (
                       <div style={{ position: "absolute", top: "100%", left: 0, right: 0, maxHeight: "250px", overflowY: "auto", background: "#fff", border: "1px solid #e2e8f0", borderRadius: "8px", marginTop: "4px", boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)", zIndex: 10 }}>
                         {(products || []).filter((p) => cleanName(p?.name || "").toLowerCase().includes(poSearch.toLowerCase()) || String(p?.product_code || "").toLowerCase().includes(poSearch.toLowerCase())).slice(0, 10).map((p) => (
@@ -205,10 +362,7 @@ export const POModal = ({
                 </div>
               </div>
 
-              {/* Right Panel: Table */}
               <div style={{ flex: 1, height: "100%", background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-                
-                {/* Table Area */}
                 <div style={{ flex: 1, overflowY: "auto" }}>
                   <table className="po-table" style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
@@ -238,26 +392,18 @@ export const POModal = ({
                               <div style={{ fontWeight: "500", color: "#1e293b", fontSize: "14px" }}>{cleanName(item?.product?.name || "SP")}</div>
                               <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>Mã: {item?.product?.product_code}</div>
                             </td>
-                            {/* Khối nhập SỐ LƯỢNG */}
                             <td style={{ padding: "12px", verticalAlign: "top" }}>
                               <input 
-                                type="number" 
-                                className="po-editable-input" 
-                                placeholder="0"
+                                type="number" className="po-editable-input" placeholder="0"
                                 value={item.qty === "" ? "" : item.qty} 
-                                onFocus={(e)=>e.target.select()} 
-                                onChange={(e) => updateItemField(idx, 'qty', e.target.value)} 
+                                onFocus={(e)=>e.target.select()} onChange={(e) => updateItemField(idx, 'qty', e.target.value)} 
                               />
                             </td>
-                            {/* Khối nhập GIÁ NHẬP */}
                             <td style={{ padding: "12px", verticalAlign: "top" }}>
                               <input 
-                                type="number" 
-                                className="po-editable-input" 
-                                placeholder="0"
+                                type="number" className="po-editable-input" placeholder="0"
                                 value={item.importPrice === "" ? "" : item.importPrice} 
-                                onFocus={(e)=>e.target.select()} 
-                                onChange={(e) => updateItemField(idx, 'importPrice', e.target.value)} 
+                                onFocus={(e)=>e.target.select()} onChange={(e) => updateItemField(idx, 'importPrice', e.target.value)} 
                               />
                             </td>
                             <td style={{ padding: "12px 20px", fontWeight: "600", textAlign: "right", color: "#2563eb", fontSize: "14px", verticalAlign: "top", paddingTop: "20px" }}>
@@ -275,7 +421,6 @@ export const POModal = ({
                   </table>
                 </div>
 
-                {/* Footer Totals */}
                 <div style={{ flexShrink: 0, padding: "20px", borderTop: "1px solid #e2e8f0", background: "#f8fafc", borderBottomLeftRadius: "12px", borderBottomRightRadius: "12px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
                     <span style={{ fontSize: "14px", color: "#475569", fontWeight: "500" }}>Tổng giá trị:</span>
@@ -286,35 +431,38 @@ export const POModal = ({
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
                     <span style={{ fontSize: "14px", color: "#475569", fontWeight: "500" }}>Đã trả trước:</span>
                     <input 
-                      type="number" 
-                      className="po-editable-input" 
-                      style={{ width: "150px", color: "#10b981", fontSize: "16px" }} 
-                      placeholder="0"
+                      type="number" className="po-editable-input" style={{ width: "150px", color: "#10b981", fontSize: "16px" }} placeholder="0"
                       value={paidAmount === "" ? "" : paidAmount} 
-                      onFocus={(e)=>e.target.select()} 
-                      onChange={(e) => setPaidAmount(e.target.value === "" ? "" : Number(e.target.value))} 
+                      onFocus={(e)=>e.target.select()} onChange={(e) => setPaidAmount(e.target.value === "" ? "" : Number(e.target.value))} 
                     />
                   </div>
                   
-                  <div style={{ display: "flex", gap: "12px" }}>
-                    <button onClick={handleExportDraft} className="po-btn po-btn-outline" style={{ flex: 1 }}>
-                      <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                      Xuất Excel Nháp
+                  {/* BA NÚT CHỨC NĂNG Ở DƯỚI ĐÁY */}
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <button onClick={handleExportPDF} className="po-btn po-btn-outline" style={{ flex: 1, color: "#dc2626", borderColor: "#fca5a5" }}>
+                      <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-6 4h6m-6-8h.01"></path></svg>
+                      Xuất PDF
                     </button>
-                    <button onClick={onSaveNewPO} disabled={loading || !poItems || poItems.length === 0} className="po-btn po-btn-primary" style={{ flex: 2 }}>
+
+                    <button onClick={handleExportDraft} className="po-btn po-btn-outline" style={{ flex: 1, color: "#16a34a", borderColor: "#86efac" }}>
+                      <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                      Xuất Excel
+                    </button>
+
+                    <button onClick={onSaveNewPO} disabled={loading || !poItems || poItems.length === 0} className="po-btn po-btn-primary" style={{ flex: 1.5 }}>
                       <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
-                      {loading ? "Đang xử lý..." : "Lưu Phiếu Đặt Hàng"}
+                      {loading ? "Đang xử lý..." : "Lưu PO"}
                     </button>
                   </div>
+
                 </div>
               </div>
             </>
           )}
 
-          {/* ==================== TAB 2: TÌM & NHẬN HÀNG ==================== */}
+          {/* TAB 2: TÌM & NHẬN HÀNG */}
           {poTab === "RECEIVE" && (
             <>
-              {/* Left Panel: PO List */}
               <div style={{ width: "340px", flexShrink: 0, height: "100%", background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
                 <div style={{ padding: "16px", borderBottom: "1px solid #e2e8f0", position: "relative" }}>
                    <svg style={{ position: "absolute", left: "26px", top: "26px", color: "#94a3b8" }} width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
@@ -344,7 +492,6 @@ export const POModal = ({
                 </div>
               </div>
 
-              {/* Right Panel: PO Details & Receive */}
               <div style={{ flex: 1, height: "100%", background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", overflow: "hidden" }}>
                 {!foundPO ? (
                   <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", color: "#94a3b8", flexDirection: "column" }}>
@@ -394,14 +541,11 @@ export const POModal = ({
                                 </td>
                                 <td style={{ padding: "12px 24px", verticalAlign: "top" }}>
                                   <input 
-                                    type="number" 
-                                    className="po-editable-input" 
+                                    type="number" className="po-editable-input" 
                                     style={{ borderColor: isCompleted ? "transparent" : "#bfdbfe", color: isCompleted ? "#0f172a" : "#2563eb", background: isCompleted ? "transparent" : "#eff6ff" }} 
                                     value={item.actualQty === undefined ? item.qty : (item.actualQty === "" ? "" : item.actualQty)} 
-                                    disabled={isCompleted}
-                                    onFocus={(e)=>e.target.select()}
-                                    onChange={(e) => updateReceiveItemField(idx, e.target.value)} 
-                                    min="0" 
+                                    disabled={isCompleted} onFocus={(e)=>e.target.select()}
+                                    onChange={(e) => updateReceiveItemField(idx, e.target.value)} min="0" 
                                   />
                                 </td>
                               </tr>
