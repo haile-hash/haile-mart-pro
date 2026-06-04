@@ -16,7 +16,6 @@ export const POModal = ({
     }
   }, [poTab, allPOs]);
 
-  // Khởi tạo cả actualQty (Thực nhận) và returnQty (Hàng lỗi)
   const handleSelectPOToReceive = (po: any) => {
     setFoundPO(po);
     setReceiveItems((po.items || []).map(i => ({ ...i, actualQty: i.qty, returnQty: 0 })));
@@ -242,14 +241,12 @@ export const POModal = ({
     }
   };
 
-  // Cập nhật State cho Tab 1
   const updateItemField = (idx, field, value) => {
     const newItems = [...poItems];
     newItems[idx][field] = value === "" ? "" : Number(value);
     setPoItems(newItems);
   };
 
-  // Cập nhật State cho Tab 2 (Thực nhận & Lỗi)
   const updateReceiveItemField = (idx, field, value) => {
     const newItems = [...receiveItems];
     newItems[idx][field] = value === "" ? "" : Number(value);
@@ -389,7 +386,41 @@ export const POModal = ({
                 </div>
               </div>
 
-              <div style={{ flex: 1, height: "100%", background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+              <div style={{ flex: 1, height: "100%", background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", overflow: "hidden" }}>
+                
+                {/* --- CHUYỂN KHỐI TỔNG TIỀN VÀ BUTTON LÊN TRÊN --- */}
+                <div style={{ flexShrink: 0, padding: "20px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                    <span style={{ fontSize: "14px", color: "#475569", fontWeight: "500" }}>Tổng giá trị:</span>
+                    <span style={{ fontSize: "20px", color: "#0f172a", fontWeight: "700" }}>
+                      {(poItems || []).reduce((sum, item) => sum + (Number(item.qty) || 0) * (Number(item.importPrice) || 0), 0).toLocaleString()}đ
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                    <span style={{ fontSize: "14px", color: "#475569", fontWeight: "500" }}>Đã trả trước:</span>
+                    <input 
+                      type="number" className="po-editable-input" style={{ width: "150px", color: "#10b981", fontSize: "16px" }} placeholder="0" min="0"
+                      value={paidAmount === "" ? "" : paidAmount} 
+                      onFocus={(e)=>e.target.select()} onChange={(e) => setPaidAmount(e.target.value === "" ? "" : Number(e.target.value))} 
+                    />
+                  </div>
+                  
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <button onClick={() => handlePrintPDF('ORDER')} className="po-btn po-btn-outline" style={{ flex: 1, color: "#dc2626", borderColor: "#fca5a5" }}>
+                      <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-6 4h6m-6-8h.01"></path></svg>
+                      Xuất PDF
+                    </button>
+                    <button onClick={handleExportDraft} className="po-btn po-btn-outline" style={{ flex: 1, color: "#16a34a", borderColor: "#86efac" }}>
+                      <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                      Xuất Excel
+                    </button>
+                    <button onClick={onSaveNewPO} disabled={loading || !poItems || poItems.length === 0} className="po-btn po-btn-primary" style={{ flex: 1.5 }}>
+                      <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                      {loading ? "Đang xử lý..." : "Lưu PO"}
+                    </button>
+                  </div>
+                </div>
+
                 <div style={{ flex: 1, overflowY: "auto" }}>
                   <table className="po-table" style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
@@ -448,37 +479,6 @@ export const POModal = ({
                   </table>
                 </div>
 
-                <div style={{ flexShrink: 0, padding: "20px", borderTop: "1px solid #e2e8f0", background: "#f8fafc", borderBottomLeftRadius: "12px", borderBottomRightRadius: "12px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                    <span style={{ fontSize: "14px", color: "#475569", fontWeight: "500" }}>Tổng giá trị:</span>
-                    <span style={{ fontSize: "20px", color: "#0f172a", fontWeight: "700" }}>
-                      {(poItems || []).reduce((sum, item) => sum + (Number(item.qty) || 0) * (Number(item.importPrice) || 0), 0).toLocaleString()}đ
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-                    <span style={{ fontSize: "14px", color: "#475569", fontWeight: "500" }}>Đã trả trước:</span>
-                    <input 
-                      type="number" className="po-editable-input" style={{ width: "150px", color: "#10b981", fontSize: "16px" }} placeholder="0" min="0"
-                      value={paidAmount === "" ? "" : paidAmount} 
-                      onFocus={(e)=>e.target.select()} onChange={(e) => setPaidAmount(e.target.value === "" ? "" : Number(e.target.value))} 
-                    />
-                  </div>
-                  
-                  <div style={{ display: "flex", gap: "10px" }}>
-                    <button onClick={() => handlePrintPDF('ORDER')} className="po-btn po-btn-outline" style={{ flex: 1, color: "#dc2626", borderColor: "#fca5a5" }}>
-                      <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-6 4h6m-6-8h.01"></path></svg>
-                      Xuất PDF
-                    </button>
-                    <button onClick={handleExportDraft} className="po-btn po-btn-outline" style={{ flex: 1, color: "#16a34a", borderColor: "#86efac" }}>
-                      <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                      Xuất Excel
-                    </button>
-                    <button onClick={onSaveNewPO} disabled={loading || !poItems || poItems.length === 0} className="po-btn po-btn-primary" style={{ flex: 1.5 }}>
-                      <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
-                      {loading ? "Đang xử lý..." : "Lưu PO"}
-                    </button>
-                  </div>
-                </div>
               </div>
             </>
           )}
@@ -537,6 +537,42 @@ export const POModal = ({
                       </div>
                     </div>
 
+                    {/* --- CHUYỂN KHỐI TỔNG TIỀN VÀ BUTTON LÊN TRÊN --- */}
+                    <div style={{ flexShrink: 0, padding: "20px 24px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                        <span style={{ fontSize: "14px", color: "#475569", fontWeight: "500" }}>Tổng tiền (Theo thực nhận):</span>
+                        <span style={{ fontSize: "22px", color: "#059669", fontWeight: "700" }}>
+                          {(receiveItems || []).reduce((sum, item) => sum + (Number(item.actualQty === undefined ? item.qty : item.actualQty) || 0) * (Number(item.importPrice) || 0), 0).toLocaleString()}đ
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", paddingBottom: "16px", borderBottom: "1px dashed #cbd5e1" }}>
+                        <span style={{ fontSize: "14px", color: "#ef4444", fontWeight: "500" }}>Tiền hàng lỗi (Trừ vào công nợ/trả lại):</span>
+                        <span style={{ fontSize: "16px", color: "#ef4444", fontWeight: "600" }}>
+                          - {(receiveItems || []).reduce((sum, item) => sum + (Number(item.returnQty) || 0) * (Number(item.importPrice) || 0), 0).toLocaleString()}đ
+                        </span>
+                      </div>
+
+                      <div style={{ display: "flex", gap: "10px" }}>
+                        <button onClick={() => handlePrintPDF('ORDER')} className="po-btn po-btn-outline" style={{ flex: 1, padding: "10px" }}>
+                          🖨️ In Lại Đơn Đặt
+                        </button>
+                        
+                        <button onClick={() => handlePrintPDF('RETURN')} className="po-btn po-btn-outline" style={{ flex: 1.2, padding: "10px", borderColor: "#fca5a5", color: "#dc2626" }}>
+                          🖨️ In Phiếu Trả Hàng
+                        </button>
+                        
+                        {foundPO.status === 'COMPLETED' ? (
+                          <button onClick={() => handlePrintPDF('RECEIPT')} className="po-btn po-btn-outline" style={{ flex: 1.5, borderColor: "#10b981", color: "#059669" }}>
+                            🖨️ In Phiếu Nhập Kho
+                          </button>
+                        ) : (
+                          <button onClick={onConfirmReceipt} disabled={loading} className="po-btn po-btn-success" style={{ flex: 2 }}>
+                            {loading ? "Đang xử lý..." : "✓ Xác Nhận & Nhập Kho"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
                     <div style={{ flex: 1, overflowY: "auto" }}>
                       <table className="po-table" style={{ width: "100%", borderCollapse: "collapse" }}>
                         <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
@@ -592,40 +628,6 @@ export const POModal = ({
                       </table>
                     </div>
 
-                    <div style={{ flexShrink: 0, padding: "20px 24px", background: "#f8fafc", borderTop: "1px solid #e2e8f0", borderBottomLeftRadius: "12px", borderBottomRightRadius: "12px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                        <span style={{ fontSize: "14px", color: "#475569", fontWeight: "500" }}>Tổng tiền (Theo thực nhận):</span>
-                        <span style={{ fontSize: "22px", color: "#059669", fontWeight: "700" }}>
-                          {(receiveItems || []).reduce((sum, item) => sum + (Number(item.actualQty === undefined ? item.qty : item.actualQty) || 0) * (Number(item.importPrice) || 0), 0).toLocaleString()}đ
-                        </span>
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", paddingBottom: "16px", borderBottom: "1px dashed #cbd5e1" }}>
-                        <span style={{ fontSize: "14px", color: "#ef4444", fontWeight: "500" }}>Tiền hàng lỗi (Trừ vào công nợ/trả lại):</span>
-                        <span style={{ fontSize: "16px", color: "#ef4444", fontWeight: "600" }}>
-                          - {(receiveItems || []).reduce((sum, item) => sum + (Number(item.returnQty) || 0) * (Number(item.importPrice) || 0), 0).toLocaleString()}đ
-                        </span>
-                      </div>
-
-                      <div style={{ display: "flex", gap: "10px" }}>
-                        <button onClick={() => handlePrintPDF('ORDER')} className="po-btn po-btn-outline" style={{ flex: 1, padding: "10px" }}>
-                          🖨️ In Lại Đơn Đặt
-                        </button>
-                        
-                        <button onClick={() => handlePrintPDF('RETURN')} className="po-btn po-btn-outline" style={{ flex: 1.2, padding: "10px", borderColor: "#fca5a5", color: "#dc2626" }}>
-                          🖨️ In Phiếu Trả Hàng
-                        </button>
-                        
-                        {foundPO.status === 'COMPLETED' ? (
-                          <button onClick={() => handlePrintPDF('RECEIPT')} className="po-btn po-btn-outline" style={{ flex: 1.5, borderColor: "#10b981", color: "#059669" }}>
-                            🖨️ In Phiếu Nhập Kho
-                          </button>
-                        ) : (
-                          <button onClick={onConfirmReceipt} disabled={loading} className="po-btn po-btn-success" style={{ flex: 2 }}>
-                            {loading ? "Đang xử lý..." : "✓ Xác Nhận & Nhập Kho"}
-                          </button>
-                        )}
-                      </div>
-                    </div>
                   </>
                 )}
               </div>
