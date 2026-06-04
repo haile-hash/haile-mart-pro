@@ -14,8 +14,8 @@ export const ProductTable: React.FC<ProductTableProps> = ({
   products, handleSelectSuggest, handleEdit, handleDelete, setPrintBarcodeProduct
 }) => {
 
-  // Hàm phụ trợ fomat ngày cho đẹp
-  const formatDateStr = (dateStr: string) => {
+  // ĐÃ FIX LỖI TYPESCRIPT: Thêm dấu ? vào dateStr để cho phép giá trị undefined
+  const formatDateStr = (dateStr?: string) => {
     if (!dateStr) return "---";
     try {
       const d = new Date(dateStr);
