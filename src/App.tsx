@@ -63,16 +63,13 @@ export default function App() {
   const [isStorageLoading, setIsStorageLoading] = useState(true); 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
-  // FIX BẢO MẬT: Đọc trạng thái khóa từ LocalStorage để F5 không bị bypass
-  const [isLocked, setIsLocked] = useState(() => {
-    if (typeof window !== 'undefined') return window.localStorage.getItem('mart_is_locked') === 'true';
-    return false;
-  });
+  // FIX BẢO MẬT F5: Khởi tạo false mặc định, logic ép khóa sẽ nằm ở phần load DB
+  const [isLocked, setIsLocked] = useState(false);
 
   const [unlockPin, setUnlockPin] = useState("");
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [shift, setShift] = useState("Ca Sáng");
-  const [startingCash, setStartingCash] = useState<number>(5000000); // Mặc định Quỹ 5 triệu
+  const [startingCash, setStartingCash] = useState<number>(5000000);
 
   const [bankBin, setBankBin] = useState(""); const [bankAcc, setBankAcc] = useState(""); const [bankNameStr, setBankNameStr] = useState(""); const [zaloPayId, setZaloPayId] = useState(""); const [adminPin, setAdminPin] = useState("1234"); const [pendingAction, setPendingAction] = useState<(() => void) | null>(null); const [happyStart, setHappyStart] = useState("11:00"); const [happyEnd, setHappyEnd] = useState("13:00");
   const [newBankBin, setNewBankBin] = useState(""); const [newBankAcc, setNewBankAcc] = useState(""); const [newBankNameStr, setNewBankNameStr] = useState(""); const [newZaloPayId, setNewZaloPayId] = useState(""); const [newHappyStart, setNewHappyStart] = useState("11:00"); const [newHappyEnd, setNewHappyEnd] = useState("13:00"); const [newAdminPinInput, setNewAdminPinInput] = useState("");
@@ -120,12 +117,11 @@ export default function App() {
   const walletUsedAmount = (useWallet && custPhone && customersData[custPhone]) ? Math.min(amountAfterTierAndVoucher, customersData[custPhone].wallet || 0) : 0;
   const finalToPay = amountAfterTierAndVoucher - walletUsedAmount;
 
-  // --- FIX NGHIỆP VỤ KẾ TOÁN: DOANH THU & DÒNG TIỀN ---
   const currentShiftStats = useMemo(() => {
-    let revenue = 0; // Doanh thu thực tế (Bán + Nợ - Hoàn Trả)
+    let revenue = 0; 
     let profit = 0; 
     let ordersCount = 0; 
-    let cash = Number(startingCash) || 0; // Két bắt đầu từ quỹ đầu ca (5tr)
+    let cash = Number(startingCash) || 0; 
     let transfer = 0; 
 
     const todayStr = todayStrStr || new Date().toLocaleDateString('vi-VN');
@@ -134,33 +130,17 @@ export default function App() {
       let logDate = ""; if (log.time) { const parts = log.time.split(' '); const datePart = parts.find(p => p.includes('/')); if (datePart) logDate = datePart.replace(',', '').trim(); }
       
       if (log.shift === shift && logDate === todayStr) {
-        // 1. Tính Doanh Thu (Revenue)
         if (log.type === 'BÁN' || log.type === 'GHI NỢ') {
-          ordersCount += 1; 
-          revenue += (log.total || 0); 
-          profit += (log.profit || 0);
+          ordersCount += 1; revenue += (log.total || 0); profit += (log.profit || 0);
         } else if (log.type === 'TRẢ HÀNG') {
-          // Trả hàng log.total và log.profit được ghi số ÂM, nên += tự trừ đi.
-          revenue += (log.total || 0);
-          profit += (log.profit || 0);
+          revenue += (log.total || 0); profit += (log.profit || 0);
         }
         
-        // 2. Tính Dòng Tiền Vô Két (Bao gồm Bán, Trả Hàng, Thu Nợ)
-        if (log.paymentMethod === 'TIỀN MẶT') {
-          cash += (log.total || 0); 
-        }
-        else if (log.paymentMethod === 'CHUYỂN KHOẢN' || log.paymentMethod === 'QUẸT THẺ' || log.paymentMethod === 'ZALO PAY') {
-          transfer += (log.total || 0);
-        }
-        else if (log.paymentMethod === 'KẾT HỢP') { 
-          cash += (log.split_cash || 0); 
-          transfer += ((log.total || 0) - (log.split_cash || 0)); 
-        }
-        // Ghi chú: Nếu hình thức là TRỪ NỢ hoặc VÍ WALLET thì KHÔNG tác động tới Tiền Mặt / CK.
+        if (log.paymentMethod === 'TIỀN MẶT') cash += (log.total || 0);
+        else if (log.paymentMethod === 'CHUYỂN KHOẢN' || log.paymentMethod === 'QUẸT THẺ' || log.paymentMethod === 'ZALO PAY') transfer += (log.total || 0);
+        else if (log.paymentMethod === 'KẾT HỢP') { cash += (log.split_cash || 0); transfer += ((log.total || 0) - (log.split_cash || 0)); }
       }
     });
-    
-    // Thuộc tính 'total' truyền ra ngoài đại diện cho Doanh thu thuần
     return { total: revenue, profit, orders: ordersCount, cash, transfer };
   }, [history, shift, todayStrStr, startingCash]);
 
@@ -180,14 +160,7 @@ export default function App() {
   useEffect(() => { const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e); }; window.addEventListener('beforeinstallprompt', handler); return () => window.removeEventListener('beforeinstallprompt', handler); }, []);
   const handleInstallApp = async () => { if (!installPrompt) return; installPrompt.prompt(); const { outcome } = await installPrompt.userChoice; if (outcome === 'accepted') { setInstallPrompt(null); toast.success("Cài đặt App thành công!"); logAudit("HỆ THỐNG", "Cài đặt ứng dụng PWA"); } };
 
-  // FIX BẢO MẬT: Theo dõi isLocked và lưu xuống LocalStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      if (isLocked) window.localStorage.setItem('mart_is_locked', 'true');
-      else window.localStorage.removeItem('mart_is_locked');
-    }
-  }, [isLocked]);
-
+  // Khóa màn hình tự động nếu treo máy
   useEffect(() => { if (!isLoggedIn || isLocked) return; let timeout: any; const resetTimer = () => { clearTimeout(timeout); timeout = setTimeout(() => setIsLocked(true), IDLE_TIMEOUT); }; window.addEventListener('mousemove', resetTimer); window.addEventListener('keydown', resetTimer); window.addEventListener('click', resetTimer); resetTimer(); return () => { clearTimeout(timeout); window.removeEventListener('mousemove', resetTimer); window.removeEventListener('keydown', resetTimer); window.removeEventListener('click', resetTimer); }; }, [isLoggedIn, isLocked]);
   useEffect(() => { const handler = setTimeout(() => { setDebouncedSearchTerm(searchTerm); }, 300); return () => clearTimeout(handler); }, [searchTerm]);
 
@@ -196,8 +169,18 @@ export default function App() {
       try {
         let isMigrated = await dbGet("mart_storage_migrated") === "true";
         if (!isMigrated) { const keysToMigrate = ["mart_logged_in", "mart_shift", "mart_starting_cash", "mart_pos", "mart_customers", "mart_held_orders", "mart_audit", "mart_expenses", "mart_suppliers", "mart_history"]; for (const key of keysToMigrate) { const localData = localStorage.getItem(key); if (localData !== null) { try { if (localData.startsWith("[") || localData.startsWith("{")) { await dbSet(key, JSON.parse(localData)); } else { await dbSet(key, localData); } } catch (e) { await dbSet(key, localData); } localStorage.removeItem(key); } } await dbSet("mart_storage_migrated", "true"); }
-        const loggedIn = await dbGet("mart_logged_in") === "true"; const savedShift = await dbGet("mart_shift") || "Ca Sáng"; const savedCash = Number(await dbGet("mart_starting_cash") || 5000000); 
-        setIsLoggedIn(loggedIn); setShift(savedShift); setStartingCash(savedCash);
+        
+        const loggedIn = await dbGet("mart_logged_in") === "true"; 
+        const savedShift = await dbGet("mart_shift") || "Ca Sáng"; 
+        const savedCash = Number(await dbGet("mart_starting_cash") || 5000000); 
+        
+        setIsLoggedIn(loggedIn); 
+        // 🔥 FORCE LOCK ON RELOAD: Nếu phát hiện có phiên đăng nhập, LẬP TỨC ÉP KHÓA (chặn F5)
+        if (loggedIn) {
+           setIsLocked(true);
+        }
+
+        setShift(savedShift); setStartingCash(savedCash);
         setLocalPOs(await dbGet("mart_pos") || []); setCustomers(await dbGet("mart_customers") || {}); setHeldOrders(await dbGet("mart_held_orders") || []); setAuditLogs(await dbGet("mart_audit") || []); setExpenses(await dbGet("mart_expenses") || []); setSuppliers(await dbGet("mart_suppliers") || []); setHistory(await dbGet("mart_history") || []);
         const storedPOs = await dbGet("mart_pos") || [];
         setAllPOs(storedPOs);
@@ -247,22 +230,17 @@ export default function App() {
   const addTransactionAndSync = async (logData: any) => { setHistory(prev => [logData, ...prev]); if (navigator.onLine) { try { await supabase.from("history").insert([logData]); } catch (err) {} } };
   const logAudit = async (action: string, detail: string, extraData: any = null) => { const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user_name: 'Người Dùng', shift, action, detail, extra_data: extraData ? JSON.stringify(extraData) : null }; setAuditLogs(prev => [newLog, ...prev].slice(0, 300)); };
   
-  // --- TÍNH NĂNG XUẤT NHẬT KÝ HỆ THỐNG RA EXCEL ---
   const exportAuditToCSV = () => {
     if (!(window as any).XLSX) return toast.error("Đang tải thư viện Excel!");
     try {
       const wsData = [["Thời gian", "Tài khoản", "Ca làm việc", "Hành động", "Chi tiết"]];
-      auditLogs.forEach(log => {
-        wsData.push([log.time, log.user_name, log.shift, log.action, log.detail]);
-      });
+      auditLogs.forEach(log => { wsData.push([log.time, log.user_name, log.shift, log.action, log.detail]); });
       const ws = (window as any).XLSX.utils.aoa_to_sheet(wsData);
       const wb = (window as any).XLSX.utils.book_new();
       (window as any).XLSX.utils.book_append_sheet(wb, ws, "NhatKy");
       (window as any).XLSX.writeFile(wb, `NhatKyHeThong_${Date.now()}.xlsx`);
       toast.success("Xuất file Nhật ký thành công!");
-    } catch (e) {
-      toast.error("Lỗi xuất file!");
-    }
+    } catch (e) { toast.error("Lỗi xuất file!"); }
   };
   
   const fetchProducts = async () => { try { if (navigator.onLine) { const { data, error } = await supabase.from("products").select("*").order("created_at", { ascending: false }); if (data && !error) { setProducts(data); await dbSet("mart_products_cache", data); } } else { const localData = await dbGet("mart_products_cache"); if (localData) setProducts(localData); } } catch (err) { const localData = await dbGet("mart_products_cache"); if (localData) setProducts(localData); } };
@@ -332,21 +310,11 @@ export default function App() {
     setLoading(true); 
     try {
       let newLogs: any[] = []; const baseTotal = cartTotalAmountDisplay; const subTotal = Math.round(baseTotal / (1 + VAT_RATE)); const vatTotal = baseTotal - subTotal; const orderIdStr = "HD" + Date.now().toString().slice(-6);
-      
-      let splitCashAmt = 0;
-      if (payMethod === 'KẾT HỢP') {
-         splitCashAmt = Number(customerGiven) || 0;
-      }
+      let splitCashAmt = 0; if (payMethod === 'KẾT HỢP') { splitCashAmt = Number(customerGiven) || 0; }
 
       for (const item of cart) {
         if (navigator.onLine) await supabase.from("products").update({ stock: Math.max(0, item.product.stock - item.qty) }).eq("id", item.product.id);
-        
-        let itemSplitCash = 0; 
-        if(payMethod === 'KẾT HỢP') { 
-            const safeRatio = finalToPay > 0 ? (splitCashAmt / finalToPay) : 0; 
-            itemSplitCash = Math.round(safeRatio * Math.round(item.qty * getActualPrice(item.product) * (1 + VAT_RATE))); 
-        }
-
+        let itemSplitCash = 0; if(payMethod === 'KẾT HỢP') { const safeRatio = finalToPay > 0 ? (splitCashAmt / finalToPay) : 0; itemSplitCash = Math.round(safeRatio * Math.round(item.qty * getActualPrice(item.product) * (1 + VAT_RATE))); }
         newLogs.push({ id: Date.now() + Math.random(), shift, type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", name: cleanName(item.product.name), qty: item.qty, total: item.total, profit: Math.round(item.qty * (getActualPrice(item.product) - (item.product.import_price || 0))), customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id, paymentMethod: payMethod, split_cash: itemSplitCash, time: new Date().toLocaleString('vi-VN'), order_id: orderIdStr });
       }
 
@@ -356,15 +324,9 @@ export default function App() {
         setCustomers(prev => ({ ...prev, [custPhone]: updatedCust })); if (navigator.onLine) { await supabase.from("customers").upsert({ phone: custPhone, ...updatedCust }); }
       }
 
-      setHistory(prev => [...newLogs, ...prev]); 
-      if (navigator.onLine) { try { await supabase.from("history").insert(newLogs); } catch(err) {} }
+      setHistory(prev => [...newLogs, ...prev]); if (navigator.onLine) { try { await supabase.from("history").insert(newLogs); } catch(err) {} }
       
-      setLastOrder({ 
-        orderId: orderIdStr, shift, cart: [...cart], subTotal, vatTotal, finalTotal: finalToPay, debtAmount: payMethod === 'GHI NỢ' ? finalToPay : 0, discount: appliedVoucherAmount + tierDiscountAmount, time: new Date().toLocaleString('vi-VN'), paymentMethod: payMethod, 
-        customerGiven: Number(customerGiven) || 0, custPhone, custName, isRefund: false,
-        splitCash: splitCashAmt, splitTransfer: Math.max(0, finalToPay - splitCashAmt) 
-      });
-
+      setLastOrder({ orderId: orderIdStr, shift, cart: [...cart], subTotal, vatTotal, finalTotal: finalToPay, debtAmount: payMethod === 'GHI NỢ' ? finalToPay : 0, discount: appliedVoucherAmount + tierDiscountAmount, time: new Date().toLocaleString('vi-VN'), paymentMethod: payMethod, customerGiven: Number(customerGiven) || 0, custPhone, custName, isRefund: false, splitCash: splitCashAmt, splitTransfer: Math.max(0, finalToPay - splitCashAmt) });
       logAudit("THANH TOÁN", `${orderIdStr} - ${payMethod} - ${finalToPay.toLocaleString()}đ`);
       setCheckoutStep(3); fetchProducts(); 
     } catch (err: any) { toast.error("Lỗi thanh toán: " + err.message); } finally { setLoading(false); }
@@ -378,13 +340,10 @@ export default function App() {
       const qtyInput = window.prompt(`Sản phẩm: ${cleanName(log.name)}\nSố lượng có thể hoàn trả: ${remainingQtyToRefund}\n\nNhập SỐ LƯỢNG khách trả lại:`, remainingQtyToRefund.toString()); if (!qtyInput) return; 
       const refundQty = parseInt(qtyInput); if (isNaN(refundQty) || refundQty <= 0 || refundQty > remainingQtyToRefund) return toast.error("Số lượng hoàn trả không hợp lệ!"); 
       
-      const singlePrice = log.total / log.qty; 
-      const refundTotal = Math.round(singlePrice * refundQty); // Số tiền hoàn (dương)
-      const singleProfit = (log.profit || 0) / log.qty; 
-      const refundProfit = Math.round(singleProfit * refundQty);
+      const singlePrice = log.total / log.qty; const refundTotal = Math.round(singlePrice * refundQty); 
+      const singleProfit = (log.profit || 0) / log.qty; const refundProfit = Math.round(singleProfit * refundQty);
       
       let selectedMethod = "TIỀN MẶT";
-      
       if (log.type === 'GHI NỢ') {
         if (!window.confirm(`Đơn này mua nợ. Trừ ${refundTotal.toLocaleString()}đ dư nợ của khách?`)) return; 
         selectedMethod = "TRỪ NỢ"; const phoneMatch = log.customer?.match(/\((.*?)\)/); const customerPhone = phoneMatch ? phoneMatch[1] : log.customer;
@@ -400,8 +359,6 @@ export default function App() {
       }
       
       if (log.product_id) { const currentProd = products.find(p => p.id === log.product_id); if (currentProd) { const updatedStock = (currentProd.stock || 0) + refundQty; setProducts(prev => prev.map(p => p.id === log.product_id ? { ...p, stock: updatedStock } : p)); if (navigator.onLine) { try { await supabase.from("products").update({ stock: updatedStock }).eq("id", log.product_id); } catch (e) {} } } }
-      
-      // Ghi âm doanh thu & dòng tiền
       await addTransactionAndSync({ id: Date.now(), shift, type: "TRẢ HÀNG", name: `HOÀN: ${cleanName(log.name)}`, qty: refundQty, total: -refundTotal, profit: -refundProfit, customer: log.customer, product_id: log.product_id, paymentMethod: selectedMethod, time: new Date().toLocaleString('vi-VN'), order_id: log.order_id }); 
       logAudit("HOÀN ĐƠN", `Trả ${refundQty} x ${cleanName(log.name)} (${selectedMethod})`); toast.success(`Hoàn tiền (${selectedMethod}): ${refundTotal.toLocaleString()}đ thành công!`); 
     }); 
@@ -413,7 +370,6 @@ export default function App() {
     const paidAmount = Number(inputAmount.replace(/[^0-9]/g, '')); if (isNaN(paidAmount) || paidAmount <= 0 || paidAmount > currentDebt) { return toast.error("Số tiền trả không hợp lệ!"); }
     const methodChoice = window.prompt(`Hình thức:\n1. TIỀN MẶT\n2. CHUYỂN KHOẢN`, "1"); if (methodChoice === null) return; const selectedMethod = methodChoice === "2" ? "CHUYỂN KHOẢN" : "TIỀN MẶT";
     const remainingDebt = currentDebt - paidAmount; setCustomers(prev => ({ ...prev, [phone]: { ...prev[phone], debt: remainingDebt } })); if (navigator.onLine) { await supabase.from("customers").update({ debt: remainingDebt }).eq("phone", phone); }
-    // Ghi nhận thu nợ: Loại "THU NỢ" sẽ tự cộng vào Dòng tiền, nhưng không cộng vào Doanh thu
     addTransactionAndSync({ id: Date.now(), shift, type: "THU NỢ", name: remainingDebt === 0 ? "Thanh toán hết nợ" : `Trả bớt nợ (Còn nợ: ${remainingDebt.toLocaleString()}đ)`, qty: 1, total: paidAmount, profit: 0, customer: `${customersData[phone].name} (${phone})`, paymentMethod: selectedMethod, time: new Date().toLocaleString('vi-VN') }); 
     logAudit("THU NỢ", `${customersData[phone].name} trả ${paidAmount.toLocaleString()}đ`); toast.success(`Thu nợ thành công!`);
   };
@@ -424,14 +380,8 @@ export default function App() {
     const subTotal = reconstructedCart.reduce((s, i) => s + (i.qty * (i.priceIncludingVat / (1 + VAT_RATE))), 0); const vatTotal = Math.round(subTotal * VAT_RATE); const discount = discountLog ? Math.abs(discountLog.total) : 0; const finalTotal = logsInBill.reduce((sum, l) => sum + Math.abs(l.total), 0) - discount; 
     let cPhone = ""; let cName = logsInBill[0].customer; if (cName && cName !== "Khách lẻ") { const match = cName.match(/\((.*?)\)/); if (match && match[1]) { cPhone = match[1]; cName = cName.replace(` (${cPhone})`, "").trim(); } else { cPhone = cName; } }
     
-    let calcSplitCash = 0;
-    if(logsInBill[0].paymentMethod === 'KẾT HỢP') calcSplitCash = logsInBill.reduce((sum, l) => sum + (l.split_cash || 0), 0);
-
-    setLastOrder({ 
-      orderId: logsInBill[0].order_id || (isRefundSlip ? "PHIẾU_TRẢ_HÀNG" : "HD_COPY"), shift: logsInBill[0].shift, cart: reconstructedCart, subTotal, vatTotal, finalTotal, debtAmount: logsInBill[0].type === 'GHI NỢ' ? finalTotal : 0, discount, time: timeStr, paymentMethod: logsInBill[0].paymentMethod || "TIỀN MẶT", 
-      customerGiven: logsInBill[0].paymentMethod === 'TIỀN MẶT' ? finalTotal : calcSplitCash, custName: cName || "Khách lẻ", custPhone: cPhone, isRefund: isRefundSlip,
-      splitCash: calcSplitCash, splitTransfer: Math.max(0, finalTotal - calcSplitCash)
-    }); 
+    let calcSplitCash = 0; if(logsInBill[0].paymentMethod === 'KẾT HỢP') calcSplitCash = logsInBill.reduce((sum, l) => sum + (l.split_cash || 0), 0);
+    setLastOrder({ orderId: logsInBill[0].order_id || (isRefundSlip ? "PHIẾU_TRẢ_HÀNG" : "HD_COPY"), shift: logsInBill[0].shift, cart: reconstructedCart, subTotal, vatTotal, finalTotal, debtAmount: logsInBill[0].type === 'GHI NỢ' ? finalTotal : 0, discount, time: timeStr, paymentMethod: logsInBill[0].paymentMethod || "TIỀN MẶT", customerGiven: logsInBill[0].paymentMethod === 'TIỀN MẶT' ? finalTotal : calcSplitCash, custName: cName || "Khách lẻ", custPhone: cPhone, isRefund: isRefundSlip, splitCash: calcSplitCash, splitTransfer: Math.max(0, finalTotal - calcSplitCash) }); 
     ui.setPrintMode?.(mode); logAudit("IN LẠI HÓA ĐƠN", `HĐ lúc ${timeStr}`);
   };
 
@@ -683,7 +633,7 @@ export default function App() {
     return (
       <div className={`app-container ${ui.darkMode ? "dark-theme" : "light-theme"}`} style={{ minHeight: "100vh", position: "relative" }}>
         <Toaster position="top-right" />
-        {isLocked && (
+        {isLoggedIn && isLocked && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
             <div style={{ background: ui.darkMode ? 'rgba(255,255,255,0.05)' : 'white', padding: '40px', borderRadius: '24px', textAlign: 'center', maxWidth: '400px', width: '90%', border: `1px solid ${ui.darkMode ? 'rgba(255,255,255,0.1)' : 'transparent'}`, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
               <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔒</div><h2 style={{ color: ui.darkMode ? 'white' : '#1e293b', margin: '0 0 8px 0', fontSize: '24px' }}>Màn Hình Đã Khóa</h2><p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>Hệ thống tự động khóa sau 5 phút không hoạt động.</p>
@@ -692,7 +642,7 @@ export default function App() {
             </div>
           </div>
         )}
-        {!isLocked && <Login setIsLoggedIn={setIsLoggedIn} setRole={() => {}} shift={shift} setShift={setShift} startingCash={startingCash} setStartingCash={setStartingCash} installPrompt={installPrompt} handleInstallApp={handleInstallApp} />}
+        {!isLoggedIn && <Login setIsLoggedIn={setIsLoggedIn} setRole={() => {}} shift={shift} setShift={setShift} startingCash={startingCash} setStartingCash={setStartingCash} installPrompt={installPrompt} handleInstallApp={handleInstallApp} />}
       </div>
     );
   }
@@ -735,25 +685,16 @@ export default function App() {
       {printBarcodeProduct && <ScannerModal product={printBarcodeProduct} barcodeCount={barcodeCount} setBarcodeCount={setBarcodeCount} onClose={() => setPrintBarcodeProduct(null)} />}
       {ui.showScannerLinkModal && <ScannerLinkModal showModal={ui.showScannerLinkModal} setShowModal={ui.setShowScannerLinkModal} />}
       {ui.showHandoverModal && <HandoverModal role="admin" shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onConfirm={confirmHandover} onClose={() => ui.setShowHandoverModal(false)} />}
-      
-      {/* 6. TRUYỀN HÀM XUẤT NHẬT KÝ */}
       {ui.showAuditModal && <AuditModal showAuditModal={ui.showAuditModal} setShowAuditModal={ui.setShowAuditModal} auditLogs={auditLogs} exportAuditToCSV={exportAuditToCSV} setSelectedAuditLog={(log: AuditLog) => setSelectedAuditLog(log)} />}
-      
       {selectedAuditLog && <AuditDetailModal selectedAuditLog={selectedAuditLog} setSelectedAuditLog={setSelectedAuditLog} />}
       {ui.showHoldModal && <HoldOrdersModal onClose={() => ui.setShowHoldModal(false)} heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={deleteHeldOrder} />}
       {ui.showExpenseModal && <ExpenseModal showExpenseModal={ui.showExpenseModal} setShowExpenseModal={ui.setShowExpenseModal} expenses={expenses} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} addExpense={addExpense} deleteExpense={deleteExpense} />}
       {ui.showSupplierModal && <SupplierModal showSupplierModal={ui.showSupplierModal} setShowSupplierModal={ui.setShowSupplierModal} suppliers={suppliers} supName={supName} setSupName={setSupName} supPhone={supPhone} setSupPhone={setSupPhone} supAddress={supAddress} setSupAddress={setSupAddress} supItem={supItem} setSupItem={setSupItem} supTaxCode={supTaxCode} setSupTaxCode={setSupTaxCode} supBankAccount={supBankAccount} setSupBankAccount={setSupBankAccount} addSupplier={addSupplier} deleteSupplier={deleteSupplier} />}
-      
       {ui.showPOModal && <POModal showPOModal={ui.showPOModal} setShowPOModal={ui.setShowPOModal} poTab={poTab} setPoTab={setPoTab} suppliers={suppliers} selectedSupplierId={selectedSupplierId} setSelectedSupplierId={setSelectedSupplierId} products={products} poSearch={poSearch} setPoSearch={setPoSearch} poItems={poItems} setPoItems={setPoItems} poNote={poNote} setPoNote={setPoNote} paidAmount={paidAmount} setPaidAmount={setPaidAmount} searchPoCode={searchPoCode} setSearchPoCode={setSearchPoCode} foundPO={foundPO} setFoundPO={setFoundPO} receiveItems={receiveItems} setReceiveItems={setReceiveItems} allPOs={allPOs} loading={loading} onSaveNewPO={handleSaveNewPO} onConfirmReceipt={handleConfirmReceipt} />}
-      
       {ui.showStatsModal && <StatsModal reportStartDate={reportStartDate} setReportStartDate={setReportStartDate} reportEndDate={reportEndDate} setReportEndDate={setReportEndDate} history={history} onClose={() => ui.setShowStatsModal(false)} />}
-      
       {ui.showInventoryModal && <InventoryModal showInventoryModal={ui.showInventoryModal} setShowInventoryModal={ui.setShowInventoryModal} products={products} inventorySearchTerm={inventorySearchTerm} setInventorySearchTerm={setInventorySearchTerm} invFilter={invFilter} setInvFilter={setInvFilter} actualStockInput={actualStockInput} setActualStockInput={setActualStockInput} syncInventoryCheck={syncInventory} handleImportInventoryCSV={handleImportInventoryCSV} loading={loading} handleInventorySearchEnter={() => {}} exportInventoryCSV={exportInventoryCSV} />}
-      
       {ui.showDebtModal && <DebtModal showDebtModal={ui.showDebtModal} setShowDebtModal={ui.setShowDebtModal} customers={customersData} handlePayDebt={handlePayDebt} />}
-      
       {ui.showCustomerModal && <CustomerModal showCustomerModal={ui.showCustomerModal} setShowCustomerModal={ui.setShowCustomerModal} customers={customersData} setCustomers={setCustomers} logAudit={logAudit} handleEditPhone={handleEditPhone} printCustomerCard={printCustomerCard} sendCardEmail={sendCardEmail} shareToZalo={shareToZalo} tierConfig={tierConfig} />}
-      
       {ui.showMarketingModal && <MarketingModal showMarketingModal={ui.showMarketingModal} setShowMarketingModal={ui.setShowMarketingModal} marketingTier={marketingTier} setMarketingTier={setMarketingTier} marketingMsg={marketingMsg} setMarketingMsg={setMarketingMsg} customersData={customersData} />}
 
       <div className="print-only">
