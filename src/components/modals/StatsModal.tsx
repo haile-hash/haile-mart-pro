@@ -18,13 +18,11 @@ export const StatsModal: React.FC<StatsModalProps> = ({
   // Lọc dữ liệu theo khoảng thời gian
   const filteredStats = useMemo(() => {
     const start = new Date(reportStartDate).getTime();
-    const end = new Date(reportEndDate).getTime() + 86400000; // Thêm 1 ngày để lấy hết đến 23:59:59 của ngày kết thúc
+    const end = new Date(reportEndDate).getTime() + 86400000; // Đến cuối ngày kết thúc
     
     return history.filter(h => {
-      // BỌC GIÁP: Xử lý thời gian an toàn
       let timeStr = h.time || "";
       let parts = timeStr.split(' ');
-      // Sửa lỗi Vercel: Khai báo rõ p là string
       let datePart = parts.find((p: string) => p.includes('/'));
       if (!datePart) return false;
       
@@ -34,58 +32,84 @@ export const StatsModal: React.FC<StatsModalProps> = ({
     });
   }, [history, reportStartDate, reportEndDate]);
 
-  // Tính tổng
+  // Tính toán Kế toán chuẩn mực
   const totals = useMemo(() => {
-    let sales = 0, profit = 0, debt = 0;
+    let sales = 0, profit = 0, debtIssued = 0, debtCollected = 0;
+    
     filteredStats.forEach(h => {
-      if (h.type === 'BÁN') {
+      // 1. DOANH THU & LỢI NHUẬN (Bao gồm Bán thẳng và Mua nợ)
+      if (h.type === 'BÁN' || h.type === 'GHI NỢ') {
         sales += (h.total || 0);
         profit += (h.profit || 0);
-      } else if (h.type === 'GHI NỢ') {
-        sales += (h.total || 0);
-        profit += (h.profit || 0);
-        debt += (h.total || 0);
-      } else if (h.type === 'TRẢ HÀNG') {
+      } 
+      // 2. TRỪ DOANH THU KHI TRẢ HÀNG
+      else if (h.type === 'TRẢ HÀNG') {
         sales -= Math.abs(h.total || 0);
         profit -= Math.abs(h.profit || 0);
       }
+      
+      // 3. THEO DÕI CÔNG NỢ ĐỘC LẬP
+      if (h.type === 'GHI NỢ') {
+        debtIssued += (h.total || 0); // Khách mua nợ thêm
+      }
+      else if (h.type === 'THU NỢ') {
+        debtCollected += (h.total || 0); // Khách mang tiền đến trả nợ
+      }
     });
-    return { sales, profit, debt };
+    
+    return { sales, profit, debtIssued, debtCollected };
   }, [filteredStats]);
 
   return (
-    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }} onClick={onClose}>
-      <div style={{ background: "white", padding: "24px", borderRadius: "12px", width: "600px", maxWidth: "90%" }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-          <h2 style={{ margin: 0, color: "#10b981" }}>📊 BÁO CÁO DOANH THU</h2>
-          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: "24px", cursor: "pointer", color: "#94a3b8" }}>&times;</button>
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(15, 23, 42, 0.7)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999, backdropFilter: "blur(4px)" }} onClick={onClose}>
+      <div style={{ background: "white", padding: "30px", borderRadius: "20px", width: "750px", maxWidth: "95vw", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.4)" }} onClick={e => e.stopPropagation()}>
+        
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "25px", borderBottom: "1px solid #e2e8f0", paddingBottom: "15px" }}>
+          <h2 style={{ margin: 0, color: "#0f172a", fontSize: "20px", display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ padding: "8px", background: "#eff6ff", borderRadius: "10px", color: "#3b82f6" }}>📊</span> BÁO CÁO KẾT QUẢ KINH DOANH
+          </h2>
+          <button onClick={onClose} style={{ background: "#f1f5f9", border: "none", width: "36px", height: "36px", borderRadius: "50%", fontSize: "20px", cursor: "pointer", color: "#64748b", transition: "0.2s" }} onMouseOver={e=>e.currentTarget.style.background='#e2e8f0'} onMouseOut={e=>e.currentTarget.style.background='#f1f5f9'}>&times;</button>
         </div>
 
-        <div style={{ display: "flex", gap: "10px", marginBottom: "20px", background: "#f8fafc", padding: "12px", borderRadius: "8px" }}>
+        <div style={{ display: "flex", gap: "16px", marginBottom: "25px", background: "#f8fafc", padding: "16px", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
           <div style={{ flex: 1 }}>
-            <label style={{ fontSize: "12px", fontWeight: "bold" }}>Từ ngày:</label>
-            <input type="date" value={reportStartDate} onChange={e => setReportStartDate(e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+            <label style={{ fontSize: "13px", fontWeight: "700", color: "#475569", marginBottom: "8px", display: "block" }}>TỪ NGÀY:</label>
+            <input type="date" value={reportStartDate} onChange={e => setReportStartDate(e.target.value)} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", color: "#0f172a", boxSizing: "border-box" }} />
           </div>
           <div style={{ flex: 1 }}>
-            <label style={{ fontSize: "12px", fontWeight: "bold" }}>Đến ngày:</label>
-            <input type="date" value={reportEndDate} onChange={e => setReportEndDate(e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+            <label style={{ fontSize: "13px", fontWeight: "700", color: "#475569", marginBottom: "8px", display: "block" }}>ĐẾN NGÀY (BAO GỒM):</label>
+            <input type="date" value={reportEndDate} onChange={e => setReportEndDate(e.target.value)} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", color: "#0f172a", boxSizing: "border-box" }} />
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
-          <div style={{ background: "#eff6ff", padding: "16px", borderRadius: "8px", border: "1px solid #bfdbfe", textAlign: "center" }}>
-            <div style={{ fontSize: "12px", color: "#1d4ed8", fontWeight: "bold" }}>DOANH THU BÁN RA</div>
-            <div style={{ fontSize: "22px", color: "#2563eb", fontWeight: "900", marginTop: "4px" }}>{totals.sales.toLocaleString()}đ</div>
+        {/* Khối Doanh thu & Lợi nhuận (Màu Xanh) */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
+          <div style={{ background: "#eff6ff", padding: "20px", borderRadius: "16px", border: "1px solid #bfdbfe", position: "relative", overflow: "hidden" }}>
+            <div style={{ fontSize: "13px", color: "#1d4ed8", fontWeight: "700", textTransform: "uppercase" }}>Doanh Thu Thuần</div>
+            <div style={{ fontSize: "12px", color: "#60a5fa", marginTop: "4px", fontStyle: "italic" }}>(Đã trừ tiền trả hàng)</div>
+            <div style={{ fontSize: "32px", color: "#2563eb", fontWeight: "900", marginTop: "12px" }}>{totals.sales.toLocaleString()}đ</div>
           </div>
-          <div style={{ background: "#ecfdf5", padding: "16px", borderRadius: "8px", border: "1px solid #a7f3d0", textAlign: "center" }}>
-            <div style={{ fontSize: "12px", color: "#15803d", fontWeight: "bold" }}>LỢI NHUẬN GỘP</div>
-            <div style={{ fontSize: "22px", color: "#16a34a", fontWeight: "900", marginTop: "4px" }}>{totals.profit.toLocaleString()}đ</div>
-          </div>
-          <div style={{ background: "#fff7ed", padding: "16px", borderRadius: "8px", border: "1px solid #fed7aa", textAlign: "center" }}>
-            <div style={{ fontSize: "12px", color: "#c2410c", fontWeight: "bold" }}>KHÁCH MUA NỢ</div>
-            <div style={{ fontSize: "22px", color: "#ea580c", fontWeight: "900", marginTop: "4px" }}>{totals.debt.toLocaleString()}đ</div>
+          <div style={{ background: "#ecfdf5", padding: "20px", borderRadius: "16px", border: "1px solid #a7f3d0", position: "relative", overflow: "hidden" }}>
+            <div style={{ fontSize: "13px", color: "#15803d", fontWeight: "700", textTransform: "uppercase" }}>Lợi Nhuận Gộp</div>
+            <div style={{ fontSize: "12px", color: "#34d399", marginTop: "4px", fontStyle: "italic" }}>(Doanh thu - Giá vốn)</div>
+            <div style={{ fontSize: "32px", color: "#10b981", fontWeight: "900", marginTop: "12px" }}>{totals.profit.toLocaleString()}đ</div>
           </div>
         </div>
+
+        {/* Khối Theo dõi Công nợ (Màu Cam/Đỏ) */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+          <div style={{ background: "#fff7ed", padding: "20px", borderRadius: "16px", border: "1px solid #fed7aa", position: "relative", overflow: "hidden" }}>
+            <div style={{ fontSize: "13px", color: "#c2410c", fontWeight: "700", textTransform: "uppercase" }}>Nợ Phát Sinh Mới</div>
+            <div style={{ fontSize: "12px", color: "#fb923c", marginTop: "4px", fontStyle: "italic" }}>(Khách mua nợ trong kỳ)</div>
+            <div style={{ fontSize: "28px", color: "#ea580c", fontWeight: "900", marginTop: "12px" }}>+ {totals.debtIssued.toLocaleString()}đ</div>
+          </div>
+          <div style={{ background: "#fef2f2", padding: "20px", borderRadius: "16px", border: "1px solid #fecaca", position: "relative", overflow: "hidden" }}>
+            <div style={{ fontSize: "13px", color: "#b91c1c", fontWeight: "700", textTransform: "uppercase" }}>Thu Nợ Trong Kỳ</div>
+            <div style={{ fontSize: "12px", color: "#f87171", marginTop: "4px", fontStyle: "italic" }}>(Khách mang tiền đến trả)</div>
+            <div style={{ fontSize: "28px", color: "#ef4444", fontWeight: "900", marginTop: "12px" }}>- {totals.debtCollected.toLocaleString()}đ</div>
+          </div>
+        </div>
+
       </div>
     </div>
   );
