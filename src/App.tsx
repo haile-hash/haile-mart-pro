@@ -294,11 +294,13 @@ export default function App() {
     } catch (err) {} 
   };
   
+  // FIX 1: Dùng upsert({ id: 1, ... }) thay vì update(...).eq("id", 1)
   const updateSettingsToCloud = async (bin: string, acc: string, nameStr: string, zaloId: string, hStart: string, hEnd: string, pin: string) => { 
     if (!navigator.onLine) return toast.error("Mất mạng! Không thể lưu Cài đặt."); 
     setLoading(true); 
     try { 
-      const { error } = await supabase.from("settings").update({ 
+      const { error } = await supabase.from("settings").upsert({ 
+        id: 1,
         bank_bin: bin, bank_acc: acc, bank_name_str: nameStr, zalopay_id: zaloId, 
         happy_hour_start: hStart, happy_hour_end: hEnd, 
         happy_hour_discount: newHappyDiscount, 
@@ -308,7 +310,7 @@ export default function App() {
         tier_gold: newTierConfig.gold, tier_gold_discount: newTierConfig.gold_discount, 
         tier_diamond: newTierConfig.diamond, tier_diamond_discount: newTierConfig.diamond_discount,
         updated_at: new Date().toISOString() 
-      }).eq("id", 1); 
+      }); 
       if (!error) { 
         setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr); setZaloPayId(zaloId); 
         setHappyStart(hStart); setHappyEnd(hEnd); setAdminPin(pin); 
@@ -443,6 +445,7 @@ export default function App() {
   const shareToZalo = (phone: string) => { const cust = customersData[phone]; const code = cust.cardCode || phone; navigator.clipboard.writeText(`Chào ${cust.name},\nMã Thẻ VIP của bạn là: ${code}`).then(() => { toast.success(`Đang mở Zalo...`); logAudit("CHIA SẺ ZALO", phone); window.open(`https://zalo.me/${phone}`, '_blank') }).catch(() => { window.open(`https://zalo.me/${phone}`, '_blank') }) };
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => { const code = e.target.value; setNewCode(code); const p = products.find((x: any) => x.product_code === code); if (p) { setNewName(cleanName(p.name)); setNewCategory(formatCategoryStr(p.category)); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewExpiry(p.expiry_date || ""); const gift = parseGift(p.gift_info); setNewGiftCondition(gift.cond.toString()); setNewGiftInfo(gift.text) } };
 
+  // FIX 2: Dùng Promise.all() để khóa luồng và chờ cập nhật kho xong
   const syncInventory = async () => {
     if (Object.keys(actualStockInput).length === 0) return toast.error("Chưa có dữ liệu cập nhật!");
     if (!window.confirm("Hệ thống sẽ cập nhật số lượng tồn kho theo số liệu thực tế.\nXác nhận đồng bộ?")) return;
@@ -462,10 +465,11 @@ export default function App() {
       });
 
       if (navigator.onLine) {
-        for (const [id, actualQty] of Object.entries(actualStockInput)) { 
-          await supabase.from("products").update({ stock: Number(actualQty), updated_at: new Date().toISOString() }).eq("id", id); 
-          count++; 
-        } 
+        const updatePromises = Object.entries(actualStockInput).map(([id, actualQty]) => 
+          supabase.from("products").update({ stock: Number(actualQty), updated_at: new Date().toISOString() }).eq("id", id)
+        );
+        await Promise.all(updatePromises);
+        count = updatePromises.length;
       } else {
         count = Object.keys(actualStockInput).length;
         toast.error("Mất mạng! Đã lưu tạm bộ nhớ máy, dữ liệu sẽ tự đẩy lên khi có mạng.");
