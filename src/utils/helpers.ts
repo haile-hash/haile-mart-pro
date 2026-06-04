@@ -1,131 +1,95 @@
-import { Product } from '../types';
-
-export const styles = `
-  @keyframes wave{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-  @keyframes float{0%{transform:translateY(0)}50%{transform:translateY(-20px)}100%{transform:translateY(0)}}
-  @keyframes pulse-fast{0%{opacity:1}50%{opacity:.5}100%{opacity:1}}
-  @keyframes logo-glow{0%,100%{box-shadow:0 0 10px rgba(250,204,21,0.2), 0 0 20px rgba(250,204,21,0.2) inset; transform: scale(1)}50%{box-shadow:0 0 25px rgba(250,204,21,1), 0 0 40px rgba(250,204,21,0.8), 0 0 20px rgba(250,204,21,0.5) inset; transform: scale(1.05)}}
-  .logo-icon{animation:logo-glow 2s infinite ease-in-out;background-color:#dc2626;padding:8px;border-radius:10px;display:flex;align-items:center;justify-content:center}
-  .spring-bg{position:fixed;width:400px;height:400px;border-radius:50%;filter:blur(100px);z-index:-1;opacity:.3;animation:float 10s infinite ease-in-out; transition: all 0.3s;}
-  .glass{background:var(--bg-glass);border:1px solid var(--border-glass);border-radius:12px;box-shadow:0 4px 15px rgba(0,0,0,.08); color: var(--text-main); transition: all 0.3s;}
-  body{background-color:var(--bg-main);margin:0;font-family:'Inter',sans-serif;color:var(--text-main); transition: all 0.3s;}
-  .tab-btn{padding:6px 12px;border-radius:20px;border:1px solid var(--border-glass);background:var(--bg-glass);cursor:pointer;font-size:12px;font-weight:bold;color:var(--text-main);white-space:nowrap}
-  .tab-btn.active{background:#ef4444;color:#fff;border-color:#ef4444}
-  .chart-container-scroll{display:flex;align-items:flex-end;height:120px;margin-top:15px;padding-top:10px;border-top:1px dashed var(--border-glass);overflow-x:auto;padding-bottom:5px;gap:4px}
-  .chart-bar-group{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:20px}
-  .chart-bar{width:8px;background:linear-gradient(0deg,#ef4444 0%,#fca5a5 100%);border-radius:4px 4px 0 0;transition:height .5s;min-height:2px}
-  .chart-label{font-size:8px;color:var(--text-muted);margin-top:4px;font-weight:bold;white-space:nowrap}
-  .chart-val{font-size:8px;color:#ef4444;font-weight:bold;margin-bottom:2px}
-  .noti-bell{position:relative;display:inline-block;cursor:pointer}
-  .noti-badge{position:absolute;top:-5px;right:-5px;background:#ef4444;color:white;border-radius:50%;padding:2px 6px;font-size:9px;font-weight:bold;animation:pulse-fast 1s infinite}
-  input, select, textarea { background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-glass); }
-  .cash-box { transition: all 0.2s ease-in-out; border-radius: 8px; padding: 4px 10px; cursor: pointer; border: 1px solid transparent; }
-  .cash-box:hover { background: var(--bg-glass); border: 1px dashed var(--border-glass); transform: scale(1.05); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-  @media print{
-    .no-print{display:none!important}
-    .print-only{display:block!important;position:absolute!important;left:50%!important;transform:translateX(-50%)!important;width:80mm!important;padding:5mm!important;box-sizing:border-box!important; background:#fff!important; color:#000!important}
-    .print-flex{display:flex!important;width:100%}
-    body{background:#fff!important;margin:0;padding:0}
-    @page{margin:0}
-    .print-barcode-sheet{display:flex!important;flex-wrap:wrap!important;justify-content:flex-start!important;gap:2mm!important;padding:5mm!important}
-    .barcode-sticker{width:35mm!important;height:22mm!important;page-break-inside:avoid!important;border:1px dashed #ccc!important;padding:1mm!important;box-sizing:border-box!important;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;background:#fff!important;color:#000!important}
-    .print-a4-container { width: 100%; background: #fff !important; color: #000 !important; padding: 20mm; box-sizing: border-box; }
-  }
-  .print-only,.print-flex{display:none}
-  .qty-input{width:28px;text-align:center;border-radius:4px;outline:none;font-size:11px;font-weight:bold;padding:3px 0;}
-  .qty-input::-webkit-outer-spin-button,.qty-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
-  .qty-input[type=number]{-moz-appearance:textfield}
-  .add-to-cart-btn{padding:8px 16px;background-color:#fbbf24;color:#78350f;border:none;border-radius:6px;font-weight:900;cursor:pointer;font-size:12px;transition:transform .1s,background-color .2s;box-shadow:0 2px 4px rgba(251,191,36,.3)}
-  .add-to-cart-btn:hover{background-color:#f59e0b;transform:scale(1.05)}
-  .add-to-cart-btn:active{transform:scale(.95)}
-  :root { --bg-main: #fff7ed; --bg-glass: rgba(255,255,255,0.98); --border-glass: #fed7aa; --text-main: #431407; --text-muted: #64748b; --bg-input: #fff; }
-  [data-theme='dark'] { --bg-main: #0f172a; --bg-glass: #1e293b; --border-glass: #334155; --text-main: #f8fafc; --text-muted: #94a3b8; --bg-input: #334155; }
-`;
-
-export const formatCategoryStr = (str?: string): string => { 
-  if (!str) return "Khác"; 
-  const t = str.trim(); 
-  return t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : "Khác"; 
+export const cleanName = (name: string) => {
+  if (!name) return "";
+  return name.replace(/\s*\[Lô[^\]]*\]/gi, '').trim();
 };
 
-export const parseGift = (giftStr: string | null): { cond: number; text: string } => { 
-  if (!giftStr) return { cond: 1, text: "" }; 
-  if (giftStr.includes(';;;')) { 
-    const parts = giftStr.split(';;;'); 
-    return { cond: parseInt(parts[0]) || 1, text: parts[1] || "" }; 
-  } 
-  return { cond: 1, text: giftStr }; 
+export const formatCategoryStr = (cat: string) => {
+  if (!cat) return "Khác";
+  return cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase();
 };
 
-export const cleanName = (name?: string): string => name ? String(name).split(' [Lô')[0] : '';
-
-// Hàm thuần túy kiểm tra xem sản phẩm có đang trong giờ vàng không
-export const checkIsHappyHour = (p: Product): boolean => {
-  if (!p) return false;
-  const currentHour = new Date().getHours(); 
-  const isSnack = p.category === 'Đồ ăn liền' || p.category === 'Bánh Kẹo';
-  return (currentHour >= 20 || currentHour < 6) && isSnack;
+export const parseGift = (giftStr: string | null) => {
+  if (!giftStr) return { cond: 1, text: "" };
+  const parts = giftStr.split(';;;');
+  if (parts.length === 2) {
+    return { cond: Number(parts[0]) || 1, text: parts[1] };
+  }
+  return { cond: 1, text: giftStr };
 };
 
-// Hàm lấy giá thực tế, không chỉnh sửa object gốc
-export const getActualPrice = (p: Product): number => { 
-  if (!p) return 0;
-  let price = (Number(p.promo_price) > 0) ? Number(p.promo_price) : Number(p.sale_price || 0); 
-  
-  if (checkIsHappyHour(p)) { 
-    price = price * 0.8; 
-  } 
-  return Math.round(price); 
-};
-
-export const getCustomerTier = (totalSpent: number, config?: any) => {
-  const bronze = Number(config?.bronze) || 1000000;
-  const silver = Number(config?.silver) || 5000000;
-  const gold = Number(config?.gold) || 10000000;
-  const diamond = Number(config?.diamond) || 20000000;
-
-  const bronze_discount = Number(config?.bronze_discount) || 0;
-  const silver_discount = Number(config?.silver_discount) || 0;
-  const gold_discount = Number(config?.gold_discount) || 0;
-  const diamond_discount = Number(config?.diamond_discount) || 0;
-
-  if (totalSpent >= diamond) {
-    return { name: "Kim Cương", color: "#db2777", bg: "#fdf2f8", border: "#fbcfe8", discount: diamond_discount };
-  }
-  if (totalSpent >= gold) {
-    return { name: "Vàng", color: "#d97706", bg: "#fffbeb", border: "#fef3c7", discount: gold_discount };
-  }
-  if (totalSpent >= silver) {
-    return { name: "Bạc", color: "#4b5563", bg: "#f9fafb", border: "#f3f4f6", discount: silver_discount };
-  }
-  if (totalSpent >= bronze) {
-    return { name: "Đồng", color: "#b45309", bg: "#fff7ed", border: "#ffedd5", discount: bronze_discount };
-  }
-  
-  return { name: "Thành Viên", color: "#2563eb", bg: "#eff6ff", border: "#dbeafe", discount: 0 };
-};
-
-export const playSound = (type: 'success' | 'error'): void => { 
-  try { 
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)(); 
-    const osc = ctx.createOscillator(); 
-    const gain = ctx.createGain(); 
-    osc.connect(gain); 
-    gain.connect(ctx.destination); 
+export const playSound = (type: 'success' | 'error') => {
+  try {
+    const context = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = context.createOscillator();
+    const gainNode = context.createGain();
     
-    if (type === 'success') { 
-      osc.frequency.value = 800; 
-      gain.gain.setValueAtTime(0.1, ctx.currentTime); 
-      osc.start(ctx.currentTime); 
-      osc.stop(ctx.currentTime + 0.1); 
-    } else { 
-      osc.frequency.value = 250; 
-      osc.type = 'square'; 
-      gain.gain.setValueAtTime(0.1, ctx.currentTime); 
-      osc.start(ctx.currentTime); 
-      osc.stop(ctx.currentTime + 0.3); 
-    } 
-  } catch (e) { 
-    console.warn("Trình duyệt không hỗ trợ AudioContext hoặc bị chặn autoplay.");
-  } 
+    osc.connect(gainNode);
+    gainNode.connect(context.destination);
+    
+    if (type === 'success') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(800, context.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1200, context.currentTime + 0.1);
+      gainNode.gain.setValueAtTime(0.1, context.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.1);
+      osc.start(context.currentTime);
+      osc.stop(context.currentTime + 0.1);
+    } else {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(300, context.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(100, context.currentTime + 0.2);
+      gainNode.gain.setValueAtTime(0.2, context.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.2);
+      osc.start(context.currentTime);
+      osc.stop(context.currentTime + 0.2);
+    }
+  } catch (e) {
+    console.error("Audio API not supported");
+  }
+};
+
+export const getCustomerTier = (totalSpent: number, config: any) => {
+  if (totalSpent >= config.diamond) return { name: "Kim Cương", color: "#8b5cf6", discount: config.diamond_discount };
+  if (totalSpent >= config.gold) return { name: "Vàng", color: "#eab308", discount: config.gold_discount };
+  if (totalSpent >= config.silver) return { name: "Bạc", color: "#94a3b8", discount: config.silver_discount };
+  if (totalSpent >= config.bronze) return { name: "Đồng", color: "#d97706", discount: config.bronze_discount };
+  return { name: "Thành viên", color: "#64748b", discount: 0 };
+};
+
+// --- HÀM TÍNH TOÁN GIÁ TIỀN ÁP DỤNG % GIỜ VÀNG LINH HOẠT ---
+export const getActualPrice = (product: any) => {
+  let price = product.sale_price || 0;
+  
+  if (product.promo_price && product.promo_price > 0) {
+    price = product.promo_price;
+  }
+
+  try {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMin = now.getMinutes();
+    const currentTime = currentHour * 60 + currentMin;
+
+    const happyStartStr = window.localStorage.getItem('mart_happy_start') || "11:00";
+    const happyEndStr = window.localStorage.getItem('mart_happy_end') || "13:00";
+    // Đọc % giảm đã cài đặt, mặc định là 20%
+    const happyDiscount = Number(window.localStorage.getItem('mart_happy_discount') || 20); 
+
+    const [startH, startM] = happyStartStr.split(':').map(Number);
+    const [endH, endM] = happyEndStr.split(':').map(Number);
+    const startTime = startH * 60 + startM;
+    const endTime = endH * 60 + endM;
+
+    if (currentTime >= startTime && currentTime <= endTime) {
+      // Giảm theo % linh hoạt
+      price = price * (1 - (happyDiscount / 100));
+      product.isHappyHour = true; 
+    } else {
+      product.isHappyHour = false;
+    }
+  } catch (e) {
+    product.isHappyHour = false;
+  }
+
+  return Math.round(price);
 };
