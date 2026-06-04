@@ -16,9 +16,14 @@ export const POModal = ({
     }
   }, [poTab, allPOs]);
 
+  // Cập nhật load chi tiết: Nếu PO đã hoàn tất, giữ nguyên số lượng thực nhận/lỗi đã lưu.
   const handleSelectPOToReceive = (po: any) => {
     setFoundPO(po);
-    setReceiveItems((po.items || []).map(i => ({ ...i, actualQty: i.qty, returnQty: 0 })));
+    setReceiveItems((po.items || []).map(i => ({ 
+      ...i, 
+      actualQty: i.actualQty !== undefined ? i.actualQty : i.qty, 
+      returnQty: i.returnQty || 0 
+    })));
   };
 
   // --- XUẤT EXCEL BẢN NHÁP ---
@@ -158,12 +163,17 @@ export const POModal = ({
 
   // --- LUỒNG XÁC NHẬN NHẬP KHO CHUẨN ---
   const handleConfirmAndProcess = () => {
-    // 1. Xuất file template nhập kho
+    if (!window.confirm(`Xác nhận hoàn tất phiếu nhập kho ${foundPO?.po_code}?\nTrạng thái phiếu sẽ chuyển thành "Đã Nhập".`)) return;
+
     handleExportInventoryTemplate();
-    // 2. In phiếu nhận hàng
     handlePrintPDF('RECEIPT');
-    // 3. Thực thi nghiệp vụ lưu Database
-    if (onConfirmReceipt) onConfirmReceipt();
+
+    // 1. Cập nhật giao diện Modal sang Đã Nhập ngay lập tức
+    const updatedPO = { ...foundPO, status: 'COMPLETED' };
+    setFoundPO(updatedPO); 
+
+    // 2. Gọi hàm truyền về App.tsx để lưu Database
+    if (onConfirmReceipt) onConfirmReceipt(updatedPO, receiveItems);
   };
 
   const updateItemField = (idx, field, value) => {
