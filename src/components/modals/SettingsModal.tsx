@@ -39,6 +39,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   if (!showSettings) return null;
 
+  // DANH SÁCH MÃ BIN CÁC NGÂN HÀNG PHỔ BIẾN TẠI VIỆT NAM (VietQR chuẩn)
+  const VIETNAM_BANKS = [
+    { bin: "970436", name: "Vietcombank (VCB)" },
+    { bin: "970415", name: "VietinBank (CTG)" },
+    { bin: "970418", name: "BIDV" },
+    { bin: "970405", name: "Agribank" },
+    { bin: "970407", name: "Techcombank (TCB)" },
+    { bin: "970422", name: "MBBank (MB)" },
+    { bin: "970416", name: "ACB" },
+    { bin: "970432", name: "VPBank (VPB)" },
+    { bin: "970423", name: "TPBank (TPB)" },
+    { bin: "970403", name: "Sacombank (STB)" },
+    { bin: "970437", name: "HDBank (HDB)" },
+    { bin: "970441", name: "VIB" },
+    { bin: "970424", name: "SHB" },
+    { bin: "970431", name: "SeABank" },
+    { bin: "970426", name: "MSB" },
+    { bin: "970428", name: "Nam A Bank" },
+    { bin: "970414", name: "OceanBank" },
+    { bin: "970454", name: "Bản Việt (BVBank)" },
+    { bin: "970412", name: "PVcomBank" },
+    { bin: "970409", name: "Bac A Bank" },
+    { bin: "970448", name: "OCB" },
+    { bin: "970419", name: "NCB" },
+    { bin: "970439", name: "PublicBank" },
+    { bin: "970449", name: "LienVietPostBank" },
+    { bin: "970452", name: "KienLongBank" },
+  ];
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.7)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 99999, backdropFilter: "blur(4px)" }} onClick={() => setShowSettings(false)}>
       <div style={{ background: "#fff", width: "700px", maxWidth: "95vw", maxHeight: "90vh", borderRadius: "20px", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.4)" }} onClick={e => e.stopPropagation()}>
@@ -56,8 +85,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <h3 style={{ margin: "0 0 16px 0", fontSize: "14px", color: "#0f172a", textTransform: "uppercase", fontWeight: "800" }}>1. TÀI KHOẢN NGÂN HÀNG (QR CODE)</h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
               <div>
-                <label style={{ fontSize: "12px", color: "#64748b", fontWeight: "700", display: "block", marginBottom: "8px" }}>MÃ NGÂN HÀNG (BIN)</label>
-                <input type="text" value={newBankBin} onChange={e => setNewBankBin(e.target.value)} placeholder="VD: 970415 (Vietinbank)" style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", boxSizing: "border-box" }} />
+                <label style={{ fontSize: "12px", color: "#64748b", fontWeight: "700", display: "block", marginBottom: "8px" }}>CHỌN NGÂN HÀNG</label>
+                <select 
+                  value={newBankBin} 
+                  onChange={e => setNewBankBin(e.target.value)} 
+                  style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", boxSizing: "border-box", background: "#fff", cursor: "pointer" }}
+                >
+                  <option value="">-- Chọn ngân hàng --</option>
+                  {VIETNAM_BANKS.map(bank => (
+                    <option key={bank.bin} value={bank.bin}>{bank.name}</option>
+                  ))}
+                  {/* Option phòng hờ nếu database cũ lưu mã BIN không có trong list */}
+                  {newBankBin && !VIETNAM_BANKS.find(b => b.bin === newBankBin) && (
+                    <option value={newBankBin}>Khác (BIN: {newBankBin})</option>
+                  )}
+                </select>
               </div>
               <div>
                 <label style={{ fontSize: "12px", color: "#64748b", fontWeight: "700", display: "block", marginBottom: "8px" }}>SỐ TÀI KHOẢN</label>
@@ -67,7 +109,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
               <div>
                 <label style={{ fontSize: "12px", color: "#64748b", fontWeight: "700", display: "block", marginBottom: "8px" }}>TÊN CHỦ TÀI KHOẢN</label>
-                <input type="text" value={newBankNameStr} onChange={e => setNewBankNameStr(e.target.value)} placeholder="VD: NGUYEN VAN A" style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", boxSizing: "border-box" }} />
+                <input type="text" value={newBankNameStr} onChange={e => setNewBankNameStr(e.target.value)} placeholder="VD: NGUYEN VAN A" style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", boxSizing: "border-box", textTransform: "uppercase" }} />
               </div>
               <div>
                 <label style={{ fontSize: "12px", color: "#64748b", fontWeight: "700", display: "block", marginBottom: "8px" }}>ZALOPAY ID (NẾU CÓ)</label>
