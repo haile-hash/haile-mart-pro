@@ -27,8 +27,8 @@ export const POModal = ({
       const supplierName = (suppliers || []).find((s: any) => s.id == selectedSupplierId)?.name || "Chưa chọn NCC";
       const wb = (window as any).XLSX.utils.book_new();
       const wsData = [ ["PHIẾU ĐẶT HÀNG (PO) - BẢN NHÁP"], ["Nhà cung cấp:", supplierName], ["Ghi chú:", poNote || ""], [], ["STT", "Tên Sản Phẩm", "Số Lượng", "Giá Nhập (đ)", "Thành Tiền (đ)"] ];
-      poItems.forEach((item: any, index: number) => { wsData.push([ index + 1, cleanName(item?.product?.name || "SP"), item?.qty || 0, item?.importPrice || 0, (item?.qty || 0) * (item?.importPrice || 0) ]); });
-      const total = poItems.reduce((sum: number, item: any) => sum + ((item?.qty || 0) * (item?.importPrice || 0)), 0);
+      poItems.forEach((item: any, index: number) => { wsData.push([ index + 1, cleanName(item?.product?.name || "SP"), item?.qty || 0, item?.importPrice || 0, (Number(item?.qty) || 0) * (Number(item?.importPrice) || 0) ]); });
+      const total = poItems.reduce((sum: number, item: any) => sum + ((Number(item?.qty) || 0) * (Number(item?.importPrice) || 0)), 0);
       wsData.push([]); wsData.push(["", "", "", "TỔNG CỘNG:", total]);
       const ws = (window as any).XLSX.utils.aoa_to_sheet(wsData); (window as any).XLSX.utils.book_append_sheet(wb, ws, "PO_Draft"); (window as any).XLSX.writeFile(wb, `PO_Draft_${Date.now()}.xlsx`);
     } catch (e) { alert("Lỗi xuất Excel!"); }
@@ -38,45 +38,57 @@ export const POModal = ({
     <div className="custom-modal-overlay no-print" style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 99999, backdropFilter: "blur(4px)" }}>
       
       <style>{`
+        /* Ẩn mũi tên lên/xuống của thẻ input type="number" giúp text không bị cắt */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+
         .po-input { width: 100%; padding: 12px 16px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; color: #0f172a; background: #ffffff; transition: all 0.2s ease; box-sizing: border-box; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
         .po-input:hover { border-color: #94a3b8; }
         .po-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); outline: none; }
-        .po-table-input { width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; font-weight: 700; color: #0f172a; background: #ffffff; transition: all 0.2s ease; box-sizing: border-box; text-align: center; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); }
+        
+        .po-table-input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; font-weight: 700; color: #0f172a; background: #ffffff; transition: all 0.2s ease; box-sizing: border-box; text-align: center; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); }
         .po-table-input:hover { border-color: #94a3b8; }
         .po-table-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); outline: none; background: #fff; }
+        
         .po-list-item { padding: 16px; border-bottom: 1px solid #e2e8f0; cursor: pointer; transition: 0.2s; border-left: 4px solid transparent; }
         .po-list-item:hover { background: #f8fafc; }
         .po-list-item.active { background: #eff6ff; border-left-color: #3b82f6; }
       `}</style>
 
-      <div className="custom-modal-box" style={{ background: "#fff", width: "1300px", maxWidth: "95vw", height: "90vh", borderRadius: "20px", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.4)" }}>
+      {/* TỔNG THỂ MODAL BẰNG GRID */}
+      <div className="custom-modal-box" style={{ 
+        background: "#fff", width: "1350px", maxWidth: "95vw", height: "90vh", borderRadius: "20px", 
+        display: "grid", gridTemplateRows: "auto auto minmax(0, 1fr)", overflow: "hidden", 
+        boxShadow: "0 25px 50px -12px rgba(0,0,0,0.4)" 
+      }}>
         
-        {/* HEADER */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid #e2e8f0", background: "#ffffff", flex: "none" }}>
+        {/* ROW 1: HEADER */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid #e2e8f0", background: "#ffffff" }}>
           <h2 style={{ margin: 0, fontSize: "20px", color: "#0f172a", display: "flex", alignItems: "center", gap: "12px", fontWeight: "800" }}>
             <span style={{ padding: "8px", background: "#eff6ff", borderRadius: "10px", color: "#3b82f6", display: "flex" }}>📦</span> QUẢN LÝ PHIẾU NHẬP (PO)
           </h2>
           <button onClick={() => setShowPOModal(false)} style={{ background: "#f1f5f9", border: "none", width: "36px", height: "36px", borderRadius: "50%", fontSize: "20px", cursor: "pointer", color: "#64748b", display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s" }} onMouseOver={e=>e.currentTarget.style.background='#e2e8f0'} onMouseOut={e=>e.currentTarget.style.background='#f1f5f9'}>&times;</button>
         </div>
 
-        {/* TABS */}
-        <div style={{ display: "flex", gap: "12px", padding: "16px 24px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", flex: "none" }}>
-          <button onClick={() => setPoTab("NEW")} style={{ padding: "10px 24px", fontSize: "14px", fontWeight: "700", border: "none", borderRadius: "8px", cursor: "pointer", background: poTab === "NEW" ? "#3b82f6" : "#e2e8f0", color: poTab === "NEW" ? "white" : "#475569", transition: "0.2s", display: "flex", alignItems: "center", gap: "8px", boxShadow: poTab === "NEW" ? "0 4px 6px rgba(59,130,246,0.2)" : "none" }}>
+        {/* ROW 2: TABS */}
+        <div style={{ display: "flex", gap: "12px", padding: "16px 24px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
+          <button onClick={() => setPoTab("NEW")} style={{ padding: "10px 24px", fontSize: "14px", fontWeight: "700", border: "none", borderRadius: "8px", cursor: "pointer", background: poTab === "NEW" ? "#3b82f6" : "#e2e8f0", color: poTab === "NEW" ? "white" : "#475569", transition: "0.2s", boxShadow: poTab === "NEW" ? "0 4px 6px rgba(59,130,246,0.2)" : "none" }}>
             TẠO PO MỚI (CHỜ NHẬN)
           </button>
-          <button onClick={() => setPoTab("RECEIVE")} style={{ padding: "10px 24px", fontSize: "14px", fontWeight: "700", border: "none", borderRadius: "8px", cursor: "pointer", background: poTab === "RECEIVE" ? "#10b981" : "#e2e8f0", color: poTab === "RECEIVE" ? "white" : "#475569", transition: "0.2s", display: "flex", alignItems: "center", gap: "8px", boxShadow: poTab === "RECEIVE" ? "0 4px 6px rgba(16,185,129,0.2)" : "none" }}>
+          <button onClick={() => setPoTab("RECEIVE")} style={{ padding: "10px 24px", fontSize: "14px", fontWeight: "700", border: "none", borderRadius: "8px", cursor: "pointer", background: poTab === "RECEIVE" ? "#10b981" : "#e2e8f0", color: poTab === "RECEIVE" ? "white" : "#475569", transition: "0.2s", boxShadow: poTab === "RECEIVE" ? "0 4px 6px rgba(16,185,129,0.2)" : "none" }}>
             TÌM & NHẬN HÀNG
           </button>
         </div>
 
-        {/* BODY (Đã fix Flexbox) */}
-        <div style={{ display: "flex", gap: "24px", background: "#f1f5f9", padding: "24px", flex: "1 1 0%", minHeight: 0, overflow: "hidden", boxSizing: "border-box" }}>
+        {/* ROW 3: BODY - NỘI DUNG CHÍNH CHIA 2 CỘT */}
+        <div style={{ display: "grid", gridTemplateColumns: "35% 1fr", gap: "24px", background: "#f1f5f9", padding: "24px", overflow: "hidden" }}>
           
-          {/* TAB 1: TẠO PO MỚI */}
+          {/* ==================== TAB 1: TẠO PO MỚI ==================== */}
           {poTab === "NEW" && (
             <>
               {/* CỘT TRÁI */}
-              <div style={{ width: "35%", minWidth: "350px", height: "100%", background: "#fff", padding: "24px", borderRadius: "16px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", gap: "24px", overflowY: "auto", boxSizing: "border-box" }}>
+              <div style={{ background: "#fff", padding: "24px", borderRadius: "16px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", gap: "24px", overflowY: "auto" }}>
                 <div style={{ flex: "none" }}>
                   <label style={{ fontSize: "13px", color: "#475569", fontWeight: "700", display: "block", marginBottom: "8px", textTransform: "uppercase" }}>1. Chọn Nhà Cung Cấp</label>
                   <select className="po-input" value={selectedSupplierId || ""} onChange={(e) => setSelectedSupplierId(e.target.value)} style={{ fontWeight: selectedSupplierId ? "700" : "500", cursor: "pointer" }}>
@@ -87,12 +99,12 @@ export const POModal = ({
 
                 <div style={{ flex: "none", position: "relative" }}>
                   <label style={{ fontSize: "13px", color: "#475569", fontWeight: "700", display: "block", marginBottom: "8px", textTransform: "uppercase" }}>2. Tìm Sản Phẩm</label>
-                  <input type="text" className="po-input" placeholder="Nhập tên hoặc mã vạch để thêm vào phiếu..." value={poSearch || ""} onChange={(e) => setPoSearch(e.target.value)} />
+                  <input type="text" className="po-input" placeholder="Nhập tên hoặc mã vạch để thêm..." value={poSearch || ""} onChange={(e) => setPoSearch(e.target.value)} />
                   <div style={{ position: "absolute", top: "100%", left: 0, right: 0, maxHeight: "250px", overflowY: "auto", background: "#fff", border: (poSearch || "").trim() ? "1px solid #cbd5e1" : "none", borderRadius: "12px", marginTop: "8px", boxShadow: "0 10px 25px -5px rgba(0,0,0,0.15)", zIndex: 10 }}>
                     {(poSearch || "").trim() && (products || []).filter((p) => cleanName(p?.name || "").toLowerCase().includes(poSearch.toLowerCase()) || String(p?.product_code || "").toLowerCase().includes(poSearch.toLowerCase())).slice(0, 10).map((p) => (
                         <div key={p.id} className="po-search-item" onClick={() => {
                             const currentItems = poItems || []; const exist = currentItems.find((i) => i?.product?.id === p.id);
-                            if (exist) { setPoItems(currentItems.map((i) => i?.product?.id === p.id ? { ...i, qty: (i.qty || 0) + 1 } : i)); } 
+                            if (exist) { setPoItems(currentItems.map((i) => i?.product?.id === p.id ? { ...i, qty: (Number(i.qty) || 0) + 1 } : i)); } 
                             else { setPoItems([{ product: p, qty: 1, importPrice: p.import_price || 0 }, ...currentItems]); }
                             setPoSearch("");
                           }} style={{ padding: "12px 16px", borderBottom: "1px solid #f1f5f9", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -103,31 +115,31 @@ export const POModal = ({
                   </div>
                 </div>
 
-                <div style={{ flex: "1 1 0%", display: "flex", flexDirection: "column", minHeight: "150px" }}>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: "150px" }}>
                   <label style={{ fontSize: "13px", color: "#475569", fontWeight: "700", display: "block", marginBottom: "8px", textTransform: "uppercase" }}>3. Ghi chú (Tùy chọn)</label>
                   <textarea className="po-input" placeholder="Ghi chú thêm cho phiếu nhập này..." value={poNote || ""} onChange={(e) => setPoNote(e.target.value)} style={{ flex: 1, resize: "none" }} />
                 </div>
               </div>
 
-              {/* CỘT PHẢI (Đã set height: 100% và flex: 1 1 0%) */}
-              <div style={{ flex: "1 1 0%", height: "100%", background: "#fff", borderRadius: "16px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden", boxSizing: "border-box" }}>
+              {/* CỘT PHẢI (Áp dụng CSS Grid để khóa Header và Footer) */}
+              <div style={{ background: "#fff", borderRadius: "16px", border: "1px solid #e2e8f0", display: "grid", gridTemplateRows: "auto minmax(0, 1fr) auto", overflow: "hidden" }}>
                 
                 {/* Header Bảng */}
-                <div style={{ flex: "none", padding: "16px 24px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ padding: "16px 24px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <h3 style={{ margin: 0, fontSize: "15px", color: "#0f172a", fontWeight: "800" }}>Danh sách Sản Phẩm Sẽ Đặt</h3>
                   <span style={{ background: "#e2e8f0", padding: "4px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: "700", color: "#475569" }}>{poItems?.length || 0} Sản phẩm</span>
                 </div>
                 
-                {/* Wrapper Bảng (Có minHeight 250px đảm bảo không xẹp) */}
-                <div style={{ flex: "1 1 0%", overflowY: "auto", minHeight: "250px" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
+                {/* Vùng hiển thị Bảng (Scrollable) */}
+                <div style={{ overflowY: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead style={{ position: "sticky", top: 0, background: "#f8fafc", zIndex: 1 }}>
                       <tr style={{ color: "#64748b", textAlign: "left", fontSize: "12px", textTransform: "uppercase" }}>
-                        <th style={{ padding: "14px 24px", fontWeight: "700", borderBottom: "2px solid #e2e8f0" }}>Sản phẩm</th>
-                        <th style={{ padding: "14px 16px", textAlign: "center", width: "120px", fontWeight: "700", borderBottom: "2px solid #e2e8f0" }}>Số lượng</th>
-                        <th style={{ padding: "14px 16px", textAlign: "right", width: "140px", fontWeight: "700", borderBottom: "2px solid #e2e8f0" }}>Giá nhập (đ)</th>
-                        <th style={{ padding: "14px 24px", textAlign: "right", width: "150px", fontWeight: "700", borderBottom: "2px solid #e2e8f0" }}>Thành tiền</th>
-                        <th style={{ padding: "14px 16px", textAlign: "center", width: "60px", fontWeight: "700", borderBottom: "2px solid #e2e8f0" }}>Xóa</th>
+                        <th style={{ padding: "14px 24px", fontWeight: "700", borderBottom: "1px solid #cbd5e1" }}>Sản phẩm</th>
+                        <th style={{ padding: "14px 16px", textAlign: "center", width: "130px", fontWeight: "700", borderBottom: "1px solid #cbd5e1" }}>Số lượng</th>
+                        <th style={{ padding: "14px 16px", textAlign: "center", width: "160px", fontWeight: "700", borderBottom: "1px solid #cbd5e1" }}>Giá nhập (đ)</th>
+                        <th style={{ padding: "14px 24px", textAlign: "right", width: "160px", fontWeight: "700", borderBottom: "1px solid #cbd5e1" }}>Thành tiền</th>
+                        <th style={{ padding: "14px 16px", textAlign: "center", width: "70px", fontWeight: "700", borderBottom: "1px solid #cbd5e1" }}>Xóa</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -182,15 +194,15 @@ export const POModal = ({
                   </table>
                 </div>
 
-                {/* Footer Tổng Tiền */}
-                <div style={{ flex: "none", background: "#f8fafc", padding: "24px", borderTop: "1px solid #e2e8f0", boxShadow: "0 -4px 6px -1px rgba(0,0,0,0.05)" }}>
+                {/* Footer Tổng Tiền (Bị khóa chết bởi Grid, không bao giờ mất) */}
+                <div style={{ padding: "24px", background: "#f8fafc", borderTop: "1px solid #e2e8f0", boxShadow: "0 -4px 6px -1px rgba(0,0,0,0.05)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
                     <span style={{ fontSize: "15px", color: "#475569", fontWeight: "700" }}>Tổng giá trị đơn hàng:</span>
                     <b style={{ fontSize: "28px", color: "#0f172a" }}>{(poItems || []).reduce((sum, item) => sum + (Number(item.qty) || 0) * (Number(item.importPrice) || 0), 0).toLocaleString()}đ</b>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
                     <span style={{ fontSize: "15px", color: "#475569", fontWeight: "700" }}>Đã trả trước cho NCC:</span>
-                    <input type="number" className="po-input" style={{ width: "200px", padding: "12px", textAlign: "right", fontWeight: "800", color: "#10b981", fontSize: "18px" }} value={paidAmount === "" ? "" : paidAmount} onFocus={(e)=>e.target.select()} onChange={(e) => setPaidAmount(e.target.value === "" ? "" : Number(e.target.value))} />
+                    <input type="number" className="po-input" style={{ width: "200px", padding: "12px", textAlign: "right", fontWeight: "800", color: "#10b981", fontSize: "18px", outline: "none" }} value={paidAmount === "" ? "" : paidAmount} onFocus={(e)=>e.target.select()} onChange={(e) => setPaidAmount(e.target.value === "" ? "" : Number(e.target.value))} />
                   </div>
                   
                   <div style={{ display: "flex", gap: "16px", marginTop: "24px", paddingTop: "24px", borderTop: "2px dashed #cbd5e1" }}>
@@ -206,12 +218,12 @@ export const POModal = ({
           {poTab === "RECEIVE" && (
             <>
               {/* CỘT TRÁI */}
-              <div style={{ width: "35%", minWidth: "350px", height: "100%", background: "#fff", borderRadius: "16px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", overflow: "hidden", boxSizing: "border-box" }}>
+              <div style={{ background: "#fff", borderRadius: "16px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", overflow: "hidden" }}>
                 <div style={{ padding: "20px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", flex: "none" }}>
                   <input type="text" className="po-input" placeholder="Tìm theo mã PO..." value={searchPoCode || ""} onChange={(e) => setSearchPoCode(e.target.value)} />
                 </div>
                 
-                <div style={{ flex: "1 1 0%", overflowY: "auto" }}>
+                <div style={{ overflowY: "auto" }}>
                   {allPOs.length === 0 ? (
                     <div style={{ padding: "40px 20px", textAlign: "center", color: "#94a3b8" }}>Chưa có phiếu đặt hàng nào.</div>
                   ) : (
@@ -235,15 +247,15 @@ export const POModal = ({
               </div>
 
               {/* CỘT PHẢI */}
-              <div style={{ flex: "1 1 0%", height: "100%", background: "#fff", borderRadius: "16px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden", boxSizing: "border-box" }}>
+              <div style={{ background: "#fff", borderRadius: "16px", border: "1px solid #e2e8f0", display: "grid", gridTemplateRows: "auto minmax(0, 1fr) auto", overflow: "hidden" }}>
                 {!foundPO ? (
-                  <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", color: "#94a3b8", flexDirection: "column" }}>
+                  <div style={{ gridRow: "1 / -1", display: "flex", justifyContent: "center", alignItems: "center", color: "#94a3b8", flexDirection: "column" }}>
                     <div style={{ fontSize: "50px", marginBottom: "16px", opacity: 0.5 }}>👈</div>
                     <div style={{ fontSize: "18px", fontWeight: "600", color: "#475569" }}>Vui lòng chọn một phiếu PO bên trái</div>
                   </div>
                 ) : (
                   <>
-                    <div style={{ flex: "none", padding: "20px 24px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
+                    <div style={{ padding: "20px 24px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                         <div>
                           <h3 style={{ margin: "0 0 6px 0", fontSize: "20px", color: "#0f172a", fontWeight: "800" }}>Mã Phiếu: {foundPO.po_code}</h3>
@@ -257,7 +269,7 @@ export const POModal = ({
                       </div>
                     </div>
 
-                    <div style={{ flex: "1 1 0%", overflowY: "auto", minHeight: "250px" }}>
+                    <div style={{ overflowY: "auto" }}>
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
                         <thead style={{ position: "sticky", top: 0, background: "#f8fafc", zIndex: 1 }}>
                           <tr style={{ color: "#64748b", textAlign: "left", fontSize: "12px", textTransform: "uppercase" }}>
@@ -305,7 +317,7 @@ export const POModal = ({
                       </table>
                     </div>
 
-                    <div style={{ flex: "none", background: "#f8fafc", padding: "24px", borderTop: "1px solid #e2e8f0", boxShadow: "0 -4px 6px -1px rgba(0,0,0,0.05)" }}>
+                    <div style={{ padding: "24px", background: "#f8fafc", borderTop: "1px solid #e2e8f0" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
                         <span style={{ fontSize: "15px", color: "#475569", fontWeight: "700" }}>Tổng tiền (Theo thực nhận):</span>
                         <b style={{ fontSize: "28px", color: "#10b981" }}>
