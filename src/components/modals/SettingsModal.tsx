@@ -1,6 +1,6 @@
 /* eslint-disable */
 // @ts-nocheck
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 interface SettingsModalProps {
   showSettings: boolean;
@@ -37,8 +37,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   newTierConfig, setNewTierConfig,
   saveSettings, loading
 }) => {
-  if (!showSettings) return null;
-
   // DANH SÁCH MÃ BIN CHUẨN NAPAS / VIETQR
   const TRADITIONAL_BANKS = [
     { bin: "970436", name: "Vietcombank (VCB)" },
@@ -77,7 +75,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     { bin: "970462", name: "KBank Vietnam" }
   ];
 
-  const isKnownBin = TRADITIONAL_BANKS.find(b => b.bin === newBankBin) || E_WALLETS_AND_DIGITAL.find(b => b.bin === newBankBin);
+  const ALL_BANKS = [...E_WALLETS_AND_DIGITAL, ...TRADITIONAL_BANKS];
+
+  // STATE CHO TÍNH NĂNG TÌM KIẾM NGÂN HÀNG
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Hiển thị tên ngân hàng ban đầu dựa trên mã BIN đã lưu
+  useEffect(() => {
+    if (newBankBin) {
+      const found = ALL_BANKS.find(b => b.bin === newBankBin);
+      if (found) setSearchTerm(found.name);
+      else setSearchTerm(`Khác (BIN: ${newBankBin})`);
+    }
+  }, [newBankBin]);
+
+  // Lọc danh sách ngân hàng theo từ khóa
+  const filteredBanks = ALL_BANKS.filter(b => 
+    b.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    b.bin.includes(searchTerm)
+  );
+
+  // Xử lý click ra ngoài để đóng Dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+        // Tự hoàn tác tên hiển thị nếu chưa chọn cái nào mới
+        const found = ALL_BANKS.find(b => b.bin === newBankBin);
+        if (found) setSearchTerm(found.name);
+        else if (newBankBin) setSearchTerm(`Khác (BIN: ${newBankBin})`);
+        else setSearchTerm("");
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [newBankBin]);
+
+  if (!showSettings) return null;
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.7)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 99999, backdropFilter: "blur(4px)" }} onClick={() => setShowSettings(false)}>
@@ -95,32 +131,53 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <div style={{ marginBottom: "24px", background: "#f8fafc", padding: "20px", borderRadius: "16px", border: "1px solid #e2e8f0" }}>
             <h3 style={{ margin: "0 0 16px 0", fontSize: "14px", color: "#0f172a", textTransform: "uppercase", fontWeight: "800" }}>1. TÀI KHOẢN NGÂN HÀNG (VIETQR)</h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
-              <div>
-                <label style={{ fontSize: "12px", color: "#64748b", fontWeight: "700", display: "block", marginBottom: "8px" }}>CHỌN NGÂN HÀNG / VÍ</label>
-                <select 
-                  value={newBankBin} 
-                  onChange={e => setNewBankBin(e.target.value)} 
-                  style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", boxSizing: "border-box", background: "#fff", cursor: "pointer" }}
-                >
-                  <option value="">-- Chọn ngân hàng hoặc ví --</option>
-                  
-                  <optgroup label="Ví Điện Tử & Ngân Hàng Số (Napas)">
-                    {E_WALLETS_AND_DIGITAL.map(bank => (
-                      <option key={bank.bin} value={bank.bin}>{bank.name}</option>
-                    ))}
-                  </optgroup>
-
-                  <optgroup label="Ngân Hàng Truyền Thống">
-                    {TRADITIONAL_BANKS.map(bank => (
-                      <option key={bank.bin} value={bank.bin}>{bank.name}</option>
-                    ))}
-                  </optgroup>
-
-                  {newBankBin && !isKnownBin && (
-                    <option value={newBankBin}>Khác (BIN: {newBankBin})</option>
-                  )}
-                </select>
+              
+              {/* VÙNG CHỌN NGÂN HÀNG THÔNG MINH */}
+              <div ref={dropdownRef} style={{ position: "relative" }}>
+                <label style={{ fontSize: "12px", color: "#64748b", fontWeight: "700", display: "block", marginBottom: "8px" }}>TÌM / CHỌN NGÂN HÀNG (VÍ)</label>
+                <input 
+                  type="text" 
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setIsDropdownOpen(true);
+                  }}
+                  onFocus={() => {
+                    setSearchTerm("");
+                    setIsDropdownOpen(true);
+                  }}
+                  placeholder="Gõ tên ngân hàng (VD: VCB, MoMo)..." 
+                  style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", boxSizing: "border-box", background: "#fff", cursor: "text" }} 
+                />
+                
+                {isDropdownOpen && (
+                  <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", marginTop: "4px", maxHeight: "250px", overflowY: "auto", zIndex: 10, boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}>
+                    {filteredBanks.length > 0 ? (
+                      filteredBanks.map(bank => (
+                        <div 
+                          key={bank.bin}
+                          onClick={() => {
+                            setNewBankBin(bank.bin);
+                            setSearchTerm(bank.name);
+                            setIsDropdownOpen(false);
+                          }}
+                          style={{ padding: "10px 12px", borderBottom: "1px solid #f1f5f9", cursor: "pointer", fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}
+                          onMouseOver={(e) => e.currentTarget.style.background = "#f8fafc"}
+                          onMouseOut={(e) => e.currentTarget.style.background = "transparent"}
+                        >
+                          <span style={{ color: "#64748b", fontSize: "11px", fontWeight: "bold", background: "#f1f5f9", padding: "2px 6px", borderRadius: "4px" }}>{bank.bin}</span>
+                          <span style={{ color: "#0f172a", fontWeight: "600" }}>{bank.name}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ padding: "12px", color: "#94a3b8", fontSize: "13px", textAlign: "center", fontStyle: "italic" }}>
+                        Không tìm thấy kết quả. Nhấn lưu để dùng mã tạm: "{searchTerm}"
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
+
               <div>
                 <label style={{ fontSize: "12px", color: "#64748b", fontWeight: "700", display: "block", marginBottom: "8px" }}>SỐ TÀI KHOẢN</label>
                 <input type="text" value={newBankAcc} onChange={e => setNewBankAcc(e.target.value)} placeholder="VD: 1048...99" style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", boxSizing: "border-box" }} />
@@ -226,7 +283,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         <div style={{ padding: "20px 24px", borderTop: "1px solid #e2e8f0", background: "#ffffff", display: "flex", justifyContent: "flex-end", gap: "12px" }}>
           <button onClick={() => setShowSettings(false)} style={{ padding: "12px 20px", borderRadius: "10px", border: "1px solid #cbd5e1", background: "#fff", color: "#475569", fontWeight: "700", cursor: "pointer" }}>HỦY</button>
-          <button onClick={saveSettings} disabled={loading} style={{ padding: "12px 24px", borderRadius: "10px", border: "none", background: "#2563eb", color: "#fff", fontWeight: "700", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
+          <button onClick={() => {
+            // Lấy trực tiếp searchTerm lưu làm bankBin nếu người dùng không chọn mà gõ tay
+            if (searchTerm && !ALL_BANKS.find(b => b.name === searchTerm)) {
+               setNewBankBin(searchTerm);
+            }
+            saveSettings();
+          }} disabled={loading} style={{ padding: "12px 24px", borderRadius: "10px", border: "none", background: "#2563eb", color: "#fff", fontWeight: "700", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
             {loading ? "ĐANG LƯU..." : "💾 LƯU CÀI ĐẶT"}
           </button>
         </div>
