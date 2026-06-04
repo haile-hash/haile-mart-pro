@@ -49,11 +49,19 @@ export const playSound = (type: 'success' | 'error') => {
 };
 
 export const getCustomerTier = (totalSpent: number, config: any) => {
-  if (totalSpent >= config.diamond) return { name: "Kim Cương", color: "#8b5cf6", discount: config.diamond_discount };
-  if (totalSpent >= config.gold) return { name: "Vàng", color: "#eab308", discount: config.gold_discount };
-  if (totalSpent >= config.silver) return { name: "Bạc", color: "#94a3b8", discount: config.silver_discount };
-  if (totalSpent >= config.bronze) return { name: "Đồng", color: "#d97706", discount: config.bronze_discount };
-  return { name: "Thành viên", color: "#64748b", discount: 0 };
+  if (totalSpent >= config.diamond) 
+    return { name: "Kim Cương", color: "#8b5cf6", bg: "#ede9fe", discount: config.diamond_discount };
+  
+  if (totalSpent >= config.gold) 
+    return { name: "Vàng", color: "#eab308", bg: "#fef9c3", discount: config.gold_discount };
+  
+  if (totalSpent >= config.silver) 
+    return { name: "Bạc", color: "#94a3b8", bg: "#f1f5f9", discount: config.silver_discount };
+  
+  if (totalSpent >= config.bronze) 
+    return { name: "Đồng", color: "#d97706", bg: "#ffedd5", discount: config.bronze_discount };
+  
+  return { name: "Thành viên", color: "#64748b", bg: "#f8fafc", discount: 0 };
 };
 
 // --- HÀM TÍNH TOÁN GIÁ TIỀN ÁP DỤNG % GIỜ VÀNG LINH HOẠT ---
