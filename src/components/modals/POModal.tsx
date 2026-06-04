@@ -51,16 +51,16 @@ export const POModal = ({
     <div className="custom-modal-overlay no-print" style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.75)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 99999 }}>
       <div className="custom-modal-box" style={{ background: "#fff", width: "1100px", maxWidth: "95vw", height: "85vh", borderRadius: "16px", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)" }}>
         
-        {/* HEADER */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 24px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", flex: "0 0 auto" }}>
+        {/* HEADER TĨNH */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 24px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", flexShrink: 0 }}>
           <h2 style={{ margin: 0, fontSize: "20px", color: "#0f172a", display: "flex", alignItems: "center", gap: "10px" }}>
             📦 <span>QUẢN LÝ PHIẾU NHẬP (PO)</span>
           </h2>
           <button onClick={() => setShowPOModal(false)} style={{ background: "none", border: "none", fontSize: "28px", cursor: "pointer", color: "#64748b", lineHeight: 1 }}>&times;</button>
         </div>
 
-        {/* TABS */}
-        <div style={{ display: "flex", gap: "10px", padding: "12px 24px", borderBottom: "1px solid #e2e8f0", background: "#ffffff", flex: "0 0 auto" }}>
+        {/* TABS TĨNH */}
+        <div style={{ display: "flex", gap: "10px", padding: "12px 24px", borderBottom: "1px solid #e2e8f0", background: "#ffffff", flexShrink: 0 }}>
           <button onClick={() => setPoTab("NEW")} style={{ padding: "10px 20px", fontWeight: "bold", border: "none", borderRadius: "8px", cursor: "pointer", background: poTab === "NEW" ? "#3b82f6" : "#f1f5f9", color: poTab === "NEW" ? "white" : "#64748b", transition: "0.2s" }}>
             + TẠO PO MỚI (CHỜ NHẬN)
           </button>
@@ -69,15 +69,15 @@ export const POModal = ({
           </button>
         </div>
 
-        {/* BODY */}
-        <div style={{ display: "grid", gridTemplateColumns: "3.5fr 6.5fr", gap: "20px", background: "#f1f5f9", padding: "20px", flex: "1 1 auto", minHeight: 0 }}>
+        {/* BODY (SỬA LỖI OVERFLOW Ở ĐÂY) */}
+        <div style={{ display: "grid", gridTemplateColumns: "3.5fr 6.5fr", gap: "20px", background: "#f1f5f9", padding: "20px", flex: 1, minHeight: 0 }}>
           
           {/* ==================== TAB 1: TẠO PO MỚI ==================== */}
           {poTab === "NEW" && (
             <>
               {/* CỘT TRÁI: NHẬP LIỆU */}
-              <div style={{ background: "#fff", padding: "20px", borderRadius: "12px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", gap: "20px", overflowY: "auto", height: "100%" }}>
-                <div style={{ flex: "0 0 auto" }}>
+              <div style={{ background: "#fff", padding: "20px", borderRadius: "12px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", gap: "20px", overflowY: "auto", minHeight: 0 }}>
+                <div style={{ flexShrink: 0 }}>
                   <h3 style={{ margin: "0 0 10px 0", fontSize: "14px", color: "#475569", textTransform: "uppercase" }}>1. Chọn Nhà Cung Cấp</h3>
                   <select value={selectedSupplierId || ""} onChange={(e) => setSelectedSupplierId(e.target.value)} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", fontSize: "14px", fontWeight: "bold", color: "#1e293b", background: "#f8fafc" }}>
                     <option value="">-- Click để chọn NCC --</option>
@@ -87,7 +87,7 @@ export const POModal = ({
                   </select>
                 </div>
 
-                <div style={{ flex: "0 0 auto" }}>
+                <div style={{ flexShrink: 0 }}>
                   <h3 style={{ margin: "0 0 10px 0", fontSize: "14px", color: "#475569", textTransform: "uppercase" }}>2. Tìm Sản Phẩm</h3>
                   <input type="text" placeholder="Nhập tên hoặc mã SP..." value={poSearch || ""} onChange={(e) => setPoSearch(e.target.value)} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", boxSizing: "border-box" }} />
                   <div style={{ maxHeight: "250px", overflowY: "auto", background: "#fff", border: (poSearch || "").trim() ? "1px solid #e2e8f0" : "none", borderRadius: "8px", marginTop: "8px", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" }}>
@@ -115,18 +115,22 @@ export const POModal = ({
                   </div>
                 </div>
 
-                <div style={{ flex: "1 1 auto", display: "flex", flexDirection: "column" }}>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                   <label style={{ fontSize: "14px", color: "#475569", fontWeight: "bold", display: "block", marginBottom: "8px" }}>Ghi chú (Tùy chọn):</label>
                   <textarea placeholder="Ghi chú phiếu nhập..." value={poNote || ""} onChange={(e) => setPoNote(e.target.value)} style={{ width: "100%", flex: 1, padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", resize: "none", boxSizing: "border-box" }} />
                 </div>
               </div>
 
-              {/* CỘT PHẢI: BẢNG SẢN PHẨM */}
-              <div style={{ background: "#fff", padding: "0", borderRadius: "12px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
-                <h3 style={{ margin: 0, padding: "16px 20px", fontSize: "15px", color: "#0f172a", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", flex: "0 0 auto" }}>Danh sách Sản Phẩm Sẽ Đặt</h3>
+              {/* CỘT PHẢI: BẢNG SẢN PHẨM VÀ TỔNG KẾT */}
+              <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
                 
-                {/* ĐÂY LÀ CHỖ ĐÃ ĐƯỢC FIX LẠI CSS ĐỂ KHÔNG BỊ XẸP */}
-                <div style={{ flex: "1 1 auto", overflowY: "auto", minHeight: "150px" }}>
+                {/* Tiêu đề bảng */}
+                <h3 style={{ margin: 0, padding: "16px 20px", fontSize: "15px", color: "#0f172a", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", flexShrink: 0 }}>
+                  Danh sách Sản Phẩm Sẽ Đặt
+                </h3>
+                
+                {/* Khu vực Bảng (CÓ THANH CUỘN ĐỘC LẬP) */}
+                <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
                     <thead style={{ position: "sticky", top: 0, background: "#f1f5f9", zIndex: 1 }}>
                       <tr style={{ color: "#475569", textAlign: "left" }}>
@@ -161,7 +165,8 @@ export const POModal = ({
                   </table>
                 </div>
 
-                <div style={{ flex: "0 0 auto", background: "#f8fafc", padding: "20px", borderTop: "1px solid #e2e8f0" }}>
+                {/* Khu vực Tổng kết & Nút bấm (GHIM CỨNG DƯỚI ĐÁY) */}
+                <div style={{ flexShrink: 0, background: "#f8fafc", padding: "20px", borderTop: "1px solid #e2e8f0" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
                     <span style={{ fontSize: "14px", color: "#64748b", fontWeight: "bold" }}>Tổng giá trị đơn hàng:</span>
                     <b style={{ fontSize: "24px", color: "#0f172a" }}>{(poItems || []).reduce((sum, item) => sum + (item?.qty || 0) * (item?.importPrice || 0), 0).toLocaleString()}đ</b>
