@@ -523,11 +523,58 @@ export default function App() {
     if (fileNameStr.endsWith('.xlsx') || fileNameStr.endsWith('.xls')) { if (!(window as any).XLSX) { toast.loading("Excel Library loading..."); if (e?.target) e.target.value = ''; return; } const reader = new FileReader(); reader.onload = (event) => { try { const data = new Uint8Array(event.target?.result as ArrayBuffer); const workbook = (window as any).XLSX.read(data, { type: 'array' }); const firstSheet = workbook.Sheets[workbook.SheetNames[0]]; const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false }); processData(jsonData); } catch (error) { toast.error("Lỗi đọc file Excel."); } }; reader.readAsArrayBuffer(file); } else { const reader = new FileReader(); reader.onload = (event) => { const text = event.target?.result as string; const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''))); processData(lines); }; reader.readAsText(file); } if (e?.target) e.target.value = ''; 
   };
 
-  const handleImportInventoryCSV = (e: any) => {
+ const handleImportInventoryCSV = (e: any) => {
     const file = e?.target?.files?.[0] || e; if (!file || !file.name) { if (e?.target) e.target.value = ''; return; }
-    const processData = (lines: any[]) => { let updatedStock = { ...actualStockInput }; let count = 0; for (let i = 1; i < lines.length; i++) { const cols = lines[i]; if (!cols || !Array.isArray(cols) || cols.join('').trim() === '') continue; const pCode = String(cols[0] || "").trim(); const actualVal = parseInt(String(cols[3] || "0").replace(/[,.]/g, '')); if (!isNaN(actualVal) && pCode) { const matchedProd = products.find(p => p.product_code === pCode); if (matchedProd && matchedProd.stock !== actualVal) { updatedStock[matchedProd.id] = actualVal; count++; } } } setActualStockInput(updatedStock); toast.success(`Đã nạp số liệu thực tế!`); logAudit("KIỂM KHO BẰNG EXCEL", `Nạp ${count} mã`); };
+    const processData = (lines: any[]) => { 
+      let updatedStock = { ...actualStockInput }; 
+      let count = 0; 
+      for (let i = 1; i < lines.length; i++) { 
+        const cols = lines[i]; 
+        if (!cols || !Array.isArray(cols) || cols.join('').trim() === '') continue; 
+        
+        const pCode = String(cols[0] || "").trim(); 
+        
+        // FIX: Đọc Tồn kho hiện tại ở cột F (Index là 5)
+        const actualValStr = String(cols[5] || "0").replace(/[,.]/g, '');
+        const actualVal = parseInt(actualValStr); 
+        
+        if (!isNaN(actualVal) && pCode) { 
+          const matchedProd = products.find(p => p.product_code === pCode); 
+          if (matchedProd && matchedProd.stock !== actualVal) { 
+            updatedStock[matchedProd.id] = actualVal; 
+            count++; 
+          } 
+        } 
+      } 
+      setActualStockInput(updatedStock); 
+      toast.success(`Đã nạp số liệu thực tế!`); 
+      logAudit("KIỂM KHO BẰNG EXCEL", `Nạp ${count} mã`); 
+    };
+    
     const fileNameStr = file.name.toLowerCase();
-    if (fileNameStr.endsWith('.xlsx') || fileNameStr.endsWith('.xls')) { if (!(window as any).XLSX) { toast.loading("Loading..."); if (e?.target) e.target.value = ''; return; } const reader = new FileReader(); reader.onload = (event) => { try { const data = new Uint8Array(event.target?.result as ArrayBuffer); const workbook = (window as any).XLSX.read(data, { type: 'array' }); const firstSheet = workbook.Sheets[workbook.SheetNames[0]]; const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false }); processData(jsonData); } catch(err) {} }; reader.readAsArrayBuffer(file); } else { const reader = new FileReader(); reader.onload = (event) => { const text = event.target?.result as string; const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''))); processData(lines); }; reader.readAsText(file); } if (e?.target) e.target.value = '';
+    if (fileNameStr.endsWith('.xlsx') || fileNameStr.endsWith('.xls')) { 
+      if (!(window as any).XLSX) { toast.loading("Loading..."); if (e?.target) e.target.value = ''; return; } 
+      const reader = new FileReader(); 
+      reader.onload = (event) => { 
+        try { 
+          const data = new Uint8Array(event.target?.result as ArrayBuffer); 
+          const workbook = (window as any).XLSX.read(data, { type: 'array' }); 
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]]; 
+          const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false }); 
+          processData(jsonData); 
+        } catch(err) { toast.error("Lỗi đọc file Excel"); } 
+      }; 
+      reader.readAsArrayBuffer(file); 
+    } else { 
+      const reader = new FileReader(); 
+      reader.onload = (event) => { 
+        const text = event.target?.result as string; 
+        const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''))); 
+        processData(lines); 
+      }; 
+      reader.readAsText(file); 
+    } 
+    if (e?.target) e.target.value = '';
   };
   
   const exportInventoryCSV = () => {
