@@ -7,7 +7,6 @@ export const Header = (props: any) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   
-  // NHẬN GLOBAL STATE TỪ APP.TSX TRUYỀN XUỐNG
   const ui = props.ui;
 
   useEffect(() => {
@@ -29,60 +28,32 @@ export const Header = (props: any) => {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "20px" }} className="no-print">
       <style>{`
-        .premium-banner { 
-          background: linear-gradient(135deg, #DA251D 0%, #A61611 100%); 
-          box-shadow: 0 10px 20px -5px rgba(218, 37, 29, 0.4); 
-          transition: all 0.3s ease; 
-        }
+        .premium-banner { background: linear-gradient(135deg, #DA251D 0%, #A61611 100%); box-shadow: 0 10px 20px -5px rgba(218, 37, 29, 0.4); transition: all 0.3s ease; }
         .premium-banner:hover { transform: translateY(-2px); box-shadow: 0 12px 25px -4px rgba(218, 37, 29, 0.5); }
         .modern-stat-card { background: ${ui.darkMode ? 'rgba(255, 255, 255, 0.05)' : '#ffffff'}; border: 1px solid ${ui.darkMode ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0'}; border-radius: 12px; padding: 8px 16px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; min-width: 120px; box-shadow: 0 2px 6px rgba(0,0,0,0.02); }
         .main-menu-btn { background: ${ui.darkMode ? '#334155' : '#1e293b'}; color: white; padding: 8px 20px; border-radius: 10px; display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; border: none; cursor: pointer; transition: 0.2s; }
         .main-menu-btn:hover { background: #0f172a; }
         .dropdown-menu-saas button { width: 100%; text-align: left; padding: 10px 14px; background: none; border: none; color: ${ui.darkMode ? '#cbd5e1' : '#334155'}; font-size: 13px; font-weight: 600; cursor: pointer; display: block; border-bottom: 1px solid ${ui.darkMode ? 'rgba(255,255,255,0.05)' : '#f1f5f9'}; }
         .dropdown-menu-saas button:hover { background: ${ui.darkMode ? '#334155' : '#f1f5f9'}; color: ${ui.darkMode ? '#ffffff' : '#da251d'}; padding-left: 18px; transition: 0.2s; }
-        
-        /* Hiệu ứng xoay tròn đĩa CD */
         @keyframes spinSlow { 100% { transform: rotate(360deg); } }
-        
-        /* Hiệu ứng cuộn sóng vô tận */
-        @keyframes wave-slide {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
+        @keyframes wave-slide { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
       `}</style>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-        
-        {/* LOGO GIAO DIỆN CỜ ĐỎ SAO VÀNG VÀ SÓNG ERP */}
         <div className="premium-banner" onClick={toggleWindyMusic} style={{ display: 'flex', alignItems: 'center', padding: '10px 24px', borderRadius: '16px', cursor: 'pointer', minWidth: '320px', position: 'relative', overflow: 'hidden' }} title="Bật/Tắt nhạc">
-          
-          {/* Lớp Sóng 1 (Vàng nhạt - Cuộn liên tục sang trái) */}
           <div style={{ position: 'absolute', bottom: 0, left: 0, width: '200%', height: '55%', animation: 'wave-slide 4s linear infinite', pointerEvents: 'none' }}>
             <svg viewBox="0 0 800 100" preserveAspectRatio="none" style={{ width: '100%', height: '100%' }}>
               <path d="M0,50 Q100,0 200,50 T400,50 T600,50 T800,50 L800,120 L0,120 Z" fill="rgba(255, 206, 0, 0.15)" />
             </svg>
           </div>
-
-          {/* Lớp Sóng 2 (Trắng mờ - Cuộn liên tục ngược lại) */}
           <div style={{ position: 'absolute', bottom: 0, left: 0, width: '200%', height: '70%', animation: 'wave-slide 6s linear infinite reverse', pointerEvents: 'none' }}>
             <svg viewBox="0 0 800 100" preserveAspectRatio="none" style={{ width: '100%', height: '100%' }}>
               <path d="M0,50 Q100,100 200,50 T400,50 T600,50 T800,50 L800,120 L0,120 Z" fill="rgba(255, 255, 255, 0.08)" />
             </svg>
           </div>
-
-          {/* Icon Hiển thị (Logo tùy chỉnh / CD Nhạc / Ngôi sao vàng mặc định) */}
           <div style={{ position: 'relative', zIndex: 1, marginRight: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: storeInfo.logo ? '8px' : '0', overflow: 'hidden', transform: isPlaying ? 'scale(1.1)' : 'none', transition: 'all 0.3s ease' }}>
-            {storeInfo.logo ? (
-               <img src={storeInfo.logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : isPlaying ? (
-               <span style={{ animation: 'spinSlow 3s linear infinite', fontSize: '26px' }}>📀</span>
-            ) : (
-               <svg width="34" height="34" viewBox="0 0 50 50" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.25))' }}>
-                 <polygon points="25,2 32.35,17.15 48.77,19.54 36.88,31.13 39.69,47.5 25,39.77 10.31,47.5 13.12,31.13 1.23,19.54 17.65,17.15" fill="#FFCE00" />
-               </svg>
-            )}
+            {storeInfo.logo ? ( <img src={storeInfo.logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> ) : isPlaying ? ( <span style={{ animation: 'spinSlow 3s linear infinite', fontSize: '26px' }}>📀</span> ) : ( <svg width="34" height="34" viewBox="0 0 50 50" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.25))' }}><polygon points="25,2 32.35,17.15 48.77,19.54 36.88,31.13 39.69,47.5 25,39.77 10.31,47.5 13.12,31.13 1.23,19.54 17.65,17.15" fill="#FFCE00" /></svg> )}
           </div>
-
           <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column' }}>
             <span style={{ fontSize: '18px', fontWeight: '900', color: '#ffffff', letterSpacing: '0.5px' }}>{storeInfo.name}</span>
             <span style={{ fontSize: '11px', fontWeight: '800', color: '#FFCE00', letterSpacing: '0.5px' }}>CLOUD ENTERPRISE ERP</span>
@@ -107,22 +78,10 @@ export const Header = (props: any) => {
       </div>
 
       <div style={{ display: "flex", justifyContent: "flex-start", width: "100%", position: "relative" }}>
-        
-        {/* NÚT BẬT MENU */}
         <button className="main-menu-btn" onClick={(e) => { e.stopPropagation(); ui.setShowMainMenu?.(!ui.showMainMenu); }}>☰ MENU TÍNH NĂNG</button>
         
         {ui.showMainMenu && (
-          <div className="dropdown-menu-saas" style={{ 
-            position: "absolute", left: 0, top: "100%", marginTop: "8px", 
-            width: "480px", 
-            zIndex: 99999, padding: "12px", borderRadius: "16px", 
-            background: ui.darkMode ? '#1e293b' : '#ffffff', 
-            border: `1px solid ${ui.darkMode ? '#334155' : '#e2e8f0'}`, 
-            boxShadow: "0 20px 25px -5px rgba(0,0,0,0.15)",
-            display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" 
-          }} onClick={e => e.stopPropagation()}>
-            
-            {/* Cột 1 */}
+          <div className="dropdown-menu-saas" style={{ position: "absolute", left: 0, top: "100%", marginTop: "8px", width: "480px", zIndex: 99999, padding: "12px", borderRadius: "16px", background: ui.darkMode ? '#1e293b' : '#ffffff', border: `1px solid ${ui.darkMode ? '#334155' : '#e2e8f0'}`, boxShadow: "0 20px 25px -5px rgba(0,0,0,0.15)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
               <div style={{ padding: "4px 12px", fontSize: "11px", fontWeight: "800", color: "#94a3b8", textTransform: "uppercase" }}>NGHIỆP VỤ</div>
               <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowStatsModal?.(true); }}>📊 Báo cáo doanh thu</button>
@@ -131,18 +90,16 @@ export const Header = (props: any) => {
               <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowDebtModal?.(true); }}>💸 Sổ nợ Khách</button>
               <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowExpenseModal?.(true); }}>📉 Lập Phiếu Chi</button>
             </div>
-
-            {/* Cột 2 */}
             <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
               <div style={{ padding: "4px 12px", fontSize: "11px", fontWeight: "800", color: "#94a3b8", textTransform: "uppercase" }}>ĐỐI TÁC & HỆ THỐNG</div>
               <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowCustomerModal?.(true); }}>💳 Danh sách VIP</button>
               <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowSupplierModal?.(true); }}>🏭 Nhà Cung Cấp</button>
               <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowMarketingModal?.(true); }}>💌 Chiến dịch Marketing</button>
               <div style={{ margin: "4px 0", borderBottom: `1px solid ${ui.darkMode ? 'rgba(255,255,255,0.05)' : '#f1f5f9'}` }}></div>
+              <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowAuditModal?.(true); }}>📝 Nhật ký hệ thống</button>
               <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowSettings?.(true); }}>⚙️ Cài đặt & Giờ vàng</button>
               <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowStoreSettings?.(true); }}>🏪 Thiết lập Logo</button>
             </div>
-
           </div>
         )}
       </div>
