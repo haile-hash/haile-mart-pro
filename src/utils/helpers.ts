@@ -50,21 +50,20 @@ export const playSound = (type: 'success' | 'error') => {
 
 export const getCustomerTier = (totalSpent: number, config: any) => {
   if (totalSpent >= config.diamond) 
-    return { name: "Kim Cương", color: "#8b5cf6", bg: "#ede9fe", discount: config.diamond_discount };
+    return { name: "Kim Cương", color: "#8b5cf6", bg: "#ede9fe", border: "#c4b5fd", discount: config.diamond_discount };
   
   if (totalSpent >= config.gold) 
-    return { name: "Vàng", color: "#eab308", bg: "#fef9c3", discount: config.gold_discount };
+    return { name: "Vàng", color: "#eab308", bg: "#fef9c3", border: "#fde047", discount: config.gold_discount };
   
   if (totalSpent >= config.silver) 
-    return { name: "Bạc", color: "#94a3b8", bg: "#f1f5f9", discount: config.silver_discount };
+    return { name: "Bạc", color: "#94a3b8", bg: "#f1f5f9", border: "#cbd5e1", discount: config.silver_discount };
   
   if (totalSpent >= config.bronze) 
-    return { name: "Đồng", color: "#d97706", bg: "#ffedd5", discount: config.bronze_discount };
+    return { name: "Đồng", color: "#d97706", bg: "#ffedd5", border: "#fed7aa", discount: config.bronze_discount };
   
-  return { name: "Thành viên", color: "#64748b", bg: "#f8fafc", discount: 0 };
+  return { name: "Thành viên", color: "#64748b", bg: "#f8fafc", border: "#e2e8f0", discount: 0 };
 };
 
-// --- HÀM TÍNH TOÁN GIÁ TIỀN ÁP DỤNG % GIỜ VÀNG LINH HOẠT ---
 export const getActualPrice = (product: any) => {
   let price = product.sale_price || 0;
   
@@ -80,7 +79,6 @@ export const getActualPrice = (product: any) => {
 
     const happyStartStr = window.localStorage.getItem('mart_happy_start') || "11:00";
     const happyEndStr = window.localStorage.getItem('mart_happy_end') || "13:00";
-    // Đọc % giảm đã cài đặt, mặc định là 20%
     const happyDiscount = Number(window.localStorage.getItem('mart_happy_discount') || 20); 
 
     const [startH, startM] = happyStartStr.split(':').map(Number);
@@ -89,7 +87,6 @@ export const getActualPrice = (product: any) => {
     const endTime = endH * 60 + endM;
 
     if (currentTime >= startTime && currentTime <= endTime) {
-      // Giảm theo % linh hoạt
       price = price * (1 - (happyDiscount / 100));
       product.isHappyHour = true; 
     } else {
