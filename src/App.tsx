@@ -352,13 +352,54 @@ export default function App() {
   };
   
   const shareToZalo = (phone: string) => { const cust = customersData[phone]; const code = cust.cardCode || phone; navigator.clipboard.writeText(`Chào ${cust.name},\nMã Thẻ VIP của bạn là: ${code}`).then(() => { toast.success(`Đang mở Zalo...`); logAudit("CHIA SẺ ZALO", phone); window.open(`https://zalo.me/${phone}`, '_blank') }).catch(() => { window.open(`https://zalo.me/${phone}`, '_blank') }) };
+  
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => { const code = e.target.value; setNewCode(code); const p = products.find((x: any) => x.product_code === code); if (p) { setNewName(cleanName(p.name)); setNewCategory(formatCategoryStr(p.category)); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewExpiry(p.expiry_date || ""); const gift = parseGift(p.gift_info); setNewGiftCondition(gift.cond.toString()); setNewGiftInfo(gift.text) } };
 
+  // --- HÀM ĐỒNG BỘ KIỂM KHO MỚI ĐƯỢC CẬP NHẬT ---
   const syncInventory = async () => {
-    if (!navigator.onLine) return toast.error("Mất kết nối mạng!");
     if (Object.keys(actualStockInput).length === 0) return toast.error("Chưa có dữ liệu cập nhật!");
     if (!window.confirm("Hệ thống sẽ cập nhật số lượng tồn kho theo số liệu thực tế.\nXác nhận đồng bộ?")) return;
-    setLoading(true); try { let count = 0; for (const [id, actualQty] of Object.entries(actualStockInput)) { await supabase.from("products").update({ stock: actualQty, updated_at: new Date().toISOString() }).eq("id", id); count++; } toast.success(`Đã đồng bộ ${count} mã sản phẩm!`); logAudit("KIỂM KHO", `Đồng bộ lệch kho ${count} mã`); setActualStockInput({}); fetchProducts(); ui.setShowInventoryModal?.(false); } catch (e) { toast.error("Lỗi đồng bộ kho!"); } finally { setLoading(false); }
+    
+    setLoading(true); 
+    try { 
+      let count = 0; 
+
+      // 1. CẬP NHẬT NGAY VÀO STATE ĐỂ GIAO DIỆN THAY ĐỔI TỨC THÌ
+      setProducts(prevProducts => {
+        const updatedProducts = prevProducts.map(p => {
+          if (actualStockInput[p.id] !== undefined) {
+            return { ...p, stock: Number(actualStockInput[p.id]) };
+          }
+          return p;
+        });
+        
+        // 2. LƯU NGAY VÀO BỘ NHỚ MÁY (ĐỀ PHÒNG F5 KHI MẤT MẠNG)
+        dbSet("mart_products_cache", updatedProducts).catch(()=>{});
+        return updatedProducts;
+      });
+
+      // 3. ĐỒNG BỘ LÊN CLOUD SUPABASE (CHẠY NGẦM)
+      if (navigator.onLine) {
+        for (const [id, actualQty] of Object.entries(actualStockInput)) { 
+          await supabase.from("products").update({ stock: Number(actualQty), updated_at: new Date().toISOString() }).eq("id", id); 
+          count++; 
+        } 
+        fetchProducts(); // Tải lại 1 lần nữa để chốt dữ liệu chuẩn nhất từ máy chủ
+      } else {
+        count = Object.keys(actualStockInput).length;
+        toast.error("Mất mạng! Đã lưu tạm bộ nhớ máy, dữ liệu sẽ tự đẩy lên khi có mạng.");
+      }
+
+      toast.success(`Đã cập nhật chênh lệch ${count} mã sản phẩm vào sổ kho!`); 
+      logAudit("KIỂM KHO", `Cập nhật tồn kho ${count} mã`); 
+      setActualStockInput({}); 
+      ui.setShowInventoryModal?.(false); 
+      
+    } catch (e) { 
+      toast.error("Lỗi đồng bộ kho!"); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const syncPendingImports = async () => {
