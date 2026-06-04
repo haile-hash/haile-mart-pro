@@ -14,7 +14,6 @@ export const ProductTable: React.FC<ProductTableProps> = ({
   products, handleSelectSuggest, handleEdit, handleDelete, setPrintBarcodeProduct
 }) => {
 
-  // Thuật toán tính số ngày tồn kho & định dạng màu sắc
   const getInventoryAge = (dateStr?: string) => {
     if (!dateStr) return { text: "---", color: "#64748b", bg: "#f1f5f9" };
     try {
@@ -30,18 +29,17 @@ export const ProductTable: React.FC<ProductTableProps> = ({
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
       if (diffDays <= 0) {
-        return { text: "Mới nhập hôm nay", color: "#059669", bg: "#dcfce7" }; // Xanh lá cho hàng mới
+        return { text: "Mới nhập hôm nay", color: "#059669", bg: "#dcfce7" }; 
       } else if (diffDays <= 30) {
-        return { text: `Tồn ${diffDays} ngày`, color: "#475569", bg: "#f8fafc" }; // Xám/Đen cho hàng thường
+        return { text: `Tồn ${diffDays} ngày`, color: "#475569", bg: "#f8fafc" }; 
       } else {
-        return { text: `Tồn ${diffDays} ngày`, color: "#ef4444", bg: "#fef2f2" }; // Đỏ cảnh báo tồn lâu
+        return { text: `Tồn ${diffDays} ngày`, color: "#ef4444", bg: "#fef2f2" }; 
       }
     } catch {
       return { text: dateStr, color: "#64748b", bg: "#f1f5f9" };
     }
   };
 
-  // Hàm lấy ngày giờ chính xác để hiển thị khi rê chuột vào (Tooltip)
   const getExactDateStr = (dateStr?: string) => {
     if (!dateStr) return "Không có thông tin ngày nhập";
     try {
@@ -59,11 +57,31 @@ export const ProductTable: React.FC<ProductTableProps> = ({
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
             <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569', textAlign: 'left' }}>
-              <th style={{ padding: '14px 16px', fontWeight: 'bold' }}>Mã & Tên SP</th>
-              <th style={{ padding: '14px 16px', fontWeight: 'bold', textAlign: 'center' }}>Tồn kho</th>
-              <th style={{ padding: '14px 16px', fontWeight: 'bold', textAlign: 'right' }}>Giá vốn</th>
-              <th style={{ padding: '14px 16px', fontWeight: 'bold', textAlign: 'right' }}>Giá Bán & Khuyến Mãi</th>
-              <th style={{ padding: '14px 16px', fontWeight: 'bold' }}>Lịch sử & HSD</th>
+              <th style={{ padding: '14px 16px', fontWeight: 'bold', cursor: 'pointer' }} title="Lọc dữ liệu">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  Mã & Tên SP <span style={{ fontSize: '10px', color: '#94a3b8' }}>▼</span>
+                </div>
+              </th>
+              <th style={{ padding: '14px 16px', fontWeight: 'bold', textAlign: 'center', cursor: 'pointer' }} title="Lọc dữ liệu">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                  Tồn kho <span style={{ fontSize: '10px', color: '#94a3b8' }}>▼</span>
+                </div>
+              </th>
+              <th style={{ padding: '14px 16px', fontWeight: 'bold', textAlign: 'right', cursor: 'pointer' }} title="Lọc dữ liệu">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                  Giá vốn <span style={{ fontSize: '10px', color: '#94a3b8' }}>▼</span>
+                </div>
+              </th>
+              <th style={{ padding: '14px 16px', fontWeight: 'bold', textAlign: 'right', cursor: 'pointer' }} title="Lọc dữ liệu">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                  Giá Bán & Khuyến Mãi <span style={{ fontSize: '10px', color: '#94a3b8' }}>▼</span>
+                </div>
+              </th>
+              <th style={{ padding: '14px 16px', fontWeight: 'bold', cursor: 'pointer' }} title="Lọc dữ liệu">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  Lịch sử & HSD <span style={{ fontSize: '10px', color: '#94a3b8' }}>▼</span>
+                </div>
+              </th>
               <th style={{ padding: '14px 16px', fontWeight: 'bold', textAlign: 'center' }}>Thao tác</th>
             </tr>
           </thead>
