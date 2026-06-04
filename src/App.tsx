@@ -57,6 +57,7 @@ export default function App() {
   if (typeof window !== "undefined" && window.location.search.includes("scanner=true")) return <MobileScanner />;
   const VAT_RATE = 0.1; const IDLE_TIMEOUT = 5 * 60 * 1000; const todayStrStr = new Date().toLocaleDateString('vi-VN');
 
+  // --- KÍCH HOẠT API KEY EMAILJS CHÍNH XÁC ---
   useEffect(() => { emailjs.init("5ric0kxuwNPlUleAv"); }, []);
   useEffect(() => { if (typeof window !== 'undefined' && !(window as any).XLSX) { const script = document.createElement('script'); script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; script.async = true; document.head.appendChild(script); } }, []);
 
@@ -76,6 +77,12 @@ export default function App() {
   const [newTierConfig, setNewTierConfig] = useState({ bronze: 1000000, bronze_discount: 0, silver: 5000000, silver_discount: 1, gold: 10000000, gold_discount: 3, diamond: 20000000, diamond_discount: 5 });
 
   const ui = useUIState();
+
+  // --- CẤU HÌNH ID DỊCH VỤ VÀ MẪU EMAIL CHÍNH XÁC ---
+  const EMAILJS_SERVICE_ID = "service_7ie990l";
+  const EMAILJS_TEMPLATE_ID = "template_m1j9i7k";     
+  const EMAILJS_TEMPLATE_VIP_ID = "template_t91erhg"; 
+  const EMAILJS_TEMPLATE_PO_ID = "template_m1j9i7k";  
 
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState(""); const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(""); const [selectedCategory, setSelectedCategory] = useState("Tất cả"); const [loading, setLoading] = useState(false); const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null); const [filters, setFilters] = useState<Record<string, any[]>>({}); const [showSuggestions, setShowSuggestions] = useState(false);
@@ -99,7 +106,6 @@ export default function App() {
 
   const findProductByCode = (code: string) => products.find(p => p.product_code === code);
   
-  // TÍNH TOÁN GIỎ HÀNG VÀ ÁP DỤNG GIẢM GIÁ VIP TỰ ĐỘNG
   const cartTotalAmountDisplay = cart.reduce((sum, item) => sum + (item.total || 0), 0);
   
   const currentTier = (custPhone && customersData[custPhone]) 
@@ -152,7 +158,6 @@ export default function App() {
         const loggedIn = await dbGet("mart_logged_in") === "true"; const savedShift = await dbGet("mart_shift") || "Ca Sáng"; const savedCash = Number(await dbGet("mart_starting_cash") || 5000000); 
         setIsLoggedIn(loggedIn); setShift(savedShift); setStartingCash(savedCash);
         setLocalPOs(await dbGet("mart_pos") || []); setCustomers(await dbGet("mart_customers") || {}); setHeldOrders(await dbGet("mart_held_orders") || []); setAuditLogs(await dbGet("mart_audit") || []); setExpenses(await dbGet("mart_expenses") || []); setSuppliers(await dbGet("mart_suppliers") || []); setHistory(await dbGet("mart_history") || []);
-        // Setup initial allPOs state with localPOs
         const storedPOs = await dbGet("mart_pos") || [];
         setAllPOs(storedPOs);
       } catch (err) {} finally { setIsStorageLoading(false); }
@@ -183,7 +188,7 @@ export default function App() {
     }
   }, [isLoggedIn]);
 
-  useEffect(() => { if (ui.scannerMode !== null && ui.scannerMode !== 'barcode') { let scanner: any; let lastScanTime = 0; const loadScanner = () => { if ((window as any).Html5QrcodeScanner) { scanner = new (window as any).Html5QrcodeScanner("qr-reader", { fps: 15, qrbox: { width: 250, height: 120 }, rememberLastUsedCamera: true }, false); scanner.render((text: string) => { const now = Date.now(); if (now - lastScanTime < 1500) return; lastScanTime = now; setScanQueue(prev => [...prev, text]); }, undefined) } }; if (!(window as any).Html5QrcodeScanner) { const script = document.createElement("script"); script.src = "https://unpkg.com/html5-qrcode"; script.onload = loadScanner; document.head.appendChild(script) } else { loadScanner(); } return () => { if (scanner) scanner.clear().catch(() => { }) } } }, [ui.scannerMode]);
+  useEffect(() => { if (ui.scannerMode !== null && ui.scannerMode !== 'barcode' && ui.scannerMode !== 'voucher' && ui.scannerMode !== 'customer') { let scanner: any; let lastScanTime = 0; const loadScanner = () => { if ((window as any).Html5QrcodeScanner) { scanner = new (window as any).Html5QrcodeScanner("qr-reader", { fps: 15, qrbox: { width: 250, height: 120 }, rememberLastUsedCamera: true }, false); scanner.render((text: string) => { const now = Date.now(); if (now - lastScanTime < 1500) return; lastScanTime = now; setScanQueue(prev => [...prev, text]); }, undefined) } }; if (!(window as any).Html5QrcodeScanner) { const script = document.createElement("script"); script.src = "https://unpkg.com/html5-qrcode"; script.onload = loadScanner; document.head.appendChild(script) } else { loadScanner(); } return () => { if (scanner) scanner.clear().catch(() => { }) } } }, [ui.scannerMode]);
 
   useEffect(() => {
     if (scanQueue.length > 0) {
@@ -352,10 +357,9 @@ export default function App() {
   };
   
   const shareToZalo = (phone: string) => { const cust = customersData[phone]; const code = cust.cardCode || phone; navigator.clipboard.writeText(`Chào ${cust.name},\nMã Thẻ VIP của bạn là: ${code}`).then(() => { toast.success(`Đang mở Zalo...`); logAudit("CHIA SẺ ZALO", phone); window.open(`https://zalo.me/${phone}`, '_blank') }).catch(() => { window.open(`https://zalo.me/${phone}`, '_blank') }) };
-  
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => { const code = e.target.value; setNewCode(code); const p = products.find((x: any) => x.product_code === code); if (p) { setNewName(cleanName(p.name)); setNewCategory(formatCategoryStr(p.category)); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewExpiry(p.expiry_date || ""); const gift = parseGift(p.gift_info); setNewGiftCondition(gift.cond.toString()); setNewGiftInfo(gift.text) } };
 
-  // --- HÀM ĐỒNG BỘ KIỂM KHO MỚI ĐƯỢC CẬP NHẬT ---
+  // --- HÀM KIỂM KHO ĐỒNG BỘ THẲNG GIAO DIỆN (OPTIMISTIC) ---
   const syncInventory = async () => {
     if (Object.keys(actualStockInput).length === 0) return toast.error("Chưa có dữ liệu cập nhật!");
     if (!window.confirm("Hệ thống sẽ cập nhật số lượng tồn kho theo số liệu thực tế.\nXác nhận đồng bộ?")) return;
@@ -363,8 +367,6 @@ export default function App() {
     setLoading(true); 
     try { 
       let count = 0; 
-
-      // 1. CẬP NHẬT NGAY VÀO STATE ĐỂ GIAO DIỆN THAY ĐỔI TỨC THÌ
       setProducts(prevProducts => {
         const updatedProducts = prevProducts.map(p => {
           if (actualStockInput[p.id] !== undefined) {
@@ -372,19 +374,16 @@ export default function App() {
           }
           return p;
         });
-        
-        // 2. LƯU NGAY VÀO BỘ NHỚ MÁY (ĐỀ PHÒNG F5 KHI MẤT MẠNG)
         dbSet("mart_products_cache", updatedProducts).catch(()=>{});
         return updatedProducts;
       });
 
-      // 3. ĐỒNG BỘ LÊN CLOUD SUPABASE (CHẠY NGẦM)
       if (navigator.onLine) {
         for (const [id, actualQty] of Object.entries(actualStockInput)) { 
           await supabase.from("products").update({ stock: Number(actualQty), updated_at: new Date().toISOString() }).eq("id", id); 
           count++; 
         } 
-        fetchProducts(); // Tải lại 1 lần nữa để chốt dữ liệu chuẩn nhất từ máy chủ
+        fetchProducts(); 
       } else {
         count = Object.keys(actualStockInput).length;
         toast.error("Mất mạng! Đã lưu tạm bộ nhớ máy, dữ liệu sẽ tự đẩy lên khi có mạng.");
@@ -581,7 +580,7 @@ export default function App() {
     }
   };
 
-  // HÀM XÁC NHẬN NHẬP KHO (CẬP NHẬT TRẠNG THÁI PO)
+  // --- HÀM XÁC NHẬN NHẬP KHO CHUẨN (ĐỔI TRẠNG THÁI & LƯU DB) ---
   const handleConfirmReceipt = async (updatedPO: any, finalReceiveItems: any) => {
     setLoading(true);
     try {
@@ -632,7 +631,7 @@ export default function App() {
         lowStockCount={lowStockCount} isOnline={isOnline} syncStatus={syncStatus} syncAllOfflineData={syncPendingImports} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr}
       />
 
-      {ui.scannerMode !== null && ui.scannerMode !== 'barcode' && (
+      {ui.scannerMode !== null && ui.scannerMode !== 'barcode' && ui.scannerMode !== 'voucher' && ui.scannerMode !== 'customer' && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', zIndex: 999999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
           <h2 style={{ color: 'white', marginBottom: '20px', fontSize: '24px' }}>📷 Đưa mã vạch vào khung hình</h2>
           <div id="qr-reader" style={{ width: '350px', background: 'white', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}></div>
@@ -654,7 +653,6 @@ export default function App() {
 
       {ui.showStoreSettings && <StoreSettingsModal role="admin" onClose={() => ui.setShowStoreSettings(false)} />}
       
-      {/* THÊM TIER CONFIG VÀO SETTINGS MODAL */}
       {ui.showSettings && <SettingsModal showSettings={ui.showSettings} setShowSettings={ui.setShowSettings} newBankBin={newBankBin} setNewBankBin={setNewBankBin} newBankAcc={newBankAcc} setNewBankAcc={setNewBankAcc} newBankNameStr={newBankNameStr} setNewBankNameStr={setNewBankNameStr} newZaloPayId={newZaloPayId} setNewZaloPayId={setNewZaloPayId} newHappyStart={newHappyStart} setNewHappyStart={setNewHappyStart} newHappyEnd={newHappyEnd} setNewHappyEnd={setNewHappyEnd} newAdminPinInput={newAdminPinInput} setNewAdminPinInput={setNewAdminPinInput} newTierConfig={newTierConfig} setNewTierConfig={setNewTierConfig} saveSettings={saveSettings} loading={loading} />}
       
       {ui.showPinModal && <PinModal showPinModal={ui.showPinModal} setShowPinModal={ui.setShowPinModal} correctPin={adminPin} onSuccess={() => { if(pendingAction) pendingAction(); setPendingAction(null); }} />}
@@ -669,19 +667,18 @@ export default function App() {
       {ui.showExpenseModal && <ExpenseModal showExpenseModal={ui.showExpenseModal} setShowExpenseModal={ui.setShowExpenseModal} expenses={expenses} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} addExpense={addExpense} deleteExpense={deleteExpense} />}
       {ui.showSupplierModal && <SupplierModal showSupplierModal={ui.showSupplierModal} setShowSupplierModal={ui.setShowSupplierModal} suppliers={suppliers} supName={supName} setSupName={setSupName} supPhone={supPhone} setSupPhone={setSupPhone} supAddress={supAddress} setSupAddress={setSupAddress} supItem={supItem} setSupItem={setSupItem} supTaxCode={supTaxCode} setSupTaxCode={setSupTaxCode} supBankAccount={supBankAccount} setSupBankAccount={setSupBankAccount} addSupplier={addSupplier} deleteSupplier={deleteSupplier} />}
       
-      {/* TRUYỀN HÀM handleSaveNewPO VÀ handleConfirmReceipt VÀO POModal */}
+      {/* TRUYỀN HÀM ONCONFIRMRECEIPT CHUẨN */}
       {ui.showPOModal && <POModal showPOModal={ui.showPOModal} setShowPOModal={ui.setShowPOModal} poTab={poTab} setPoTab={setPoTab} suppliers={suppliers} selectedSupplierId={selectedSupplierId} setSelectedSupplierId={setSelectedSupplierId} products={products} poSearch={poSearch} setPoSearch={setPoSearch} poItems={poItems} setPoItems={setPoItems} poNote={poNote} setPoNote={setPoNote} paidAmount={paidAmount} setPaidAmount={setPaidAmount} searchPoCode={searchPoCode} setSearchPoCode={setSearchPoCode} foundPO={foundPO} setFoundPO={setFoundPO} receiveItems={receiveItems} setReceiveItems={setReceiveItems} allPOs={allPOs} loading={loading} onSaveNewPO={handleSaveNewPO} onConfirmReceipt={handleConfirmReceipt} />}
       
       {ui.showStatsModal && <StatsModal reportStartDate={reportStartDate} setReportStartDate={setReportStartDate} reportEndDate={reportEndDate} setReportEndDate={setReportEndDate} history={history} onClose={() => ui.setShowStatsModal(false)} />}
       {ui.showInventoryModal && <InventoryModal showInventoryModal={ui.showInventoryModal} setShowInventoryModal={ui.setShowInventoryModal} products={products} inventorySearchTerm={inventorySearchTerm} setInventorySearchTerm={setInventorySearchTerm} invFilter={invFilter} setInvFilter={setInvFilter} actualStockInput={actualStockInput} setActualStockInput={setActualStockInput} syncInventoryCheck={syncInventory} handleImportInventoryCSV={handleImportInventoryCSV} loading={loading} handleInventorySearchEnter={() => {}} exportInventoryCSV={() => {}} />}
       {ui.showDebtModal && <DebtModal showDebtModal={ui.showDebtModal} setShowDebtModal={ui.setShowDebtModal} customers={customersData} handlePayDebt={handlePayDebt} />}
       
-      {/* THÊM TIER CONFIG VÀO CUSTOMER MODAL */}
       {ui.showCustomerModal && <CustomerModal showCustomerModal={ui.showCustomerModal} setShowCustomerModal={ui.setShowCustomerModal} customers={customersData} setCustomers={setCustomers} logAudit={logAudit} handleEditPhone={handleEditPhone} printCustomerCard={printCustomerCard} sendCardEmail={sendCardEmail} shareToZalo={shareToZalo} tierConfig={tierConfig} />}
-      
       {ui.showMarketingModal && <MarketingModal showMarketingModal={ui.showMarketingModal} setShowMarketingModal={ui.setShowMarketingModal} marketingTier={marketingTier} setMarketingTier={setMarketingTier} marketingMsg={marketingMsg} setMarketingMsg={setMarketingMsg} customersData={customersData} />}
 
-   <div className="print-only">
+      {/* --- FIX TRIỆT ĐỂ LỖI TRẮNG MÀN HÌNH IN BILL --- */}
+      <div className="print-only">
         <PrintManager 
           printMode={ui.printMode} 
           lastOrder={lastOrder} 
@@ -694,79 +691,6 @@ export default function App() {
           printBarcodeProduct={printBarcodeProduct} 
           barcodeCount={barcodeCount} 
         />
-      </div>
-
-      <div id="print-receipt-section" className="print-only" style={{ display: 'none' }}>
-        <style>{`
-          @media print { 
-            body * { visibility: hidden; } 
-            #print-receipt-section, #print-receipt-section * { visibility: visible; } 
-            #print-receipt-section { position: absolute; left: 0; top: 0; width: 100%; font-family: 'Courier New', Courier, monospace; color: #000; } 
-            .no-print { display: none !important; } 
-          }
-        `}</style>
-        
-        {lastOrder && (ui.printMode === 'receipt_thermal' || ui.printMode === 'receipt_a4') && (() => {
-          const storeInfo = JSON.parse(window.localStorage.getItem("mart_current_store") || "{}");
-          const change = (lastOrder.customerGiven || 0) - lastOrder.finalTotal;
-          return (
-            <div style={{ width: ui.printMode === 'receipt_thermal' ? "80mm" : "100%", padding: "10px", margin: "0 auto", fontSize: "14px", lineHeight: "1.4" }}>
-              <div style={{ textAlign: "center", borderBottom: "1px dashed #000", paddingBottom: "15px", marginBottom: "15px" }}>
-                <h2 style={{ margin: "0 0 5px 0", fontSize: "22px", textTransform: "uppercase", fontWeight: "900" }}>{storeInfo.store_name || "HỆ THỐNG POS PRO"}</h2>
-                <p style={{ margin: "2px 0", fontSize: "13px" }}>ĐC: {storeInfo.address || "Chưa cập nhật"}</p>
-                <p style={{ margin: "2px 0", fontSize: "13px" }}>SĐT: {storeInfo.phone || "..."}</p>
-                
-                <h3 style={{ margin: "15px 0 5px 0", fontSize: "18px", textTransform: "uppercase" }}>HÓA ĐƠN THANH TOÁN</h3>
-                <p style={{ margin: "2px 0", fontSize: "13px" }}>Số HĐ: {lastOrder.orderId}</p>
-                <p style={{ margin: "2px 0", fontSize: "13px" }}>Ngày: {lastOrder.time}</p>
-                <p style={{ margin: "2px 0", fontSize: "13px" }}>Khách hàng: {lastOrder.custName || 'Khách lẻ'}</p>
-              </div>
-              
-              <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "15px" }}>
-                <thead>
-                  <tr style={{ borderBottom: "1px solid #000", fontWeight: "bold" }}>
-                    <td style={{ padding: "8px 0", textAlign: "left", width: "50%" }}>Sản phẩm</td>
-                    <td style={{ padding: "8px 0", textAlign: "center", width: "15%" }}>SL</td>
-                    <td style={{ padding: "8px 0", textAlign: "right", width: "35%" }}>Thành tiền</td>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lastOrder.cart.map((item: any, idx: number) => (
-                    <tr key={idx} style={{ borderBottom: "1px dashed #ccc" }}>
-                      <td style={{ padding: "8px 0", textAlign: "left" }}>{cleanName(item.product.name)}</td>
-                      <td style={{ padding: "8px 0", textAlign: "center" }}>{item.qty}</td>
-                      <td style={{ padding: "8px 0", textAlign: "right" }}>{(item.total).toLocaleString()}đ</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              
-              <div style={{ borderTop: "1px solid #000", paddingTop: "15px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px" }}><span>Tổng tiền hàng:</span> <span>{lastOrder.subTotal.toLocaleString()}đ</span></div>
-                {lastOrder.discount > 0 && <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px" }}><span>Giảm giá/Voucher:</span> <span>-{lastOrder.discount.toLocaleString()}đ</span></div>}
-                <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "900", fontSize: "18px", margin: "10px 0" }}><span>TỔNG THANH TOÁN:</span> <span>{lastOrder.finalTotal.toLocaleString()}đ</span></div>
-              </div>
-
-              <div style={{ borderTop: "1px dashed #000", marginTop: "15px", paddingTop: "15px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px" }}><span>Hình thức TT:</span> <span>{lastOrder.paymentMethod}</span></div>
-                {(lastOrder.paymentMethod === 'TIỀN MẶT' || lastOrder.paymentMethod === 'KẾT HỢP') && (
-                  <>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px" }}><span>Tiền khách đưa:</span> <span>{(lastOrder.customerGiven || 0).toLocaleString()}đ</span></div>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px" }}><span>Tiền thừa trả khách:</span> <span>{change > 0 ? change.toLocaleString() : 0}đ</span></div>
-                  </>
-                )}
-                {lastOrder.debtAmount > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px", color: "red", fontWeight: "bold" }}><span>Ghi nợ:</span> <span>{lastOrder.debtAmount.toLocaleString()}đ</span></div>
-                )}
-              </div>
-
-              <div style={{ textAlign: "center", marginTop: "25px", fontStyle: "italic", fontSize: "12px" }}>
-                <p style={{ margin: "4px 0" }}>Cảm ơn Quý khách và hẹn gặp lại!</p>
-                <p style={{ margin: "4px 0" }}>Powered by POS PRO</p>
-              </div>
-            </div>
-          );
-        })()}
       </div>
 
     </div>
