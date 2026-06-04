@@ -10,7 +10,6 @@ export const POModal = ({
 }) => {
   if (!showPOModal) return null;
 
-  // Xóa filter tạm thời khi chuyển đổi PO
   useEffect(() => {
     if (poTab === "RECEIVE" && !foundPO && allPOs && allPOs.length > 0) {
       handleSelectPOToReceive(allPOs[0]);
@@ -19,7 +18,6 @@ export const POModal = ({
 
   const handleSelectPOToReceive = (po: any) => {
     setFoundPO(po);
-    // Tự động fill số lượng thực nhập = số lượng đặt ban đầu để nv đỡ phải gõ lại từ đầu
     setReceiveItems((po.items || []).map(i => ({ ...i, actualQty: i.qty })));
   };
 
@@ -44,16 +42,33 @@ export const POModal = ({
         .po-input:hover { border-color: #94a3b8; }
         .po-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); outline: none; }
         .po-input-with-icon { padding-left: 42px; }
-        .po-table-input { width: 100%; padding: 10px; border: 1px solid transparent; border-radius: 6px; font-size: 14px; font-weight: 700; color: #0f172a; background: #f1f5f9; transition: all 0.2s ease; box-sizing: border-box; text-align: center; }
-        .po-table-input:hover { background: #e2e8f0; border-color: #cbd5e1; }
-        .po-table-input:focus { background: #ffffff; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); outline: none; }
+        
+        /* Cập nhật CSS để các ô nhập nổi bật lên */
+        .po-table-input { 
+          width: 100%; 
+          padding: 8px 12px; 
+          border: 1px solid #cbd5e1; 
+          border-radius: 6px; 
+          font-size: 15px; 
+          font-weight: 700; 
+          color: #0f172a; 
+          background: #ffffff; 
+          transition: all 0.2s ease; 
+          box-sizing: border-box; 
+          text-align: center;
+          box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); 
+        }
+        .po-table-input:hover { border-color: #94a3b8; }
+        .po-table-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); outline: none; background: #fff; }
+        
         .po-list-item { padding: 16px; border-bottom: 1px solid #e2e8f0; cursor: pointer; transition: 0.2s; border-left: 4px solid transparent; }
         .po-list-item:hover { background: #f8fafc; }
         .po-list-item.active { background: #eff6ff; border-left-color: #3b82f6; }
       `}</style>
 
-      <div className="custom-modal-box" style={{ background: "#fff", width: "1250px", maxWidth: "95vw", height: "90vh", borderRadius: "20px", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.4)" }}>
+      <div className="custom-modal-box" style={{ background: "#fff", width: "1300px", maxWidth: "95vw", height: "90vh", borderRadius: "20px", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.4)" }}>
         
+        {/* HEADER */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid #e2e8f0", background: "#ffffff", flex: "none" }}>
           <h2 style={{ margin: 0, fontSize: "20px", color: "#0f172a", display: "flex", alignItems: "center", gap: "12px", fontWeight: "800" }}>
             <span style={{ padding: "8px", background: "#eff6ff", borderRadius: "10px", color: "#3b82f6", display: "flex" }}>📦</span> QUẢN LÝ PHIẾU NHẬP (PO)
@@ -61,23 +76,23 @@ export const POModal = ({
           <button onClick={() => setShowPOModal(false)} style={{ background: "#f1f5f9", border: "none", width: "36px", height: "36px", borderRadius: "50%", fontSize: "20px", cursor: "pointer", color: "#64748b", display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s" }} onMouseOver={e=>e.currentTarget.style.background='#e2e8f0'} onMouseOut={e=>e.currentTarget.style.background='#f1f5f9'}>&times;</button>
         </div>
 
+        {/* TABS */}
         <div style={{ display: "flex", gap: "12px", padding: "16px 24px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", flex: "none" }}>
           <button onClick={() => setPoTab("NEW")} style={{ padding: "10px 24px", fontSize: "14px", fontWeight: "700", border: "none", borderRadius: "8px", cursor: "pointer", background: poTab === "NEW" ? "#3b82f6" : "#e2e8f0", color: poTab === "NEW" ? "white" : "#475569", transition: "0.2s", display: "flex", alignItems: "center", gap: "8px", boxShadow: poTab === "NEW" ? "0 4px 6px rgba(59,130,246,0.2)" : "none" }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             TẠO PO MỚI (CHỜ NHẬN)
           </button>
           <button onClick={() => setPoTab("RECEIVE")} style={{ padding: "10px 24px", fontSize: "14px", fontWeight: "700", border: "none", borderRadius: "8px", cursor: "pointer", background: poTab === "RECEIVE" ? "#10b981" : "#e2e8f0", color: poTab === "RECEIVE" ? "white" : "#475569", transition: "0.2s", display: "flex", alignItems: "center", gap: "8px", boxShadow: poTab === "RECEIVE" ? "0 4px 6px rgba(16,185,129,0.2)" : "none" }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
             TÌM & NHẬN HÀNG
           </button>
         </div>
 
+        {/* BODY */}
         <div style={{ display: "flex", gap: "24px", background: "#f1f5f9", padding: "24px", flex: 1, minHeight: 0, overflow: "hidden" }}>
           
-          {/* ==================== TAB 1: TẠO PO MỚI ==================== */}
+          {/* TAB 1: TẠO PO MỚI */}
           {poTab === "NEW" && (
             <>
-              {/* CỘT TRÁI (35%) */}
+              {/* CỘT TRÁI */}
               <div style={{ width: "35%", minWidth: "350px", background: "#fff", padding: "24px", borderRadius: "16px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", gap: "24px", overflowY: "auto" }}>
                 <div style={{ flex: "none" }}>
                   <label style={{ fontSize: "13px", color: "#475569", fontWeight: "700", display: "block", marginBottom: "8px", textTransform: "uppercase" }}>1. Chọn Nhà Cung Cấp</label>
@@ -89,7 +104,7 @@ export const POModal = ({
 
                 <div style={{ flex: "none", position: "relative" }}>
                   <label style={{ fontSize: "13px", color: "#475569", fontWeight: "700", display: "block", marginBottom: "8px", textTransform: "uppercase" }}>2. Tìm Sản Phẩm</label>
-                  <input type="text" className="po-input" placeholder="Nhập tên hoặc mã vạch..." value={poSearch || ""} onChange={(e) => setPoSearch(e.target.value)} />
+                  <input type="text" className="po-input" placeholder="Nhập tên hoặc mã vạch để thêm vào phiếu..." value={poSearch || ""} onChange={(e) => setPoSearch(e.target.value)} />
                   <div style={{ position: "absolute", top: "100%", left: 0, right: 0, maxHeight: "250px", overflowY: "auto", background: "#fff", border: (poSearch || "").trim() ? "1px solid #cbd5e1" : "none", borderRadius: "12px", marginTop: "8px", boxShadow: "0 10px 25px -5px rgba(0,0,0,0.15)", zIndex: 10 }}>
                     {(poSearch || "").trim() && (products || []).filter((p) => cleanName(p?.name || "").toLowerCase().includes(poSearch.toLowerCase()) || String(p?.product_code || "").toLowerCase().includes(poSearch.toLowerCase())).slice(0, 10).map((p) => (
                         <div key={p.id} className="po-search-item" onClick={() => {
@@ -131,7 +146,11 @@ export const POModal = ({
                     </thead>
                     <tbody>
                       {(!poItems || poItems.length === 0) ? (
-                        <tr><td colSpan={5} style={{ textAlign: "center", padding: "80px 20px", color: "#94a3b8" }}><div style={{ fontSize: "40px", marginBottom: "12px", opacity: 0.5 }}>🛒</div><div style={{ fontSize: "15px", fontWeight: "500" }}>Chưa có sản phẩm nào được chọn</div></td></tr>
+                        <tr><td colSpan={5} style={{ textAlign: "center", padding: "80px 20px", color: "#94a3b8" }}>
+                          <div style={{ fontSize: "40px", marginBottom: "12px", opacity: 0.5 }}>🛒</div>
+                          <div style={{ fontSize: "16px", fontWeight: "600", color: "#475569", marginBottom: "8px" }}>Chưa có sản phẩm nào trong phiếu</div>
+                          <div style={{ fontSize: "14px" }}>Vui lòng dùng ô tìm kiếm bên trái để thêm sản phẩm vào đây.</div>
+                        </td></tr>
                       ) : (
                         poItems.map((item: any, idx: number) => (
                           <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
@@ -139,8 +158,14 @@ export const POModal = ({
                               <div style={{ fontWeight: "700", color: "#1e293b", marginBottom: "4px" }}>{cleanName(item?.product?.name || "SP")}</div>
                               <div style={{ fontSize: "12px", color: "#94a3b8", fontFamily: "monospace" }}>{item?.product?.product_code}</div>
                             </td>
-                            <td style={{ padding: "16px 16px", textAlign: "center" }}><input type="number" className="po-table-input" value={item?.qty || 1} onChange={(e) => { const val = parseInt(e.target.value) || 1; setPoItems((poItems || []).map((i, ix) => (ix === idx ? { ...i, qty: val } : i))); }} min="1" /></td>
-                            <td style={{ padding: "16px 16px", textAlign: "right" }}><input type="number" className="po-table-input" style={{ textAlign: "right", color: "#10b981" }} value={item?.importPrice || 0} onChange={(e) => { const val = parseInt(e.target.value) || 0; setPoItems((poItems || []).map((i, ix) => (ix === idx ? { ...i, importPrice: val } : i))); }} min="0" /></td>
+                            <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                              {/* Ô Nhập liệu đã được cải thiện với CSS mới */}
+                              <input type="number" className="po-table-input" value={item?.qty || 1} onFocus={(e)=>e.target.select()} onChange={(e) => { const val = parseInt(e.target.value) || 1; setPoItems((poItems || []).map((i, ix) => (ix === idx ? { ...i, qty: val } : i))); }} min="1" />
+                            </td>
+                            <td style={{ padding: "12px 16px", textAlign: "right" }}>
+                              {/* Ô Nhập liệu đã được cải thiện với CSS mới */}
+                              <input type="number" className="po-table-input" style={{ textAlign: "right", color: "#10b981" }} value={item?.importPrice || 0} onFocus={(e)=>e.target.select()} onChange={(e) => { const val = parseInt(e.target.value) || 0; setPoItems((poItems || []).map((i, ix) => (ix === idx ? { ...i, importPrice: val } : i))); }} min="0" />
+                            </td>
                             <td style={{ padding: "16px 24px", fontWeight: "800", textAlign: "right", color: "#0f172a", fontSize: "15px" }}>{((item?.qty || 0) * (item?.importPrice || 0)).toLocaleString()}</td>
                             <td style={{ padding: "16px 16px", textAlign: "center" }}><button onClick={() => setPoItems((poItems || []).filter((_, ix) => ix !== idx))} style={{ background: "#fff", color: "#ef4444", border: "1px solid #fecaca", borderRadius: "8px", padding: "8px 10px", cursor: "pointer" }}>🗑️</button></td>
                           </tr>
@@ -156,7 +181,7 @@ export const POModal = ({
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
                     <span style={{ fontSize: "14px", color: "#64748b", fontWeight: "700" }}>Đã trả trước cho NCC:</span>
-                    <input type="number" className="po-input" style={{ width: "200px", textAlign: "right", fontWeight: "800", color: "#10b981", fontSize: "18px" }} value={paidAmount || 0} onChange={(e) => setPaidAmount(parseInt(e.target.value) || 0)} min="0" />
+                    <input type="number" className="po-input" style={{ width: "200px", textAlign: "right", fontWeight: "800", color: "#10b981", fontSize: "18px" }} value={paidAmount || 0} onFocus={(e)=>e.target.select()} onChange={(e) => setPaidAmount(parseInt(e.target.value) || 0)} min="0" />
                   </div>
                   
                   <div style={{ display: "flex", gap: "12px", marginTop: "24px", paddingTop: "24px", borderTop: "1px dashed #cbd5e1" }}>
@@ -171,7 +196,7 @@ export const POModal = ({
           {/* ==================== TAB 2: TÌM & NHẬN HÀNG ==================== */}
           {poTab === "RECEIVE" && (
             <>
-              {/* CỘT TRÁI: DANH SÁCH PO ĐÃ TẠO */}
+              {/* CỘT TRÁI */}
               <div style={{ width: "35%", minWidth: "350px", background: "#fff", borderRadius: "16px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.02)" }}>
                 <div style={{ padding: "16px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
                   <input type="text" className="po-input" placeholder="Tìm theo mã PO..." value={searchPoCode || ""} onChange={(e) => setSearchPoCode(e.target.value)} />
@@ -200,7 +225,7 @@ export const POModal = ({
                 </div>
               </div>
 
-              {/* CỘT PHẢI: CHI TIẾT & NHẬN HÀNG */}
+              {/* CỘT PHẢI */}
               <div style={{ flex: 1, background: "#fff", borderRadius: "16px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>
                 {!foundPO ? (
                   <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", color: "#94a3b8", flexDirection: "column" }}>
@@ -209,7 +234,6 @@ export const POModal = ({
                   </div>
                 ) : (
                   <>
-                    {/* Header Chi tiết PO */}
                     <div style={{ flex: "none", padding: "20px 24px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
                         <div>
@@ -224,7 +248,6 @@ export const POModal = ({
                       </div>
                     </div>
 
-                    {/* Bảng nhập số lượng thực tế */}
                     <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
                         <thead style={{ position: "sticky", top: 0, background: "#f8fafc", zIndex: 1 }}>
@@ -248,13 +271,14 @@ export const POModal = ({
                                 <td style={{ padding: "16px", textAlign: "center", fontWeight: "bold", color: "#64748b", background: "#f8fafc" }}>{item.qty}</td>
                                 <td style={{ padding: "16px", textAlign: "right", fontWeight: "600", color: "#475569" }}>{(item.importPrice || 0).toLocaleString()}</td>
                                 
-                                {/* Ô NHẬP SỐ LƯỢNG THỰC TẾ */}
-                                <td style={{ padding: "16px", textAlign: "center", background: "#eff6ff" }}>
+                                <td style={{ padding: "12px 16px", textAlign: "center", background: "#eff6ff" }}>
+                                  {/* Ô Nhập liệu đã được cải thiện với CSS mới */}
                                   <input 
                                     type="number" className="po-table-input" 
                                     style={{ textAlign: "center", border: "2px solid #bfdbfe", background: "#ffffff", color: "#2563eb", fontSize: "16px" }} 
                                     value={item.actualQty === undefined ? item.qty : item.actualQty} 
                                     disabled={isCompleted}
+                                    onFocus={(e)=>e.target.select()}
                                     onChange={(e) => { 
                                       const val = parseInt(e.target.value) || 0; 
                                       setReceiveItems(receiveItems.map((i, ix) => ix === idx ? { ...i, actualQty: val } : i)); 
@@ -273,7 +297,6 @@ export const POModal = ({
                       </table>
                     </div>
 
-                    {/* Khối Hành động bên dưới */}
                     <div style={{ flex: "none", background: "#f8fafc", padding: "24px", borderTop: "1px solid #e2e8f0" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
                         <span style={{ fontSize: "14px", color: "#64748b", fontWeight: "700" }}>Tổng tiền (Theo thực nhận):</span>
