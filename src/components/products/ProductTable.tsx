@@ -56,7 +56,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
         
         if (sortConfig.key === 'stock' || sortConfig.key === 'import_price' || sortConfig.key === 'sale_price') {
           aVal = Number(aVal) || 0; bVal = Number(bVal) || 0;
-        } else if (sortConfig.key === 'created_at') {
+        } else if (sortConfig.key === 'created_at' || sortConfig.key === 'expiry_date') {
           aVal = new Date(aVal || 0).getTime(); bVal = new Date(bVal || 0).getTime();
         } else {
           aVal = String(aVal || '').toLowerCase(); bVal = String(bVal || '').toLowerCase();
@@ -70,12 +70,47 @@ export const ProductTable: React.FC<ProductTableProps> = ({
     return sortableItems;
   }, [filteredProducts, sortConfig]);
 
+  // GIAO DIỆN ICON SẮP XẾP CHUYÊN NGHIỆP (DataGrid style)
   const getSortIcon = (columnKey: string) => {
-    if (!sortConfig || sortConfig.key !== columnKey) return null;
-    return sortConfig.direction === 'asc' ? <span style={{ fontSize: '10px', color: '#3b82f6' }}>▲</span> : <span style={{ fontSize: '10px', color: '#3b82f6' }}>▼</span>;
+    const isActive = sortConfig?.key === columnKey;
+    const isAsc = sortConfig?.direction === 'asc';
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', marginLeft: '8px', opacity: isActive ? 1 : 0.3, transition: '0.2s' }}>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={isActive && isAsc ? "#3b82f6" : "#475569"} strokeWidth="4" style={{ marginBottom: '-3px' }}>
+          <polyline points="18 15 12 9 6 15"></polyline>
+        </svg>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={isActive && !isAsc ? "#3b82f6" : "#475569"} strokeWidth="4">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </div>
+    );
   };
 
-  // ĐÃ FIX: Thêm tham số align để điều hướng menu sổ ra không bị cắt mép
+  // GIAO DIỆN ICON BỘ LỌC CHUYÊN NGHIỆP (SVG Funnel)
+  const getFilterIcon = (columnKey: keyof Product, onClick: (e: any) => void) => {
+    const isActive = filterConfig[columnKey]?.length > 0;
+    return (
+      <div
+        onClick={onClick}
+        style={{
+          cursor: 'pointer', padding: '6px', borderRadius: '6px',
+          background: isActive ? '#eff6ff' : 'transparent',
+          border: isActive ? '1px solid #bfdbfe' : '1px solid transparent',
+          color: isActive ? '#3b82f6' : '#94a3b8',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'all 0.2s'
+        }}
+        title="Lọc dữ liệu"
+        onMouseOver={e => e.currentTarget.style.background = isActive ? '#eff6ff' : '#f1f5f9'}
+        onMouseOut={e => e.currentTarget.style.background = isActive ? '#eff6ff' : 'transparent'}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill={isActive ? '#bfdbfe' : 'none'} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+        </svg>
+      </div>
+    );
+  };
+
   const renderFilterDropdown = (key: keyof Product, title: string, align: 'left' | 'right' = 'right') => {
     if (openFilter !== key) return null;
     
@@ -92,37 +127,32 @@ export const ProductTable: React.FC<ProductTableProps> = ({
 
     return (
       <div onClick={e => e.stopPropagation()} style={{ 
-        position: 'absolute', 
-        top: '100%', 
-        left: align === 'left' ? 0 : 'auto', // Fix tràn lề
-        right: align === 'right' ? 0 : 'auto', // Fix tràn lề
-        background: 'white', 
-        border: '1px solid #cbd5e1', 
-        borderRadius: '8px', 
-        padding: '12px', 
-        zIndex: 999, 
-        boxShadow: '0 10px 25px -5px rgba(0,0,0,0.2)', 
-        width: '220px', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        cursor: 'default' 
+        position: 'absolute', top: '100%', marginTop: '4px',
+        left: align === 'left' ? 0 : 'auto', right: align === 'right' ? 0 : 'auto', 
+        background: 'white', border: '1px solid #cbd5e1', borderRadius: '10px', 
+        padding: '16px', zIndex: 999, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)', 
+        width: '240px', display: 'flex', flexDirection: 'column', cursor: 'default' 
       }}>
-        <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#0f172a', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
-          <span>Lọc {title}</span>
+        <div style={{ fontWeight: '800', fontSize: '14px', color: '#0f172a', borderBottom: '2px solid #f1f5f9', paddingBottom: '10px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between' }}>
+          <span>Lọc theo: <span style={{ color: '#3b82f6' }}>{title}</span></span>
         </div>
         
-        <div style={{ overflowY: 'auto', maxHeight: '180px', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
+        <div style={{ overflowY: 'auto', maxHeight: '200px', display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px', paddingRight: '4px' }}>
           {uniqueValues.map((val, i) => (
-            <label key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#334155', cursor: 'pointer' }}>
-              <input type="checkbox" checked={currentFilters.includes(val)} onChange={() => handleToggle(val)} />
-              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{val || '(Trống)'}</span>
+            <label key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#334155', cursor: 'pointer', fontWeight: '500' }}>
+              <input type="checkbox" checked={currentFilters.includes(val)} onChange={() => handleToggle(val)} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#3b82f6' }} />
+              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{val || '(Trống / Không có)'}</span>
             </label>
           ))}
         </div>
 
-        <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid #e2e8f0', paddingTop: '10px' }}>
-          <button onClick={() => { setFilterConfig(prev => ({ ...prev, [key]: [] })); setOpenFilter(null); }} style={{ flex: 1, padding: '8px', background: '#f1f5f9', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', color: '#475569' }}>Bỏ lọc</button>
-          <button onClick={() => setOpenFilter(null)} style={{ flex: 1, padding: '8px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' }}>OK</button>
+        <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
+          <button onClick={() => { setFilterConfig(prev => ({ ...prev, [key]: [] })); setOpenFilter(null); }} style={{ flex: 1, padding: '10px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '13px', cursor: 'pointer', fontWeight: '700', color: '#475569', transition: '0.2s' }} onMouseOver={e=>e.currentTarget.style.background='#f1f5f9'} onMouseOut={e=>e.currentTarget.style.background='#f8fafc'}>
+            Bỏ lọc
+          </button>
+          <button onClick={() => setOpenFilter(null)} style={{ flex: 1, padding: '10px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', cursor: 'pointer', fontWeight: '700', boxShadow: '0 4px 6px rgba(59,130,246,0.3)' }}>
+            Xong
+          </button>
         </div>
       </div>
     );
@@ -140,9 +170,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
       if (diffDays <= 0) return { text: "Mới nhập hôm nay", color: "#059669", bg: "#dcfce7" }; 
       else if (diffDays <= 30) return { text: `Tồn ${diffDays} ngày`, color: "#475569", bg: "#f8fafc" }; 
       else return { text: `Tồn ${diffDays} ngày`, color: "#ef4444", bg: "#fef2f2" }; 
-    } catch {
-      return { text: dateStr, color: "#64748b", bg: "#f1f5f9" };
-    }
+    } catch { return { text: dateStr, color: "#64748b", bg: "#f1f5f9" }; }
   };
 
   const getExactDateStr = (dateStr?: string) => {
@@ -155,134 +183,136 @@ export const ProductTable: React.FC<ProductTableProps> = ({
   };
 
   return (
-    <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', minHeight: '400px' }}>
-      <div style={{ overflowX: 'auto', overflowY: 'visible', paddingBottom: '80px' }}>
+    <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)', minHeight: '400px' }}>
+      <div style={{ overflowX: 'auto', overflowY: 'visible', paddingBottom: '120px' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
-            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569', textAlign: 'left', userSelect: 'none' }}>
+            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#0f172a', textAlign: 'left', userSelect: 'none' }}>
               
               {/* CỘT 1: TÊN SP */}
-              <th style={{ padding: '14px 16px', fontWeight: 'bold', position: 'relative' }} className="filter-container">
+              <th style={{ padding: '16px', fontWeight: '700', position: 'relative', width: '30%' }} className="filter-container">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                  <div onClick={() => handleSort('name')} style={{ cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center', gap: '4px' }} title="Nhấn để sắp xếp">
+                  <div onClick={() => handleSort('name')} style={{ cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center' }} title="Nhấn để sắp xếp">
                     Mã & Tên SP {getSortIcon('name')}
                   </div>
-                  <div onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === 'name' ? null : 'name'); }} style={{ cursor: 'pointer', padding: '2px 6px', background: filterConfig['name']?.length ? '#eff6ff' : 'transparent', borderRadius: '4px' }} title="Lọc dữ liệu">
-                    <span style={{ fontSize: '11px', color: filterConfig['name']?.length ? '#3b82f6' : '#94a3b8' }}>🔽</span>
-                  </div>
+                  {getFilterIcon('name', (e) => { e.stopPropagation(); setOpenFilter(openFilter === 'name' ? null : 'name'); })}
                 </div>
-                {/* Đã truyền tham số 'left' để hộp đổ sang bên phải, không bị ăn lề */}
                 {renderFilterDropdown('name', 'Tên SP', 'left')}
               </th>
               
               {/* CỘT 2: TỒN KHO */}
-              <th style={{ padding: '14px 16px', fontWeight: 'bold', position: 'relative' }} className="filter-container">
+              <th style={{ padding: '16px', fontWeight: '700', position: 'relative', textAlign: 'center' }} className="filter-container">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                  <div onClick={() => handleSort('stock')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} title="Nhấn để sắp xếp">
+                  <div onClick={() => handleSort('stock')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Nhấn để sắp xếp">
                     Tồn kho {getSortIcon('stock')}
                   </div>
-                  <div onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === 'stock' ? null : 'stock'); }} style={{ cursor: 'pointer', padding: '2px 6px', background: filterConfig['stock']?.length ? '#eff6ff' : 'transparent', borderRadius: '4px' }} title="Lọc dữ liệu">
-                    <span style={{ fontSize: '11px', color: filterConfig['stock']?.length ? '#3b82f6' : '#94a3b8' }}>🔽</span>
-                  </div>
+                  {getFilterIcon('stock', (e) => { e.stopPropagation(); setOpenFilter(openFilter === 'stock' ? null : 'stock'); })}
                 </div>
-                {renderFilterDropdown('stock', 'Tồn kho')}
+                {renderFilterDropdown('stock', 'Tồn kho', 'left')}
               </th>
               
               {/* CỘT 3: GIÁ VỐN */}
-              <th style={{ padding: '14px 16px', fontWeight: 'bold', position: 'relative' }} className="filter-container">
+              <th style={{ padding: '16px', fontWeight: '700', position: 'relative', textAlign: 'right' }} className="filter-container">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-                  <div onClick={() => handleSort('import_price')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} title="Nhấn để sắp xếp">
+                  <div onClick={() => handleSort('import_price')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Nhấn để sắp xếp">
                     Giá vốn {getSortIcon('import_price')}
                   </div>
-                  <div onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === 'import_price' ? null : 'import_price'); }} style={{ cursor: 'pointer', padding: '2px 6px', background: filterConfig['import_price']?.length ? '#eff6ff' : 'transparent', borderRadius: '4px' }} title="Lọc dữ liệu">
-                    <span style={{ fontSize: '11px', color: filterConfig['import_price']?.length ? '#3b82f6' : '#94a3b8' }}>🔽</span>
-                  </div>
+                  {getFilterIcon('import_price', (e) => { e.stopPropagation(); setOpenFilter(openFilter === 'import_price' ? null : 'import_price'); })}
                 </div>
-                {renderFilterDropdown('import_price', 'Giá vốn')}
+                {renderFilterDropdown('import_price', 'Giá vốn', 'right')}
               </th>
               
               {/* CỘT 4: GIÁ BÁN */}
-              <th style={{ padding: '14px 16px', fontWeight: 'bold', position: 'relative' }} className="filter-container">
+              <th style={{ padding: '16px', fontWeight: '700', position: 'relative', textAlign: 'right' }} className="filter-container">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-                  <div onClick={() => handleSort('sale_price')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} title="Nhấn để sắp xếp">
+                  <div onClick={() => handleSort('sale_price')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Nhấn để sắp xếp">
                     Giá Bán & Khuyến Mãi {getSortIcon('sale_price')}
                   </div>
-                  <div onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === 'sale_price' ? null : 'sale_price'); }} style={{ cursor: 'pointer', padding: '2px 6px', background: filterConfig['sale_price']?.length ? '#eff6ff' : 'transparent', borderRadius: '4px' }} title="Lọc dữ liệu">
-                    <span style={{ fontSize: '11px', color: filterConfig['sale_price']?.length ? '#3b82f6' : '#94a3b8' }}>🔽</span>
-                  </div>
+                  {getFilterIcon('sale_price', (e) => { e.stopPropagation(); setOpenFilter(openFilter === 'sale_price' ? null : 'sale_price'); })}
                 </div>
-                {renderFilterDropdown('sale_price', 'Giá bán')}
+                {renderFilterDropdown('sale_price', 'Giá bán', 'right')}
               </th>
               
-              <th style={{ padding: '14px 16px', fontWeight: 'bold' }}>Lịch sử & HSD</th>
-              <th style={{ padding: '14px 16px', fontWeight: 'bold', textAlign: 'center' }}>Thao tác</th>
+              {/* CỘT 5: NGÀY NHẬP & HSD (ĐÃ BỔ SUNG BỘ LỌC) */}
+              <th style={{ padding: '16px', fontWeight: '700', position: 'relative' }} className="filter-container">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                  <div onClick={() => handleSort('created_at')} style={{ cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center' }} title="Nhấn để sắp xếp theo Ngày nhập">
+                    Lịch sử & HSD {getSortIcon('created_at')}
+                  </div>
+                  {getFilterIcon('expiry_date', (e) => { e.stopPropagation(); setOpenFilter(openFilter === 'expiry_date' ? null : 'expiry_date'); })}
+                </div>
+                {/* Lọc sẽ lấy theo trường expiry_date (Hạn sử dụng) để chủ shop dễ dàng lọc hàng cận date */}
+                {renderFilterDropdown('expiry_date', 'Hạn sử dụng', 'right')}
+              </th>
+              
+              <th style={{ padding: '16px', fontWeight: '700', textAlign: 'center', color: '#94a3b8' }}>Thao tác</th>
             </tr>
           </thead>
           
           <tbody>
             {sortedProducts.length === 0 ? (
-              <tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Không có sản phẩm nào phù hợp với bộ lọc</td></tr>
+              <tr><td colSpan={6} style={{ textAlign: 'center', padding: '60px', color: '#94a3b8', fontSize: '15px' }}>Trống rỗng! Không có sản phẩm nào phù hợp.</td></tr>
             ) : (
               sortedProducts.map((p, idx) => {
                 const gift = parseGift(p.gift_info);
                 const ageInfo = getInventoryAge(p.created_at);
                 
                 return (
-                  <tr key={p.id || idx} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.background = '#f8fafc'} onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
+                  <tr key={p.id || idx} style={{ borderBottom: '1px solid #f8fafc', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.background = '#f1f5f9'} onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
                     
-                    <td style={{ padding: '14px 16px', maxWidth: '280px' }}>
-                      <div style={{ color: '#3b82f6', fontSize: '11px', fontFamily: 'monospace', fontWeight: 'bold', cursor: 'pointer', marginBottom: '2px' }} title="Click để copy mã" onClick={() => navigator.clipboard.writeText(p.product_code || '')}>
+                    <td style={{ padding: '16px', maxWidth: '280px' }}>
+                      <div style={{ color: '#3b82f6', fontSize: '12px', fontFamily: 'monospace', fontWeight: 'bold', cursor: 'pointer', marginBottom: '4px' }} title="Click để copy mã" onClick={() => navigator.clipboard.writeText(p.product_code || '')}>
                         {p.product_code}
                       </div>
-                      <div style={{ fontWeight: '800', color: '#0f172a', fontSize: '14px', cursor: 'pointer', lineHeight: '1.4' }} onClick={() => handleEdit(p.id, 'name', p.name, true)} title="Click để sửa tên">
+                      <div style={{ fontWeight: '800', color: '#0f172a', fontSize: '15px', cursor: 'pointer', lineHeight: '1.4' }} onClick={() => handleEdit(p.id, 'name', p.name, true)} title="Click để sửa tên">
                         {cleanName(p.name)}
                       </div>
                       {gift.text && (
-                        <div onClick={() => handleEdit(p.id, 'gift_info', p.gift_info, true)} style={{ marginTop: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 8px', background: '#f3e8ff', border: '1px solid #e9d5ff', borderRadius: '6px', cursor: 'pointer' }} title="Click để sửa quà tặng">
-                          <span style={{ fontSize: '12px' }}>🎁</span><span style={{ color: '#7e22ce', fontSize: '11px', fontWeight: 'bold' }}>{gift.cond > 1 ? `Mua ${gift.cond} tặng:` : 'Tặng:'} {gift.text}</span>
+                        <div onClick={() => handleEdit(p.id, 'gift_info', p.gift_info, true)} style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: '#f3e8ff', border: '1px solid #e9d5ff', borderRadius: '8px', cursor: 'pointer' }} title="Click để sửa quà tặng">
+                          <span style={{ fontSize: '13px' }}>🎁</span><span style={{ color: '#7e22ce', fontSize: '12px', fontWeight: 'bold' }}>{gift.cond > 1 ? `Mua ${gift.cond} tặng:` : 'Tặng:'} {gift.text}</span>
                         </div>
                       )}
                     </td>
 
-                    <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                      <span style={{ display: 'inline-block', padding: '4px 10px', background: p.stock <= 5 ? '#fef2f2' : '#ecfdf5', color: p.stock <= 5 ? '#ef4444' : '#10b981', borderRadius: '20px', fontWeight: '900', fontSize: '14px', border: `1px solid ${p.stock <= 5 ? '#fca5a5' : '#6ee7b7'}` }}>
+                    <td style={{ padding: '16px', textAlign: 'center' }}>
+                      <span style={{ display: 'inline-block', padding: '6px 14px', background: p.stock <= 5 ? '#fef2f2' : '#ecfdf5', color: p.stock <= 5 ? '#ef4444' : '#10b981', borderRadius: '20px', fontWeight: '900', fontSize: '14px', border: `1px solid ${p.stock <= 5 ? '#fca5a5' : '#6ee7b7'}` }}>
                         {p.stock}
                       </span>
                     </td>
 
-                    <td style={{ padding: '14px 16px', textAlign: 'right', color: '#64748b', fontWeight: '600' }} onClick={() => handleEdit(p.id, 'import_price', p.import_price)}>
+                    <td style={{ padding: '16px', textAlign: 'right', color: '#64748b', fontWeight: '600' }} onClick={() => handleEdit(p.id, 'import_price', p.import_price)}>
                       {(p.import_price || 0).toLocaleString()}đ
                     </td>
 
-                    <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                      <div style={{ fontWeight: '900', color: p.promo_price ? '#ef4444' : '#f59e0b', fontSize: '15px', cursor: 'pointer' }} onClick={() => handleEdit(p.id, p.promo_price ? 'promo_price' : 'sale_price', p.promo_price || p.sale_price)}>
+                    <td style={{ padding: '16px', textAlign: 'right' }}>
+                      <div style={{ fontWeight: '900', color: p.promo_price ? '#ef4444' : '#f59e0b', fontSize: '16px', cursor: 'pointer' }} onClick={() => handleEdit(p.id, p.promo_price ? 'promo_price' : 'sale_price', p.promo_price || p.sale_price)}>
                         {(p.promo_price || p.sale_price || 0).toLocaleString()}đ
                       </div>
                       {p.promo_price > 0 && (
-                        <div style={{ fontSize: '11px', color: '#94a3b8', textDecoration: 'line-through', cursor: 'pointer', marginTop: '2px' }} onClick={() => handleEdit(p.id, 'sale_price', p.sale_price)}>
+                        <div style={{ fontSize: '12px', color: '#94a3b8', textDecoration: 'line-through', cursor: 'pointer', marginTop: '4px' }} onClick={() => handleEdit(p.id, 'sale_price', p.sale_price)}>
                           Gốc: {(p.sale_price || 0).toLocaleString()}đ
                         </div>
                       )}
                     </td>
 
-                    <td style={{ padding: '14px 16px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '4px 6px', background: ageInfo.bg, borderRadius: '6px', width: 'fit-content', border: `1px solid ${ageInfo.bg !== '#f8fafc' ? ageInfo.color : '#e2e8f0'}` }} title={getExactDateStr(p.created_at)}>
-                          <span style={{ fontSize: '10px' }}>📥</span><span style={{ color: ageInfo.color, fontWeight: 'bold' }}>{ageInfo.text}</span>
+                    <td style={{ padding: '16px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '12px', padding: '4px 8px', background: ageInfo.bg, borderRadius: '8px', width: 'fit-content', border: `1px solid ${ageInfo.bg !== '#f8fafc' ? ageInfo.color : '#e2e8f0'}` }} title={getExactDateStr(p.created_at)}>
+                          <span style={{ fontSize: '12px' }}>📥</span><span style={{ color: ageInfo.color, fontWeight: 'bold' }}>{ageInfo.text}</span>
                         </div>
-                        <div onClick={() => handleEdit(p.id, 'expiry_date', p.expiry_date, true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer', padding: '2px 4px', width: 'fit-content' }} title="Click để sửa HSD">
-                          {p.expiry_date ? ( <><span style={{ fontSize: '10px' }}>⏳</span><span style={{ color: '#059669', fontWeight: 'bold' }}>{p.expiry_date}</span></> ) : ( <><span style={{ fontSize: '10px', opacity: 0.5 }}>➖</span><span style={{ color: '#cbd5e1', fontStyle: 'italic' }}>Không có HSD</span></> )}
+                        <div onClick={() => handleEdit(p.id, 'expiry_date', p.expiry_date, true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '12px', cursor: 'pointer', padding: '2px 4px', width: 'fit-content' }} title="Click để sửa HSD">
+                          {p.expiry_date ? ( <><span style={{ fontSize: '12px' }}>⏳</span><span style={{ color: '#059669', fontWeight: 'bold' }}>{p.expiry_date}</span></> ) : ( <><span style={{ fontSize: '12px', opacity: 0.3 }}>➖</span><span style={{ color: '#cbd5e1', fontStyle: 'italic' }}>Không có HSD</span></> )}
                         </div>
                       </div>
                     </td>
 
-                    <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                        <button onClick={() => handleSelectSuggest(p)} style={{ padding: '8px 12px', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', boxShadow: '0 2px 4px rgba(16,185,129,0.2)' }}>
+                    <td style={{ padding: '16px', textAlign: 'center' }}>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                        <button onClick={() => handleSelectSuggest(p)} style={{ padding: '10px 14px', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 4px 6px rgba(16,185,129,0.2)', transition: '0.2s' }} onMouseOver={e=>e.currentTarget.style.transform='translateY(-2px)'} onMouseOut={e=>e.currentTarget.style.transform='none'}>
                           🛒 Thêm
                         </button>
-                        <button onClick={() => setPrintBarcodeProduct(p)} style={{ padding: '8px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(59,130,246,0.2)' }} title="In tem mã vạch">🖨️</button>
-                        <button onClick={() => handleDelete(p.id, p.name)} style={{ padding: '8px', background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer' }} title="Xóa sản phẩm">🗑️</button>
+                        <button onClick={() => setPrintBarcodeProduct(p)} style={{ padding: '10px', background: '#f1f5f9', color: '#3b82f6', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', transition: '0.2s' }} onMouseOver={e=>e.currentTarget.style.background='#e2e8f0'} onMouseOut={e=>e.currentTarget.style.background='#f1f5f9'} title="In tem mã vạch">🖨️</button>
+                        <button onClick={() => handleDelete(p.id, p.name)} style={{ padding: '10px', background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '8px', cursor: 'pointer', transition: '0.2s' }} onMouseOver={e=>e.currentTarget.style.background='#fee2e2'} onMouseOut={e=>e.currentTarget.style.background='#fef2f2'} title="Xóa sản phẩm">🗑️</button>
                       </div>
                     </td>
 
