@@ -78,28 +78,31 @@ export const getActualPrice = (p: Product): number => {
   return Math.round(price); 
 };
 
-// Trong file utils/helpers.ts
 export const getCustomerTier = (totalSpent: number, config?: any) => {
-  // Lấy hạn mức từ cấu hình, nếu chưa có thì dùng mức mặc định
   const bronze = Number(config?.bronze) || 1000000;
   const silver = Number(config?.silver) || 5000000;
   const gold = Number(config?.gold) || 10000000;
   const diamond = Number(config?.diamond) || 20000000;
 
+  const bronze_discount = Number(config?.bronze_discount) || 0;
+  const silver_discount = Number(config?.silver_discount) || 0;
+  const gold_discount = Number(config?.gold_discount) || 0;
+  const diamond_discount = Number(config?.diamond_discount) || 0;
+
   if (totalSpent >= diamond) {
-    return { name: "Kim Cương", color: "#db2777", bg: "#fdf2f8", border: "#fbcfe8" };
+    return { name: "Kim Cương", color: "#db2777", bg: "#fdf2f8", border: "#fbcfe8", discount: diamond_discount };
   }
   if (totalSpent >= gold) {
-    return { name: "Vàng", color: "#d97706", bg: "#fffbeb", border: "#fef3c7" };
+    return { name: "Vàng", color: "#d97706", bg: "#fffbeb", border: "#fef3c7", discount: gold_discount };
   }
   if (totalSpent >= silver) {
-    return { name: "Bạc", color: "#4b5563", bg: "#f9fafb", border: "#f3f4f6" };
+    return { name: "Bạc", color: "#4b5563", bg: "#f9fafb", border: "#f3f4f6", discount: silver_discount };
   }
   if (totalSpent >= bronze) {
-    return { name: "Đồng", color: "#b45309", bg: "#fff7ed", border: "#ffedd5" };
+    return { name: "Đồng", color: "#b45309", bg: "#fff7ed", border: "#ffedd5", discount: bronze_discount };
   }
   
-  return { name: "Thành Viên", color: "#2563eb", bg: "#eff6ff", border: "#dbeafe" };
+  return { name: "Thành Viên", color: "#2563eb", bg: "#eff6ff", border: "#dbeafe", discount: 0 };
 };
 
 export const playSound = (type: 'success' | 'error'): void => { 
