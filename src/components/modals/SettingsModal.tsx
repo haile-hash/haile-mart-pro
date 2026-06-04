@@ -17,7 +17,12 @@ interface SettingsModalProps {
   setNewHappyEnd: (val: string) => void;
   newAdminPinInput: string;
   setNewAdminPinInput: (val: string) => void;
-  newTierConfig: { bronze: number, silver: number, gold: number, diamond: number };
+  newTierConfig: { 
+    bronze: number, bronze_discount: number, 
+    silver: number, silver_discount: number, 
+    gold: number, gold_discount: number, 
+    diamond: number, diamond_discount: number 
+  };
   setNewTierConfig: (val: any) => void;
   saveSettings: () => void;
   loading: boolean;
@@ -47,6 +52,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* BODY */}
         <div style={{ padding: "20px", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: "20px" }}>
           
+          {/* 1. NGÂN HÀNG */}
           <div style={{ background: "#f8fafc", padding: "16px", borderRadius: "10px", border: "1px solid #cbd5e1" }}>
             <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#0f172a", textTransform: "uppercase" }}>1. Thông tin Nhận tiền (VietQR / Ví)</h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
@@ -109,6 +115,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
+          {/* 2. GIỜ VÀNG */}
           <div style={{ background: "#f8fafc", padding: "16px", borderRadius: "10px", border: "1px solid #cbd5e1" }}>
             <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#0f172a", textTransform: "uppercase" }}>2. Thiết lập Giờ Vàng (Giảm 20%)</h3>
             <div style={{ display: "flex", gap: "10px" }}>
@@ -123,6 +130,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
+          {/* 3. BẢO MẬT */}
           <div style={{ background: "#fef2f2", padding: "16px", borderRadius: "10px", border: "1px solid #fecaca" }}>
             <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#be123c", textTransform: "uppercase" }}>3. Bảo Mật</h3>
             <div>
@@ -131,26 +139,55 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
+          {/* 4. HẠNG THÀNH VIÊN */}
           <div style={{ background: "#f5f3ff", padding: "16px", borderRadius: "10px", border: "1px solid #ddd6fe" }}>
-            <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#6d28d9", textTransform: "uppercase" }}>4. Khung Tích Lũy Xếp Hạng (VND)</h3>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
-              <div>
-                <label style={{ fontSize: "12px", fontWeight: "bold", color: "#6d28d9", marginBottom: "4px", display: "block" }}>HẠNG ĐỒNG</label>
-                <input type="text" value={newTierConfig.bronze.toLocaleString()} onChange={e => setNewTierConfig({...newTierConfig, bronze: Number(e.target.value.replace(/[^0-9]/g, '')) || 0})} style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #ddd6fe", outline: "none", boxSizing: "border-box", fontWeight: "bold" }} />
+            <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#6d28d9", textTransform: "uppercase" }}>4. Khung Tích Lũy & Giảm Giá VIP</h3>
+            
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "12px" }}>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: "12px", fontWeight: "bold", color: "#6d28d9", marginBottom: "4px", display: "block" }}>HẠNG ĐỒNG (VND)</label>
+                  <input type="text" value={newTierConfig.bronze.toLocaleString()} onChange={e => setNewTierConfig({...newTierConfig, bronze: Number(e.target.value.replace(/[^0-9]/g, '')) || 0})} style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #ddd6fe", outline: "none", boxSizing: "border-box", fontWeight: "bold" }} />
+                </div>
+                <div style={{ width: "70px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: "bold", color: "#6d28d9", marginBottom: "4px", display: "block" }}>% GIẢM</label>
+                  <input type="number" min="0" max="100" value={newTierConfig.bronze_discount} onChange={e => setNewTierConfig({...newTierConfig, bronze_discount: Number(e.target.value) || 0})} style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #ddd6fe", outline: "none", boxSizing: "border-box", fontWeight: "bold", textAlign: "center" }} />
+                </div>
               </div>
-              <div>
-                <label style={{ fontSize: "12px", fontWeight: "bold", color: "#6d28d9", marginBottom: "4px", display: "block" }}>HẠNG BẠC</label>
-                <input type="text" value={newTierConfig.silver.toLocaleString()} onChange={e => setNewTierConfig({...newTierConfig, silver: Number(e.target.value.replace(/[^0-9]/g, '')) || 0})} style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #ddd6fe", outline: "none", boxSizing: "border-box", fontWeight: "bold" }} />
+
+              <div style={{ display: "flex", gap: "8px" }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: "12px", fontWeight: "bold", color: "#6d28d9", marginBottom: "4px", display: "block" }}>HẠNG BẠC (VND)</label>
+                  <input type="text" value={newTierConfig.silver.toLocaleString()} onChange={e => setNewTierConfig({...newTierConfig, silver: Number(e.target.value.replace(/[^0-9]/g, '')) || 0})} style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #ddd6fe", outline: "none", boxSizing: "border-box", fontWeight: "bold" }} />
+                </div>
+                <div style={{ width: "70px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: "bold", color: "#6d28d9", marginBottom: "4px", display: "block" }}>% GIẢM</label>
+                  <input type="number" min="0" max="100" value={newTierConfig.silver_discount} onChange={e => setNewTierConfig({...newTierConfig, silver_discount: Number(e.target.value) || 0})} style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #ddd6fe", outline: "none", boxSizing: "border-box", fontWeight: "bold", textAlign: "center" }} />
+                </div>
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-              <div>
-                <label style={{ fontSize: "12px", fontWeight: "bold", color: "#6d28d9", marginBottom: "4px", display: "block" }}>HẠNG VÀNG</label>
-                <input type="text" value={newTierConfig.gold.toLocaleString()} onChange={e => setNewTierConfig({...newTierConfig, gold: Number(e.target.value.replace(/[^0-9]/g, '')) || 0})} style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #ddd6fe", outline: "none", boxSizing: "border-box", fontWeight: "bold", color: "#d97706" }} />
+            
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: "12px", fontWeight: "bold", color: "#d97706", marginBottom: "4px", display: "block" }}>HẠNG VÀNG (VND)</label>
+                  <input type="text" value={newTierConfig.gold.toLocaleString()} onChange={e => setNewTierConfig({...newTierConfig, gold: Number(e.target.value.replace(/[^0-9]/g, '')) || 0})} style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #fef3c7", background: "#fffbeb", outline: "none", boxSizing: "border-box", fontWeight: "bold", color: "#d97706" }} />
+                </div>
+                <div style={{ width: "70px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: "bold", color: "#d97706", marginBottom: "4px", display: "block" }}>% GIẢM</label>
+                  <input type="number" min="0" max="100" value={newTierConfig.gold_discount} onChange={e => setNewTierConfig({...newTierConfig, gold_discount: Number(e.target.value) || 0})} style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #fef3c7", background: "#fffbeb", outline: "none", boxSizing: "border-box", fontWeight: "bold", textAlign: "center", color: "#d97706" }} />
+                </div>
               </div>
-              <div>
-                <label style={{ fontSize: "12px", fontWeight: "bold", color: "#6d28d9", marginBottom: "4px", display: "block" }}>HẠNG KIM CƯƠNG</label>
-                <input type="text" value={newTierConfig.diamond.toLocaleString()} onChange={e => setNewTierConfig({...newTierConfig, diamond: Number(e.target.value.replace(/[^0-9]/g, '')) || 0})} style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #ddd6fe", outline: "none", boxSizing: "border-box", fontWeight: "bold", color: "#db2777" }} />
+
+              <div style={{ display: "flex", gap: "8px" }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: "12px", fontWeight: "bold", color: "#db2777", marginBottom: "4px", display: "block" }}>HẠNG KIM CƯƠNG</label>
+                  <input type="text" value={newTierConfig.diamond.toLocaleString()} onChange={e => setNewTierConfig({...newTierConfig, diamond: Number(e.target.value.replace(/[^0-9]/g, '')) || 0})} style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #fbcfe8", background: "#fdf2f8", outline: "none", boxSizing: "border-box", fontWeight: "bold", color: "#db2777" }} />
+                </div>
+                <div style={{ width: "70px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: "bold", color: "#db2777", marginBottom: "4px", display: "block" }}>% GIẢM</label>
+                  <input type="number" min="0" max="100" value={newTierConfig.diamond_discount} onChange={e => setNewTierConfig({...newTierConfig, diamond_discount: Number(e.target.value) || 0})} style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #fbcfe8", background: "#fdf2f8", outline: "none", boxSizing: "border-box", fontWeight: "bold", textAlign: "center", color: "#db2777" }} />
+                </div>
               </div>
             </div>
           </div>
@@ -160,7 +197,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* NÚT LƯU */}
         <div style={{ padding: "16px 20px", borderTop: "1px solid #e2e8f0", display: "flex", gap: "12px", background: "#f1f5f9" }}>
           <button onClick={() => setShowSettings(false)} style={{ flex: 1, padding: "12px", background: "#e2e8f0", color: "#475569", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer", transition: "0.2s" }}>HỦY</button>
-          <button onClick={saveSettings} disabled={loading} style={{ flex: 2, padding: "12px", background: "#10b981", color: "white", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}>{loading ? "ĐANG LƯU..." : "💾 LƯU THAY ĐỔI"}</button>
+          <button onClick={saveSettings} disabled={loading} style={{ flex: 2, padding: "12px", background: "#10b981", color: "white", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: loading ? "not-allowed" : "pointer", boxShadow: "0 4px 6px rgba(16,185,129,0.3)", opacity: loading ? 0.7 : 1 }}>
+            {loading ? "ĐANG LƯU..." : "💾 LƯU THAY ĐỔI"}
+          </button>
         </div>
       </div>
     </div>
