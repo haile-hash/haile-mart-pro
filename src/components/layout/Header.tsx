@@ -40,7 +40,15 @@ export const Header = (props: any) => {
         .main-menu-btn:hover { background: #0f172a; }
         .dropdown-menu-saas button { width: 100%; text-align: left; padding: 10px 14px; background: none; border: none; color: ${ui.darkMode ? '#cbd5e1' : '#334155'}; font-size: 13px; font-weight: 600; cursor: pointer; display: block; border-bottom: 1px solid ${ui.darkMode ? 'rgba(255,255,255,0.05)' : '#f1f5f9'}; }
         .dropdown-menu-saas button:hover { background: ${ui.darkMode ? '#334155' : '#f1f5f9'}; color: ${ui.darkMode ? '#ffffff' : '#da251d'}; padding-left: 18px; transition: 0.2s; }
+        
+        /* Hiệu ứng xoay tròn đĩa CD */
         @keyframes spinSlow { 100% { transform: rotate(360deg); } }
+        
+        /* Hiệu ứng cuộn sóng vô tận */
+        @keyframes wave-slide {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
       `}</style>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
@@ -48,14 +56,19 @@ export const Header = (props: any) => {
         {/* LOGO GIAO DIỆN CỜ ĐỎ SAO VÀNG VÀ SÓNG ERP */}
         <div className="premium-banner" onClick={toggleWindyMusic} style={{ display: 'flex', alignItems: 'center', padding: '10px 24px', borderRadius: '16px', cursor: 'pointer', minWidth: '320px', position: 'relative', overflow: 'hidden' }} title="Bật/Tắt nhạc">
           
-          {/* Lớp Sóng 1 (Vàng nhạt) */}
-          <svg style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '55%', pointerEvents: 'none' }} preserveAspectRatio="none" viewBox="0 0 300 50">
-            <path d="M0,50 L0,20 C60,45 120,-10 200,20 C260,35 300,10 300,10 L300,50 Z" fill="rgba(255, 206, 0, 0.15)" />
-          </svg>
-          {/* Lớp Sóng 2 (Trắng mờ) */}
-          <svg style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '70%', pointerEvents: 'none' }} preserveAspectRatio="none" viewBox="0 0 300 60">
-            <path d="M0,60 L0,40 C100,-15 150,55 300,20 L300,60 Z" fill="rgba(255, 255, 255, 0.08)" />
-          </svg>
+          {/* Lớp Sóng 1 (Vàng nhạt - Cuộn liên tục sang trái) */}
+          <div style={{ position: 'absolute', bottom: 0, left: 0, width: '200%', height: '55%', animation: 'wave-slide 4s linear infinite', pointerEvents: 'none' }}>
+            <svg viewBox="0 0 800 100" preserveAspectRatio="none" style={{ width: '100%', height: '100%' }}>
+              <path d="M0,50 Q100,0 200,50 T400,50 T600,50 T800,50 L800,120 L0,120 Z" fill="rgba(255, 206, 0, 0.15)" />
+            </svg>
+          </div>
+
+          {/* Lớp Sóng 2 (Trắng mờ - Cuộn liên tục ngược lại) */}
+          <div style={{ position: 'absolute', bottom: 0, left: 0, width: '200%', height: '70%', animation: 'wave-slide 6s linear infinite reverse', pointerEvents: 'none' }}>
+            <svg viewBox="0 0 800 100" preserveAspectRatio="none" style={{ width: '100%', height: '100%' }}>
+              <path d="M0,50 Q100,100 200,50 T400,50 T600,50 T800,50 L800,120 L0,120 Z" fill="rgba(255, 255, 255, 0.08)" />
+            </svg>
+          </div>
 
           {/* Icon Hiển thị (Logo tùy chỉnh / CD Nhạc / Ngôi sao vàng mặc định) */}
           <div style={{ position: 'relative', zIndex: 1, marginRight: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: storeInfo.logo ? '8px' : '0', overflow: 'hidden', transform: isPlaying ? 'scale(1.1)' : 'none', transition: 'all 0.3s ease' }}>
