@@ -14,12 +14,10 @@ export const ProductTable: React.FC<ProductTableProps> = ({
   products, handleSelectSuggest, handleEdit, handleDelete, setPrintBarcodeProduct
 }) => {
 
-  // 1. STATE QUẢN LÝ SẮP XẾP & BỘ LỌC
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
   const [filterConfig, setFilterConfig] = useState<Record<string, string[]>>({});
   const [openFilter, setOpenFilter] = useState<string | null>(null);
 
-  // 2. TỰ ĐỘNG ĐÓNG BỘ LỌC KHI CLICK RA NGOÀI VÙNG TRỐNG
   useEffect(() => {
     const handleClickOutside = (e: any) => {
       if (!e.target.closest('.filter-container')) {
@@ -30,14 +28,12 @@ export const ProductTable: React.FC<ProductTableProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // 3. LOGIC SẮP XẾP (SORT)
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
     setSortConfig({ key, direction });
   };
 
-  // 4. LOGIC LỌC SẢN PHẨM (FILTER)
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
       for (const key in filterConfig) {
@@ -51,7 +47,6 @@ export const ProductTable: React.FC<ProductTableProps> = ({
     });
   }, [products, filterConfig]);
 
-  // 5. KẾT HỢP LỌC & SẮP XẾP
   const sortedProducts = useMemo(() => {
     let sortableItems = [...filteredProducts];
     if (sortConfig !== null) {
@@ -75,17 +70,15 @@ export const ProductTable: React.FC<ProductTableProps> = ({
     return sortableItems;
   }, [filteredProducts, sortConfig]);
 
-  // HÀM HIỂN THỊ ICON SẮP XẾP
   const getSortIcon = (columnKey: string) => {
     if (!sortConfig || sortConfig.key !== columnKey) return null;
     return sortConfig.direction === 'asc' ? <span style={{ fontSize: '10px', color: '#3b82f6' }}>▲</span> : <span style={{ fontSize: '10px', color: '#3b82f6' }}>▼</span>;
   };
 
-  // GIAO DIỆN XỔ XUỐNG CỦA BỘ LỌC (GIỐNG EXCEL)
-  const renderFilterDropdown = (key: keyof Product, title: string) => {
+  // ĐÃ FIX: Thêm tham số align để điều hướng menu sổ ra không bị cắt mép
+  const renderFilterDropdown = (key: keyof Product, title: string, align: 'left' | 'right' = 'right') => {
     if (openFilter !== key) return null;
     
-    // Lấy danh sách giá trị duy nhất từ data gốc
     const uniqueValues = Array.from(new Set(products.map(p => String(p[key] || '')))).sort();
     const currentFilters = filterConfig[key] || [];
 
@@ -98,7 +91,22 @@ export const ProductTable: React.FC<ProductTableProps> = ({
     };
 
     return (
-      <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: '100%', right: 0, background: 'white', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '12px', zIndex: 999, boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', width: '220px', display: 'flex', flexDirection: 'column', cursor: 'default' }}>
+      <div onClick={e => e.stopPropagation()} style={{ 
+        position: 'absolute', 
+        top: '100%', 
+        left: align === 'left' ? 0 : 'auto', // Fix tràn lề
+        right: align === 'right' ? 0 : 'auto', // Fix tràn lề
+        background: 'white', 
+        border: '1px solid #cbd5e1', 
+        borderRadius: '8px', 
+        padding: '12px', 
+        zIndex: 999, 
+        boxShadow: '0 10px 25px -5px rgba(0,0,0,0.2)', 
+        width: '220px', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        cursor: 'default' 
+      }}>
         <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#0f172a', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
           <span>Lọc {title}</span>
         </div>
@@ -120,7 +128,6 @@ export const ProductTable: React.FC<ProductTableProps> = ({
     );
   };
 
-  // CÁC HÀM TÍNH TOÁN HIỂN THỊ
   const getInventoryAge = (dateStr?: string) => {
     if (!dateStr) return { text: "---", color: "#64748b", bg: "#f1f5f9" };
     try {
@@ -149,7 +156,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
 
   return (
     <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', minHeight: '400px' }}>
-      <div style={{ overflowX: 'auto', overflowY: 'visible' }}>
+      <div style={{ overflowX: 'auto', overflowY: 'visible', paddingBottom: '80px' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
             <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569', textAlign: 'left', userSelect: 'none' }}>
@@ -164,7 +171,8 @@ export const ProductTable: React.FC<ProductTableProps> = ({
                     <span style={{ fontSize: '11px', color: filterConfig['name']?.length ? '#3b82f6' : '#94a3b8' }}>🔽</span>
                   </div>
                 </div>
-                {renderFilterDropdown('name', 'Tên SP')}
+                {/* Đã truyền tham số 'left' để hộp đổ sang bên phải, không bị ăn lề */}
+                {renderFilterDropdown('name', 'Tên SP', 'left')}
               </th>
               
               {/* CỘT 2: TỒN KHO */}
