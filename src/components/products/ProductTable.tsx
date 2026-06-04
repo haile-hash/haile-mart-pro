@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Product } from '../../types';
 import { cleanName, parseGift } from '../../utils/helpers';
 
@@ -14,6 +14,57 @@ export const ProductTable: React.FC<ProductTableProps> = ({
   products, handleSelectSuggest, handleEdit, handleDelete, setPrintBarcodeProduct
 }) => {
 
+  // 1. STATE QUẢN LÝ SẮP XẾP CỘT (Sorting)
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
+
+  // 2. LOGIC XỬ LÝ KHI CLICK VÀO TIÊU ĐỀ
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // 3. THUẬT TOÁN SẮP XẾP SẢN PHẨM TRƯỚC KHI HIỂN THỊ
+  const sortedProducts = useMemo(() => {
+    let sortableItems = [...products];
+    if (sortConfig !== null) {
+      sortableItems.sort((a: any, b: any) => {
+        let aVal = a[sortConfig.key];
+        let bVal = b[sortConfig.key];
+        
+        // Ép kiểu chuẩn để so sánh đúng (Số ra Số, Chữ ra Chữ, Ngày ra Ngày)
+        if (sortConfig.key === 'stock' || sortConfig.key === 'import_price' || sortConfig.key === 'sale_price') {
+          aVal = Number(aVal) || 0;
+          bVal = Number(bVal) || 0;
+        } else if (sortConfig.key === 'created_at') {
+          aVal = new Date(aVal || 0).getTime();
+          bVal = new Date(bVal || 0).getTime();
+        } else {
+          aVal = String(aVal || '').toLowerCase();
+          bVal = String(bVal || '').toLowerCase();
+        }
+
+        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [products, sortConfig]);
+
+  // HÀM HIỂN THỊ ICON MŨI TÊN
+  const getSortIcon = (columnKey: string) => {
+    if (!sortConfig || sortConfig.key !== columnKey) {
+      return <span style={{ fontSize: '10px', color: '#cbd5e1', transition: '0.2s' }}>▼</span>;
+    }
+    return sortConfig.direction === 'asc' 
+      ? <span style={{ fontSize: '12px', color: '#3b82f6', transition: '0.2s' }}>▲</span> 
+      : <span style={{ fontSize: '12px', color: '#3b82f6', transition: '0.2s' }}>▼</span>;
+  };
+
+  // HÀM PHỤ TRỢ (Tính tuổi tồn kho)
   const getInventoryAge = (dateStr?: string) => {
     if (!dateStr) return { text: "---", color: "#64748b", bg: "#f1f5f9" };
     try {
@@ -56,45 +107,52 @@ export const ProductTable: React.FC<ProductTableProps> = ({
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
-            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569', textAlign: 'left' }}>
-              <th style={{ padding: '14px 16px', fontWeight: 'bold', cursor: 'pointer' }} title="Lọc dữ liệu">
+            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569', textAlign: 'left', userSelect: 'none' }}>
+              
+              <th onClick={() => handleSort('name')} style={{ padding: '14px 16px', fontWeight: 'bold', cursor: 'pointer' }} title="Sắp xếp theo Tên A-Z">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  Mã & Tên SP <span style={{ fontSize: '10px', color: '#94a3b8' }}>▼</span>
+                  Mã & Tên SP {getSortIcon('name')}
                 </div>
               </th>
-              <th style={{ padding: '14px 16px', fontWeight: 'bold', textAlign: 'center', cursor: 'pointer' }} title="Lọc dữ liệu">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                  Tồn kho <span style={{ fontSize: '10px', color: '#94a3b8' }}>▼</span>
+              
+              <th onClick={() => handleSort('stock')} style={{ padding: '14px 16px', fontWeight: 'bold', textAlign: 'center', cursor: 'pointer' }} title="Sắp xếp theo Tồn kho">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                  Tồn kho {getSortIcon('stock')}
                 </div>
               </th>
-              <th style={{ padding: '14px 16px', fontWeight: 'bold', textAlign: 'right', cursor: 'pointer' }} title="Lọc dữ liệu">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
-                  Giá vốn <span style={{ fontSize: '10px', color: '#94a3b8' }}>▼</span>
+              
+              <th onClick={() => handleSort('import_price')} style={{ padding: '14px 16px', fontWeight: 'bold', textAlign: 'right', cursor: 'pointer' }} title="Sắp xếp theo Giá vốn">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                  Giá vốn {getSortIcon('import_price')}
                 </div>
               </th>
-              <th style={{ padding: '14px 16px', fontWeight: 'bold', textAlign: 'right', cursor: 'pointer' }} title="Lọc dữ liệu">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
-                  Giá Bán & Khuyến Mãi <span style={{ fontSize: '10px', color: '#94a3b8' }}>▼</span>
+              
+              <th onClick={() => handleSort('sale_price')} style={{ padding: '14px 16px', fontWeight: 'bold', textAlign: 'right', cursor: 'pointer' }} title="Sắp xếp theo Giá bán">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                  Giá Bán & Khuyến Mãi {getSortIcon('sale_price')}
                 </div>
               </th>
-              <th style={{ padding: '14px 16px', fontWeight: 'bold', cursor: 'pointer' }} title="Lọc dữ liệu">
+              
+              <th onClick={() => handleSort('created_at')} style={{ padding: '14px 16px', fontWeight: 'bold', cursor: 'pointer' }} title="Sắp xếp theo Ngày nhập">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  Lịch sử & HSD <span style={{ fontSize: '10px', color: '#94a3b8' }}>▼</span>
+                  Lịch sử & HSD {getSortIcon('created_at')}
                 </div>
               </th>
+              
               <th style={{ padding: '14px 16px', fontWeight: 'bold', textAlign: 'center' }}>Thao tác</th>
             </tr>
           </thead>
           <tbody>
-            {products.length === 0 ? (
+            {/* LƯU Ý: Đã thay products.map thành sortedProducts.map */}
+            {sortedProducts.length === 0 ? (
               <tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Không có sản phẩm nào</td></tr>
             ) : (
-              products.map((p, idx) => {
+              sortedProducts.map((p, idx) => {
                 const gift = parseGift(p.gift_info);
                 const ageInfo = getInventoryAge(p.created_at);
                 
                 return (
-                  <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.background = '#f8fafc'} onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
+                  <tr key={p.id || idx} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.background = '#f8fafc'} onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
                     
                     {/* CỘT 1: MÃ, TÊN SP & TAG QUÀ TẶNG */}
                     <td style={{ padding: '14px 16px', maxWidth: '280px' }}>
