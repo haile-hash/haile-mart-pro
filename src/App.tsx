@@ -63,16 +63,28 @@ export default function App() {
   const [isStorageLoading, setIsStorageLoading] = useState(true); 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
-  // FIX BẢO MẬT F5: Khởi tạo false mặc định, logic ép khóa sẽ nằm ở phần load DB
-  const [isLocked, setIsLocked] = useState(false);
+  const [isLocked, setIsLocked] = useState(() => {
+    if (typeof window !== 'undefined') return window.localStorage.getItem('mart_is_locked') === 'true';
+    return false;
+  });
 
   const [unlockPin, setUnlockPin] = useState("");
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [shift, setShift] = useState("Ca Sáng");
   const [startingCash, setStartingCash] = useState<number>(5000000);
 
-  const [bankBin, setBankBin] = useState(""); const [bankAcc, setBankAcc] = useState(""); const [bankNameStr, setBankNameStr] = useState(""); const [zaloPayId, setZaloPayId] = useState(""); const [adminPin, setAdminPin] = useState("1234"); const [pendingAction, setPendingAction] = useState<(() => void) | null>(null); const [happyStart, setHappyStart] = useState("11:00"); const [happyEnd, setHappyEnd] = useState("13:00");
-  const [newBankBin, setNewBankBin] = useState(""); const [newBankAcc, setNewBankAcc] = useState(""); const [newBankNameStr, setNewBankNameStr] = useState(""); const [newZaloPayId, setNewZaloPayId] = useState(""); const [newHappyStart, setNewHappyStart] = useState("11:00"); const [newHappyEnd, setNewHappyEnd] = useState("13:00"); const [newAdminPinInput, setNewAdminPinInput] = useState("");
+  const [bankBin, setBankBin] = useState(""); const [bankAcc, setBankAcc] = useState(""); const [bankNameStr, setBankNameStr] = useState(""); const [zaloPayId, setZaloPayId] = useState(""); const [adminPin, setAdminPin] = useState("1234"); const [pendingAction, setPendingAction] = useState<(() => void) | null>(null); 
+  
+  // --- BỔ SUNG STATE HAPPY DISCOUNT ---
+  const [happyStart, setHappyStart] = useState("11:00"); 
+  const [happyEnd, setHappyEnd] = useState("13:00");
+  const [happyDiscount, setHappyDiscount] = useState(20);
+
+  const [newBankBin, setNewBankBin] = useState(""); const [newBankAcc, setNewBankAcc] = useState(""); const [newBankNameStr, setNewBankNameStr] = useState(""); const [newZaloPayId, setNewZaloPayId] = useState(""); 
+  const [newHappyStart, setNewHappyStart] = useState("11:00"); 
+  const [newHappyEnd, setNewHappyEnd] = useState("13:00"); 
+  const [newHappyDiscount, setNewHappyDiscount] = useState(20);
+  const [newAdminPinInput, setNewAdminPinInput] = useState("");
   
   const [tierConfig, setTierConfig] = useState({ bronze: 1000000, bronze_discount: 0, silver: 5000000, silver_discount: 1, gold: 10000000, gold_discount: 3, diamond: 20000000, diamond_discount: 5 });
   const [newTierConfig, setNewTierConfig] = useState({ bronze: 1000000, bronze_discount: 0, silver: 5000000, silver_discount: 1, gold: 10000000, gold_discount: 3, diamond: 20000000, diamond_discount: 5 });
@@ -160,7 +172,13 @@ export default function App() {
   useEffect(() => { const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e); }; window.addEventListener('beforeinstallprompt', handler); return () => window.removeEventListener('beforeinstallprompt', handler); }, []);
   const handleInstallApp = async () => { if (!installPrompt) return; installPrompt.prompt(); const { outcome } = await installPrompt.userChoice; if (outcome === 'accepted') { setInstallPrompt(null); toast.success("Cài đặt App thành công!"); logAudit("HỆ THỐNG", "Cài đặt ứng dụng PWA"); } };
 
-  // Khóa màn hình tự động nếu treo máy
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (isLocked) window.localStorage.setItem('mart_is_locked', 'true');
+      else window.localStorage.removeItem('mart_is_locked');
+    }
+  }, [isLocked]);
+
   useEffect(() => { if (!isLoggedIn || isLocked) return; let timeout: any; const resetTimer = () => { clearTimeout(timeout); timeout = setTimeout(() => setIsLocked(true), IDLE_TIMEOUT); }; window.addEventListener('mousemove', resetTimer); window.addEventListener('keydown', resetTimer); window.addEventListener('click', resetTimer); resetTimer(); return () => { clearTimeout(timeout); window.removeEventListener('mousemove', resetTimer); window.removeEventListener('keydown', resetTimer); window.removeEventListener('click', resetTimer); }; }, [isLoggedIn, isLocked]);
   useEffect(() => { const handler = setTimeout(() => { setDebouncedSearchTerm(searchTerm); }, 300); return () => clearTimeout(handler); }, [searchTerm]);
 
@@ -175,7 +193,6 @@ export default function App() {
         const savedCash = Number(await dbGet("mart_starting_cash") || 5000000); 
         
         setIsLoggedIn(loggedIn); 
-        // 🔥 FORCE LOCK ON RELOAD: Nếu phát hiện có phiên đăng nhập, LẬP TỨC ÉP KHÓA (chặn F5)
         if (loggedIn) {
            setIsLocked(true);
         }
@@ -244,6 +261,8 @@ export default function App() {
   };
   
   const fetchProducts = async () => { try { if (navigator.onLine) { const { data, error } = await supabase.from("products").select("*").order("created_at", { ascending: false }); if (data && !error) { setProducts(data); await dbSet("mart_products_cache", data); } } else { const localData = await dbGet("mart_products_cache"); if (localData) setProducts(localData); } } catch (err) { const localData = await dbGet("mart_products_cache"); if (localData) setProducts(localData); } };
+  
+  // --- BỔ SUNG LƯU LOCALSTORAGE CHO KHUYẾN MÃI % ---
   const fetchSettingsFromCloud = async () => { 
     try { 
       const { data } = await supabase.from("settings").select("*").eq("id", 1).single(); 
@@ -253,6 +272,15 @@ export default function App() {
         if (data.admin_pin) { setAdminPin(data.admin_pin); setNewAdminPinInput(data.admin_pin); } 
         if (data.happy_hour_start) { setHappyStart(data.happy_hour_start); setNewHappyStart(data.happy_hour_start); } 
         if (data.happy_hour_end) { setHappyEnd(data.happy_hour_end); setNewHappyEnd(data.happy_hour_end); } 
+        
+        if (data.happy_hour_discount !== undefined) {
+          setHappyDiscount(data.happy_hour_discount);
+          setNewHappyDiscount(data.happy_hour_discount);
+          window.localStorage.setItem('mart_happy_discount', data.happy_hour_discount);
+        }
+        window.localStorage.setItem('mart_happy_start', data.happy_hour_start || "11:00");
+        window.localStorage.setItem('mart_happy_end', data.happy_hour_end || "13:00");
+
         if (data.tier_bronze !== undefined) {
           const loadedTiers = { 
             bronze: data.tier_bronze, bronze_discount: data.tier_bronze_discount || 0,
@@ -272,7 +300,9 @@ export default function App() {
     try { 
       const { error } = await supabase.from("settings").update({ 
         bank_bin: bin, bank_acc: acc, bank_name_str: nameStr, zalopay_id: zaloId, 
-        happy_hour_start: hStart, happy_hour_end: hEnd, admin_pin: pin, 
+        happy_hour_start: hStart, happy_hour_end: hEnd, 
+        happy_hour_discount: newHappyDiscount, 
+        admin_pin: pin, 
         tier_bronze: newTierConfig.bronze, tier_bronze_discount: newTierConfig.bronze_discount, 
         tier_silver: newTierConfig.silver, tier_silver_discount: newTierConfig.silver_discount, 
         tier_gold: newTierConfig.gold, tier_gold_discount: newTierConfig.gold_discount, 
@@ -283,6 +313,12 @@ export default function App() {
         setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr); setZaloPayId(zaloId); 
         setHappyStart(hStart); setHappyEnd(hEnd); setAdminPin(pin); 
         setTierConfig(newTierConfig);
+        
+        setHappyDiscount(newHappyDiscount);
+        window.localStorage.setItem('mart_happy_start', hStart);
+        window.localStorage.setItem('mart_happy_end', hEnd);
+        window.localStorage.setItem('mart_happy_discount', newHappyDiscount.toString());
+
         toast.success("Lưu Cài đặt thành công!"); ui.setShowSettings?.(false); logAudit("CÀI ĐẶT", "Cập nhật hệ thống"); 
       } 
     } catch (err) {} finally { setLoading(false); } 
@@ -290,7 +326,7 @@ export default function App() {
   const saveSettings = () => { const bin = newBankBin.trim(); const acc = newBankAcc.trim(); const nameStr = newBankNameStr.trim().toUpperCase(); const zaloId = newZaloPayId.trim(); const pin = newAdminPinInput.trim(); if (!bin || !acc || !nameStr || !pin) return toast.error("Vui lòng điền đủ thông tin & Mã PIN!"); updateSettingsToCloud(bin, acc, nameStr, zaloId, newHappyStart, newHappyEnd, pin); };
   
   const handleLogoutClick = () => { logAudit("ĐĂNG XUẤT", `Thoát ca ${shift}`); ui.setShowHandoverModal?.(true); };
-  const confirmHandover = async () => { try { if (navigator.onLine) { await supabase.auth.signOut(); } } catch (error) {} finally { await dbRemove("mart_logged_in"); await dbRemove("mart_shift"); await dbRemove("mart_current_store"); localStorage.removeItem("mart_was_logged_in"); setIsLoggedIn(false); window.location.reload(); } };
+  const confirmHandover = async () => { try { if (navigator.onLine) { await supabase.auth.signOut(); } } catch (error) {} finally { await dbRemove("mart_logged_in"); await dbRemove("mart_shift"); await dbRemove("mart_current_store"); window.localStorage.removeItem('mart_is_locked'); localStorage.removeItem("mart_was_logged_in"); setIsLoggedIn(false); window.location.reload(); } };
   const handleEditPhone = async (oldPhone: string) => { executeWithAdminCheck(() => { const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customersData[newPhone]) return toast.error("SĐT đã tồn tại!"); const cData = customersData[oldPhone]; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = { ...cData, phone: newPhone }; delete updated[oldPhone]; return updated }); logAudit("SỬA KHÁCH HÀNG", `Đổi SĐT ${oldPhone} -> ${newPhone}`); toast.success("Cập nhật thành công!"); } }); };
   const addSupplier = async () => { if (!supName || !supPhone) return toast.error("Nhập đủ Tên/SĐT"); const newId = Date.now(); const newSupData = { id: newId, name: supName, phone: supPhone, address: supAddress, item: supItem, taxCode: supTaxCode, bankAccount: supBankAccount, debt: 0 }; setSuppliers(prev => [newSupData, ...prev]); if (navigator.onLine) { supabase.from('suppliers').insert([newSupData]).then(); } setSupName(""); setSupPhone(""); toast.success("Thêm NCC thành công!"); logAudit("THÊM NCC", supName); };
   const deleteSupplier = async (id: any) => { setSuppliers(prev => prev.filter(s => s.id !== id)); if (navigator.onLine) await supabase.from('suppliers').delete().eq('id', id); logAudit("XÓA NCC", `ID: ${id}`); };
@@ -523,7 +559,7 @@ export default function App() {
     if (fileNameStr.endsWith('.xlsx') || fileNameStr.endsWith('.xls')) { if (!(window as any).XLSX) { toast.loading("Excel Library loading..."); if (e?.target) e.target.value = ''; return; } const reader = new FileReader(); reader.onload = (event) => { try { const data = new Uint8Array(event.target?.result as ArrayBuffer); const workbook = (window as any).XLSX.read(data, { type: 'array' }); const firstSheet = workbook.Sheets[workbook.SheetNames[0]]; const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false }); processData(jsonData); } catch (error) { toast.error("Lỗi đọc file Excel."); } }; reader.readAsArrayBuffer(file); } else { const reader = new FileReader(); reader.onload = (event) => { const text = event.target?.result as string; const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''))); processData(lines); }; reader.readAsText(file); } if (e?.target) e.target.value = ''; 
   };
 
- const handleImportInventoryCSV = (e: any) => {
+  const handleImportInventoryCSV = (e: any) => {
     const file = e?.target?.files?.[0] || e; if (!file || !file.name) { if (e?.target) e.target.value = ''; return; }
     const processData = (lines: any[]) => { 
       let updatedStock = { ...actualStockInput }; 
@@ -533,9 +569,7 @@ export default function App() {
         if (!cols || !Array.isArray(cols) || cols.join('').trim() === '') continue; 
         
         const pCode = String(cols[0] || "").trim(); 
-        
-        // FIX: Đọc Tồn kho hiện tại ở cột F (Index là 5)
-        const actualValStr = String(cols[5] || "0").replace(/[,.]/g, '');
+        const actualValStr = String(cols[5] || "0").replace(/[,.]/g, ''); // Cột index 5 (Cột F)
         const actualVal = parseInt(actualValStr); 
         
         if (!isNaN(actualVal) && pCode) { 
@@ -550,31 +584,8 @@ export default function App() {
       toast.success(`Đã nạp số liệu thực tế!`); 
       logAudit("KIỂM KHO BẰNG EXCEL", `Nạp ${count} mã`); 
     };
-    
     const fileNameStr = file.name.toLowerCase();
-    if (fileNameStr.endsWith('.xlsx') || fileNameStr.endsWith('.xls')) { 
-      if (!(window as any).XLSX) { toast.loading("Loading..."); if (e?.target) e.target.value = ''; return; } 
-      const reader = new FileReader(); 
-      reader.onload = (event) => { 
-        try { 
-          const data = new Uint8Array(event.target?.result as ArrayBuffer); 
-          const workbook = (window as any).XLSX.read(data, { type: 'array' }); 
-          const firstSheet = workbook.Sheets[workbook.SheetNames[0]]; 
-          const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false }); 
-          processData(jsonData); 
-        } catch(err) { toast.error("Lỗi đọc file Excel"); } 
-      }; 
-      reader.readAsArrayBuffer(file); 
-    } else { 
-      const reader = new FileReader(); 
-      reader.onload = (event) => { 
-        const text = event.target?.result as string; 
-        const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''))); 
-        processData(lines); 
-      }; 
-      reader.readAsText(file); 
-    } 
-    if (e?.target) e.target.value = '';
+    if (fileNameStr.endsWith('.xlsx') || fileNameStr.endsWith('.xls')) { if (!(window as any).XLSX) { toast.loading("Loading..."); if (e?.target) e.target.value = ''; return; } const reader = new FileReader(); reader.onload = (event) => { try { const data = new Uint8Array(event.target?.result as ArrayBuffer); const workbook = (window as any).XLSX.read(data, { type: 'array' }); const firstSheet = workbook.Sheets[workbook.SheetNames[0]]; const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false }); processData(jsonData); } catch(err) {} }; reader.readAsArrayBuffer(file); } else { const reader = new FileReader(); reader.onload = (event) => { const text = event.target?.result as string; const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''))); processData(lines); }; reader.readAsText(file); } if (e?.target) e.target.value = '';
   };
   
   const exportInventoryCSV = () => {
@@ -683,7 +694,7 @@ export default function App() {
         {isLoggedIn && isLocked && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
             <div style={{ background: ui.darkMode ? 'rgba(255,255,255,0.05)' : 'white', padding: '40px', borderRadius: '24px', textAlign: 'center', maxWidth: '400px', width: '90%', border: `1px solid ${ui.darkMode ? 'rgba(255,255,255,0.1)' : 'transparent'}`, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
-              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔒</div><h2 style={{ color: ui.darkMode ? 'white' : '#1e293b', margin: '0 0 8px 0', fontSize: '24px' }}>Màn Hình Đã Khóa</h2><p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>Hệ thống tự động khóa sau 5 phút không hoạt động.</p>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔒</div><h2 style={{ color: ui.darkMode ? 'white' : '#1e293b', margin: '0 0 8px 0', fontSize: '24px' }}>Màn Hình Đã Khóa</h2><p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>Vui lòng mở khóa để tiếp tục sử dụng.</p>
               <input type="password" autoFocus placeholder="Nhập mã PIN để mở khóa..." value={unlockPin} onChange={e => setUnlockPin(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { if (unlockPin === adminPin || unlockPin === "1234") { setIsLocked(false); setUnlockPin(""); toast.success("Đã mở khóa!"); } else { toast.error("Mã PIN không đúng!"); } } }} style={{ width: '100%', padding: '14px', borderRadius: '12px', border: `1px solid ${ui.darkMode ? 'rgba(255,255,255,0.1)' : '#cbd5e1'}`, background: ui.darkMode ? 'rgba(0,0,0,0.2)' : '#f8fafc', color: ui.darkMode ? 'white' : 'black', textAlign: 'center', letterSpacing: '4px', fontSize: '18px', fontWeight: 'bold', marginBottom: '16px' }} />
               <button onClick={() => { if (unlockPin === adminPin || unlockPin === "1234") { setIsLocked(false); setUnlockPin(""); toast.success("Đã mở khóa!"); } else { toast.error("Mã PIN không đúng!"); } }} style={{ width: '100%', padding: '14px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }}>MỞ KHÓA</button>
             </div>
@@ -725,23 +736,33 @@ export default function App() {
       </div>
 
       {ui.showStoreSettings && <StoreSettingsModal role="admin" onClose={() => ui.setShowStoreSettings(false)} />}
-      {ui.showSettings && <SettingsModal showSettings={ui.showSettings} setShowSettings={ui.setShowSettings} newBankBin={newBankBin} setNewBankBin={setNewBankBin} newBankAcc={newBankAcc} setNewBankAcc={setNewBankAcc} newBankNameStr={newBankNameStr} setNewBankNameStr={setNewBankNameStr} newZaloPayId={newZaloPayId} setNewZaloPayId={setNewZaloPayId} newHappyStart={newHappyStart} setNewHappyStart={setNewHappyStart} newHappyEnd={newHappyEnd} setNewHappyEnd={setNewHappyEnd} newAdminPinInput={newAdminPinInput} setNewAdminPinInput={setNewAdminPinInput} newTierConfig={newTierConfig} setNewTierConfig={setNewTierConfig} saveSettings={saveSettings} loading={loading} />}
+      
+      {ui.showSettings && <SettingsModal showSettings={ui.showSettings} setShowSettings={ui.setShowSettings} newBankBin={newBankBin} setNewBankBin={setNewBankBin} newBankAcc={newBankAcc} setNewBankAcc={setNewBankAcc} newBankNameStr={newBankNameStr} setNewBankNameStr={setNewBankNameStr} newZaloPayId={newZaloPayId} setNewZaloPayId={setNewZaloPayId} newHappyStart={newHappyStart} setNewHappyStart={setNewHappyStart} newHappyEnd={newHappyEnd} setNewHappyEnd={setNewHappyEnd} newHappyDiscount={newHappyDiscount} setNewHappyDiscount={setNewHappyDiscount} newAdminPinInput={newAdminPinInput} setNewAdminPinInput={setNewAdminPinInput} newTierConfig={newTierConfig} setNewTierConfig={setNewTierConfig} saveSettings={saveSettings} loading={loading} />}
+      
       {ui.showPinModal && <PinModal showPinModal={ui.showPinModal} setShowPinModal={ui.setShowPinModal} correctPin={adminPin} onSuccess={() => { if(pendingAction) pendingAction(); setPendingAction(null); }} />}
       {ui.cashFlowModalInfo && <CashFlowDetailModal flowType={ui.cashFlowModalInfo} onClose={() => ui.setCashFlowModalInfo(null)} allLogs={history} />}
       {isCheckoutOpen && <CheckoutModal checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} customersData={customersData} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} customerInput={customerInput} setCustomerInput={setCustomerInput} custAddress={custAddress} setCustAddress={setCustAddress} handleCustomerInputChange={handleCustomerInputChange} finalToPay={finalToPay} useWallet={useWallet} setUseWallet={setUseWallet} voucherInput={voucherInput} setVoucherInput={setVoucherInput} handleVoucherSubmit={handleVoucherSubmit} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} confirmCheckout={confirmCheckout} closeCheckout={closeCheckout} loading={loading} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} sendReceiptEmail={sendReceiptEmail} setScannerMode={ui.setScannerMode} handleNextToQR={handleNextToQR} setPrintMode={ui.setPrintMode} />}
       {printBarcodeProduct && <ScannerModal product={printBarcodeProduct} barcodeCount={barcodeCount} setBarcodeCount={setBarcodeCount} onClose={() => setPrintBarcodeProduct(null)} />}
       {ui.showScannerLinkModal && <ScannerLinkModal showModal={ui.showScannerLinkModal} setShowModal={ui.setShowScannerLinkModal} />}
       {ui.showHandoverModal && <HandoverModal role="admin" shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onConfirm={confirmHandover} onClose={() => ui.setShowHandoverModal(false)} />}
+      
       {ui.showAuditModal && <AuditModal showAuditModal={ui.showAuditModal} setShowAuditModal={ui.setShowAuditModal} auditLogs={auditLogs} exportAuditToCSV={exportAuditToCSV} setSelectedAuditLog={(log: AuditLog) => setSelectedAuditLog(log)} />}
+      
       {selectedAuditLog && <AuditDetailModal selectedAuditLog={selectedAuditLog} setSelectedAuditLog={setSelectedAuditLog} />}
       {ui.showHoldModal && <HoldOrdersModal onClose={() => ui.setShowHoldModal(false)} heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={deleteHeldOrder} />}
       {ui.showExpenseModal && <ExpenseModal showExpenseModal={ui.showExpenseModal} setShowExpenseModal={ui.setShowExpenseModal} expenses={expenses} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} addExpense={addExpense} deleteExpense={deleteExpense} />}
       {ui.showSupplierModal && <SupplierModal showSupplierModal={ui.showSupplierModal} setShowSupplierModal={ui.setShowSupplierModal} suppliers={suppliers} supName={supName} setSupName={setSupName} supPhone={supPhone} setSupPhone={setSupPhone} supAddress={supAddress} setSupAddress={setSupAddress} supItem={supItem} setSupItem={setSupItem} supTaxCode={supTaxCode} setSupTaxCode={setSupTaxCode} supBankAccount={supBankAccount} setSupBankAccount={setSupBankAccount} addSupplier={addSupplier} deleteSupplier={deleteSupplier} />}
+      
       {ui.showPOModal && <POModal showPOModal={ui.showPOModal} setShowPOModal={ui.setShowPOModal} poTab={poTab} setPoTab={setPoTab} suppliers={suppliers} selectedSupplierId={selectedSupplierId} setSelectedSupplierId={setSelectedSupplierId} products={products} poSearch={poSearch} setPoSearch={setPoSearch} poItems={poItems} setPoItems={setPoItems} poNote={poNote} setPoNote={setPoNote} paidAmount={paidAmount} setPaidAmount={setPaidAmount} searchPoCode={searchPoCode} setSearchPoCode={setSearchPoCode} foundPO={foundPO} setFoundPO={setFoundPO} receiveItems={receiveItems} setReceiveItems={setReceiveItems} allPOs={allPOs} loading={loading} onSaveNewPO={handleSaveNewPO} onConfirmReceipt={handleConfirmReceipt} />}
+      
       {ui.showStatsModal && <StatsModal reportStartDate={reportStartDate} setReportStartDate={setReportStartDate} reportEndDate={reportEndDate} setReportEndDate={setReportEndDate} history={history} onClose={() => ui.setShowStatsModal(false)} />}
+      
       {ui.showInventoryModal && <InventoryModal showInventoryModal={ui.showInventoryModal} setShowInventoryModal={ui.setShowInventoryModal} products={products} inventorySearchTerm={inventorySearchTerm} setInventorySearchTerm={setInventorySearchTerm} invFilter={invFilter} setInvFilter={setInvFilter} actualStockInput={actualStockInput} setActualStockInput={setActualStockInput} syncInventoryCheck={syncInventory} handleImportInventoryCSV={handleImportInventoryCSV} loading={loading} handleInventorySearchEnter={() => {}} exportInventoryCSV={exportInventoryCSV} />}
+      
       {ui.showDebtModal && <DebtModal showDebtModal={ui.showDebtModal} setShowDebtModal={ui.setShowDebtModal} customers={customersData} handlePayDebt={handlePayDebt} />}
+      
       {ui.showCustomerModal && <CustomerModal showCustomerModal={ui.showCustomerModal} setShowCustomerModal={ui.setShowCustomerModal} customers={customersData} setCustomers={setCustomers} logAudit={logAudit} handleEditPhone={handleEditPhone} printCustomerCard={printCustomerCard} sendCardEmail={sendCardEmail} shareToZalo={shareToZalo} tierConfig={tierConfig} />}
+      
       {ui.showMarketingModal && <MarketingModal showMarketingModal={ui.showMarketingModal} setShowMarketingModal={ui.setShowMarketingModal} marketingTier={marketingTier} setMarketingTier={setMarketingTier} marketingMsg={marketingMsg} setMarketingMsg={setMarketingMsg} customersData={customersData} />}
 
       <div className="print-only">
