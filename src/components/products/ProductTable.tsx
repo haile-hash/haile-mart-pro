@@ -28,9 +28,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSort = (key: string) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
+  const handleSort = (key: string, direction: 'asc' | 'desc') => {
     setSortConfig({ key, direction });
   };
 
@@ -70,47 +68,34 @@ export const ProductTable: React.FC<ProductTableProps> = ({
     return sortableItems;
   }, [filteredProducts, sortConfig]);
 
-  // GIAO DIỆN ICON SẮP XẾP CHUYÊN NGHIỆP (DataGrid style)
-  const getSortIcon = (columnKey: string) => {
-    const isActive = sortConfig?.key === columnKey;
-    const isAsc = sortConfig?.direction === 'asc';
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', marginLeft: '8px', opacity: isActive ? 1 : 0.3, transition: '0.2s' }}>
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={isActive && isAsc ? "#3b82f6" : "#475569"} strokeWidth="4" style={{ marginBottom: '-3px' }}>
-          <polyline points="18 15 12 9 6 15"></polyline>
-        </svg>
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={isActive && !isAsc ? "#3b82f6" : "#475569"} strokeWidth="4">
-          <polyline points="6 9 12 15 18 9"></polyline>
-        </svg>
-      </div>
-    );
-  };
-
-  // GIAO DIỆN ICON BỘ LỌC CHUYÊN NGHIỆP (SVG Funnel)
+  // CHỈ GIỮ LẠI ICON PHỄU (SÁT VÀO TEXT)
   const getFilterIcon = (columnKey: keyof Product, onClick: (e: any) => void) => {
-    const isActive = filterConfig[columnKey]?.length > 0;
+    const isFiltered = filterConfig[columnKey]?.length > 0;
+    const isSorted = sortConfig?.key === columnKey;
+    const isActive = isFiltered || isSorted; // Sáng lên nếu đang Lọc hoặc đang Sắp xếp
+
     return (
       <div
         onClick={onClick}
         style={{
-          cursor: 'pointer', padding: '6px', borderRadius: '6px',
+          cursor: 'pointer', padding: '4px', borderRadius: '4px',
           background: isActive ? '#eff6ff' : 'transparent',
-          border: isActive ? '1px solid #bfdbfe' : '1px solid transparent',
-          color: isActive ? '#3b82f6' : '#94a3b8',
+          color: isActive ? '#3b82f6' : '#cbd5e1', // Màu nhạt khi không active, xanh khi active
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: 'all 0.2s'
+          transition: 'all 0.2s', marginLeft: '6px' // Cách text một chút cho đẹp
         }}
-        title="Lọc dữ liệu"
-        onMouseOver={e => e.currentTarget.style.background = isActive ? '#eff6ff' : '#f1f5f9'}
-        onMouseOut={e => e.currentTarget.style.background = isActive ? '#eff6ff' : 'transparent'}
+        title="Tùy chọn hiển thị"
+        onMouseOver={e => e.currentTarget.style.color = '#3b82f6'}
+        onMouseOut={e => e.currentTarget.style.color = isActive ? '#3b82f6' : '#cbd5e1'}
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill={isActive ? '#bfdbfe' : 'none'} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill={isFiltered ? '#bfdbfe' : 'none'} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
         </svg>
       </div>
     );
   };
 
+  // MENU XỔ XUỐNG CHỨA CẢ SẮP XẾP VÀ BỘ LỌC
   const renderFilterDropdown = (key: keyof Product, title: string, align: 'left' | 'right' = 'right') => {
     if (openFilter !== key) return null;
     
@@ -127,37 +112,57 @@ export const ProductTable: React.FC<ProductTableProps> = ({
 
     return (
       <div onClick={e => e.stopPropagation()} style={{ 
-        position: 'absolute', top: '100%', marginTop: '4px',
+        position: 'absolute', top: '100%', marginTop: '6px',
         left: align === 'left' ? 0 : 'auto', right: align === 'right' ? 0 : 'auto', 
-        background: 'white', border: '1px solid #cbd5e1', borderRadius: '10px', 
-        padding: '16px', zIndex: 999, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)', 
-        width: '240px', display: 'flex', flexDirection: 'column', cursor: 'default' 
+        background: 'white', border: '1px solid #cbd5e1', borderRadius: '12px', 
+        padding: '12px', zIndex: 999, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)', 
+        width: '220px', display: 'flex', flexDirection: 'column', cursor: 'default' 
       }}>
-        <div style={{ fontWeight: '800', fontSize: '14px', color: '#0f172a', borderBottom: '2px solid #f1f5f9', paddingBottom: '10px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between' }}>
-          <span>Lọc theo: <span style={{ color: '#3b82f6' }}>{title}</span></span>
-        </div>
         
-        <div style={{ overflowY: 'auto', maxHeight: '200px', display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px', paddingRight: '4px' }}>
+        {/* KHU VỰC SẮP XẾP */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingBottom: '10px', borderBottom: '1px solid #e2e8f0', marginBottom: '10px' }}>
+          <span style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Sắp xếp</span>
+          <button 
+            onClick={() => { handleSort(key, 'asc'); setOpenFilter(null); }} 
+            style={{ textAlign: 'left', padding: '8px 10px', background: sortConfig?.key === key && sortConfig?.direction === 'asc' ? '#eff6ff' : 'transparent', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer', color: sortConfig?.key === key && sortConfig?.direction === 'asc' ? '#2563eb' : '#334155', fontWeight: sortConfig?.key === key && sortConfig?.direction === 'asc' ? 'bold' : 'normal' }}
+            onMouseOver={e=>e.currentTarget.style.background='#f1f5f9'} onMouseOut={e=>e.currentTarget.style.background=sortConfig?.key === key && sortConfig?.direction === 'asc' ? '#eff6ff' : 'transparent'}
+          >
+            Tăng dần ▲
+          </button>
+          <button 
+            onClick={() => { handleSort(key, 'desc'); setOpenFilter(null); }} 
+            style={{ textAlign: 'left', padding: '8px 10px', background: sortConfig?.key === key && sortConfig?.direction === 'desc' ? '#eff6ff' : 'transparent', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer', color: sortConfig?.key === key && sortConfig?.direction === 'desc' ? '#2563eb' : '#334155', fontWeight: sortConfig?.key === key && sortConfig?.direction === 'desc' ? 'bold' : 'normal' }}
+            onMouseOver={e=>e.currentTarget.style.background='#f1f5f9'} onMouseOut={e=>e.currentTarget.style.background=sortConfig?.key === key && sortConfig?.direction === 'desc' ? '#eff6ff' : 'transparent'}
+          >
+            Giảm dần ▼
+          </button>
+        </div>
+
+        {/* KHU VỰC BỘ LỌC */}
+        <span style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '8px' }}>Lọc dữ liệu</span>
+        <div style={{ overflowY: 'auto', maxHeight: '160px', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px', paddingRight: '4px' }}>
           {uniqueValues.map((val, i) => (
-            <label key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#334155', cursor: 'pointer', fontWeight: '500' }}>
+            <label key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#334155', cursor: 'pointer' }}>
               <input type="checkbox" checked={currentFilters.includes(val)} onChange={() => handleToggle(val)} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#3b82f6' }} />
-              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{val || '(Trống / Không có)'}</span>
+              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{val || '(Trống)'}</span>
             </label>
           ))}
         </div>
 
-        <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
-          <button onClick={() => { setFilterConfig(prev => ({ ...prev, [key]: [] })); setOpenFilter(null); }} style={{ flex: 1, padding: '10px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '13px', cursor: 'pointer', fontWeight: '700', color: '#475569', transition: '0.2s' }} onMouseOver={e=>e.currentTarget.style.background='#f1f5f9'} onMouseOut={e=>e.currentTarget.style.background='#f8fafc'}>
-            Bỏ lọc
+        {/* CÁC NÚT HÀNH ĐỘNG */}
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button onClick={() => { setFilterConfig(prev => ({ ...prev, [key]: [] })); setSortConfig(null); setOpenFilter(null); }} style={{ flex: 1, padding: '8px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', color: '#475569' }}>
+            Bỏ chọn
           </button>
-          <button onClick={() => setOpenFilter(null)} style={{ flex: 1, padding: '10px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', cursor: 'pointer', fontWeight: '700', boxShadow: '0 4px 6px rgba(59,130,246,0.3)' }}>
-            Xong
+          <button onClick={() => setOpenFilter(null)} style={{ flex: 1, padding: '8px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' }}>
+            Áp dụng
           </button>
         </div>
       </div>
     );
   };
 
+  // CÁC HÀM TÍNH TOÁN HIỂN THỊ
   const getInventoryAge = (dateStr?: string) => {
     if (!dateStr) return { text: "---", color: "#64748b", bg: "#f1f5f9" };
     try {
@@ -191,10 +196,8 @@ export const ProductTable: React.FC<ProductTableProps> = ({
               
               {/* CỘT 1: TÊN SP */}
               <th style={{ padding: '16px', fontWeight: '700', position: 'relative', width: '30%' }} className="filter-container">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                  <div onClick={() => handleSort('name')} style={{ cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center' }} title="Nhấn để sắp xếp">
-                    Mã & Tên SP {getSortIcon('name')}
-                  </div>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <span>Mã & Tên SP</span>
                   {getFilterIcon('name', (e) => { e.stopPropagation(); setOpenFilter(openFilter === 'name' ? null : 'name'); })}
                 </div>
                 {renderFilterDropdown('name', 'Tên SP', 'left')}
@@ -202,10 +205,8 @@ export const ProductTable: React.FC<ProductTableProps> = ({
               
               {/* CỘT 2: TỒN KHO */}
               <th style={{ padding: '16px', fontWeight: '700', position: 'relative', textAlign: 'center' }} className="filter-container">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                  <div onClick={() => handleSort('stock')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Nhấn để sắp xếp">
-                    Tồn kho {getSortIcon('stock')}
-                  </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span>Tồn kho</span>
                   {getFilterIcon('stock', (e) => { e.stopPropagation(); setOpenFilter(openFilter === 'stock' ? null : 'stock'); })}
                 </div>
                 {renderFilterDropdown('stock', 'Tồn kho', 'left')}
@@ -213,10 +214,8 @@ export const ProductTable: React.FC<ProductTableProps> = ({
               
               {/* CỘT 3: GIÁ VỐN */}
               <th style={{ padding: '16px', fontWeight: '700', position: 'relative', textAlign: 'right' }} className="filter-container">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-                  <div onClick={() => handleSort('import_price')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Nhấn để sắp xếp">
-                    Giá vốn {getSortIcon('import_price')}
-                  </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                  <span>Giá vốn</span>
                   {getFilterIcon('import_price', (e) => { e.stopPropagation(); setOpenFilter(openFilter === 'import_price' ? null : 'import_price'); })}
                 </div>
                 {renderFilterDropdown('import_price', 'Giá vốn', 'right')}
@@ -224,24 +223,19 @@ export const ProductTable: React.FC<ProductTableProps> = ({
               
               {/* CỘT 4: GIÁ BÁN */}
               <th style={{ padding: '16px', fontWeight: '700', position: 'relative', textAlign: 'right' }} className="filter-container">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-                  <div onClick={() => handleSort('sale_price')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Nhấn để sắp xếp">
-                    Giá Bán & Khuyến Mãi {getSortIcon('sale_price')}
-                  </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                  <span>Giá Bán & Khuyến Mãi</span>
                   {getFilterIcon('sale_price', (e) => { e.stopPropagation(); setOpenFilter(openFilter === 'sale_price' ? null : 'sale_price'); })}
                 </div>
                 {renderFilterDropdown('sale_price', 'Giá bán', 'right')}
               </th>
               
-              {/* CỘT 5: NGÀY NHẬP & HSD (ĐÃ BỔ SUNG BỘ LỌC) */}
+              {/* CỘT 5: NGÀY NHẬP & HSD */}
               <th style={{ padding: '16px', fontWeight: '700', position: 'relative' }} className="filter-container">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                  <div onClick={() => handleSort('created_at')} style={{ cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center' }} title="Nhấn để sắp xếp theo Ngày nhập">
-                    Lịch sử & HSD {getSortIcon('created_at')}
-                  </div>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <span>Lịch sử & HSD</span>
                   {getFilterIcon('expiry_date', (e) => { e.stopPropagation(); setOpenFilter(openFilter === 'expiry_date' ? null : 'expiry_date'); })}
                 </div>
-                {/* Lọc sẽ lấy theo trường expiry_date (Hạn sử dụng) để chủ shop dễ dàng lọc hàng cận date */}
                 {renderFilterDropdown('expiry_date', 'Hạn sử dụng', 'right')}
               </th>
               
