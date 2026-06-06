@@ -170,6 +170,7 @@ export interface TransactionLog {
   paymentMethod?: string;
   split_cash?: number;         // Cho phương thức KẾT HỢP
   time: string;
+  t?: string;                  // BẢN VÁ LỖI BUILD (TS2339) NẰM Ở ĐÂY NÈ!
   order_id?: string;
 }
 
