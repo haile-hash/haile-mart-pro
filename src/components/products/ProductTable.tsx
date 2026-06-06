@@ -4,7 +4,7 @@ import { cleanName, parseGift } from '../../utils/helpers';
 
 interface ProductTableProps {
   products: Product[];
-  handleSelectSuggest: (p: Product) => void;.
+  handleSelectSuggest: (p: Product) => void;
   handleEdit: (id: any, field: string, old: any, isText?: boolean) => void;
   handleDelete: (id: any, name: string) => void;
   setPrintBarcodeProduct: (p: Product) => void;
