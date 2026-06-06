@@ -258,7 +258,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
                       <div style={{ fontWeight: '700', color: p.promo_price ? '#ef4444' : '#0f172a', fontSize: '14px', cursor: 'pointer' }} onClick={() => handleEdit(p.id, p.promo_price ? 'promo_price' : 'sale_price', p.promo_price || p.sale_price)}>
                         {(p.promo_price || p.sale_price || 0).toLocaleString()}đ
                       </div>
-                      {p.promo_price > 0 && (
+                      {(p.promo_price || 0) > 0 && (
                         <div style={{ fontSize: '12px', color: '#94a3b8', textDecoration: 'line-through', cursor: 'pointer', marginTop: '2px' }} onClick={() => handleEdit(p.id, 'sale_price', p.sale_price)}>
                           {(p.sale_price || 0).toLocaleString()}đ
                         </div>
