@@ -170,7 +170,7 @@ export interface TransactionLog {
   paymentMethod?: string;
   split_cash?: number;         // Cho phương thức KẾT HỢP
   time: string;
-  t?: string;                  // BẢN VÁ LỖI BUILD (TS2339) NẰM Ở ĐÂY NÈ!
+  t?: string;                  // BẢN VÁ LỖI BUILD TIME
   order_id?: string;
 }
 
@@ -210,8 +210,9 @@ export interface AppNotification {
   orderId?: string;
   read: boolean;
 }
+
 // ==========================================
-// 5. CÁC TYPE BỔ SUNG CHO HOOK CŨ
+// 5. CÁC TYPE BỔ SUNG KHÁC ĐỂ FIX BUILD
 // ==========================================
 
 export interface OrderReceipt {
@@ -231,4 +232,13 @@ export interface OrderReceipt {
   isRefund: boolean;
   splitCash?: number;
   splitTransfer?: number;
+}
+
+export interface Expense {
+  id: string | number;
+  date?: string;
+  timestamp?: string;
+  name?: string;
+  note?: string;
+  amount: number;
 }
