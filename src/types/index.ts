@@ -1,177 +1,37 @@
-// ==========================================
-// 1. DỮ LIỆU CỐT LÕI (SẢN PHẨM, KHÁCH HÀNG, NCC)
-// ==========================================
+// src/types/index.ts
 
 export interface Product {
-  id?: string;                 // ID gốc từ Supabase
-  barcode: string;             // Mã vạch (Giao diện mới dùng)
-  product_code?: string;       // Mã SP (Database cũ dùng)
+  id: string | number;
+  product_code: string;
   name: string;
   category: string;
+  import_price: number;
+  sale_price: number;
+  promo_price: number;
+  gift_info: string | null;
   stock: number;
-  minStock: number;            // Định mức tồn kho tối thiểu (Mới)
-  packageUnit: string;         // Đơn vị (Gói, Hộp, Lon...) (Mới)
-  costPrice: number;           // Giá vốn (Giao diện mới dùng)
-  import_price?: number;       // Giá vốn (Database cũ dùng)
-  sellingPrice: number;        // Giá bán (Giao diện mới dùng)
-  sale_price?: number;         // Giá bán (Database cũ dùng)
-  promo_price?: number;        // Giá khuyến mãi (Cũ)
-  gift_info?: string | null;   // Thông tin quà tặng (Cũ)
-  expiryDate: string;          // HSD format YYYY-MM-DD (Giao diện mới)
-  expiry_date?: string | null; // HSD (Database cũ)
-  supplierId: string;          // ID Nhà cung cấp (Mới)
+  expiry_date: string | null;
   created_at?: string;
-  updated_at?: string;
+  updated_at?: string; // Bổ sung để track đồng bộ offline
+  isHappyHour?: boolean;
 }
-
-export interface Customer {
-  id: string;                  // ID khách hàng (Mới)
-  name: string;
-  phone: string;
-  email: string;
-  points: number;              // Điểm Loyalty (Mới)
-  tier: 'Standard' | 'Silver' | 'Gold' | 'Platinum'; // Hạng thành viên (Mới)
-  joinDate: string;            // Ngày tham gia (Mới)
-  debt?: number;               // Nợ công
-  wallet?: number;             // Ví VIP trả trước
-  address?: string;            // Địa chỉ (Cũ)
-  totalSpent?: number;         // Tổng chi tiêu (Cũ)
-  cardCode?: string;           // Mã thẻ cứng (Cũ)
-}
-
-export interface Supplier {
-  id: string;
-  name: string;
-  contact: string;
-  phone: string;
-  address: string;
-  item?: string;               // Ngành hàng cung cấp (Cũ)
-  taxCode?: string;            // Mã số thuế (Cũ)
-  bankAccount?: string;        // Số tài khoản (Cũ)
-  debt?: number;               // Công nợ với NCC (Cũ)
-}
-
-// ==========================================
-// 2. QUY TRÌNH KHO & ĐẶT HÀNG (PO, STOCK COUNT)
-// ==========================================
-
-export interface POItem {
-  productId: string;
-  orderedQty: number;
-  receivedQty: number;
-  costPrice: number;
-}
-
-export interface PurchaseOrder {
-  id: string;
-  po_code?: string;            // Mã PO database cũ
-  supplierId: string;
-  orderDate: string;
-  items: POItem[];
-  status: 'draft' | 'ordered' | 'received';
-  receivedDate?: string;
-  note?: string;               // Ghi chú (Cũ)
-  total_amount?: number;       // Tổng tiền (Cũ)
-  paid_amount?: number;        // Đã thanh toán (Cũ)
-  created_at?: string;
-}
-
-export interface StockCountItem {
-  productId: string;
-  expectedQty: number;
-  countedQty: number;
-  variance: number;            // Độ lệch
-}
-
-export interface StockCount {
-  id: string;
-  countDate: string;
-  items: StockCountItem[];
-  status: 'draft' | 'approved';
-  notes?: string;
-}
-
-// ==========================================
-// 3. QUY TRÌNH BÁN HÀNG & KHIẾU NẠI
-// ==========================================
 
 export interface CartItem {
   product: Product;
   qty: number;
-  total?: number;
+  total: number;
   priceIncludingVat?: number;
 }
 
-export interface SaleItem {
-  productId: string;
-  qty: number;
-  price: number;
-}
-
-export interface CustomerOrder {
-  id: string;
-  customerId?: string;
-  customerName?: string;
-  items: SaleItem[];
-  orderDate: string;
-  totalAmount: number;
-  discountAmount: number;
-  finalAmount: number;
-  paymentMethod: 'cash' | 'card' | 'momo' | 'vnpay' | 'qr';
-  paymentStatus: 'pending' | 'paid' | 'refunded';
-  shippingStatus: 'assembling' | 'shipping' | 'delivered' | 'returned';
-  shippingAddress: string;
-  deliveryDriver?: {
-    name: string;
-    phone: string;
-    avatar: string;
-  };
-  deliveryProgress: number; // Từ 0 đến 100 cho thanh tracking GPS
-  timestamp: string;
-}
-
-export interface RefundItem {
-  productId: string;
-  qty: number;
-  reason: string;
-}
-
-export interface RefundTicket {
-  id: string;
-  orderId: string;
-  requestDate: string;
-  items: RefundItem[];
-  status: 'pending' | 'approved' | 'rejected';
-  totalRefundAmount: number;
-  restockMethod: 'salvage' | 'scrap'; // salvage: tái nhập kho, scrap: bỏ
-}
-
-export interface HeldOrder {
-  id: number;
-  time: string;
-  cart: CartItem[];
-  note: string;
-}
-
-// ==========================================
-// 4. NHẬT KÝ & BÁO CÁO (LỊCH SỬ, CHI PHÍ, THỐNG KÊ)
-// ==========================================
-
-export interface TransactionLog {
-  id: string | number;
-  shift: string;
-  type: string;                // 'BÁN', 'GHI NỢ', 'TRẢ HÀNG', 'THU NỢ', 'NHẬP'...
+export interface Customer {
   name: string;
-  qty: number;
-  total: number;
-  profit?: number;
-  customer?: string;
-  product_id?: string;
-  paymentMethod?: string;
-  split_cash?: number;         // Cho phương thức KẾT HỢP
-  time: string;
-  t?: string;                  // BẢN VÁ LỖI BUILD (TS2339) NẰM Ở ĐÂY NÈ!
-  order_id?: string;
+  email: string;
+  cardCode: string;
+  totalSpent: number;
+  wallet: number;
+  debt: number;
+  address?: string;
+  phone?: string;
 }
 
 export interface AuditLog {
@@ -181,32 +41,91 @@ export interface AuditLog {
   shift: string;
   action: string;
   detail: string;
-  extra_data?: string | null;
+  extra_data: string | null;
 }
 
-export interface ExpenseLog {
+export interface TransactionLog {
+  id: number;
+  shift: string;
+  // Đã bổ sung 'NHẬP (OFFLINE)' để khớp với App.tsx
+  type: 'BÁN' | 'GHI NỢ' | 'THU NỢ' | 'TRẢ HÀNG' | 'NHẬP' | 'HỆ THỐNG' | 'NHẬP PO' | 'TRẢ HÀNG NCC' | 'NHẬP (OFFLINE)';
+  name: string;
+  qty: number;
+  total: number;
+  profit?: number;
+  customer?: string;
+  product_id?: string | number;
+  refunded_qty?: number;
+  paymentMethod?: string;
+  split_cash?: number;
+  time: string;
+  order_id?: string; 
+  t?: string;        
+}
+
+export interface HeldOrder {
+  id: number;
+  time: string;
+  cart: CartItem[];
+}
+
+export interface Supplier {
   id: string | number;
-  date?: string;
-  timestamp?: string;
-  name?: string;
+  name: string;
+  phone: string;
+  address?: string;
+  item?: string;
+  taxCode?: string;      
+  bankAccount?: string;  
+  debt?: number;
+}
+
+export interface PurchaseOrder {
+  id: string | number;
+  po_code: string;
+  supplier_id: string | number; // Đã thêm để khớp với logic tìm kiếm supplier
+  supplier?: Supplier;
+  items: any[]; // Có thể tạo thêm type POItem nếu cần thiết
+  total_amount: number;
+  paid_amount: number;
+  debt_amount: number;
+  status: 'PENDING' | 'COMPLETED';
   note?: string;
+  created_at?: string;
+}
+
+// BỔ SUNG CÁC TYPE MỚI ĐỂ LOẠI BỎ 'any' TRONG APP.TSX
+
+export interface Expense {
+  id: number;
+  date: string;
+  name: string;
   amount: number;
 }
 
-export interface DailyReport {
-  date: string;
-  revenue: number;
-  cost: number;
-  profit: number;
-  salesCount: number;
+export interface OrderReceipt {
+  orderId: string;
+  shift: string;
+  cart: CartItem[];
+  subTotal: number;
+  vatTotal: number;
+  finalTotal: number;
+  debtAmount: number;
+  discount: number;
+  time: string;
+  paymentMethod: string;
+  customerGiven: number;
+  custName: string;
+  custPhone?: string;
+  isRefund?: boolean;
 }
 
-export interface AppNotification {
-  id: string;
-  title: string;
-  message: string;
-  type: 'info' | 'success' | 'warning' | 'error';
-  timestamp: string;
-  orderId?: string;
-  read: boolean;
+export interface StoreInfo {
+  id?: string | number;
+  owner_id?: string;
+  store_name?: string;
+  phone?: string;
+  address?: string;
+  tax_code?: string;
+  [key: string]: any; // Mở rộng nếu Cloud trả về thêm data
 }
