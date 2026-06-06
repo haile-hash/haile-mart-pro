@@ -210,3 +210,25 @@ export interface AppNotification {
   orderId?: string;
   read: boolean;
 }
+// ==========================================
+// 5. CÁC TYPE BỔ SUNG CHO HOOK CŨ
+// ==========================================
+
+export interface OrderReceipt {
+  orderId: string;
+  shift: string;
+  cart: CartItem[];
+  subTotal: number;
+  vatTotal: number;
+  finalTotal: number;
+  debtAmount: number;
+  discount: number;
+  time: string;
+  paymentMethod: string;
+  customerGiven: number;
+  custPhone?: string;
+  custName?: string;
+  isRefund: boolean;
+  splitCash?: number;
+  splitTransfer?: number;
+}
