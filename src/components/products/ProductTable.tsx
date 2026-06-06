@@ -220,7 +220,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
               <tr><td colSpan={6} style={{ textAlign: 'center', padding: '60px', color: '#94a3b8', fontSize: '14px' }}>Không tìm thấy sản phẩm nào.</td></tr>
             ) : (
               sortedProducts.map((p, idx) => {
-                const gift = parseGift(p.gift_info);
+               const gift = parseGift(p.gift_info || "");
                 const ageInfo = getInventoryAge(p.created_at);
                 
                 return (
