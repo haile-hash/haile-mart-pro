@@ -258,9 +258,42 @@ export default function App() {
 
   useEffect(() => {
     if (isLoggedIn) {
-      const fetchStoreInfo = async () => { const { data: { user } } = await supabase.auth.getUser(); if (user) { const { data: store } = await supabase.from('stores').select('*').eq('owner_id', user.id).single(); if (store) { await dbSet("mart_current_store", store); window.localStorage.setItem("mart_current_store", JSON.stringify(store)); } } };
-      if (navigator.onLine) fetchStoreInfo();
-      fetchProducts(); loadCloudData(); fetchSettingsFromCloud(); 
+      const initDataAndCheckLeak = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          // 1. CHỐNG RÒ RỈ DỮ LIỆU CHÉO GIỮA CÁC TÀI KHOẢN (MULTI-TENANT LEAK)
+          const lastOwner = await dbGet("mart_owner_id");
+          
+          if (lastOwner && lastOwner !== user.id) {
+            // Phát hiện Đổi chủ / Tài khoản mới! Quét sạch toàn bộ State đang hiển thị trên màn hình
+            setAuditLogs([]); setHistory([]); setCustomers({}); setHeldOrders([]); setExpenses([]); setSuppliers([]); setProducts([]); setLocalPOs([]); setAllPOs([]);
+            
+            // Quét sạch rác của người cũ trong két sắt ngầm IndexedDB
+            const keysToWipe = ["mart_history", "mart_customers", "mart_held_orders", "mart_expenses", "mart_pos", "mart_audit", "mart_suppliers", "mart_products_cache", "mart_pending_imports"];
+            for (const key of keysToWipe) { await dbRemove(key); }
+          }
+          
+          // Ghi nhận chủ nhân mới của cái máy này
+          await dbSet("mart_owner_id", user.id);
+          window.localStorage.setItem("mart_owner_id", user.id);
+
+          // 2. Lấy thông tin Cửa hàng của tài khoản này
+          const { data: store } = await supabase.from('stores').select('*').eq('owner_id', user.id).single();
+          if (store) { 
+            await dbSet("mart_current_store", store); 
+            window.localStorage.setItem("mart_current_store", JSON.stringify(store)); 
+          }
+
+          // 3. Tải dữ liệu gốc từ máy chủ mây xuống (Nếu có mạng)
+          if (navigator.onLine) {
+             fetchProducts(); loadCloudData(); fetchSettingsFromCloud(); 
+          }
+        }
+      };
+      
+      initDataAndCheckLeak();
+
+      // Mở kênh lắng nghe Realtime thay đổi dữ liệu
       const channel = supabase.channel("db_changes").on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts()).on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData()).on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload: any) => { setScanQueue(prev => [...prev, payload.new.code]); }).subscribe();
       return () => { supabase.removeChannel(channel) };
     }
