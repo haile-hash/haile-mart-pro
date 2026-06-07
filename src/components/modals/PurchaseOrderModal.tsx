@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { Product } from '../../types';
-import { exportPOToExcel } from '../../utils/exportExcel'; // Đã import tiện ích xuất Excel
+import { exportPOToExcel } from '../../utils/exportExcel';
 
 interface POItem {
   product: Product;
@@ -84,11 +84,8 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
     });
   };
 
-  // --- HÀM MỚI: XUẤT EXCEL BẢN NHÁP ---
   const handleExportDraft = async () => {
     if (!poItems || poItems.length === 0) return toast.error("Vui lòng thêm ít nhất 1 sản phẩm để xuất Excel!");
-    
-    // Tìm thông tin NCC (nếu chưa chọn thì lấy null)
     const supplier = (suppliers || []).find(s => String(s?.id) === selectedSupId) || null;
     const storeInfo = typeof window !== 'undefined' ? JSON.parse(window.localStorage.getItem("mart_current_store") || "{}") : {};
 
@@ -96,7 +93,8 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
       id: `PO_DRAFT_${Math.floor(Date.now() / 1000)}`,
       orderDate: new Date().toISOString(),
       note: note,
-      items: poItems // Gửi nguyên state poItems qua utils để vẽ Excel
+      items: poItems,
+      paidAmount: paidAmount // ĐÃ TRUYỀN BIẾN paidAmount VÀO ĐÂY
     };
 
     try {
@@ -209,36 +207,49 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
         </div>
 
         <div style={{ background: "#ffffff", padding: "20px 24px", borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "flex-end", borderRadius: "0 0 16px 16px" }}>
-          <div style={{ width: "400px", maxWidth: "100%" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
-              <span>Tổng Tiền Hàng:</span><span style={{ fontWeight: "800" }}>{totalAmount.toLocaleString()}đ</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-              <span>Đã Trả Cung Cấp:</span>
-              <input type="text" placeholder="0" value={paidAmountStr} onChange={e => { const val = e.target.value.replace(/[^0-9]/g, ''); setPaidAmountStr(val ? parseInt(val).toLocaleString() : "") }} style={{ boxSizing: "border-box", width: "150px", padding: "8px 12px", textAlign: "right", border: "2px solid #e2e8f0", borderRadius: "8px", fontWeight: "800", color: "#10b981", fontFamily: "'Inter', sans-serif" }} />
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", borderTop: "2px dashed #cbd5e1", paddingTop: "12px", marginBottom: "16px" }}>
-              <b>CÒN NỢ LẠI:</b><b style={{ color: debtAmount > 0 ? "#ef4444" : "#0f172a" }}>{debtAmount.toLocaleString()}đ</b>
+          <div>
+            {/* THAY THẾ BẰNG CỤM GIAO DIỆN 3 TRỤ CỘT */}
+            <div style={{ display: 'flex', gap: '32px', alignItems: 'center', marginBottom: '24px' }}>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>TỔNG ĐƠN HÀNG</div>
+                <div style={{ fontSize: '20px', fontWeight: '900', color: '#0f172a' }}>{totalAmount.toLocaleString()}đ</div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>ĐÃ TRẢ TRƯỚC</div>
+                <input 
+                  type="text" 
+                  placeholder="0" 
+                  value={paidAmountStr} 
+                  onChange={e => { const val = e.target.value.replace(/[^0-9]/g, ''); setPaidAmountStr(val ? parseInt(val).toLocaleString() : "") }} 
+                  style={{ width: '120px', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 'bold', fontFamily: "'Inter', sans-serif" }}
+                />
+              </div>
+
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>CÒN NỢ LẠI</div>
+                <div style={{ fontSize: '20px', fontWeight: '900', color: debtAmount > 0 ? '#ef4444' : '#10b981' }}>
+                  {debtAmount.toLocaleString()}đ
+                </div>
+              </div>
             </div>
 
-            {/* Cụm nút bấm Đã Chỉnh Sửa */}
-            <div style={{ display: "flex", gap: "12px" }}>
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
               <button 
                 type="button" 
                 onClick={handleExportDraft} 
-                style={{ flex: 1, padding: "14px", background: "#10b981", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "800", cursor: "pointer" }}
+                style={{ padding: "12px 20px", background: "#10b981", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "800", cursor: "pointer", display: 'flex', alignItems: 'center', gap: '8px' }}
               >
                 📥 XUẤT EXCEL
               </button>
               <button 
                 disabled={loading} 
                 onClick={onSubmit} 
-                style={{ flex: 2, padding: "14px", background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "800", cursor: loading ? "not-allowed" : "pointer" }}
+                style={{ padding: "12px 24px", minWidth: '200px', background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "800", cursor: loading ? "not-allowed" : "pointer" }}
               >
-                {loading ? "ĐANG XỬ LÝ..." : "HOÀN TẤT NHẬP HÀNG"}
+                {loading ? "ĐANG XỬ LÝ..." : "💾 LƯU PHIẾU"}
               </button>
             </div>
-
           </div>
         </div>
       </div>
