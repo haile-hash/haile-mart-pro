@@ -166,9 +166,7 @@ export default function App() {
   const totalValue = useMemo(() => products.reduce((sum, p) => sum + ((p.stock || 0) * (p.import_price || 0)), 0), [products]);
   const lowStockCount = useMemo(() => products.filter(p => p.stock > 0 && p.stock < 10).length, [products]);
 
-  // ============================================================================
   // ĐÁ VĂNG KHI TÀI KHOẢN BỊ XÓA (KIỂM TRA MỖI 30S)
-  // ============================================================================
   useEffect(() => {
     if (!isLoggedIn) return;
     const checkAccountStatus = async () => {
@@ -237,9 +235,7 @@ export default function App() {
 
   useEffect(() => { const handleKeyDown = (e: KeyboardEvent) => { if (!isLoggedIn || isCheckoutOpen || ui.showPinModal || ui.showAuditModal || ui.showCustomerModal || ui.showSettings || ui.showStoreSettings || ui.showInputForm || ui.showInventoryModal || ui.cashFlowModalInfo || ui.showPOModal) return; if (e.key === 'F1') { e.preventDefault(); document.getElementById('search-barcode')?.focus(); } if (e.key === 'F2') { e.preventDefault(); if (cart.length > 0) confirmCheckout('TIỀN MẶT'); } if (e.key === 'F3') { e.preventDefault(); if (cart.length > 0) confirmCheckout('CHUYỂN KHOẢN'); } if (e.key === 'F4') { e.preventDefault(); handleHoldOrder(); } }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); }, [isLoggedIn, isCheckoutOpen, ui, cart]);
 
-  // ============================================================================
   // CƠ CHẾ CHỐNG LỘ DỮ LIỆU CHÉO SAU KHI ĐĂNG NHẬP
-  // ============================================================================
   useEffect(() => {
     if (isLoggedIn) {
       const initDataAndCheckLeak = async () => {
@@ -291,9 +287,6 @@ export default function App() {
 
   const executeWithAdminCheck = (action: () => void) => { action(); };
   
-  // ============================================================================
-  // CẬP NHẬT ĐÓNG DẤU "SỔ ĐỎ" LÚC LƯU LỊCH SỬ & NHẬT KÝ
-  // ============================================================================
   const addTransactionAndSync = async (logData: any) => { 
     const ownerId = window.localStorage.getItem("mart_owner_id");
     if (!ownerId) return;
@@ -325,9 +318,6 @@ export default function App() {
     } catch (e) { toast.error("Lỗi xuất file!"); }
   };
   
-  // ============================================================================
-  // CẬP NHẬT ĐÓNG DẤU "SỔ ĐỎ" KHI TẢI SẢN PHẨM & CÀI ĐẶT
-  // ============================================================================
   const fetchProducts = async () => { 
     const ownerId = window.localStorage.getItem("mart_owner_id");
     if (!ownerId) return;
@@ -619,9 +609,6 @@ export default function App() {
 
   useEffect(() => { if (isOnline && isLoggedIn) { syncPendingImports(); } }, [isOnline, isLoggedIn]);
 
-  // ============================================================================
-  // CẬP NHẬT ĐÓNG DẤU "SỔ ĐỎ" & SỬA LỖI DANH MỤC LÚC NHẬP TAY SP
-  // ============================================================================
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault(); setLoading(true);
     const ownerId = window.localStorage.getItem("mart_owner_id");
@@ -660,43 +647,178 @@ export default function App() {
   };
 
   // ============================================================================
-  // CẬP NHẬT ĐÓNG DẤU "SỔ ĐỎ" & SỬA LỖI DANH MỤC LÚC IMPORT EXCEL
+  // CẬP NHẬT ĐỌC EXCEL "MINH BẠCH", BÁO CÁO RÕ RÀNG TỪNG LỖI VÀ THÀNH CÔNG
   // ============================================================================
   const handleFileUpload = async (e: any) => {
-    const file = e?.target?.files?.[0] || e; if (!file || !file.name) { if (e?.target) e.target.value = ''; return; } if (!navigator.onLine) { toast.error("Cần mạng để tải lên!"); if (e?.target) e.target.value = ''; return; }
+    const file = e?.target?.files?.[0] || e; 
+    if (!file || !file.name) { 
+      if (e?.target) e.target.value = ''; 
+      return; 
+    } 
+    if (!navigator.onLine) { 
+      toast.error("Cần kết nối mạng để tải dữ liệu lên!"); 
+      if (e?.target) e.target.value = ''; 
+      return; 
+    }
+
+    const toastId = toast.loading(`Đang xử lý file ${file.name}...`);
+
     const processData = async (lines: any[]) => {
       setLoading(true); 
       const ownerId = window.localStorage.getItem("mart_owner_id");
-      if (!ownerId) { toast.error("Lỗi phiên làm việc"); setLoading(false); return; }
+      if (!ownerId) { 
+        toast.error("Lỗi phiên làm việc, vui lòng đăng nhập lại!", { id: toastId }); 
+        setLoading(false); 
+        return; 
+      }
 
       try {
-        if (!lines || lines.length <= 1) { toast.error("File rỗng!"); setLoading(false); return; } let successCount = 0; let importLogs: any[] = [];
+        if (!lines || lines.length <= 1) { 
+          toast.error("File rỗng hoặc chỉ có tiêu đề!", { id: toastId }); 
+          setLoading(false); 
+          return; 
+        } 
+        
+        let successCount = 0; 
+        let skipCount = 0;
+        let hasError = false;
+        let importLogs: any[] = [];
+
         for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i]; if (!cols || !Array.isArray(cols) || cols.join('').trim() === '') continue; 
-          const pCode = String(cols[0] || "").trim(); const pName = String(cols[1] || "").trim(); 
+          const cols = lines[i]; 
+          if (!cols || !Array.isArray(cols) || cols.join('').trim() === '') continue; 
           
+          const pCode = String(cols[0] || "").trim(); 
+          const pName = String(cols[1] || "").trim(); 
           let rawCat = String(cols[2] || "").trim();
           const pCategory = rawCat === "" ? "Chưa phân loại" : formatCategoryStr(rawCat);
+          const pImpPrice = parseInt(String(cols[3] || "0").replace(/[,.]/g, '')) || 0; 
+          const pSalePrice = parseInt(String(cols[4] || "0").replace(/[,.]/g, '')) || 0; 
+          const pPromoPrice = parseInt(String(cols[5] || "0").replace(/[,.]/g, '')) || 0; 
+          const pGiftCond = String(cols[6] || "1").trim(); 
+          const pGiftText = cols[7] ? String(cols[7]).trim() : ""; 
+          const pGift = pGiftText !== "" ? `${pGiftCond};;;${pGiftText}` : null; 
+          const pStock = parseInt(String(cols[8] || "0").replace(/[,.]/g, '')) || 0; 
+          const pExpiry = cols[9] ? String(cols[9]).trim() : null;
+
+          // BỘ LỌC KIỂM TRA ĐIỀU KIỆN
+          if (!pCode || !pName || pSalePrice <= 0) {
+            skipCount++;
+            continue;
+          }
+
+          const baseCode = pCode.split('-')[0]; 
+          const allVariants = products.filter(p => String(p.product_code).split('-')[0] === baseCode); 
           
-          const pImpPrice = parseInt(String(cols[3] || "0").replace(/[,.]/g, '')) || 0; const pSalePrice = parseInt(String(cols[4] || "0").replace(/[,.]/g, '')) || 0; const pPromoPrice = parseInt(String(cols[5] || "0").replace(/[,.]/g, '')) || 0; const pGiftCond = String(cols[6] || "1").trim(); const pGiftText = cols[7] ? String(cols[7]).trim() : ""; const pGift = pGiftText !== "" ? `${pGiftCond};;;${pGiftText}` : null; const pStock = parseInt(String(cols[8] || "0").replace(/[,.]/g, '')) || 0; const pExpiry = cols[9] ? String(cols[9]).trim() : null;
-          if (!pCode || !pName || pSalePrice <= 0) continue;
-          const baseCode = pCode.split('-')[0]; const allVariants = products.filter(p => String(p.product_code).split('-')[0] === baseCode); 
           if (allVariants.length > 0) { 
             const needSync = allVariants.some(v => v.sale_price !== pSalePrice || v.promo_price !== pPromoPrice || v.gift_info !== pGift || cleanName(v.name) !== pName); 
-            if (needSync) { const variantIds = allVariants.map(v => v.id); setProducts(prev => prev.map(x => { if(variantIds.includes(x.id)) { const keepSuffix = x.name.includes('[Lô mới]') ? ' [Lô mới]' : ''; return { ...x, name: pName + keepSuffix, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift }; } return x; })); await supabase.from("products").update({ name: pName, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, updated_at: new Date().toISOString() }).eq("product_code", baseCode); await supabase.from("products").update({ name: `${pName} [Lô mới]`, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, updated_at: new Date().toISOString() }).like("product_code", `${baseCode}-%`); } 
+            if (needSync) { 
+               await supabase.from("products").update({ name: pName, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, updated_at: new Date().toISOString() }).eq("product_code", baseCode).eq("owner_id", ownerId); 
+               await supabase.from("products").update({ name: `${pName} [Lô mới]`, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, updated_at: new Date().toISOString() }).like("product_code", `${baseCode}-%`).eq("owner_id", ownerId); 
+            } 
           }
+
           const exist = allVariants.find(p => p.product_code === pCode); 
+          
           if (exist) { 
-            if (exist.stock <= 0) { await supabase.from("products").update({ name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry, updated_at: new Date().toISOString() }).eq("id", exist.id); } 
-            else { if (exist.import_price !== pImpPrice || (exist.expiry_date || "") !== (pExpiry || "")) { const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}${i}`; await supabase.from("products").insert([{ owner_id: ownerId, product_code: batchCode, name: `${pName} [Lô mới]`, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); } else { await supabase.from("products").update({ stock: exist.stock + pStock, updated_at: new Date().toISOString() }).eq("id", exist.id); } } 
-          } else { await supabase.from("products").insert([{ owner_id: ownerId, product_code: pCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); }
-          if (pStock > 0) { importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "NHẬP", name: cleanName(pName), qty: pStock, total: 0, time: new Date().toLocaleString('vi-VN') } as any); successCount++; }
+            if (exist.stock <= 0) { 
+               const { error } = await supabase.from("products").update({ name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry, updated_at: new Date().toISOString() }).eq("id", exist.id); 
+               if(error) { hasError = true; console.error(error); } else { successCount++; }
+            } 
+            else { 
+               if (exist.import_price !== pImpPrice || (exist.expiry_date || "") !== (pExpiry || "")) { 
+                  const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}${i}`; 
+                  const { error } = await supabase.from("products").insert([{ owner_id: ownerId, product_code: batchCode, name: `${pName} [Lô mới]`, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); 
+                  if(error) { hasError = true; console.error(error); } else { successCount++; }
+               } else { 
+                  const { error } = await supabase.from("products").update({ stock: exist.stock + pStock, updated_at: new Date().toISOString() }).eq("id", exist.id); 
+                  if(error) { hasError = true; console.error(error); } else { successCount++; }
+               } 
+            } 
+          } else { 
+             const { error } = await supabase.from("products").insert([{ owner_id: ownerId, product_code: pCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); 
+             if(error) { 
+                hasError = true; 
+                console.error("Supabase Error:", error);
+                toast.error(`Từ chối mã: ${pCode} (${error.message})`, { duration: 5000 }); 
+             } else {
+                successCount++;
+             }
+          }
+          
+          if (pStock > 0 && !hasError) { 
+             importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "NHẬP", name: cleanName(pName), qty: pStock, total: 0, time: new Date().toLocaleString('vi-VN') } as any); 
+          }
         }
-        if (importLogs.length > 0) { if(navigator.onLine) await supabase.from("history").insert(importLogs.map(l => ({...l, owner_id: ownerId}))); setHistory(prev => [...importLogs, ...prev]); } logAudit("NHẬP EXCEL", `Nhập ${successCount} mã`); toast.success(`Nhập thành công từ file!`);
-      } catch (err) { toast.error("Lỗi đọc file."); } setLoading(false);
+        
+        if (importLogs.length > 0) { 
+           if(navigator.onLine) await supabase.from("history").insert(importLogs.map(l => ({...l, owner_id: ownerId}))); 
+           setHistory(prev => [...importLogs, ...prev]); 
+        } 
+        
+        // CẬP NHẬT LẠI GIAO DIỆN
+        await fetchProducts();
+
+        // XÓA THÔNG BÁO LOADING VÀ BÁO CÁO KẾT QUẢ
+        toast.dismiss(toastId);
+
+        if (successCount > 0) {
+           logAudit("NHẬP EXCEL", `Lưu thành công ${successCount} sản phẩm`); 
+           toast.success(`Đã xử lý thành công ${successCount} sản phẩm!`);
+        }
+        
+        if (skipCount > 0) {
+           toast.error(`Bỏ qua ${skipCount} dòng do thiếu Mã SP, Tên SP hoặc Giá bán bằng 0!`, { duration: 6000 });
+        }
+        
+        if (hasError) {
+           toast.error("Phát hiện lỗi khi lưu vào Database! Vui lòng kiểm tra lại file.", { duration: 6000 });
+        }
+        
+        if (successCount === 0 && skipCount === 0 && !hasError) {
+           toast.error("Không tìm thấy dữ liệu hợp lệ trong file!");
+        }
+
+      } catch (err) { 
+        console.error(err); 
+        toast.error("Lỗi hệ thống khi phân tích dữ liệu.", { id: toastId }); 
+      } finally { 
+        setLoading(false); 
+      }
     }; 
+    
     const fileNameStr = file.name.toLowerCase();
-    if (fileNameStr.endsWith('.xlsx') || fileNameStr.endsWith('.xls')) { if (!(window as any).XLSX) { toast.loading("Excel Library loading..."); if (e?.target) e.target.value = ''; return; } const reader = new FileReader(); reader.onload = (event) => { try { const data = new Uint8Array(event.target?.result as ArrayBuffer); const workbook = (window as any).XLSX.read(data, { type: 'array' }); const firstSheet = workbook.Sheets[workbook.SheetNames[0]]; const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false }); processData(jsonData); } catch (error) { toast.error("Lỗi đọc file Excel."); } }; reader.readAsArrayBuffer(file); } else { const reader = new FileReader(); reader.onload = (event) => { const text = event.target?.result as string; const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''))); processData(lines); }; reader.readAsText(file); } if (e?.target) e.target.value = ''; 
+    if (fileNameStr.endsWith('.xlsx') || fileNameStr.endsWith('.xls')) { 
+      if (!(window as any).XLSX) { 
+        toast.error("Đang tải thư viện Excel, vui lòng thử lại sau 3 giây!", { id: toastId }); 
+        if (e?.target) e.target.value = ''; 
+        return; 
+      } 
+      const reader = new FileReader(); 
+      reader.onload = (event) => { 
+        try { 
+          const data = new Uint8Array(event.target?.result as ArrayBuffer); 
+          const workbook = (window as any).XLSX.read(data, { type: 'array' }); 
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]]; 
+          const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false }); 
+          processData(jsonData); 
+        } catch (error) { 
+          toast.error("Lỗi định dạng file Excel.", { id: toastId }); 
+        } 
+      }; 
+      reader.readAsArrayBuffer(file); 
+    } else { 
+      const reader = new FileReader(); 
+      reader.onload = (event) => { 
+        const text = event.target?.result as string; 
+        const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''))); 
+        processData(lines); 
+      }; 
+      reader.readAsText(file); 
+    } 
+    
+    // Xóa bộ nhớ cache của nút chọn file
+    if (e?.target) e.target.value = ''; 
   };
 
   const handleImportInventoryCSV = (e: any) => {
