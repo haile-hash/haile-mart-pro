@@ -1,6 +1,6 @@
 /* eslint-disable */
 // @ts-nocheck
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 
 interface StatsModalProps {
   reportStartDate: string;
@@ -15,7 +15,17 @@ export const StatsModal: React.FC<StatsModalProps> = ({
   reportStartDate, setReportStartDate, reportEndDate, setReportEndDate, history, onClose
 }) => {
   
-  // Lọc dữ liệu theo khoảng thời gian
+  // STATE TẠM THỜI: Giữ ngày người dùng chọn, chưa tính toán vội
+  const [localStart, setLocalStart] = useState(reportStartDate);
+  const [localEnd, setLocalEnd] = useState(reportEndDate);
+
+  // Đồng bộ lại dữ liệu nếu bên ngoài có thay đổi
+  useEffect(() => {
+    setLocalStart(reportStartDate);
+    setLocalEnd(reportEndDate);
+  }, [reportStartDate, reportEndDate]);
+  
+  // Lọc dữ liệu theo khoảng thời gian (Chỉ chạy lại khi reportStartDate/reportEndDate chính thức thay đổi)
   const filteredStats = useMemo(() => {
     const start = new Date(reportStartDate).getTime();
     const end = new Date(reportEndDate).getTime() + 86400000; // Đến cuối ngày kết thúc
@@ -71,14 +81,45 @@ export const StatsModal: React.FC<StatsModalProps> = ({
           <button onClick={onClose} style={{ background: "#f1f5f9", border: "none", width: "36px", height: "36px", borderRadius: "50%", fontSize: "20px", cursor: "pointer", color: "#64748b", transition: "0.2s" }} onMouseOver={e=>e.currentTarget.style.background='#e2e8f0'} onMouseOut={e=>e.currentTarget.style.background='#f1f5f9'}>&times;</button>
         </div>
 
-        <div style={{ display: "flex", gap: "16px", marginBottom: "25px", background: "#f8fafc", padding: "16px", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+        {/* CỤM TÌM KIẾM 3 CỘT MỚI (FLEXBOX) */}
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end', background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
           <div style={{ flex: 1 }}>
-            <label style={{ fontSize: "13px", fontWeight: "700", color: "#475569", marginBottom: "8px", display: "block" }}>TỪ NGÀY:</label>
-            <input type="date" value={reportStartDate} onChange={e => setReportStartDate(e.target.value)} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", color: "#0f172a", boxSizing: "border-box" }} />
+            <label style={{ fontSize: "12px", color: "#64748b", fontWeight: "700", display: "block", marginBottom: "8px", textTransform: "uppercase" }}>Từ ngày:</label>
+            <input 
+              type="date" 
+              value={localStart} 
+              onChange={e => setLocalStart(e.target.value)} 
+              style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", boxSizing: "border-box", color: "#334155", fontWeight: "600", fontFamily: "'Inter', sans-serif" }} 
+            />
           </div>
           <div style={{ flex: 1 }}>
-            <label style={{ fontSize: "13px", fontWeight: "700", color: "#475569", marginBottom: "8px", display: "block" }}>ĐẾN NGÀY (BAO GỒM):</label>
-            <input type="date" value={reportEndDate} onChange={e => setReportEndDate(e.target.value)} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", color: "#0f172a", boxSizing: "border-box" }} />
+            <label style={{ fontSize: "12px", color: "#64748b", fontWeight: "700", display: "block", marginBottom: "8px", textTransform: "uppercase" }}>Đến ngày (Bao gồm):</label>
+            <input 
+              type="date" 
+              value={localEnd} 
+              onChange={e => setLocalEnd(e.target.value)} 
+              style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", boxSizing: "border-box", color: "#334155", fontWeight: "600", fontFamily: "'Inter', sans-serif" }} 
+            />
+          </div>
+          <div>
+            <button 
+              onClick={() => {
+                // Chỉ khi bấm nút này, state chính thức mới được cập nhật để kích hoạt useMemo tính toán lại
+                setReportStartDate(localStart);
+                setReportEndDate(localEnd);
+              }}
+              style={{ 
+                height: '42px', padding: "0 24px", borderRadius: "8px", border: "none", 
+                background: "#2563eb", color: "#fff", fontWeight: "700", cursor: "pointer", 
+                display: "flex", alignItems: "center", gap: "8px", transition: "0.2s",
+                boxShadow: "0 4px 6px -1px rgba(37, 99, 235, 0.2)"
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = "#1d4ed8"}
+              onMouseOut={(e) => e.currentTarget.style.background = "#2563eb"}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              ÁP DỤNG
+            </button>
           </div>
         </div>
 
