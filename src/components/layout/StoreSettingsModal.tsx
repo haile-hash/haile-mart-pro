@@ -39,15 +39,17 @@ export const StoreSettingsModal = ({ onClose }: { onClose: () => void }) => {
 
       if (error) throw error;
 
-      // ĐÃ SỬA LỖI TẠI ĐÂY: tax_code: taxCode
+      // Cập nhật Local Storage
       const updatedStore = { store_name: storeName, logo_url: logoUrl, phone, address, tax_code: taxCode };
       window.localStorage.setItem("mart_current_store", JSON.stringify(updatedStore));
 
+      // Phát ra một sự kiện Custom để các component khác (như Header) biết dữ liệu đã thay đổi mà cập nhật giao diện
+      window.dispatchEvent(new Event('storeDataUpdated'));
+
       toast.success("Cập nhật thông tin cửa hàng thành công!");
       
-      setTimeout(() => {
-        window.location.reload();
-      }, 800);
+      // Đóng modal mà không cần tải lại trang
+      onClose();
       
     } catch (error: any) {
       toast.error("Lỗi cập nhật: " + error.message);
