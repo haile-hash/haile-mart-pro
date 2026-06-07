@@ -342,8 +342,11 @@ export default function App() {
 
       const { data, error } = await supabase.from("settings").update(payload).eq("owner_id", user.id).select(); 
       if (error) { toast.error("Lỗi cập nhật: " + error.message); setLoading(false); return; }
+      
       if (!data || data.length === 0) {
-         const { error: insertErr } = await supabase.from("settings").insert([payload]); 
+         // TẠO ID NGẪU NHIÊN ĐỂ TRÁNH LỖI TRÙNG LẶP PKEY
+         const randomId = Math.floor(Math.random() * 2000000000);
+         const { error: insertErr } = await supabase.from("settings").insert([{ id: randomId, ...payload }]); 
          if (insertErr) { toast.error("Lỗi tạo Cài đặt: " + insertErr.message); setLoading(false); return; }
       }
 
