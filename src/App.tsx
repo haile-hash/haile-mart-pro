@@ -379,7 +379,8 @@ export default function App() {
   const saveSettings = () => { const bin = newBankBin.trim(); const acc = newBankAcc.trim(); const nameStr = newBankNameStr.trim().toUpperCase(); const zaloId = newZaloPayId.trim(); const pin = newAdminPinInput.trim(); if (!bin || !acc || !nameStr || !pin) return toast.error("Vui lòng điền đủ thông tin & Mã PIN!"); updateSettingsToCloud(bin, acc, nameStr, zaloId, newHappyStart, newHappyEnd, pin); };
   
   const handleLogoutClick = () => { logAudit("ĐĂNG XUẤT", `Thoát ca ${shift}`); ui.setShowHandoverModal?.(true); };
-  const confirmHandover = async () => { 
+
+   const confirmHandover = async () => { 
     try { 
       // Đăng xuất khỏi máy chủ mây Supabase
       if (navigator.onLine) { 
@@ -388,17 +389,24 @@ export default function App() {
     } catch (error) {
       console.error(error);
     } finally { 
-      // 1. Quét sạch các biến lẻ tẻ trong IndexedDB (Code cũ của bạn)
+      // 1. Quét sạch các biến lẻ tẻ trong IndexedDB
       await dbRemove("mart_logged_in"); 
       await dbRemove("mart_shift"); 
       await dbRemove("mart_current_store"); 
 
-      // 2. XÓA SẠCH DỮ LIỆU CÁ NHÂN (LỊCH SỬ, KHÁCH HÀNG, ĐƠN LƯU TẠM...) TRONG BỘ NHỚ KÉT SẮT (INDEXEDDB)
+      // 2. XÓA SẠCH DỮ LIỆU CÁ NHÂN BẢN CŨ
       await dbRemove("mart_history");
       await dbRemove("mart_customers");
       await dbRemove("mart_held_orders");
       await dbRemove("mart_expenses");
       await dbRemove("mart_pos");
+
+      // ---> ĐÂY LÀ PHẦN BỔ SUNG QUAN TRỌNG NHẤT <---
+      // Xóa triệt để Nhật ký hệ thống, Nhà cung cấp và Bộ nhớ đệm Sản phẩm của tài khoản cũ
+      await dbRemove("mart_audit"); 
+      await dbRemove("mart_suppliers");
+      await dbRemove("mart_products_cache");
+      await dbRemove("mart_pending_imports");
 
       // 3. TĂNG CƯỜNG: Xóa sạch 100% LocalStorage và SessionStorage trên trình duyệt
       window.localStorage.clear();
