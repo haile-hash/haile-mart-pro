@@ -46,11 +46,24 @@ import { Toaster, toast } from "react-hot-toast";
 import './styles/App.css';
 import './styles/Print.css';
 
+// ============================================================================
+// KHÓA TỬ (MASTER SWITCH): NGĂN CHẶN CÚ GIÃY CHẾT CỦA REACT
+// ============================================================================
+let APP_IS_WIPING = false; 
+
 const dbName = "HaileMartIndexedDB";
 const storeName = "kv_store";
 const initDB = (): Promise<IDBDatabase> => { return new Promise((resolve, reject) => { const request = indexedDB.open(dbName, 1); request.onupgradeneeded = () => { request.result.createObjectStore(storeName); }; request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); }); };
 const dbGet = async (key: string): Promise<any> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readonly"); const store = tx.objectStore(storeName); const req = store.get(key); req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); }); };
-const dbSet = async (key: string, value: any): Promise<void> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.put(value, key); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
+
+const dbSet = async (key: string, value: any): Promise<void> => { 
+  // NẾU ĐANG ĐĂNG XUẤT/XÓA DỮ LIỆU -> CHẶN ĐỨNG 100% LỆNH GHI VÀO KÉT SẮT
+  if (APP_IS_WIPING) return; 
+  
+  const db = await initDB(); 
+  return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.put(value, key); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); 
+};
+
 const dbRemove = async (key: string): Promise<void> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.delete(key); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
 const dbClearAll = async (): Promise<void> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.clear(); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
 
@@ -155,19 +168,22 @@ export default function App() {
   const totalValue = useMemo(() => products.reduce((sum, p) => sum + ((p.stock || 0) * (p.import_price || 0)), 0), [products]);
   const lowStockCount = useMemo(() => products.filter(p => p.stock > 0 && p.stock < 10).length, [products]);
 
+  // ============================================================================
   // ĐÁ VĂNG KHI TÀI KHOẢN BỊ XÓA (KIỂM TRA MỖI 30S)
+  // ============================================================================
   useEffect(() => {
     if (!isLoggedIn) return;
     const checkAccountStatus = async () => {
       const { data: { user }, error } = await supabase.auth.getUser();
       if (error || !user) {
         alert("Phiên đăng nhập không còn hợp lệ do Tài khoản của bạn đã bị vô hiệu hóa hoặc xóa khỏi hệ thống bởi Quản trị viên!");
-        setAuditLogs([]); setHistory([]); setCustomers({}); setHeldOrders([]); setExpenses([]); setSuppliers([]); setProducts([]); setLocalPOs([]); setAllPOs([]); setCart([]);
+        
+        APP_IS_WIPING = true; // KHÓA TỬ KÍCH HOẠT
+
         await dbClearAll();
         window.localStorage.clear();
         window.sessionStorage.clear();
-        setIsLoggedIn(false);
-        window.location.reload();
+        window.location.reload(); // Reload ngay lập tức, không set state nữa
       }
     };
     checkAccountStatus();
@@ -210,20 +226,23 @@ export default function App() {
     initializeEnterpriseStorage();
   }, []);
 
-  useEffect(() => { if (!isStorageLoading) dbSet("mart_logged_in", isLoggedIn ? "true" : "false"); }, [isLoggedIn, isStorageLoading]);
-  useEffect(() => { if (!isStorageLoading) dbSet("mart_shift", shift); }, [shift, isStorageLoading]);
-  useEffect(() => { if (!isStorageLoading) dbSet("mart_starting_cash", startingCash.toString()); }, [startingCash, isStorageLoading]);
-  useEffect(() => { if (!isStorageLoading) dbSet("mart_pos", localPOs); }, [localPOs, isStorageLoading]);
-  useEffect(() => { if (!isStorageLoading) dbSet("mart_customers", customersData); }, [customersData, isStorageLoading]);
-  useEffect(() => { if (!isStorageLoading) dbSet("mart_held_orders", heldOrders); }, [heldOrders, isStorageLoading]);
-  useEffect(() => { if (!isStorageLoading) dbSet("mart_audit", auditLogs); }, [auditLogs, isStorageLoading]);
-  useEffect(() => { if (!isStorageLoading) dbSet("mart_expenses", expenses); }, [expenses, isStorageLoading]);
-  useEffect(() => { if (!isStorageLoading) dbSet("mart_suppliers", suppliers); }, [suppliers, isStorageLoading]);
-  useEffect(() => { if (!isStorageLoading) dbSet("mart_history", history); }, [history, isStorageLoading]);
+  // Chỉ thiết lập các bộ lắng nghe dbSet khi ứng dụng đang hoạt động bình thường
+  useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_logged_in", isLoggedIn ? "true" : "false"); }, [isLoggedIn, isStorageLoading]);
+  useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_shift", shift); }, [shift, isStorageLoading]);
+  useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_starting_cash", startingCash.toString()); }, [startingCash, isStorageLoading]);
+  useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_pos", localPOs); }, [localPOs, isStorageLoading]);
+  useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_customers", customersData); }, [customersData, isStorageLoading]);
+  useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_held_orders", heldOrders); }, [heldOrders, isStorageLoading]);
+  useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_audit", auditLogs); }, [auditLogs, isStorageLoading]);
+  useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_expenses", expenses); }, [expenses, isStorageLoading]);
+  useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_suppliers", suppliers); }, [suppliers, isStorageLoading]);
+  useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_history", history); }, [history, isStorageLoading]);
 
   useEffect(() => { const handleKeyDown = (e: KeyboardEvent) => { if (!isLoggedIn || isCheckoutOpen || ui.showPinModal || ui.showAuditModal || ui.showCustomerModal || ui.showSettings || ui.showStoreSettings || ui.showInputForm || ui.showInventoryModal || ui.cashFlowModalInfo || ui.showPOModal) return; if (e.key === 'F1') { e.preventDefault(); document.getElementById('search-barcode')?.focus(); } if (e.key === 'F2') { e.preventDefault(); if (cart.length > 0) confirmCheckout('TIỀN MẶT'); } if (e.key === 'F3') { e.preventDefault(); if (cart.length > 0) confirmCheckout('CHUYỂN KHOẢN'); } if (e.key === 'F4') { e.preventDefault(); handleHoldOrder(); } }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); }, [isLoggedIn, isCheckoutOpen, ui, cart]);
 
+  // ============================================================================
   // CƠ CHẾ CHỐNG LỘ DỮ LIỆU CHÉO SAU KHI ĐĂNG NHẬP
+  // ============================================================================
   useEffect(() => {
     if (isLoggedIn) {
       const initDataAndCheckLeak = async () => {
@@ -231,9 +250,13 @@ export default function App() {
         if (user) {
           const lastOwner = await dbGet("mart_owner_id");
           if (lastOwner && lastOwner !== user.id) {
-             // Đổi chủ -> Xóa triệt để
-             setAuditLogs([]); setHistory([]); setCustomers({}); setHeldOrders([]); setExpenses([]); setSuppliers([]); setProducts([]); setLocalPOs([]); setAllPOs([]); setCart([]);
+             APP_IS_WIPING = true; // Khóa Tử để cấm mọi cú giãy chết
+             
              await dbClearAll();
+             window.localStorage.clear();
+             window.sessionStorage.clear();
+             
+             APP_IS_WIPING = false; // Xóa xong thì mở lại Két cho chủ mới
           }
           await dbSet("mart_owner_id", user.id);
           window.localStorage.setItem("mart_owner_id", user.id);
@@ -342,9 +365,7 @@ export default function App() {
 
       const { data, error } = await supabase.from("settings").update(payload).eq("owner_id", user.id).select(); 
       if (error) { toast.error("Lỗi cập nhật: " + error.message); setLoading(false); return; }
-      
       if (!data || data.length === 0) {
-         // TẠO ID NGẪU NHIÊN ĐỂ TRÁNH LỖI TRÙNG LẶP PKEY
          const randomId = Math.floor(Math.random() * 2000000000);
          const { error: insertErr } = await supabase.from("settings").insert([{ id: randomId, ...payload }]); 
          if (insertErr) { toast.error("Lỗi tạo Cài đặt: " + insertErr.message); setLoading(false); return; }
@@ -364,16 +385,21 @@ export default function App() {
   
   const handleLogoutClick = () => { logAudit("ĐĂNG XUẤT", `Thoát ca ${shift}`); ui.setShowHandoverModal?.(true); };
 
+  // ============================================================================
+  // NGĂN BỆNH LƯU NGƯỢC KHI BẤM ĐĂNG XUẤT BẰNG KHÓA TỬ
+  // ============================================================================
   const confirmHandover = async () => { 
     try { 
       if (navigator.onLine) { await supabase.auth.signOut(); } 
     } catch (error) {} 
     finally { 
-      setAuditLogs([]); setHistory([]); setCustomers({}); setHeldOrders([]); setExpenses([]); setSuppliers([]); setLocalPOs([]); setAllPOs([]); setCart([]);
+      APP_IS_WIPING = true; // KHÓA CỬA KÉT SẮT 100%
+
       await dbClearAll();
       window.localStorage.clear();
       window.sessionStorage.clear();
-      setIsLoggedIn(false); 
+      
+      // Không cần set State ([]) nữa, vì trang web sẽ reload ngay lập tức
       window.location.reload(); 
     } 
   };
