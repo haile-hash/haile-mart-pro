@@ -57,9 +57,7 @@ const initDB = (): Promise<IDBDatabase> => { return new Promise((resolve, reject
 const dbGet = async (key: string): Promise<any> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readonly"); const store = tx.objectStore(storeName); const req = store.get(key); req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); }); };
 
 const dbSet = async (key: string, value: any): Promise<void> => { 
-  // NẾU ĐANG ĐĂNG XUẤT/XÓA DỮ LIỆU -> CHẶN ĐỨNG 100% LỆNH GHI VÀO KÉT SẮT
   if (APP_IS_WIPING) return; 
-  
   const db = await initDB(); 
   return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.put(value, key); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); 
 };
@@ -178,12 +176,12 @@ export default function App() {
       if (error || !user) {
         alert("Phiên đăng nhập không còn hợp lệ do Tài khoản của bạn đã bị vô hiệu hóa hoặc xóa khỏi hệ thống bởi Quản trị viên!");
         
-        APP_IS_WIPING = true; // KHÓA TỬ KÍCH HOẠT
+        APP_IS_WIPING = true; 
 
         await dbClearAll();
         window.localStorage.clear();
         window.sessionStorage.clear();
-        window.location.reload(); // Reload ngay lập tức, không set state nữa
+        window.location.reload(); 
       }
     };
     checkAccountStatus();
@@ -226,7 +224,6 @@ export default function App() {
     initializeEnterpriseStorage();
   }, []);
 
-  // Chỉ thiết lập các bộ lắng nghe dbSet khi ứng dụng đang hoạt động bình thường
   useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_logged_in", isLoggedIn ? "true" : "false"); }, [isLoggedIn, isStorageLoading]);
   useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_shift", shift); }, [shift, isStorageLoading]);
   useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_starting_cash", startingCash.toString()); }, [startingCash, isStorageLoading]);
@@ -250,13 +247,13 @@ export default function App() {
         if (user) {
           const lastOwner = await dbGet("mart_owner_id");
           if (lastOwner && lastOwner !== user.id) {
-             APP_IS_WIPING = true; // Khóa Tử để cấm mọi cú giãy chết
+             APP_IS_WIPING = true; 
              
              await dbClearAll();
              window.localStorage.clear();
              window.sessionStorage.clear();
              
-             APP_IS_WIPING = false; // Xóa xong thì mở lại Két cho chủ mới
+             APP_IS_WIPING = false; 
           }
           await dbSet("mart_owner_id", user.id);
           window.localStorage.setItem("mart_owner_id", user.id);
@@ -293,39 +290,28 @@ export default function App() {
   useEffect(() => { if (!ui.printMode) { isPrintingRef.current = false; return; } if (isPrintingRef.current) return; isPrintingRef.current = true; const handleAfterPrint = () => { ui.setPrintMode?.(null); isPrintingRef.current = false; }; window.addEventListener('afterprint', handleAfterPrint); const timer = setTimeout(() => { if (ui.printMode) { window.print(); } }, 1500); return () => { clearTimeout(timer); window.removeEventListener('afterprint', handleAfterPrint); }; }, [ui.printMode]);
 
   const executeWithAdminCheck = (action: () => void) => { action(); };
- const addTransactionAndSync = async (logData: any) => { 
-    // Lấy Sổ đỏ (ID cửa hàng) đang đăng nhập
+  
+  // ============================================================================
+  // CẬP NHẬT ĐÓNG DẤU "SỔ ĐỎ" LÚC LƯU LỊCH SỬ & NHẬT KÝ
+  // ============================================================================
+  const addTransactionAndSync = async (logData: any) => { 
     const ownerId = window.localStorage.getItem("mart_owner_id");
     if (!ownerId) return;
-
-    // Gắn ID vào dữ liệu trước khi đẩy đi
     const dataWithOwner = { ...logData, owner_id: ownerId };
-    
     setHistory(prev => [dataWithOwner, ...prev]); 
     if (navigator.onLine) { 
       try { await supabase.from("history").insert([dataWithOwner]); } catch (err) {} 
     } 
   };
-
+  
   const logAudit = async (action: string, detail: string, extraData: any = null) => { 
     const ownerId = window.localStorage.getItem("mart_owner_id");
     if (!ownerId) return;
-
-    const newLog = { 
-      id: Date.now(), 
-      time: new Date().toLocaleString('vi-VN'), 
-      user_name: 'Người Dùng', 
-      shift, action, detail, 
-      extra_data: extraData ? JSON.stringify(extraData) : null,
-      owner_id: ownerId // <-- ĐÓNG DẤU CHỦ SỞ HỮU VÀO NHẬT KÝ
-    }; 
-    
+    const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user_name: 'Người Dùng', shift, action, detail, extra_data: extraData ? JSON.stringify(extraData) : null, owner_id: ownerId }; 
     setAuditLogs(prev => [newLog, ...prev].slice(0, 300)); 
-    
-    if (navigator.onLine) {
-      supabase.from("audit_logs").insert([newLog]).catch(()=>{});
-    }
+    if (navigator.onLine) { supabase.from("audit_logs").insert([newLog]).catch(()=>{}); }
   };
+  
   const exportAuditToCSV = () => {
     if (!(window as any).XLSX) return toast.error("Đang tải thư viện Excel!");
     try {
@@ -339,7 +325,23 @@ export default function App() {
     } catch (e) { toast.error("Lỗi xuất file!"); }
   };
   
-  const fetchProducts = async () => { try { if (navigator.onLine) { const { data, error } = await supabase.from("products").select("*").order("created_at", { ascending: false }); if (data && !error) { setProducts(data); await dbSet("mart_products_cache", data); } } else { const localData = await dbGet("mart_products_cache"); if (localData) setProducts(localData); } } catch (err) { const localData = await dbGet("mart_products_cache"); if (localData) setProducts(localData); } };
+  // ============================================================================
+  // CẬP NHẬT ĐÓNG DẤU "SỔ ĐỎ" KHI TẢI SẢN PHẨM & CÀI ĐẶT
+  // ============================================================================
+  const fetchProducts = async () => { 
+    const ownerId = window.localStorage.getItem("mart_owner_id");
+    if (!ownerId) return;
+    try { 
+      if (navigator.onLine) { 
+        const { data, error } = await supabase.from("products").select("*").eq("owner_id", ownerId).order("created_at", { ascending: false }); 
+        if (data && !error) { setProducts(data); await dbSet("mart_products_cache", data); } 
+      } else { 
+        const localData = await dbGet("mart_products_cache"); if (localData) setProducts(localData); 
+      } 
+    } catch (err) { 
+      const localData = await dbGet("mart_products_cache"); if (localData) setProducts(localData); 
+    } 
+  };
   
   const fetchSettingsFromCloud = async () => { 
     try { 
@@ -415,21 +417,17 @@ export default function App() {
   
   const handleLogoutClick = () => { logAudit("ĐĂNG XUẤT", `Thoát ca ${shift}`); ui.setShowHandoverModal?.(true); };
 
-  // ============================================================================
-  // NGĂN BỆNH LƯU NGƯỢC KHI BẤM ĐĂNG XUẤT BẰNG KHÓA TỬ
-  // ============================================================================
   const confirmHandover = async () => { 
     try { 
       if (navigator.onLine) { await supabase.auth.signOut(); } 
     } catch (error) {} 
     finally { 
-      APP_IS_WIPING = true; // KHÓA CỬA KÉT SẮT 100%
+      APP_IS_WIPING = true; 
 
       await dbClearAll();
       window.localStorage.clear();
       window.sessionStorage.clear();
       
-      // Không cần set State ([]) nữa, vì trang web sẽ reload ngay lập tức
       window.location.reload(); 
     } 
   };
@@ -621,15 +619,26 @@ export default function App() {
 
   useEffect(() => { if (isOnline && isLoggedIn) { syncPendingImports(); } }, [isOnline, isLoggedIn]);
 
+  // ============================================================================
+  // CẬP NHẬT ĐÓNG DẤU "SỔ ĐỎ" & SỬA LỖI DANH MỤC LÚC NHẬP TAY SP
+  // ============================================================================
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault(); setLoading(true);
+    const ownerId = window.localStorage.getItem("mart_owner_id");
+    if (!ownerId) { toast.error("Lỗi phiên làm việc"); setLoading(false); return; }
+
     try {
       const added = Number(String(newStock).replace(/[^0-9]/g, '')) || 0; const impPrice = Number(String(newImportPrice).replace(/[^0-9]/g, '')) || 0; const salePrice = Number(String(newPrice).replace(/[^0-9]/g, '')) || 0; const promo = Number(String(newPromoPrice).replace(/[^0-9]/g, '')) || 0; const finalGiftInfo = newGiftInfo.trim() !== "" ? `${newGiftCondition};;;${newGiftInfo}` : null; 
-      const inputCode = newCode.trim(); const baseCode = inputCode.split('-')[0]; const formattedCat = formatCategoryStr(newCategory);
+      const inputCode = newCode.trim(); const baseCode = inputCode.split('-')[0]; 
+      
+      let rawCat = newCategory.trim();
+      const formattedCat = rawCat === "" ? "Chưa phân loại" : formatCategoryStr(rawCat);
+      
       const allVariants = products.filter(p => String(p.product_code).split('-')[0] === baseCode); const exist = products.find(p => p.product_code === inputCode) || allVariants.find(p => p.product_code === baseCode); const isNewBatch = exist && (exist.import_price !== impPrice || (exist.expiry_date || "") !== (newExpiry || ""));
       let finalProductCode = exist ? exist.product_code : baseCode; let finalProductName = newName; let finalStockToSave = added;
       if (isNewBatch) { finalProductCode = `${baseCode}-${Date.now().toString().slice(-4)}`; finalProductName = `${newName} [Lô mới]`; if (!window.confirm(`Sản phẩm bị lệch Giá vốn / Hạn sử dụng.\nHệ thống sẽ tạo LÔ MỚI (${finalProductCode})?\n\nChọn OK để tiếp tục.`)) { setLoading(false); return; } } else if (exist) { finalStockToSave = exist.stock + added; }
-      const newProductData = { product_code: finalProductCode, name: finalProductName, category: formattedCat, import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: finalStockToSave, expiry_date: newExpiry || null };
+      
+      const newProductData = { owner_id: ownerId, product_code: finalProductCode, name: finalProductName, category: formattedCat, import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: finalStockToSave, expiry_date: newExpiry || null };
 
       setProducts(prev => {
         let updated = prev.map(p => { const pBase = String(p.product_code).split('-')[0]; if (pBase === baseCode) { const keepSuffix = p.name.includes('[Lô mới]') ? ' [Lô mới]' : ''; return { ...p, name: newName + keepSuffix, category: formattedCat, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: (!isNewBatch && p.id === exist?.id) ? finalStockToSave : p.stock }; } return p; });
@@ -650,15 +659,26 @@ export default function App() {
     } catch (err) { toast.error("Lỗi khi lưu sản phẩm"); } finally { setLoading(false); }
   };
 
+  // ============================================================================
+  // CẬP NHẬT ĐÓNG DẤU "SỔ ĐỎ" & SỬA LỖI DANH MỤC LÚC IMPORT EXCEL
+  // ============================================================================
   const handleFileUpload = async (e: any) => {
     const file = e?.target?.files?.[0] || e; if (!file || !file.name) { if (e?.target) e.target.value = ''; return; } if (!navigator.onLine) { toast.error("Cần mạng để tải lên!"); if (e?.target) e.target.value = ''; return; }
     const processData = async (lines: any[]) => {
       setLoading(true); 
+      const ownerId = window.localStorage.getItem("mart_owner_id");
+      if (!ownerId) { toast.error("Lỗi phiên làm việc"); setLoading(false); return; }
+
       try {
         if (!lines || lines.length <= 1) { toast.error("File rỗng!"); setLoading(false); return; } let successCount = 0; let importLogs: any[] = [];
         for (let i = 1; i < lines.length; i++) {
           const cols = lines[i]; if (!cols || !Array.isArray(cols) || cols.join('').trim() === '') continue; 
-          const pCode = String(cols[0] || "").trim(); const pName = String(cols[1] || "").trim(); const pCategory = formatCategoryStr(String(cols[2] || "")); const pImpPrice = parseInt(String(cols[3] || "0").replace(/[,.]/g, '')) || 0; const pSalePrice = parseInt(String(cols[4] || "0").replace(/[,.]/g, '')) || 0; const pPromoPrice = parseInt(String(cols[5] || "0").replace(/[,.]/g, '')) || 0; const pGiftCond = String(cols[6] || "1").trim(); const pGiftText = cols[7] ? String(cols[7]).trim() : ""; const pGift = pGiftText !== "" ? `${pGiftCond};;;${pGiftText}` : null; const pStock = parseInt(String(cols[8] || "0").replace(/[,.]/g, '')) || 0; const pExpiry = cols[9] ? String(cols[9]).trim() : null;
+          const pCode = String(cols[0] || "").trim(); const pName = String(cols[1] || "").trim(); 
+          
+          let rawCat = String(cols[2] || "").trim();
+          const pCategory = rawCat === "" ? "Chưa phân loại" : formatCategoryStr(rawCat);
+          
+          const pImpPrice = parseInt(String(cols[3] || "0").replace(/[,.]/g, '')) || 0; const pSalePrice = parseInt(String(cols[4] || "0").replace(/[,.]/g, '')) || 0; const pPromoPrice = parseInt(String(cols[5] || "0").replace(/[,.]/g, '')) || 0; const pGiftCond = String(cols[6] || "1").trim(); const pGiftText = cols[7] ? String(cols[7]).trim() : ""; const pGift = pGiftText !== "" ? `${pGiftCond};;;${pGiftText}` : null; const pStock = parseInt(String(cols[8] || "0").replace(/[,.]/g, '')) || 0; const pExpiry = cols[9] ? String(cols[9]).trim() : null;
           if (!pCode || !pName || pSalePrice <= 0) continue;
           const baseCode = pCode.split('-')[0]; const allVariants = products.filter(p => String(p.product_code).split('-')[0] === baseCode); 
           if (allVariants.length > 0) { 
@@ -668,11 +688,11 @@ export default function App() {
           const exist = allVariants.find(p => p.product_code === pCode); 
           if (exist) { 
             if (exist.stock <= 0) { await supabase.from("products").update({ name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry, updated_at: new Date().toISOString() }).eq("id", exist.id); } 
-            else { if (exist.import_price !== pImpPrice || (exist.expiry_date || "") !== (pExpiry || "")) { const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}${i}`; await supabase.from("products").insert([{ product_code: batchCode, name: `${pName} [Lô mới]`, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); } else { await supabase.from("products").update({ stock: exist.stock + pStock, updated_at: new Date().toISOString() }).eq("id", exist.id); } } 
-          } else { await supabase.from("products").insert([{ product_code: pCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); }
+            else { if (exist.import_price !== pImpPrice || (exist.expiry_date || "") !== (pExpiry || "")) { const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}${i}`; await supabase.from("products").insert([{ owner_id: ownerId, product_code: batchCode, name: `${pName} [Lô mới]`, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); } else { await supabase.from("products").update({ stock: exist.stock + pStock, updated_at: new Date().toISOString() }).eq("id", exist.id); } } 
+          } else { await supabase.from("products").insert([{ owner_id: ownerId, product_code: pCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); }
           if (pStock > 0) { importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "NHẬP", name: cleanName(pName), qty: pStock, total: 0, time: new Date().toLocaleString('vi-VN') } as any); successCount++; }
         }
-        if (importLogs.length > 0) { if(navigator.onLine) await supabase.from("history").insert(importLogs); setHistory(prev => [...importLogs, ...prev]); } logAudit("NHẬP EXCEL", `Nhập ${successCount} mã`); toast.success(`Nhập thành công từ file!`);
+        if (importLogs.length > 0) { if(navigator.onLine) await supabase.from("history").insert(importLogs.map(l => ({...l, owner_id: ownerId}))); setHistory(prev => [...importLogs, ...prev]); } logAudit("NHẬP EXCEL", `Nhập ${successCount} mã`); toast.success(`Nhập thành công từ file!`);
       } catch (err) { toast.error("Lỗi đọc file."); } setLoading(false);
     }; 
     const fileNameStr = file.name.toLowerCase();
