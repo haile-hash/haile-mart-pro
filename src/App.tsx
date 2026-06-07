@@ -52,6 +52,8 @@ const initDB = (): Promise<IDBDatabase> => { return new Promise((resolve, reject
 const dbGet = async (key: string): Promise<any> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readonly"); const store = tx.objectStore(storeName); const req = store.get(key); req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); }); };
 const dbSet = async (key: string, value: any): Promise<void> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.put(value, key); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
 const dbRemove = async (key: string): Promise<void> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.delete(key); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
+// BOM HẠT NHÂN: Quét sạch toàn bộ Két sắt trong 1 thao tác
+const dbClearAll = async (): Promise<void> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.clear(); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
 
 export default function App() {
   if (typeof window !== "undefined" && window.location.search.includes("scanner=true")) return <MobileScanner />;
@@ -129,27 +131,13 @@ export default function App() {
   const finalToPay = amountAfterTierAndVoucher - walletUsedAmount;
 
   const currentShiftStats = useMemo(() => {
-    let revenue = 0; 
-    let profit = 0; 
-    let ordersCount = 0; 
-    let cash = Number(startingCash) || 0; 
-    let transfer = 0; 
-
+    let revenue = 0; let profit = 0; let ordersCount = 0; let cash = Number(startingCash) || 0; let transfer = 0; 
     const todayStr = todayStrStr || new Date().toLocaleDateString('vi-VN');
-
     history.forEach(log => {
       let logDate = ""; if (log.time) { const parts = log.time.split(' '); const datePart = parts.find(p => p.includes('/')); if (datePart) logDate = datePart.replace(',', '').trim(); }
-      
       if (log.shift === shift && logDate === todayStr) {
-        if (log.type === 'BÁN' || log.type === 'GHI NỢ') {
-          ordersCount += 1; revenue += (log.total || 0); profit += (log.profit || 0);
-        } else if (log.type === 'TRẢ HÀNG') {
-          revenue += (log.total || 0); profit += (log.profit || 0);
-        }
-        
-        if (log.paymentMethod === 'TIỀN MẶT') cash += (log.total || 0);
-        else if (log.paymentMethod === 'CHUYỂN KHOẢN' || log.paymentMethod === 'QUẸT THẺ' || log.paymentMethod === 'ZALO PAY') transfer += (log.total || 0);
-        else if (log.paymentMethod === 'KẾT HỢP') { cash += (log.split_cash || 0); transfer += ((log.total || 0) - (log.split_cash || 0)); }
+        if (log.type === 'BÁN' || log.type === 'GHI NỢ') { ordersCount += 1; revenue += (log.total || 0); profit += (log.profit || 0); } else if (log.type === 'TRẢ HÀNG') { revenue += (log.total || 0); profit += (log.profit || 0); }
+        if (log.paymentMethod === 'TIỀN MẶT') cash += (log.total || 0); else if (log.paymentMethod === 'CHUYỂN KHOẢN' || log.paymentMethod === 'QUẸT THẺ' || log.paymentMethod === 'ZALO PAY') transfer += (log.total || 0); else if (log.paymentMethod === 'KẾT HỢP') { cash += (log.split_cash || 0); transfer += ((log.total || 0) - (log.split_cash || 0)); }
       }
     });
     return { total: revenue, profit, orders: ordersCount, cash, transfer };
@@ -168,39 +156,24 @@ export default function App() {
   const totalValue = useMemo(() => products.reduce((sum, p) => sum + ((p.stock || 0) * (p.import_price || 0)), 0), [products]);
   const lowStockCount = useMemo(() => products.filter(p => p.stock > 0 && p.stock < 10).length, [products]);
 
-  // ĐOẠN CODE TỰ BẢO VỆ: ĐÁ VĂNG KHI TÀI KHOẢN BỊ XÓA HOẶC KHÓA (CHẠY NGẦM MỖI 30 GIÂY)
+  // CHỐT CHẶN: ĐÁ VĂNG KHI TÀI KHOẢN BỊ XÓA (KIỂM TRA MỖI 30S)
   useEffect(() => {
     if (!isLoggedIn) return;
-
     const checkAccountStatus = async () => {
-      // Gọi lên Supabase hỏi xin thông tin user hiện tại
       const { data: { user }, error } = await supabase.auth.getUser();
-      
-      // Nếu có lỗi hoặc không tìm thấy user
       if (error || !user) {
         alert("Phiên đăng nhập không còn hợp lệ do Tài khoản của bạn đã bị vô hiệu hóa hoặc xóa khỏi hệ thống bởi Quản trị viên!");
-        
-        // --- 1. BỔ SUNG: QUÉT SẠCH KÉT SẮT INDEXEDDB TRƯỚC KHI VĂNG ---
-        const keysToRemove = [
-          "mart_logged_in", "mart_shift", "mart_current_store", 
-          "mart_history", "mart_customers", "mart_held_orders", 
-          "mart_expenses", "mart_pos", "mart_audit", 
-          "mart_suppliers", "mart_products_cache", "mart_pending_imports"
-        ];
-        for (const key of keysToRemove) {
-          await dbRemove(key);
-        }
-        
-        // 2. Quét sạch LocalStorage & SessionStorage
+        // 1. Phá hủy State ngay trên RAM
+        setAuditLogs([]); setHistory([]); setCustomers({}); setHeldOrders([]); setExpenses([]); setSuppliers([]); setProducts([]); setLocalPOs([]); setAllPOs([]); setCart([]);
+        // 2. Clear toàn bộ dữ liệu Offline
+        await dbClearAll();
         window.localStorage.clear();
         window.sessionStorage.clear();
-        
-        // 3. Đá văng ra ngoài
+        // 3. Reload
         setIsLoggedIn(false);
         window.location.reload();
       }
     };
-
     checkAccountStatus();
     const intervalId = setInterval(checkAccountStatus, 30000);
     return () => clearInterval(intervalId);
@@ -230,9 +203,7 @@ export default function App() {
         const savedCash = Number(await dbGet("mart_starting_cash") || 5000000); 
         
         setIsLoggedIn(loggedIn); 
-        if (loggedIn) {
-           setIsLocked(true);
-        }
+        if (loggedIn) setIsLocked(true);
 
         setShift(savedShift); setStartingCash(savedCash);
         setLocalPOs(await dbGet("mart_pos") || []); setCustomers(await dbGet("mart_customers") || {}); setHeldOrders(await dbGet("mart_held_orders") || []); setAuditLogs(await dbGet("mart_audit") || []); setExpenses(await dbGet("mart_expenses") || []); setSuppliers(await dbGet("mart_suppliers") || []); setHistory(await dbGet("mart_history") || []);
@@ -256,44 +227,33 @@ export default function App() {
 
   useEffect(() => { const handleKeyDown = (e: KeyboardEvent) => { if (!isLoggedIn || isCheckoutOpen || ui.showPinModal || ui.showAuditModal || ui.showCustomerModal || ui.showSettings || ui.showStoreSettings || ui.showInputForm || ui.showInventoryModal || ui.cashFlowModalInfo || ui.showPOModal) return; if (e.key === 'F1') { e.preventDefault(); document.getElementById('search-barcode')?.focus(); } if (e.key === 'F2') { e.preventDefault(); if (cart.length > 0) confirmCheckout('TIỀN MẶT'); } if (e.key === 'F3') { e.preventDefault(); if (cart.length > 0) confirmCheckout('CHUYỂN KHOẢN'); } if (e.key === 'F4') { e.preventDefault(); handleHoldOrder(); } }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); }, [isLoggedIn, isCheckoutOpen, ui, cart]);
 
+  // CƠ CHẾ CHỐNG LỘ DỮ LIỆU CHÉO SAU KHI ĐĂNG NHẬP
   useEffect(() => {
     if (isLoggedIn) {
       const initDataAndCheckLeak = async () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          // 1. CHỐNG RÒ RỈ DỮ LIỆU CHÉO GIỮA CÁC TÀI KHOẢN (MULTI-TENANT LEAK)
           const lastOwner = await dbGet("mart_owner_id");
-          
           if (lastOwner && lastOwner !== user.id) {
-            // Phát hiện Đổi chủ / Tài khoản mới! Quét sạch toàn bộ State đang hiển thị trên màn hình
-            setAuditLogs([]); setHistory([]); setCustomers({}); setHeldOrders([]); setExpenses([]); setSuppliers([]); setProducts([]); setLocalPOs([]); setAllPOs([]);
-            
-            // Quét sạch rác của người cũ trong két sắt ngầm IndexedDB
-            const keysToWipe = ["mart_history", "mart_customers", "mart_held_orders", "mart_expenses", "mart_pos", "mart_audit", "mart_suppliers", "mart_products_cache", "mart_pending_imports"];
-            for (const key of keysToWipe) { await dbRemove(key); }
+             // Đổi chủ -> Xóa triệt để
+             setAuditLogs([]); setHistory([]); setCustomers({}); setHeldOrders([]); setExpenses([]); setSuppliers([]); setProducts([]); setLocalPOs([]); setAllPOs([]); setCart([]);
+             await dbClearAll();
           }
-          
-          // Ghi nhận chủ nhân mới của cái máy này
           await dbSet("mart_owner_id", user.id);
           window.localStorage.setItem("mart_owner_id", user.id);
 
-          // 2. Lấy thông tin Cửa hàng của tài khoản này
           const { data: store } = await supabase.from('stores').select('*').eq('owner_id', user.id).single();
-          if (store) { 
-            await dbSet("mart_current_store", store); 
-            window.localStorage.setItem("mart_current_store", JSON.stringify(store)); 
+          if (store) {
+            await dbSet("mart_current_store", store);
+            window.localStorage.setItem("mart_current_store", JSON.stringify(store));
           }
-
-          // 3. Tải dữ liệu gốc từ máy chủ mây xuống (Nếu có mạng)
           if (navigator.onLine) {
-             fetchProducts(); loadCloudData(); fetchSettingsFromCloud(); 
+             fetchProducts(); loadCloudData(); fetchSettingsFromCloud();
           }
         }
       };
-      
-      initDataAndCheckLeak();
 
-      // Mở kênh lắng nghe Realtime thay đổi dữ liệu
+      initDataAndCheckLeak();
       const channel = supabase.channel("db_changes").on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts()).on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData()).on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload: any) => { setScanQueue(prev => [...prev, payload.new.code]); }).subscribe();
       return () => { supabase.removeChannel(channel) };
     }
@@ -341,7 +301,6 @@ export default function App() {
         if (data.admin_pin) { setAdminPin(data.admin_pin); setNewAdminPinInput(data.admin_pin); } 
         if (data.happy_hour_start) { setHappyStart(data.happy_hour_start); setNewHappyStart(data.happy_hour_start); } 
         if (data.happy_hour_end) { setHappyEnd(data.happy_hour_end); setNewHappyEnd(data.happy_hour_end); } 
-        
         if (data.happy_hour_discount !== undefined) {
           setHappyDiscount(data.happy_hour_discount);
           setNewHappyDiscount(data.happy_hour_discount);
@@ -363,7 +322,6 @@ export default function App() {
     } catch (err) {} 
   };
   
-  // FIX BẢN CHUẨN: Dùng .update() trước, nếu lỗi hoặc bảng trống thì .insert() để không bị dính lỗi RLS chặn upsert
   const updateSettingsToCloud = async (bin: string, acc: string, nameStr: string, zaloId: string, hStart: string, hEnd: string, pin: string) => { 
     if (!navigator.onLine) return toast.error("Mất mạng! Không thể lưu Cài đặt."); 
     setLoading(true); 
@@ -381,80 +339,47 @@ export default function App() {
       };
 
       const { data, error } = await supabase.from("settings").update(payload).eq("id", 1).select(); 
-      
-      if (error) {
-        toast.error("Lỗi cập nhật Cài đặt: " + error.message);
-        setLoading(false);
-        return;
-      }
-
-      // Nếu không có dòng nào được cập nhật (bảng trắng trơn), tiến hành chèn dòng đầu tiên
+      if (error) { toast.error("Lỗi cập nhật: " + error.message); setLoading(false); return; }
       if (!data || data.length === 0) {
          const { error: insertErr } = await supabase.from("settings").insert([{ id: 1, ...payload }]);
-         if (insertErr) {
-             toast.error("Lỗi tạo mới Cài đặt: " + insertErr.message);
-             setLoading(false);
-             return;
-         }
+         if (insertErr) { toast.error("Lỗi tạo Cài đặt: " + insertErr.message); setLoading(false); return; }
       }
 
       setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr); setZaloPayId(zaloId); 
       setHappyStart(hStart); setHappyEnd(hEnd); setAdminPin(pin); 
       setTierConfig(newTierConfig);
-      
       setHappyDiscount(newHappyDiscount);
-      window.localStorage.setItem('mart_happy_start', hStart);
-      window.localStorage.setItem('mart_happy_end', hEnd);
-      window.localStorage.setItem('mart_happy_discount', newHappyDiscount.toString());
+      window.localStorage.setItem('mart_happy_start', hStart); window.localStorage.setItem('mart_happy_end', hEnd); window.localStorage.setItem('mart_happy_discount', newHappyDiscount.toString());
 
-      toast.success("Lưu Cài đặt thành công!"); 
-      ui.setShowSettings?.(false); 
-      logAudit("CÀI ĐẶT", "Cập nhật hệ thống"); 
-    } catch (err: any) { 
-      toast.error("Lỗi hệ thống: " + err.message);
-    } finally { setLoading(false); } 
+      toast.success("Lưu Cài đặt thành công!"); ui.setShowSettings?.(false); logAudit("CÀI ĐẶT", "Cập nhật hệ thống"); 
+    } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); } 
   };
   const saveSettings = () => { const bin = newBankBin.trim(); const acc = newBankAcc.trim(); const nameStr = newBankNameStr.trim().toUpperCase(); const zaloId = newZaloPayId.trim(); const pin = newAdminPinInput.trim(); if (!bin || !acc || !nameStr || !pin) return toast.error("Vui lòng điền đủ thông tin & Mã PIN!"); updateSettingsToCloud(bin, acc, nameStr, zaloId, newHappyStart, newHappyEnd, pin); };
   
   const handleLogoutClick = () => { logAudit("ĐĂNG XUẤT", `Thoát ca ${shift}`); ui.setShowHandoverModal?.(true); };
 
-   const confirmHandover = async () => { 
+  // NGĂN BỆNH LƯU NGƯỢC KHI BẤM ĐĂNG XUẤT
+  const confirmHandover = async () => { 
     try { 
-      // Đăng xuất khỏi máy chủ mây Supabase
-      if (navigator.onLine) { 
-        await supabase.auth.signOut(); 
-      } 
-    } catch (error) {
-      console.error(error);
-    } finally { 
-      // 1. Quét sạch các biến lẻ tẻ trong IndexedDB
-      await dbRemove("mart_logged_in"); 
-      await dbRemove("mart_shift"); 
-      await dbRemove("mart_current_store"); 
+      if (navigator.onLine) { await supabase.auth.signOut(); } 
+    } catch (error) {} 
+    finally { 
+      // 1. Phá hủy toàn bộ biến State ngay lập tức để ngắt hơi thở cuối cùng của React
+      setAuditLogs([]); setHistory([]); setCustomers({}); setHeldOrders([]); setExpenses([]); setSuppliers([]); setLocalPOs([]); setAllPOs([]); setCart([]);
 
-      // 2. XÓA SẠCH DỮ LIỆU CÁ NHÂN BẢN CŨ
-      await dbRemove("mart_history");
-      await dbRemove("mart_customers");
-      await dbRemove("mart_held_orders");
-      await dbRemove("mart_expenses");
-      await dbRemove("mart_pos");
+      // 2. Thả bom hạt nhân Két sắt ngầm
+      await dbClearAll();
 
-      // ---> ĐÂY LÀ PHẦN BỔ SUNG QUAN TRỌNG NHẤT <---
-      // Xóa triệt để Nhật ký hệ thống, Nhà cung cấp và Bộ nhớ đệm Sản phẩm của tài khoản cũ
-      await dbRemove("mart_audit"); 
-      await dbRemove("mart_suppliers");
-      await dbRemove("mart_products_cache");
-      await dbRemove("mart_pending_imports");
-
-      // 3. TĂNG CƯỜNG: Xóa sạch 100% LocalStorage và SessionStorage trên trình duyệt
+      // 3. Dọn sạch LocalStorage
       window.localStorage.clear();
       window.sessionStorage.clear();
       
-      // 4. Thoát trạng thái và tải lại web trắng tinh khôi
+      // 4. Thoát & F5
       setIsLoggedIn(false); 
       window.location.reload(); 
     } 
   };
+
   const handleEditPhone = async (oldPhone: string) => { executeWithAdminCheck(() => { const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customersData[newPhone]) return toast.error("SĐT đã tồn tại!"); const cData = customersData[oldPhone]; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = { ...cData, phone: newPhone }; delete updated[oldPhone]; return updated }); logAudit("SỬA KHÁCH HÀNG", `Đổi SĐT ${oldPhone} -> ${newPhone}`); toast.success("Cập nhật thành công!"); } }); };
   const addSupplier = async () => { if (!supName || !supPhone) return toast.error("Nhập đủ Tên/SĐT"); const newId = Date.now(); const newSupData = { id: newId, name: supName, phone: supPhone, address: supAddress, item: supItem, taxCode: supTaxCode, bankAccount: supBankAccount, debt: 0 }; setSuppliers(prev => [newSupData, ...prev]); if (navigator.onLine) { supabase.from('suppliers').insert([newSupData]).then(); } setSupName(""); setSupPhone(""); toast.success("Thêm NCC thành công!"); logAudit("THÊM NCC", supName); };
   const deleteSupplier = async (id: any) => { setSuppliers(prev => prev.filter(s => s.id !== id)); if (navigator.onLine) await supabase.from('suppliers').delete().eq('id', id); logAudit("XÓA NCC", `ID: ${id}`); };
