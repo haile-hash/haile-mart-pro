@@ -167,7 +167,50 @@ export default function App() {
 
   const totalValue = useMemo(() => products.reduce((sum, p) => sum + ((p.stock || 0) * (p.import_price || 0)), 0), [products]);
   const lowStockCount = useMemo(() => products.filter(p => p.stock > 0 && p.stock < 10).length, [products]);
+// ĐOẠN CODE LẮNG NGHE REALTIME: ĐÁ VĂNG KHI BỊ XÓA TÀI KHOẢN
+  useEffect(() => {
+    let authChannel: any;
 
+    const setupRealtimeKick = async () => {
+      // 1. Lấy thông tin người dùng đang đăng nhập trên máy này
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // 2. Bật kênh lắng nghe sự kiện XÓA (DELETE) trên bảng 'stores' của đúng user này
+      authChannel = supabase
+        .channel('force-kick-channel')
+        .on(
+          'postgres_changes',
+          {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'stores',
+            filter: `owner_id=eq.${user.id}`, // Chỉ bắt sóng nếu ID bị xóa khớp với ID người này
+          },
+          async (payload) => {
+            // 3. THI HÀNH ÁN: Khi nhận được tin báo bị xóa
+            alert("Tài khoản của bạn đã bị Quản trị viên vô hiệu hóa hoặc xóa khỏi hệ thống!");
+            
+            // Xóa phiên đăng nhập trên Supabase
+            await supabase.auth.signOut();
+            
+            // Dọn sạch mọi dấu vết trong máy tính
+            window.localStorage.clear(); 
+            
+            // Ép tải lại trang để văng thẳng ra màn hình Login
+            window.location.reload(); 
+          }
+        )
+        .subscribe();
+    };
+
+    setupRealtimeKick();
+
+    // Dọn dẹp kênh lắng nghe khi tắt component
+    return () => {
+      if (authChannel) supabase.removeChannel(authChannel);
+    };
+  }, []);
   useEffect(() => { const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e); }; window.addEventListener('beforeinstallprompt', handler); return () => window.removeEventListener('beforeinstallprompt', handler); }, []);
   const handleInstallApp = async () => { if (!installPrompt) return; installPrompt.prompt(); const { outcome } = await installPrompt.userChoice; if (outcome === 'accepted') { setInstallPrompt(null); toast.success("Cài đặt App thành công!"); logAudit("HỆ THỐNG", "Cài đặt ứng dụng PWA"); } };
 
