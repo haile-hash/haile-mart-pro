@@ -94,7 +94,7 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
       orderDate: new Date().toISOString(),
       note: note,
       items: poItems,
-      paidAmount: paidAmount // ĐÃ TRUYỀN BIẾN paidAmount VÀO ĐÂY
+      paidAmount: paidAmount // Bắt buộc truyền vào để Excel in ra
     };
 
     try {
@@ -121,7 +121,7 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
       <div 
         className="glass" 
         style={{ 
-          padding: "0", width: "950px", maxWidth: "95vw", maxHeight: "90vh", 
+          padding: "0", width: "1000px", maxWidth: "95vw", maxHeight: "90vh", 
           borderRadius: "16px", display: "flex", flexDirection: "column", 
           background: "#ffffff", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)" 
         }} 
@@ -142,114 +142,130 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
         </div>
 
         <div style={{ padding: "24px", overflowY: "auto", overflowX: "hidden", display: "flex", flexDirection: "column", gap: "20px", background: "#fafafa" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "20px", width: "100%" }}>
-            <div style={{ background: "#ffffff", padding: "20px", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-                <span style={{ background: "#1e293b", color: "#fff", width: "22px", height: "22px", display: "flex", justifyContent: "center", alignItems: "center", borderRadius: "50%", fontSize: "12px", fontWeight: "bold" }}>1</span>
-                <h3 style={{ margin: 0, fontSize: "14px", color: "#0f172a", fontWeight: "700" }}>Thông tin Nhà cung cấp</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: "20px", width: "100%" }}>
+            
+            {/* Cột trái: Thông tin Nhà Cung Cấp & Tìm kiếm */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              <div style={{ background: "#ffffff", padding: "20px", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+                  <span style={{ background: "#1e293b", color: "#fff", width: "22px", height: "22px", display: "flex", justifyContent: "center", alignItems: "center", borderRadius: "50%", fontSize: "12px", fontWeight: "bold" }}>1</span>
+                  <h3 style={{ margin: 0, fontSize: "14px", color: "#0f172a", fontWeight: "700" }}>Nhà cung cấp</h3>
+                </div>
+                <select value={selectedSupId} onChange={e => setSelectedSupId(e.target.value)} style={{ boxSizing: "border-box", width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", fontWeight: "600", background: "#f8fafc", fontFamily: "'Inter', sans-serif" }}>
+                  <option value="">-- Chọn Nhà Cung Cấp --</option>
+                  {(suppliers || []).map(s => <option key={s.id} value={s.id}>{s.name} - {s.phone}</option>)}
+                </select>
               </div>
-              <select value={selectedSupId} onChange={e => setSelectedSupId(e.target.value)} style={{ boxSizing: "border-box", width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", marginBottom: "12px", fontWeight: "600", background: "#f8fafc", fontFamily: "'Inter', sans-serif" }}>
-                <option value="">-- Chọn Nhà Cung Cấp --</option>
-                {(suppliers || []).map(s => <option key={s.id} value={s.id}>{s.name} - {s.phone} (Nợ: {(Number(s.debt) || 0).toLocaleString()}đ)</option>)}
-              </select>
-              <textarea placeholder="Ghi chú phiếu nhập..." value={note} onChange={e => setNote(e.target.value)} style={{ boxSizing: "border-box", width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", height: "70px", resize: "none", background: "#f8fafc", fontFamily: "'Inter', sans-serif" }} />
+
+              <div style={{ background: "#ffffff", padding: "20px", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+                  <span style={{ background: "#1e293b", color: "#fff", width: "22px", height: "22px", display: "flex", justifyContent: "center", alignItems: "center", borderRadius: "50%", fontSize: "12px", fontWeight: "bold" }}>2</span>
+                  <h3 style={{ margin: 0, fontSize: "14px", color: "#0f172a", fontWeight: "700" }}>Tìm Sản phẩm</h3>
+                </div>
+                <div style={{ position: "relative" }}>
+                  <input type="text" placeholder="Nhập tên hoặc mã..." value={searchProd} onChange={e => setSearchProd(e.target.value)} style={{ boxSizing: "border-box", width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", fontFamily: "'Inter', sans-serif" }} />
+                  {filteredProducts.length > 0 && (
+                    <div style={{ position: "absolute", top: "100%", left: 0, right: 0, marginTop: "8px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: "8px", maxHeight: "200px", overflowY: "auto", zIndex: 10, boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)" }}>
+                      {filteredProducts.map(p => (
+                        <div key={p.id} onClick={() => addProductToPO(p)} style={{ padding: "12px 15px", borderBottom: "1px solid #f1f5f9", cursor: "pointer", fontSize: "13px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div><b style={{ color: "#2563eb" }}>{p.product_code}</b><br/>{p.name}</div>
+                          <span style={{ color: "#64748b", fontSize: "11px", fontWeight: "bold", background: "#f1f5f9", padding: "4px 8px", borderRadius: "6px" }}>Tồn: {p.stock}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ background: "#ffffff", padding: "20px", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+                <h3 style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#0f172a", fontWeight: "700" }}>Ghi chú (Tùy chọn)</h3>
+                <textarea placeholder="Ghi chú nội bộ..." value={note} onChange={e => setNote(e.target.value)} style={{ boxSizing: "border-box", width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", height: "80px", resize: "none", background: "#f8fafc", fontFamily: "'Inter', sans-serif" }} />
+              </div>
             </div>
 
-            <div style={{ background: "#ffffff", padding: "20px", borderRadius: "12px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-                <span style={{ background: "#1e293b", color: "#fff", width: "22px", height: "22px", display: "flex", justifyContent: "center", alignItems: "center", borderRadius: "50%", fontSize: "12px", fontWeight: "bold" }}>2</span>
-                <h3 style={{ margin: 0, fontSize: "14px", color: "#0f172a", fontWeight: "700" }}>Tìm & Thêm sản phẩm</h3>
-              </div>
-              <div style={{ position: "relative", flex: 1 }}>
-                <input type="text" placeholder="Nhập Tên hoặc Mã sản phẩm..." value={searchProd} onChange={e => setSearchProd(e.target.value)} style={{ boxSizing: "border-box", width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", outline: "none", fontFamily: "'Inter', sans-serif" }} />
-                {filteredProducts.length > 0 && (
-                  <div style={{ position: "absolute", top: "100%", left: 0, right: 0, marginTop: "8px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: "8px", maxHeight: "150px", overflowY: "auto", zIndex: 10 }}>
-                    {filteredProducts.map(p => (
-                      <div key={p.id} onClick={() => addProductToPO(p)} style={{ padding: "10px 15px", borderBottom: "1px solid #f1f5f9", cursor: "pointer", fontSize: "13px", display: "flex", justifyContent: "space-between" }}>
-                        <div><b>{p.product_code}</b> - {p.name}</div>
-                        <span style={{ color: "#64748b" }}>Tồn: {p.stock}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div style={{ background: "#ffffff", borderRadius: "12px", border: "1px solid #e2e8f0", overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px", minWidth: "600px" }}>
-              <thead style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                <tr>
-                  <th style={{ padding: "14px", textAlign: "left", color: "#475569" }}>Sản phẩm</th>
-                  <th style={{ padding: "14px", textAlign: "center", width: "120px" }}>SL Nhập</th>
-                  <th style={{ padding: "14px", textAlign: "right", width: "150px" }}>Giá Nhập</th>
-                  <th style={{ padding: "14px", textAlign: "right", width: "150px" }}>Thành Tiền</th>
-                  <th style={{ padding: "14px", width: "50px" }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {poItems.length === 0 ? <tr><td colSpan={5} style={{ textAlign: "center", padding: "40px", color: "#94a3b8" }}>Chưa có sản phẩm nào.</td></tr> : poItems.map((item, idx) => (
-                  <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                    <td style={{ padding: "12px 14px", fontWeight: "600" }}>{item?.product?.name || "Sản phẩm không rõ"}</td>
-                    <td style={{ padding: "12px 14px", textAlign: "center" }}>
-                      <input type="number" min="1" value={item.qty || ""} onChange={e => updateItem(item.product.id, 'qty', e.target.value)} style={{ boxSizing: "border-box", width: "80px", padding: "8px", textAlign: "center", border: "1px solid #cbd5e1", borderRadius: "6px", fontFamily: "'Inter', sans-serif" }} />
-                    </td>
-                    <td style={{ padding: "12px 14px", textAlign: "right" }}>
-                      <input type="text" value={item.importPrice === 0 ? "" : item.importPrice.toLocaleString()} onChange={e => updateItem(item.product.id, 'importPrice', e.target.value)} style={{ boxSizing: "border-box", width: "120px", padding: "8px", textAlign: "right", border: "1px solid #cbd5e1", borderRadius: "6px", fontFamily: "'Inter', sans-serif" }} />
-                    </td>
-                    <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: "800" }}>{((item?.qty || 0) * (item?.importPrice || 0)).toLocaleString()}đ</td>
-                    <td style={{ padding: "12px 14px", textAlign: "center" }}><button onClick={() => removeItem(item.product.id)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "16px" }}>✕</button></td>
+            {/* Cột phải: Bảng sản phẩm */}
+            <div style={{ background: "#ffffff", borderRadius: "12px", border: "1px solid #e2e8f0", overflowX: "auto", height: "fit-content" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px", minWidth: "600px" }}>
+                <thead style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                  <tr>
+                    <th style={{ padding: "14px", textAlign: "left", color: "#475569", fontWeight: "700", fontSize: "12px", textTransform: "uppercase" }}>Sản phẩm</th>
+                    <th style={{ padding: "14px", textAlign: "center", width: "100px", color: "#475569", fontWeight: "700", fontSize: "12px", textTransform: "uppercase" }}>Số Lượng</th>
+                    <th style={{ padding: "14px", textAlign: "right", width: "140px", color: "#475569", fontWeight: "700", fontSize: "12px", textTransform: "uppercase" }}>Giá Nhập (đ)</th>
+                    <th style={{ padding: "14px", textAlign: "right", width: "140px", color: "#475569", fontWeight: "700", fontSize: "12px", textTransform: "uppercase" }}>Thành Tiền</th>
+                    <th style={{ padding: "14px", width: "40px" }}></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {poItems.length === 0 ? <tr><td colSpan={5} style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8", fontStyle: "italic" }}>Chưa có sản phẩm nào. Vui lòng tìm và thêm sản phẩm.</td></tr> : poItems.map((item, idx) => (
+                    <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                      <td style={{ padding: "12px 14px" }}>
+                        <div style={{ fontWeight: "700", color: "#0f172a", marginBottom: "4px" }}>{item?.product?.name || "Sản phẩm không rõ"}</div>
+                        <div style={{ fontSize: "11px", color: "#64748b" }}>Mã: {item?.product?.product_code}</div>
+                      </td>
+                      <td style={{ padding: "12px 14px", textAlign: "center" }}>
+                        <input type="number" min="1" value={item.qty || ""} onChange={e => updateItem(item.product.id, 'qty', e.target.value)} style={{ boxSizing: "border-box", width: "70px", padding: "8px", textAlign: "center", border: "1px solid #cbd5e1", borderRadius: "6px", fontFamily: "'Inter', sans-serif" }} />
+                      </td>
+                      <td style={{ padding: "12px 14px", textAlign: "right" }}>
+                        <input type="text" value={item.importPrice === 0 ? "" : item.importPrice.toLocaleString()} onChange={e => updateItem(item.product.id, 'importPrice', e.target.value)} style={{ boxSizing: "border-box", width: "110px", padding: "8px", textAlign: "right", border: "1px solid #cbd5e1", borderRadius: "6px", fontFamily: "'Inter', sans-serif", fontWeight: "600" }} />
+                      </td>
+                      <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: "800", color: "#2563eb" }}>{((item?.qty || 0) * (item?.importPrice || 0)).toLocaleString()}đ</td>
+                      <td style={{ padding: "12px 14px", textAlign: "center" }}><button onClick={() => removeItem(item.product.id)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "16px" }}>✕</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
-        <div style={{ background: "#ffffff", padding: "20px 24px", borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "flex-end", borderRadius: "0 0 16px 16px" }}>
-          <div>
-            {/* THAY THẾ BẰNG CỤM GIAO DIỆN 3 TRỤ CỘT */}
-            <div style={{ display: 'flex', gap: '32px', alignItems: 'center', marginBottom: '24px' }}>
+        {/* CỤM THANH TOÁN (UI MỚI ĐÃ SỬA CHUẨN) */}
+        <div style={{ background: "#ffffff", padding: "20px 24px", borderTop: "1px solid #e2e8f0", borderRadius: "0 0 16px 16px" }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            
+            {/* CỤM BÊN TRÁI: TỰ ĐỘNG TÍNH TOÁN */}
+            <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>TỔNG ĐƠN HÀNG</div>
                 <div style={{ fontSize: '20px', fontWeight: '900', color: '#0f172a' }}>{totalAmount.toLocaleString()}đ</div>
               </div>
 
+              <div style={{ fontSize: '20px', color: '#cbd5e1', fontWeight: '900', marginTop: '12px' }}>-</div>
+
               <div>
                 <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>ĐÃ TRẢ TRƯỚC</div>
                 <input 
                   type="text" 
-                  placeholder="0" 
                   value={paidAmountStr} 
-                  onChange={e => { const val = e.target.value.replace(/[^0-9]/g, ''); setPaidAmountStr(val ? parseInt(val).toLocaleString() : "") }} 
-                  style={{ width: '120px', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 'bold', fontFamily: "'Inter', sans-serif" }}
+                  onChange={e => { 
+                    const val = e.target.value.replace(/[^0-9]/g, ''); 
+                    setPaidAmountStr(val ? parseInt(val).toLocaleString() : "") 
+                  }} 
+                  placeholder="0"
+                  style={{ width: '120px', padding: '8px 12px', borderRadius: '8px', border: '1px solid #3b82f6', fontWeight: '800', fontSize: '16px', color: '#2563eb', outline: 'none', fontFamily: "'Inter', sans-serif" }}
                 />
               </div>
 
-              <div>
-                <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>CÒN NỢ LẠI</div>
-                <div style={{ fontSize: '20px', fontWeight: '900', color: debtAmount > 0 ? '#ef4444' : '#10b981' }}>
+              <div style={{ fontSize: '20px', color: '#cbd5e1', fontWeight: '900', marginTop: '12px' }}>=</div>
+
+              <div style={{ background: '#fef2f2', padding: '8px 16px', borderRadius: '8px', border: '1px dashed #fca5a5' }}>
+                <div style={{ fontSize: '11px', fontWeight: '800', color: '#ef4444', textTransform: 'uppercase', marginBottom: '2px' }}>CẦN THANH TOÁN</div>
+                <div style={{ fontSize: '22px', fontWeight: '900', color: debtAmount > 0 ? '#ef4444' : '#10b981' }}>
                   {debtAmount.toLocaleString()}đ
                 </div>
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
-              <button 
-                type="button" 
-                onClick={handleExportDraft} 
-                style={{ padding: "12px 20px", background: "#10b981", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "800", cursor: "pointer", display: 'flex', alignItems: 'center', gap: '8px' }}
-              >
-                📥 XUẤT EXCEL
-              </button>
-              <button 
-                disabled={loading} 
-                onClick={onSubmit} 
-                style={{ padding: "12px 24px", minWidth: '200px', background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "800", cursor: loading ? "not-allowed" : "pointer" }}
-              >
-                {loading ? "ĐANG XỬ LÝ..." : "💾 LƯU PHIẾU"}
+            {/* CỤM BÊN PHẢI: NÚT BẤM */}
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button type="button" onClick={() => window.print()} style={{ padding: "12px 16px", background: "#fff", color: "#ef4444", border: "1px solid #fecaca", borderRadius: "10px", fontWeight: "700", cursor: "pointer", display: 'flex', alignItems: 'center', gap: '6px', transition: "0.2s" }} onMouseOver={e=>e.currentTarget.style.background='#fef2f2'} onMouseOut={e=>e.currentTarget.style.background='#fff'}>🖨️ PDF</button>
+              
+              <button type="button" onClick={handleExportDraft} style={{ padding: "12px 16px", background: "#fff", color: "#10b981", border: "1px solid #a7f3d0", borderRadius: "10px", fontWeight: "700", cursor: "pointer", display: 'flex', alignItems: 'center', gap: '6px', transition: "0.2s" }} onMouseOver={e=>e.currentTarget.style.background='#ecfdf5'} onMouseOut={e=>e.currentTarget.style.background='#fff'}>📥 Excel</button>
+              
+              <button disabled={loading} onClick={onSubmit} style={{ padding: "12px 32px", background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "800", cursor: loading ? "not-allowed" : "pointer", display: 'flex', alignItems: 'center', gap: '6px', boxShadow: "0 4px 6px -1px rgba(37,99,235,0.3)" }}>
+                {loading ? "ĐANG LƯU..." : "💾 LƯU PHIẾU"}
               </button>
             </div>
+
           </div>
         </div>
       </div>
