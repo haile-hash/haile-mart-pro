@@ -293,9 +293,39 @@ export default function App() {
   useEffect(() => { if (!ui.printMode) { isPrintingRef.current = false; return; } if (isPrintingRef.current) return; isPrintingRef.current = true; const handleAfterPrint = () => { ui.setPrintMode?.(null); isPrintingRef.current = false; }; window.addEventListener('afterprint', handleAfterPrint); const timer = setTimeout(() => { if (ui.printMode) { window.print(); } }, 1500); return () => { clearTimeout(timer); window.removeEventListener('afterprint', handleAfterPrint); }; }, [ui.printMode]);
 
   const executeWithAdminCheck = (action: () => void) => { action(); };
-  const addTransactionAndSync = async (logData: any) => { setHistory(prev => [logData, ...prev]); if (navigator.onLine) { try { await supabase.from("history").insert([logData]); } catch (err) {} } };
-  const logAudit = async (action: string, detail: string, extraData: any = null) => { const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user_name: 'Người Dùng', shift, action, detail, extra_data: extraData ? JSON.stringify(extraData) : null }; setAuditLogs(prev => [newLog, ...prev].slice(0, 300)); };
-  
+ const addTransactionAndSync = async (logData: any) => { 
+    // Lấy Sổ đỏ (ID cửa hàng) đang đăng nhập
+    const ownerId = window.localStorage.getItem("mart_owner_id");
+    if (!ownerId) return;
+
+    // Gắn ID vào dữ liệu trước khi đẩy đi
+    const dataWithOwner = { ...logData, owner_id: ownerId };
+    
+    setHistory(prev => [dataWithOwner, ...prev]); 
+    if (navigator.onLine) { 
+      try { await supabase.from("history").insert([dataWithOwner]); } catch (err) {} 
+    } 
+  };
+
+  const logAudit = async (action: string, detail: string, extraData: any = null) => { 
+    const ownerId = window.localStorage.getItem("mart_owner_id");
+    if (!ownerId) return;
+
+    const newLog = { 
+      id: Date.now(), 
+      time: new Date().toLocaleString('vi-VN'), 
+      user_name: 'Người Dùng', 
+      shift, action, detail, 
+      extra_data: extraData ? JSON.stringify(extraData) : null,
+      owner_id: ownerId // <-- ĐÓNG DẤU CHỦ SỞ HỮU VÀO NHẬT KÝ
+    }; 
+    
+    setAuditLogs(prev => [newLog, ...prev].slice(0, 300)); 
+    
+    if (navigator.onLine) {
+      supabase.from("audit_logs").insert([newLog]).catch(()=>{});
+    }
+  };
   const exportAuditToCSV = () => {
     if (!(window as any).XLSX) return toast.error("Đang tải thư viện Excel!");
     try {
