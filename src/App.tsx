@@ -52,7 +52,6 @@ const initDB = (): Promise<IDBDatabase> => { return new Promise((resolve, reject
 const dbGet = async (key: string): Promise<any> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readonly"); const store = tx.objectStore(storeName); const req = store.get(key); req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); }); };
 const dbSet = async (key: string, value: any): Promise<void> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.put(value, key); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
 const dbRemove = async (key: string): Promise<void> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.delete(key); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
-// BOM HẠT NHÂN: Quét sạch toàn bộ Két sắt trong 1 thao tác
 const dbClearAll = async (): Promise<void> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.clear(); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
 
 export default function App() {
@@ -156,20 +155,17 @@ export default function App() {
   const totalValue = useMemo(() => products.reduce((sum, p) => sum + ((p.stock || 0) * (p.import_price || 0)), 0), [products]);
   const lowStockCount = useMemo(() => products.filter(p => p.stock > 0 && p.stock < 10).length, [products]);
 
-  // CHỐT CHẶN: ĐÁ VĂNG KHI TÀI KHOẢN BỊ XÓA (KIỂM TRA MỖI 30S)
+  // ĐÁ VĂNG KHI TÀI KHOẢN BỊ XÓA (KIỂM TRA MỖI 30S)
   useEffect(() => {
     if (!isLoggedIn) return;
     const checkAccountStatus = async () => {
       const { data: { user }, error } = await supabase.auth.getUser();
       if (error || !user) {
         alert("Phiên đăng nhập không còn hợp lệ do Tài khoản của bạn đã bị vô hiệu hóa hoặc xóa khỏi hệ thống bởi Quản trị viên!");
-        // 1. Phá hủy State ngay trên RAM
         setAuditLogs([]); setHistory([]); setCustomers({}); setHeldOrders([]); setExpenses([]); setSuppliers([]); setProducts([]); setLocalPOs([]); setAllPOs([]); setCart([]);
-        // 2. Clear toàn bộ dữ liệu Offline
         await dbClearAll();
         window.localStorage.clear();
         window.sessionStorage.clear();
-        // 3. Reload
         setIsLoggedIn(false);
         window.location.reload();
       }
@@ -294,7 +290,9 @@ export default function App() {
   
   const fetchSettingsFromCloud = async () => { 
     try { 
-      const { data } = await supabase.from("settings").select("*").eq("id", 1).single(); 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from("settings").select("*").eq("owner_id", user.id).single(); 
       if (data) { 
         setBankBin(data.bank_bin); setBankAcc(data.bank_acc); setBankNameStr(data.bank_name_str); setZaloPayId(data.zalopay_id || ""); 
         setNewBankBin(data.bank_bin); setNewBankAcc(data.bank_acc); setNewBankNameStr(data.bank_name_str); setNewZaloPayId(data.zalopay_id || ""); 
@@ -326,7 +324,11 @@ export default function App() {
     if (!navigator.onLine) return toast.error("Mất mạng! Không thể lưu Cài đặt."); 
     setLoading(true); 
     try { 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Lỗi phiên đăng nhập!");
+
       const payload = { 
+        owner_id: user.id,
         bank_bin: bin, bank_acc: acc, bank_name_str: nameStr, zalopay_id: zaloId, 
         happy_hour_start: hStart, happy_hour_end: hEnd, 
         happy_hour_discount: newHappyDiscount, 
@@ -338,10 +340,10 @@ export default function App() {
         updated_at: new Date().toISOString() 
       };
 
-      const { data, error } = await supabase.from("settings").update(payload).eq("id", 1).select(); 
+      const { data, error } = await supabase.from("settings").update(payload).eq("owner_id", user.id).select(); 
       if (error) { toast.error("Lỗi cập nhật: " + error.message); setLoading(false); return; }
       if (!data || data.length === 0) {
-         const { error: insertErr } = await supabase.from("settings").insert([{ id: 1, ...payload }]);
+         const { error: insertErr } = await supabase.from("settings").insert([payload]); 
          if (insertErr) { toast.error("Lỗi tạo Cài đặt: " + insertErr.message); setLoading(false); return; }
       }
 
@@ -354,27 +356,20 @@ export default function App() {
       toast.success("Lưu Cài đặt thành công!"); ui.setShowSettings?.(false); logAudit("CÀI ĐẶT", "Cập nhật hệ thống"); 
     } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); } 
   };
+  
   const saveSettings = () => { const bin = newBankBin.trim(); const acc = newBankAcc.trim(); const nameStr = newBankNameStr.trim().toUpperCase(); const zaloId = newZaloPayId.trim(); const pin = newAdminPinInput.trim(); if (!bin || !acc || !nameStr || !pin) return toast.error("Vui lòng điền đủ thông tin & Mã PIN!"); updateSettingsToCloud(bin, acc, nameStr, zaloId, newHappyStart, newHappyEnd, pin); };
   
   const handleLogoutClick = () => { logAudit("ĐĂNG XUẤT", `Thoát ca ${shift}`); ui.setShowHandoverModal?.(true); };
 
-  // NGĂN BỆNH LƯU NGƯỢC KHI BẤM ĐĂNG XUẤT
   const confirmHandover = async () => { 
     try { 
       if (navigator.onLine) { await supabase.auth.signOut(); } 
     } catch (error) {} 
     finally { 
-      // 1. Phá hủy toàn bộ biến State ngay lập tức để ngắt hơi thở cuối cùng của React
       setAuditLogs([]); setHistory([]); setCustomers({}); setHeldOrders([]); setExpenses([]); setSuppliers([]); setLocalPOs([]); setAllPOs([]); setCart([]);
-
-      // 2. Thả bom hạt nhân Két sắt ngầm
       await dbClearAll();
-
-      // 3. Dọn sạch LocalStorage
       window.localStorage.clear();
       window.sessionStorage.clear();
-      
-      // 4. Thoát & F5
       setIsLoggedIn(false); 
       window.location.reload(); 
     } 
@@ -496,7 +491,6 @@ export default function App() {
   const shareToZalo = (phone: string) => { const cust = customersData[phone]; const code = cust.cardCode || phone; navigator.clipboard.writeText(`Chào ${cust.name},\nMã Thẻ VIP của bạn là: ${code}`).then(() => { toast.success(`Đang mở Zalo...`); logAudit("CHIA SẺ ZALO", phone); window.open(`https://zalo.me/${phone}`, '_blank') }).catch(() => { window.open(`https://zalo.me/${phone}`, '_blank') }) };
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => { const code = e.target.value; setNewCode(code); const p = products.find((x: any) => x.product_code === code); if (p) { setNewName(cleanName(p.name)); setNewCategory(formatCategoryStr(p.category)); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewExpiry(p.expiry_date || ""); const gift = parseGift(p.gift_info); setNewGiftCondition(gift.cond.toString()); setNewGiftInfo(gift.text) } };
 
-  // FIX BẢN CHUẨN: CHUNKING (Gửi từng nhóm 20 sản phẩm thay vì đẩy 1 lúc hàng trăm cái gây treo API làm mất dữ liệu)
   const syncInventory = async () => {
     if (Object.keys(actualStockInput).length === 0) return toast.error("Chưa có dữ liệu cập nhật!");
     if (!window.confirm("Hệ thống sẽ cập nhật số lượng tồn kho theo số liệu thực tế.\nXác nhận đồng bộ?")) return;
@@ -507,7 +501,6 @@ export default function App() {
       
       if (navigator.onLine) {
         const entries = Object.entries(actualStockInput);
-        // Chia nhỏ mỗi đợt 20 sản phẩm để tránh Supabase chặn vì Rate Limit (Lỗi 429)
         for (let i = 0; i < entries.length; i += 20) {
            const chunk = entries.slice(i, i + 20);
            const updatePromises = chunk.map(([id, actualQty]) => 
@@ -515,12 +508,11 @@ export default function App() {
            );
            const results = await Promise.all(updatePromises);
            
-           // Nếu có lỗi ở từng block, báo lỗi cho người dùng biết thay vì chạy ngầm
            const errors = results.filter((r: any) => r.error);
            if (errors.length > 0) {
               toast.error("Lỗi cập nhật mạng: " + errors[0].error.message);
               setLoading(false);
-              return; // Dừng lại không cập nhật giao diện nếu thực tế Database bị lỗi
+              return; 
            }
         }
         count = entries.length;
@@ -529,7 +521,6 @@ export default function App() {
         toast.error("Mất mạng! Đã lưu tạm bộ nhớ máy, dữ liệu sẽ tự đẩy lên khi có mạng.");
       }
 
-      // Chỉ khi DB trên mạng thành công 100% thì mới cập nhật State giao diện 
       setProducts(prevProducts => {
         const updatedProducts = prevProducts.map(p => {
           if (actualStockInput[p.id] !== undefined) {
@@ -639,7 +630,7 @@ export default function App() {
         if (!cols || !Array.isArray(cols) || cols.join('').trim() === '') continue; 
         
         const pCode = String(cols[0] || "").trim(); 
-        const actualValStr = String(cols[5] || "0").replace(/[,.]/g, ''); // Cột index 5 (Cột F)
+        const actualValStr = String(cols[5] || "0").replace(/[,.]/g, ''); 
         const actualVal = parseInt(actualValStr); 
         
         if (!isNaN(actualVal) && pCode) { 
