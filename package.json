@@ -9,6 +9,8 @@
   ],
   "main": "src/index.tsx",
   "dependencies": {
+    "exceljs": "^4.3.0",
+    "file-saver": "^2.0.5",
     "react-hot-toast": "^2.4.1",
     "@emailjs/browser": "^4.3.3",
     "loader-utils": "3.2.1",
