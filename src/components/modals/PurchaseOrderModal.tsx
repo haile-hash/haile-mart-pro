@@ -45,6 +45,9 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
 
   const debtAmount = totalAmount - paidAmount;
 
+  const supplier = useMemo(() => (suppliers || []).find(s => String(s?.id) === selectedSupId) || null, [suppliers, selectedSupId]);
+  const storeInfo = useMemo(() => typeof window !== 'undefined' ? JSON.parse(window.localStorage.getItem("mart_current_store") || "{}") : {}, []);
+
   const filteredProducts = useMemo(() => {
     if (!searchProd || !searchProd.trim()) return [];
     const term = searchProd.toLowerCase().trim();
@@ -77,7 +80,6 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
   const onSubmit = () => {
     if (!selectedSupId) return toast.error("Vui lòng chọn Nhà cung cấp!");
     if (!poItems || poItems.length === 0) return toast.error("Phiếu nhập chưa có sản phẩm nào!");
-    const supplier = (suppliers || []).find(s => String(s?.id) === selectedSupId);
     if (!supplier) return;
     handleSavePO(supplier, poItems, totalAmount, paidAmount, note).then(() => {
       setSelectedSupId(""); setPoItems([]); setPaidAmountStr(""); setNote("");
@@ -86,15 +88,12 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
 
   const handleExportDraft = async () => {
     if (!poItems || poItems.length === 0) return toast.error("Vui lòng thêm ít nhất 1 sản phẩm để xuất Excel!");
-    const supplier = (suppliers || []).find(s => String(s?.id) === selectedSupId) || null;
-    const storeInfo = typeof window !== 'undefined' ? JSON.parse(window.localStorage.getItem("mart_current_store") || "{}") : {};
-
     const draftPO = {
       id: `PO_DRAFT_${Math.floor(Date.now() / 1000)}`,
       orderDate: new Date().toISOString(),
       note: note,
       items: poItems,
-      paidAmount: paidAmount // Bắt buộc truyền vào để Excel in ra
+      paidAmount: paidAmount 
     };
 
     try {
@@ -109,19 +108,16 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
   if (!showModal) return null;
 
   return (
-    <div 
-      className="no-print" 
-      style={{ 
-        position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.6)", 
-        backdropFilter: "blur(4px)", display: "flex", justifyContent: "center", 
-        alignItems: "center", zIndex: 9999, fontFamily: "'Inter', sans-serif" 
-      }} 
-      onClick={() => setShowModal(false)}
-    >
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", justifyContent: "center", alignItems: "center", fontFamily: "'Inter', sans-serif" }}>
+      
+      {/* Lớp nền mờ (Bị ẩn khi in) */}
+      <div className="no-print" style={{ position: "absolute", inset: 0, background: "rgba(15, 23, 42, 0.6)", backdropFilter: "blur(4px)" }} onClick={() => setShowModal(false)}></div>
+
+      {/* --- 1. GIAO DIỆN LÀM VIỆC TRÊN MÀN HÌNH (BỊ ẨN KHI IN) --- */}
       <div 
-        className="glass" 
+        className="glass no-print" 
         style={{ 
-          padding: "0", width: "1000px", maxWidth: "95vw", maxHeight: "90vh", 
+          position: "relative", zIndex: 1, padding: "0", width: "1000px", maxWidth: "95vw", maxHeight: "90vh", 
           borderRadius: "16px", display: "flex", flexDirection: "column", 
           background: "#ffffff", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)" 
         }} 
@@ -131,9 +127,7 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <div style={{ background: "#eff6ff", color: "#2563eb", padding: "8px", borderRadius: "10px" }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <polyline points="21 8 21 21 3 21 3 8"></polyline>
-                <rect x="1" y="3" width="22" height="5"></rect>
-                <line x1="10" y1="12" x2="14" y2="12"></line>
+                <polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line>
               </svg>
             </div>
             <h2 style={{ margin: 0, color: "#0f172a", fontSize: "20px", fontWeight: "800" }}>TẠO PHIẾU NHẬP HÀNG (PO)</h2>
@@ -144,7 +138,6 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
         <div style={{ padding: "24px", overflowY: "auto", overflowX: "hidden", display: "flex", flexDirection: "column", gap: "20px", background: "#fafafa" }}>
           <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: "20px", width: "100%" }}>
             
-            {/* Cột trái: Thông tin Nhà Cung Cấp & Tìm kiếm */}
             <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
               <div style={{ background: "#ffffff", padding: "20px", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
@@ -183,7 +176,6 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
               </div>
             </div>
 
-            {/* Cột phải: Bảng sản phẩm */}
             <div style={{ background: "#ffffff", borderRadius: "12px", border: "1px solid #e2e8f0", overflowX: "auto", height: "fit-content" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px", minWidth: "600px" }}>
                 <thead style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
@@ -218,11 +210,9 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
           </div>
         </div>
 
-        {/* CỤM THANH TOÁN (UI MỚI ĐÃ SỬA CHUẨN) */}
         <div style={{ background: "#ffffff", padding: "20px 24px", borderTop: "1px solid #e2e8f0", borderRadius: "0 0 16px 16px" }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             
-            {/* CỤM BÊN TRÁI: TỰ ĐỘNG TÍNH TOÁN */}
             <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>TỔNG ĐƠN HÀNG</div>
@@ -255,20 +245,120 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
               </div>
             </div>
 
-            {/* CỤM BÊN PHẢI: NÚT BẤM */}
             <div style={{ display: "flex", gap: "12px" }}>
-              <button type="button" onClick={() => window.print()} style={{ padding: "12px 16px", background: "#fff", color: "#ef4444", border: "1px solid #fecaca", borderRadius: "10px", fontWeight: "700", cursor: "pointer", display: 'flex', alignItems: 'center', gap: '6px', transition: "0.2s" }} onMouseOver={e=>e.currentTarget.style.background='#fef2f2'} onMouseOut={e=>e.currentTarget.style.background='#fff'}>🖨️ PDF</button>
-              
-              <button type="button" onClick={handleExportDraft} style={{ padding: "12px 16px", background: "#fff", color: "#10b981", border: "1px solid #a7f3d0", borderRadius: "10px", fontWeight: "700", cursor: "pointer", display: 'flex', alignItems: 'center', gap: '6px', transition: "0.2s" }} onMouseOver={e=>e.currentTarget.style.background='#ecfdf5'} onMouseOut={e=>e.currentTarget.style.background='#fff'}>📥 Excel</button>
-              
-              <button disabled={loading} onClick={onSubmit} style={{ padding: "12px 32px", background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "800", cursor: loading ? "not-allowed" : "pointer", display: 'flex', alignItems: 'center', gap: '6px', boxShadow: "0 4px 6px -1px rgba(37,99,235,0.3)" }}>
+              <button type="button" onClick={() => window.print()} style={{ padding: "12px 16px", background: "#fff", color: "#ef4444", border: "1px solid #fecaca", borderRadius: "10px", fontWeight: "700", cursor: "pointer", display: 'flex', alignItems: 'center', gap: '6px' }}>🖨️ PDF</button>
+              <button type="button" onClick={handleExportDraft} style={{ padding: "12px 16px", background: "#fff", color: "#10b981", border: "1px solid #a7f3d0", borderRadius: "10px", fontWeight: "700", cursor: "pointer", display: 'flex', alignItems: 'center', gap: '6px' }}>📥 Excel</button>
+              <button disabled={loading} onClick={onSubmit} style={{ padding: "12px 32px", background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "800", cursor: loading ? "not-allowed" : "pointer" }}>
                 {loading ? "ĐANG LƯU..." : "💾 LƯU PHIẾU"}
               </button>
             </div>
-
           </div>
         </div>
       </div>
+
+      {/* --- 2. GIAO DIỆN IN PDF A4 (CHỈ HIỆN KHI BẤM NÚT IN) --- */}
+      <div className="pdf-print-layout" style={{ display: 'none' }}>
+        <style>{`
+          @media print {
+            .no-print { display: none !important; }
+            .pdf-print-layout {
+              display: block !important;
+              position: absolute; left: 0; top: 0; width: 100%;
+              background: white; color: black; padding: 20px; 
+              font-family: 'Times New Roman', serif; z-index: 999999;
+            }
+          }
+        `}</style>
+
+        <div style={{ textAlign: "center", marginBottom: "30px" }}>
+          <h2 style={{ margin: "0 0 5px 0", fontSize: "22px" }}>ĐƠN ĐẶT HÀNG (PURCHASE ORDER)</h2>
+          <div style={{ fontSize: "13px", fontStyle: "italic" }}>
+            Tham chiếu gốc (Mã PO): <strong>PO_DRAFT_{Math.floor(Date.now()/1000)}</strong> | Ngày lập: {new Date().toLocaleDateString('vi-VN')}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
+          <div style={{ width: "48%", border: "1px solid #000", padding: "10px", borderRadius: "8px" }}>
+            <strong style={{ textDecoration: "underline", display: "block", marginBottom: "8px" }}>THÔNG TIN BÊN MUA (BUYER)</strong>
+            <table style={{ fontSize: "13px", width: "100%" }}>
+              <tbody>
+                <tr><td style={{ width: "80px", fontWeight: "bold" }}>Tên ĐV:</td><td>{storeInfo?.store_name || "HẢI LÊ MART"}</td></tr>
+                <tr><td style={{ fontWeight: "bold" }}>Địa chỉ:</td><td>{storeInfo?.address || "234 Hoàng Quốc Việt, Hà Nội"}</td></tr>
+                <tr><td style={{ fontWeight: "bold" }}>Điện thoại:</td><td>{storeInfo?.phone || "Chưa cập nhật"}</td></tr>
+                <tr><td style={{ fontWeight: "bold" }}>MST:</td><td>{storeInfo?.taxCode || "01234567890"}</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style={{ width: "48%", border: "1px solid #000", padding: "10px", borderRadius: "8px" }}>
+            <strong style={{ textDecoration: "underline", display: "block", marginBottom: "8px" }}>THÔNG TIN BÊN BÁN (SELLER)</strong>
+            <table style={{ fontSize: "13px", width: "100%" }}>
+              <tbody>
+                <tr><td style={{ width: "80px", fontWeight: "bold" }}>Nhà CC:</td><td>{supplier?.name || "ABC"}</td></tr>
+                <tr><td style={{ fontWeight: "bold" }}>Địa chỉ:</td><td>{supplier?.address || "Chưa cập nhật"}</td></tr>
+                <tr><td style={{ fontWeight: "bold" }}>Điện thoại:</td><td>{supplier?.phone || "Chưa cập nhật"}</td></tr>
+                <tr><td style={{ fontWeight: "bold" }}>STK/MST:</td><td>{supplier?.taxCode || "Chưa cập nhật"}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: "15px", fontSize: "13px" }}>
+          <strong>Ghi chú:</strong> {note || "Không có"}
+        </div>
+
+        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px", fontSize: "13px" }}>
+          <thead>
+            <tr>
+              <th style={{ border: "1px solid #000", padding: "8px", textAlign: "center" }}>STT</th>
+              <th style={{ border: "1px solid #000", padding: "8px", textAlign: "left" }}>MÃ SP</th>
+              <th style={{ border: "1px solid #000", padding: "8px", textAlign: "left" }}>TÊN SẢN PHẨM</th>
+              <th style={{ border: "1px solid #000", padding: "8px", textAlign: "center" }}>SL</th>
+              <th style={{ border: "1px solid #000", padding: "8px", textAlign: "right" }}>ĐƠN GIÁ</th>
+              <th style={{ border: "1px solid #000", padding: "8px", textAlign: "right" }}>THÀNH TIỀN</th>
+            </tr>
+          </thead>
+          <tbody>
+            {poItems.map((item, idx) => (
+              <tr key={idx}>
+                <td style={{ border: "1px solid #000", padding: "8px", textAlign: "center" }}>{idx + 1}</td>
+                <td style={{ border: "1px solid #000", padding: "8px" }}>{item.product.product_code || item.product.barcode || item.product.id}</td>
+                <td style={{ border: "1px solid #000", padding: "8px" }}>{item.product.name}</td>
+                <td style={{ border: "1px solid #000", padding: "8px", textAlign: "center" }}>{item.qty}</td>
+                <td style={{ border: "1px solid #000", padding: "8px", textAlign: "right" }}>{item.importPrice.toLocaleString()} đ</td>
+                <td style={{ border: "1px solid #000", padding: "8px", textAlign: "right" }}><strong>{(item.qty * item.importPrice).toLocaleString()} đ</strong></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* 3 DÒNG TIỀN TRÊN BẢN IN */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginTop: "16px", gap: "6px", fontSize: "14px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", width: "250px" }}>
+            <strong>TỔNG ĐƠN HÀNG:</strong>
+            <strong>{totalAmount.toLocaleString()} đ</strong>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", width: "250px", fontStyle: "italic" }}>
+            <span>Đã trả trước:</span>
+            <span>{paidAmount.toLocaleString()} đ</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", width: "250px", borderTop: "1px solid #000", paddingTop: "6px" }}>
+            <strong>CÒN NỢ LẠI:</strong>
+            <strong>{debtAmount.toLocaleString()} đ</strong>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: "50px", padding: "0 50px" }}>
+          <div style={{ textAlign: "center" }}>
+            <strong>ĐẠI DIỆN CỬA HÀNG</strong><br/>
+            <span style={{ fontStyle: "italic", fontSize: "12px" }}>(Ký, ghi rõ họ tên)</span>
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <strong>ĐẠI DIỆN NHÀ CUNG CẤP</strong><br/>
+            <span style={{ fontStyle: "italic", fontSize: "12px" }}>(Ký, ghi rõ họ tên)</span>
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 };
