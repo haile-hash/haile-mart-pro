@@ -111,7 +111,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   if (!showSettings) return null;
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.7)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 99999, backdropFilter: "blur(4px)" }} onClick={() => setShowSettings(false)}>
+    // Đã xóa onClick={() => setShowSettings(false)} để chặn việc click ra ngoài làm tắt cửa sổ
+    <div style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.7)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 99999, backdropFilter: "blur(4px)" }}>
       <div style={{ background: "#fff", width: "700px", maxWidth: "95vw", maxHeight: "90vh", borderRadius: "20px", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.4)" }} onClick={e => e.stopPropagation()}>
         
         <div style={{ padding: "20px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc" }}>
@@ -265,7 +266,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
-          {/* 4. THIẾT LẬP MÃ PIN QUẢN LÝ */}
+          {/* 4. THIẾT LẬP M Nh MÃ PIN QUẢN LÝ */}
           <div style={{ background: "#f8fafc", padding: "20px", borderRadius: "16px", border: "1px solid #e2e8f0" }}>
             <h3 style={{ margin: "0 0 16px 0", fontSize: "14px", color: "#0f172a", textTransform: "uppercase", fontWeight: "800" }}>4. BẢO MẬT</h3>
             <div>
@@ -278,14 +279,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div style={{ padding: "20px 24px", borderTop: "1px solid #e2e8f0", background: "#ffffff", display: "flex", justifyContent: "flex-end", gap: "12px" }}>
           <button onClick={() => setShowSettings(false)} style={{ padding: "12px 20px", borderRadius: "10px", border: "1px solid #cbd5e1", background: "#fff", color: "#475569", fontWeight: "700", cursor: "pointer" }}>HỦY</button>
           
-          {/* Đã thêm lệnh gọi tự động tắt cửa sổ (setShowSettings(false)) sau khi tiến hành Save */}
-          <button onClick={async () => {
-            if (searchTerm && !ALL_BANKS.find(b => b.name === searchTerm)) {
-               setNewBankBin(searchTerm);
-            }
-            await saveSettings();
-            setShowSettings(false); 
-          }} disabled={loading} style={{ padding: "12px 24px", borderRadius: "10px", border: "none", background: "#2563eb", color: "#fff", fontWeight: "700", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
+          {/* Đã đổi type="button", bồi e.preventDefault() và gọi setShowSettings(false) */}
+          <button 
+            type="button" 
+            onClick={async (e) => {
+              e.preventDefault(); 
+              if (searchTerm && !ALL_BANKS.find(b => b.name === searchTerm)) {
+                 setNewBankBin(searchTerm);
+              }
+              await saveSettings();
+              setShowSettings(false); 
+            }} 
+            disabled={loading} 
+            style={{ padding: "12px 24px", borderRadius: "10px", border: "none", background: "#2563eb", color: "#fff", fontWeight: "700", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}
+          >
             {loading ? "ĐANG LƯU..." : "💾 LƯU CÀI ĐẶT"}
           </button>
         </div>
