@@ -727,7 +727,7 @@ export default function App() {
   if (!isStorageLoading && (!isLoggedIn || isLocked)) {
     return (
       <div className={`app-container ${ui.darkMode ? "dark-theme" : "light-theme"}`} style={{ minHeight: "100vh", position: "relative" }}>
-        <Toaster position="top-right" />
+        <Toaster position="top-right" containerStyle={{ zIndex: 9999999 }} />
         {isLoggedIn && isLocked && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
             <div style={{ background: ui.darkMode ? 'rgba(255,255,255,0.05)' : 'white', padding: '40px', borderRadius: '24px', textAlign: 'center', maxWidth: '400px', width: '90%', border: `1px solid ${ui.darkMode ? 'rgba(255,255,255,0.1)' : 'transparent'}`, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
@@ -744,7 +744,7 @@ export default function App() {
 
   return (
     <div className={`app-container ${ui.darkMode ? "dark-theme" : "light-theme"}`} style={{ padding: "16px", minHeight: "100vh", fontFamily: "'Plus Jakarta Sans', -apple-system, sans-serif" }}>
-      <Toaster position="top-right" />
+     <Toaster position="top-right" containerStyle={{ zIndex: 9999999 }} />
       
       <Header 
         ui={ui}
