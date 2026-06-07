@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { Product } from '../../types';
+import { exportPOToExcel } from '../../utils/exportExcel'; // Đã import tiện ích xuất Excel
 
 interface POItem {
   product: Product;
@@ -81,6 +82,30 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
     handleSavePO(supplier, poItems, totalAmount, paidAmount, note).then(() => {
       setSelectedSupId(""); setPoItems([]); setPaidAmountStr(""); setNote("");
     });
+  };
+
+  // --- HÀM MỚI: XUẤT EXCEL BẢN NHÁP ---
+  const handleExportDraft = async () => {
+    if (!poItems || poItems.length === 0) return toast.error("Vui lòng thêm ít nhất 1 sản phẩm để xuất Excel!");
+    
+    // Tìm thông tin NCC (nếu chưa chọn thì lấy null)
+    const supplier = (suppliers || []).find(s => String(s?.id) === selectedSupId) || null;
+    const storeInfo = typeof window !== 'undefined' ? JSON.parse(window.localStorage.getItem("mart_current_store") || "{}") : {};
+
+    const draftPO = {
+      id: `PO_DRAFT_${Math.floor(Date.now() / 1000)}`,
+      orderDate: new Date().toISOString(),
+      note: note,
+      items: poItems // Gửi nguyên state poItems qua utils để vẽ Excel
+    };
+
+    try {
+      await exportPOToExcel(draftPO, supplier, storeInfo);
+      toast.success("Đã xuất file Excel thành công!");
+    } catch (error) {
+      toast.error("Lỗi khi xuất file Excel!");
+      console.error(error);
+    }
   };
 
   if (!showModal) return null;
@@ -192,12 +217,28 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
               <span>Đã Trả Cung Cấp:</span>
               <input type="text" placeholder="0" value={paidAmountStr} onChange={e => { const val = e.target.value.replace(/[^0-9]/g, ''); setPaidAmountStr(val ? parseInt(val).toLocaleString() : "") }} style={{ boxSizing: "border-box", width: "150px", padding: "8px 12px", textAlign: "right", border: "2px solid #e2e8f0", borderRadius: "8px", fontWeight: "800", color: "#10b981", fontFamily: "'Inter', sans-serif" }} />
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", borderTop: "2px dashed #cbd5e1", paddingTop: "12px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", borderTop: "2px dashed #cbd5e1", paddingTop: "12px", marginBottom: "16px" }}>
               <b>CÒN NỢ LẠI:</b><b style={{ color: debtAmount > 0 ? "#ef4444" : "#0f172a" }}>{debtAmount.toLocaleString()}đ</b>
             </div>
-            <button disabled={loading} onClick={onSubmit} style={{ width: "100%", padding: "14px", background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "800", cursor: loading ? "not-allowed" : "pointer", marginTop: "20px" }}>
-              {loading ? "ĐANG XỬ LÝ..." : "HOÀN TẤT NHẬP HÀNG"}
-            </button>
+
+            {/* Cụm nút bấm Đã Chỉnh Sửa */}
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button 
+                type="button" 
+                onClick={handleExportDraft} 
+                style={{ flex: 1, padding: "14px", background: "#10b981", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "800", cursor: "pointer" }}
+              >
+                📥 XUẤT EXCEL
+              </button>
+              <button 
+                disabled={loading} 
+                onClick={onSubmit} 
+                style={{ flex: 2, padding: "14px", background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "800", cursor: loading ? "not-allowed" : "pointer" }}
+              >
+                {loading ? "ĐANG XỬ LÝ..." : "HOÀN TẤT NHẬP HÀNG"}
+              </button>
+            </div>
+
           </div>
         </div>
       </div>
