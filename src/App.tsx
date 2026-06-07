@@ -346,7 +346,36 @@ export default function App() {
   const saveSettings = () => { const bin = newBankBin.trim(); const acc = newBankAcc.trim(); const nameStr = newBankNameStr.trim().toUpperCase(); const zaloId = newZaloPayId.trim(); const pin = newAdminPinInput.trim(); if (!bin || !acc || !nameStr || !pin) return toast.error("Vui lòng điền đủ thông tin & Mã PIN!"); updateSettingsToCloud(bin, acc, nameStr, zaloId, newHappyStart, newHappyEnd, pin); };
   
   const handleLogoutClick = () => { logAudit("ĐĂNG XUẤT", `Thoát ca ${shift}`); ui.setShowHandoverModal?.(true); };
-  const confirmHandover = async () => { try { if (navigator.onLine) { await supabase.auth.signOut(); } } catch (error) {} finally { await dbRemove("mart_logged_in"); await dbRemove("mart_shift"); await dbRemove("mart_current_store"); window.localStorage.removeItem('mart_is_locked'); localStorage.removeItem("mart_was_logged_in"); setIsLoggedIn(false); window.location.reload(); } };
+  const confirmHandover = async () => { 
+    try { 
+      // Đăng xuất khỏi máy chủ mây Supabase
+      if (navigator.onLine) { 
+        await supabase.auth.signOut(); 
+      } 
+    } catch (error) {
+      console.error(error);
+    } finally { 
+      // 1. Quét sạch các biến lẻ tẻ trong IndexedDB (Code cũ của bạn)
+      await dbRemove("mart_logged_in"); 
+      await dbRemove("mart_shift"); 
+      await dbRemove("mart_current_store"); 
+
+      // 2. XÓA SẠCH DỮ LIỆU CÁ NHÂN (LỊCH SỬ, KHÁCH HÀNG, ĐƠN LƯU TẠM...) TRONG BỘ NHỚ KÉT SẮT (INDEXEDDB)
+      await dbRemove("mart_history");
+      await dbRemove("mart_customers");
+      await dbRemove("mart_held_orders");
+      await dbRemove("mart_expenses");
+      await dbRemove("mart_pos");
+
+      // 3. TĂNG CƯỜNG: Xóa sạch 100% LocalStorage và SessionStorage trên trình duyệt
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+      
+      // 4. Thoát trạng thái và tải lại web trắng tinh khôi
+      setIsLoggedIn(false); 
+      window.location.reload(); 
+    } 
+  };
   const handleEditPhone = async (oldPhone: string) => { executeWithAdminCheck(() => { const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customersData[newPhone]) return toast.error("SĐT đã tồn tại!"); const cData = customersData[oldPhone]; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = { ...cData, phone: newPhone }; delete updated[oldPhone]; return updated }); logAudit("SỬA KHÁCH HÀNG", `Đổi SĐT ${oldPhone} -> ${newPhone}`); toast.success("Cập nhật thành công!"); } }); };
   const addSupplier = async () => { if (!supName || !supPhone) return toast.error("Nhập đủ Tên/SĐT"); const newId = Date.now(); const newSupData = { id: newId, name: supName, phone: supPhone, address: supAddress, item: supItem, taxCode: supTaxCode, bankAccount: supBankAccount, debt: 0 }; setSuppliers(prev => [newSupData, ...prev]); if (navigator.onLine) { supabase.from('suppliers').insert([newSupData]).then(); } setSupName(""); setSupPhone(""); toast.success("Thêm NCC thành công!"); logAudit("THÊM NCC", supName); };
   const deleteSupplier = async (id: any) => { setSuppliers(prev => prev.filter(s => s.id !== id)); if (navigator.onLine) await supabase.from('suppliers').delete().eq('id', id); logAudit("XÓA NCC", `ID: ${id}`); };
