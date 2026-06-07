@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { cleanName } from "../../utils/helpers";
 
 export const POModal = ({
@@ -16,7 +16,6 @@ export const POModal = ({
     }
   }, [poTab, allPOs]);
 
-  // Cập nhật load chi tiết: Nếu PO đã hoàn tất, giữ nguyên số lượng thực nhận/lỗi đã lưu.
   const handleSelectPOToReceive = (po: any) => {
     setFoundPO(po);
     setReceiveItems((po.items || []).map(i => ({ 
@@ -25,6 +24,16 @@ export const POModal = ({
       returnQty: i.returnQty || 0 
     })));
   };
+
+  // --- TÍNH TOÁN REALTIME TIỀN HÀNG VÀ CÔNG NỢ ---
+  const currentTotalAmount = useMemo(() => {
+    return (poItems || []).reduce((sum, item) => sum + (Number(item.qty) || 0) * (Number(item.importPrice) || 0), 0);
+  }, [poItems]);
+
+  const currentDebtAmount = useMemo(() => {
+    return currentTotalAmount - (Number(paidAmount) || 0);
+  }, [currentTotalAmount, paidAmount]);
+
 
   // --- XUẤT EXCEL BẢN NHÁP ---
   const handleExportDraft = () => {
@@ -51,19 +60,17 @@ export const POModal = ({
         ["STT", "Mã Sản Phẩm", "Tên Sản Phẩm", "Số Lượng", "Đơn Giá Nhập (VNĐ)", "Thành Tiền (VNĐ)"]
       ];
 
-      let totalAmount = 0;
       poItems.forEach((item: any, index: number) => {
         const qty = Number(item?.qty) || 0;
         const price = Number(item?.importPrice) || 0;
         const rowTotal = qty * price;
-        totalAmount += rowTotal;
         wsData.push([index + 1, item?.product?.product_code || "", cleanName(item?.product?.name || "SP"), qty, price, rowTotal]);
       });
 
       wsData.push([""]);
-      wsData.push(["", "", "", "", "TỔNG TIỀN HÀNG:", totalAmount]);
+      wsData.push(["", "", "", "", "TỔNG TIỀN HÀNG:", currentTotalAmount]);
       wsData.push(["", "", "", "", "ĐÃ TRẢ TRƯỚC:", Number(paidAmount) || 0]);
-      wsData.push(["", "", "", "", "SỐ TIỀN CÒN LẠI:", totalAmount - (Number(paidAmount) || 0)]);
+      wsData.push(["", "", "", "", "SỐ TIỀN CÒN LẠI:", currentDebtAmount]);
       
       wsData.push([""]); wsData.push([""]);
       wsData.push(["", "ĐẠI DIỆN BÊN MUA", "", "", "", "ĐẠI DIỆN BÊN BÁN"]);
@@ -78,7 +85,6 @@ export const POModal = ({
     } catch (e) { alert("Lỗi xuất Excel! Vui lòng kiểm tra lại thư viện."); }
   };
 
-  // --- KẾT XUẤT FILE MẪU NHẬP KHO (TỰ ĐỘNG) ---
   const handleExportInventoryTemplate = () => {
     try {
       if (!window.XLSX) return;
@@ -116,9 +122,10 @@ export const POModal = ({
     } catch (e) { console.error("Lỗi xuất file mẫu nhập kho", e); }
   };
 
-  // --- IN PHIẾU PDF 3 TRONG 1 ---
+  // --- IN PHIẾU PDF 3 TRONG 1 (CẬP NHẬT 3 DÒNG TIỀN) ---
   const handlePrintPDF = (type: 'ORDER' | 'RECEIPT' | 'RETURN') => {
     let printData = []; let title = ""; let poCodePrint = ""; let supplierPrint = {}; let notePrint = "";
+    let printTotal = 0; let printPaid = 0; let printDebt = 0;
 
     if (type === 'ORDER' && poTab === 'NEW') {
       if (!poItems || poItems.length === 0) return alert("Chưa có sản phẩm nào!");
@@ -126,6 +133,9 @@ export const POModal = ({
       title = "ĐƠN ĐẶT HÀNG (PURCHASE ORDER)"; poCodePrint = `PO_DRAFT_${Date.now().toString().slice(-6)}`;
       supplierPrint = (suppliers || []).find((s: any) => String(s.id) === String(selectedSupplierId)) || {};
       notePrint = poNote;
+      printTotal = currentTotalAmount;
+      printPaid = Number(paidAmount) || 0;
+      printDebt = currentDebtAmount;
     } else {
       if (!foundPO) return alert("Chưa chọn phiếu PO!");
       poCodePrint = foundPO.po_code; supplierPrint = foundPO.supplier || {}; notePrint = foundPO.note;
@@ -133,46 +143,51 @@ export const POModal = ({
       if (type === 'ORDER') {
         title = "ĐƠN ĐẶT HÀNG (PURCHASE ORDER)";
         printData = receiveItems.map(i => ({ ...i, printQty: i.qty }));
+        printTotal = foundPO.total_amount || 0;
+        printPaid = foundPO.paid_amount || 0;
+        printDebt = printTotal - printPaid;
       } else if (type === 'RECEIPT') {
         title = "PHIẾU NHẬP KHO (GOODS RECEIPT NOTE)";
         printData = receiveItems.map(i => ({ ...i, printQty: i.actualQty !== undefined ? i.actualQty : i.qty })).filter(i => i.printQty > 0);
         if(printData.length === 0) return alert("Không có sản phẩm nào được thực nhận!");
+        printTotal = printData.reduce((sum, item) => sum + item.printQty * item.importPrice, 0);
+        printPaid = foundPO.paid_amount || 0;
+        printDebt = printTotal - printPaid;
       } else if (type === 'RETURN') {
         title = "PHIẾU TRẢ HÀNG LỖI (RETURN NOTE)";
         printData = receiveItems.map(i => ({ ...i, printQty: i.returnQty || 0 })).filter(i => i.printQty > 0);
         if(printData.length === 0) return alert("Không có sản phẩm lỗi nào được ghi nhận trong phiếu này!");
+        printTotal = printData.reduce((sum, item) => sum + item.printQty * item.importPrice, 0);
+        // Phiếu trả hàng không cần in nợ, gán 0
+        printPaid = 0; printDebt = 0; 
       }
     }
 
     const storeInfo = JSON.parse(window.localStorage.getItem("mart_current_store") || "{}");
     const dateStr = new Date().toLocaleDateString('vi-VN');
-    let itemsHtml = ""; let totalAmount = 0;
+    let itemsHtml = ""; 
     
     printData.forEach((item: any, index: number) => {
       const qty = Number(item.printQty) || 0; const price = Number(item.importPrice) || 0; const rowTotal = qty * price;
-      totalAmount += rowTotal;
       itemsHtml += `<tr><td style="padding: 10px 8px; border: 1px solid #cbd5e1; text-align: center;">${index + 1}</td><td style="padding: 10px 8px; border: 1px solid #cbd5e1;">${item?.product?.product_code || ""}</td><td style="padding: 10px 8px; border: 1px solid #cbd5e1;">${cleanName(item?.product?.name || "SP")}</td><td style="padding: 10px 8px; border: 1px solid #cbd5e1; text-align: center;">${qty}</td><td style="padding: 10px 8px; border: 1px solid #cbd5e1; text-align: right;">${price.toLocaleString('vi-VN')} đ</td><td style="padding: 10px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold;">${rowTotal.toLocaleString('vi-VN')} đ</td></tr>`;
     });
 
-    const htmlContent = `<html><head><title>${title}_${poCodePrint}</title><style>@page { size: A4; margin: 15mm; } body { font-family: 'Times New Roman', Times, serif; font-size: 14px; line-height: 1.5; color: #000; margin: 0; } .header { text-align: center; margin-bottom: 30px; } .title { font-size: 24px; font-weight: bold; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px; } .flex-container { display: flex; justify-content: space-between; margin-bottom: 25px; } .box { width: 48%; padding: 15px; border: 1px solid #000; border-radius: 8px; } .box-title { font-weight: bold; text-decoration: underline; margin-bottom: 8px; font-size: 15px; text-transform: uppercase; } table { width: 100%; border-collapse: collapse; margin-bottom: 25px; } th { padding: 12px 8px; border: 1px solid #cbd5e1; background-color: #f1f5f9; font-weight: bold; text-transform: uppercase; font-size: 13px; } .total-section { text-align: right; font-size: 15px; margin-bottom: 40px; } .total-line { margin-bottom: 8px; } .signature-section { display: flex; justify-content: space-between; padding: 0 40px; text-align: center; } .sig-title { font-weight: bold; font-size: 15px; margin-bottom: 5px; } .sig-sub { font-style: italic; font-size: 13px; color: #475569; }</style></head><body><div class="header"><h1 class="title">${title}</h1><div>Tham chiếu gốc (Mã PO): <strong>${poCodePrint}</strong> &nbsp;|&nbsp; Ngày lập: ${dateStr}</div></div><div class="flex-container"><div class="box"><div class="box-title">${type === 'RETURN' ? 'Bên Trả Hàng (Cửa hàng)' : 'Thông tin Bên Mua (Buyer)'}</div><table style="width: 100%; border: none; margin: 0; font-size: 14px;"><tr><td style="width: 90px; border: none; padding: 3px 0;"><strong>Tên ĐV:</strong></td><td style="border: none; padding: 3px 0;">${storeInfo.store_name || "HỆ THỐNG POS PRO"}</td></tr><tr><td style="border: none; padding: 3px 0;"><strong>Địa chỉ:</strong></td><td style="border: none; padding: 3px 0;">${storeInfo.address || "Chưa cập nhật"}</td></tr><tr><td style="border: none; padding: 3px 0;"><strong>Điện thoại:</strong></td><td style="border: none; padding: 3px 0;">${storeInfo.phone || "Chưa cập nhật"}</td></tr><tr><td style="border: none; padding: 3px 0;"><strong>MST:</strong></td><td style="border: none; padding: 3px 0;">${storeInfo.tax_code || "Chưa cập nhật"}</td></tr></table></div><div class="box"><div class="box-title">${type === 'RETURN' ? 'Bên Nhận Lại (Nhà CC)' : 'Thông tin Bên Bán (Seller)'}</div><table style="width: 100%; border: none; margin: 0; font-size: 14px;"><tr><td style="width: 90px; border: none; padding: 3px 0;"><strong>Nhà CC:</strong></td><td style="border: none; padding: 3px 0;">${supplierPrint.name || "Chưa chọn"}</td></tr><tr><td style="border: none; padding: 3px 0;"><strong>Địa chỉ:</strong></td><td style="border: none; padding: 3px 0;">${supplierPrint.address || "Chưa cập nhật"}</td></tr><tr><td style="border: none; padding: 3px 0;"><strong>Điện thoại:</strong></td><td style="border: none; padding: 3px 0;">${supplierPrint.phone || "Chưa cập nhật"}</td></tr><tr><td style="border: none; padding: 3px 0;"><strong>STK/MST:</strong></td><td style="border: none; padding: 3px 0;">${supplierPrint.taxCode || supplierPrint.bankAccount || "Chưa cập nhật"}</td></tr></table></div></div><div style="margin-bottom: 15px; padding-left: 5px;"><strong>Ghi chú:</strong> ${notePrint || "Không có"}</div><table><thead><tr><th style="width: 5%;">STT</th><th style="width: 15%;">Mã SP</th><th style="width: 35%; text-align: left;">Tên Sản Phẩm</th><th style="width: 10%;">SL</th><th style="width: 15%; text-align: right;">Đơn Giá</th><th style="width: 20%; text-align: right;">Thành Tiền</th></tr></thead><tbody>${itemsHtml}</tbody></table><div class="total-section"><div class="total-line" style="font-size: 18px; margin-top: 10px;"><strong>TỔNG CỘNG:</strong> &nbsp;&nbsp;&nbsp;&nbsp; ${totalAmount.toLocaleString('vi-VN')} đ</div>${type === 'RETURN' ? '<div class="total-line" style="font-style: italic; font-size: 13px;">(Số tiền trên sẽ được trừ vào công nợ hoặc nhà cung cấp hoàn trả lại bằng tiền mặt)</div>' : ''}</div><div class="signature-section"><div><div class="sig-title">ĐẠI DIỆN CỬA HÀNG</div><div class="sig-sub">(Ký, ghi rõ họ tên)</div></div><div><div class="sig-title">ĐẠI DIỆN NHÀ CUNG CẤP</div><div class="sig-sub">(Ký, ghi rõ họ tên)</div></div></div><script>window.onload = function() { setTimeout(function() { window.print(); window.onafterprint = function() { window.close(); } }, 500); }</script></body></html>`;
+    const htmlContent = `<html><head><title>${title}_${poCodePrint}</title><style>@page { size: A4; margin: 15mm; } body { font-family: 'Times New Roman', Times, serif; font-size: 14px; line-height: 1.5; color: #000; margin: 0; } .header { text-align: center; margin-bottom: 30px; } .title { font-size: 24px; font-weight: bold; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px; } .flex-container { display: flex; justify-content: space-between; margin-bottom: 25px; } .box { width: 48%; padding: 15px; border: 1px solid #000; border-radius: 8px; } .box-title { font-weight: bold; text-decoration: underline; margin-bottom: 8px; font-size: 15px; text-transform: uppercase; } table { width: 100%; border-collapse: collapse; margin-bottom: 25px; } th { padding: 12px 8px; border: 1px solid #cbd5e1; background-color: #f1f5f9; font-weight: bold; text-transform: uppercase; font-size: 13px; } .total-section { width: 300px; margin-left: auto; text-align: right; font-size: 15px; margin-bottom: 40px; } .total-line { display: flex; justify-content: space-between; margin-bottom: 6px; } .signature-section { display: flex; justify-content: space-between; padding: 0 40px; text-align: center; } .sig-title { font-weight: bold; font-size: 15px; margin-bottom: 5px; } .sig-sub { font-style: italic; font-size: 13px; color: #475569; }</style></head><body><div class="header"><h1 class="title">${title}</h1><div>Tham chiếu gốc (Mã PO): <strong>${poCodePrint}</strong> &nbsp;|&nbsp; Ngày lập: ${dateStr}</div></div><div class="flex-container"><div class="box"><div class="box-title">${type === 'RETURN' ? 'Bên Trả Hàng (Cửa hàng)' : 'Thông tin Bên Mua (Buyer)'}</div><table style="width: 100%; border: none; margin: 0; font-size: 14px;"><tr><td style="width: 90px; border: none; padding: 3px 0;"><strong>Tên ĐV:</strong></td><td style="border: none; padding: 3px 0;">${storeInfo.store_name || "HỆ THỐNG POS PRO"}</td></tr><tr><td style="border: none; padding: 3px 0;"><strong>Địa chỉ:</strong></td><td style="border: none; padding: 3px 0;">${storeInfo.address || "Chưa cập nhật"}</td></tr><tr><td style="border: none; padding: 3px 0;"><strong>Điện thoại:</strong></td><td style="border: none; padding: 3px 0;">${storeInfo.phone || "Chưa cập nhật"}</td></tr><tr><td style="border: none; padding: 3px 0;"><strong>MST:</strong></td><td style="border: none; padding: 3px 0;">${storeInfo.tax_code || "Chưa cập nhật"}</td></tr></table></div><div class="box"><div class="box-title">${type === 'RETURN' ? 'Bên Nhận Lại (Nhà CC)' : 'Thông tin Bên Bán (Seller)'}</div><table style="width: 100%; border: none; margin: 0; font-size: 14px;"><tr><td style="width: 90px; border: none; padding: 3px 0;"><strong>Nhà CC:</strong></td><td style="border: none; padding: 3px 0;">${supplierPrint.name || "Chưa chọn"}</td></tr><tr><td style="border: none; padding: 3px 0;"><strong>Địa chỉ:</strong></td><td style="border: none; padding: 3px 0;">${supplierPrint.address || "Chưa cập nhật"}</td></tr><tr><td style="border: none; padding: 3px 0;"><strong>Điện thoại:</strong></td><td style="border: none; padding: 3px 0;">${supplierPrint.phone || "Chưa cập nhật"}</td></tr><tr><td style="border: none; padding: 3px 0;"><strong>STK/MST:</strong></td><td style="border: none; padding: 3px 0;">${supplierPrint.taxCode || supplierPrint.bankAccount || "Chưa cập nhật"}</td></tr></table></div></div><div style="margin-bottom: 15px; padding-left: 5px;"><strong>Ghi chú:</strong> ${notePrint || "Không có"}</div><table><thead><tr><th style="width: 5%;">STT</th><th style="width: 15%;">Mã SP</th><th style="width: 35%; text-align: left;">Tên Sản Phẩm</th><th style="width: 10%;">SL</th><th style="width: 15%; text-align: right;">Đơn Giá</th><th style="width: 20%; text-align: right;">Thành Tiền</th></tr></thead><tbody>${itemsHtml}</tbody></table><div class="total-section"><div class="total-line"><strong>TỔNG ĐƠN HÀNG:</strong> <span><strong>${printTotal.toLocaleString('vi-VN')} đ</strong></span></div>${type !== 'RETURN' ? `<div class="total-line" style="font-style: italic; color: #059669;"><span>Đã trả trước:</span> <span>${printPaid.toLocaleString('vi-VN')} đ</span></div><div class="total-line" style="border-top: 1px solid #000; padding-top: 5px; color: #dc2626;"><strong>CÒN NỢ LẠI:</strong> <span><strong>${printDebt.toLocaleString('vi-VN')} đ</strong></span></div>` : '<div style="font-style: italic; font-size: 13px; text-align: right; color: #475569; margin-top: 10px;">(Số tiền trên sẽ được trừ vào công nợ hoặc nhà cung cấp hoàn trả bằng tiền mặt)</div>'}</div><div class="signature-section"><div><div class="sig-title">ĐẠI DIỆN CỬA HÀNG</div><div class="sig-sub">(Ký, ghi rõ họ tên)</div></div><div><div class="sig-title">ĐẠI DIỆN NHÀ CUNG CẤP</div><div class="sig-sub">(Ký, ghi rõ họ tên)</div></div></div><script>window.onload = function() { setTimeout(function() { window.print(); window.onafterprint = function() { window.close(); } }, 500); }</script></body></html>`;
 
     const printWindow = window.open('', '_blank');
     if (printWindow) { printWindow.document.open(); printWindow.document.write(htmlContent); printWindow.document.close(); } 
     else { alert("Trình duyệt đã chặn popup. Vui lòng cho phép popup để xuất PDF."); }
   };
 
-  // --- LUỒNG XÁC NHẬN NHẬP KHO CHUẨN ---
   const handleConfirmAndProcess = () => {
     if (!window.confirm(`Xác nhận hoàn tất phiếu nhập kho ${foundPO?.po_code}?\nTrạng thái phiếu sẽ chuyển thành "Đã Nhập".`)) return;
 
     handleExportInventoryTemplate();
     handlePrintPDF('RECEIPT');
 
-    // 1. Cập nhật giao diện Modal sang Đã Nhập ngay lập tức
     const updatedPO = { ...foundPO, status: 'COMPLETED' };
     setFoundPO(updatedPO); 
 
-    // 2. Gọi hàm truyền về App.tsx để lưu Database
     if (onConfirmReceipt) onConfirmReceipt(updatedPO, receiveItems);
   };
 
@@ -301,19 +316,43 @@ export const POModal = ({
               {/* CỘT PHẢI - BẢNG VÀ CHỨC NĂNG */}
               <div style={{ flex: 1, height: "100%", background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", overflow: "hidden" }}>
                 
-                {/* THANH TOP BAR (TỔNG TIỀN VÀ NÚT LƯU Ở ĐÂY ĐỂ ĐỠ CUỘN) */}
+                {/* THANH TOP BAR: GIAO DIỆN THANH TOÁN 3 TRỤ CỘT MỚI */}
                 <div style={{ flexShrink: 0, padding: "16px 20px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", gap: "30px", alignItems: "center" }}>
+                  
+                  {/* Khu vực tính toán Realtime */}
+                  <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
                     <div>
                       <div style={{ fontSize: "12px", color: "#64748b", fontWeight: "600", textTransform: "uppercase", marginBottom: "2px" }}>Tổng đơn hàng</div>
-                      <div style={{ fontSize: "20px", color: "#0f172a", fontWeight: "700" }}>{(poItems || []).reduce((sum, item) => sum + (Number(item.qty) || 0) * (Number(item.importPrice) || 0), 0).toLocaleString()}đ</div>
+                      <div style={{ fontSize: "20px", color: "#0f172a", fontWeight: "800" }}>{currentTotalAmount.toLocaleString()}đ</div>
                     </div>
+                    
+                    <div style={{ fontSize: "24px", color: "#cbd5e1", fontWeight: "900", marginTop: "12px" }}>-</div>
+                    
                     <div>
                       <div style={{ fontSize: "12px", color: "#64748b", fontWeight: "600", textTransform: "uppercase", marginBottom: "4px" }}>Đã trả trước</div>
-                      <input type="number" className="po-editable-input" style={{ width: "130px", color: "#10b981", fontSize: "16px", padding: "4px 10px" }} placeholder="0" min="0" value={paidAmount === "" ? "" : paidAmount} onFocus={(e)=>e.target.select()} onChange={(e) => setPaidAmount(e.target.value === "" ? "" : Number(e.target.value))} />
+                      <input 
+                        type="number" 
+                        className="po-editable-input" 
+                        style={{ width: "130px", color: "#2563eb", fontSize: "16px", padding: "6px 12px", border: "1px solid #93c5fd" }} 
+                        placeholder="0" 
+                        min="0" 
+                        value={paidAmount === "" ? "" : paidAmount} 
+                        onFocus={(e)=>e.target.select()} 
+                        onChange={(e) => setPaidAmount(e.target.value === "" ? "" : Number(e.target.value))} 
+                      />
+                    </div>
+
+                    <div style={{ fontSize: "24px", color: "#cbd5e1", fontWeight: "900", marginTop: "12px" }}>=</div>
+
+                    <div style={{ background: "#fef2f2", padding: "6px 16px", borderRadius: "8px", border: "1px dashed #fca5a5" }}>
+                      <div style={{ fontSize: "12px", color: "#ef4444", fontWeight: "800", textTransform: "uppercase", marginBottom: "2px" }}>Cần thanh toán</div>
+                      <div style={{ fontSize: "20px", color: currentDebtAmount > 0 ? "#ef4444" : "#10b981", fontWeight: "900" }}>
+                        {currentDebtAmount.toLocaleString()}đ
+                      </div>
                     </div>
                   </div>
                   
+                  {/* Cụm Nút bấm */}
                   <div style={{ display: "flex", gap: "10px" }}>
                     <button onClick={() => handlePrintPDF('ORDER')} className="po-btn po-btn-outline" style={{ color: "#dc2626", borderColor: "#fca5a5" }}>🖨️ PDF</button>
                     <button onClick={handleExportDraft} className="po-btn po-btn-outline" style={{ color: "#16a34a", borderColor: "#86efac" }}>📥 Excel</button>
@@ -405,10 +444,8 @@ export const POModal = ({
                   <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", color: "#94a3b8" }}>Chọn phiếu PO để xem chi tiết.</div>
                 ) : (
                   <>
-                    {/* KHỐI TOP BAR (TỔNG HỢP & NÚT BẤM ĐƯỢC CHUYỂN LÊN ĐÂY) */}
                     <div style={{ flexShrink: 0, background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
                       
-                      {/* Dòng 1: Thông tin PO & Tổng Tiền */}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px" }}>
                         <div>
                           <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
@@ -436,7 +473,6 @@ export const POModal = ({
                         </div>
                       </div>
 
-                      {/* Dòng 2: Action Buttons */}
                       <div style={{ padding: "12px 20px", borderTop: "1px dashed #cbd5e1", display: "flex", justifyContent: "flex-end", gap: "10px" }}>
                         <button onClick={() => handlePrintPDF('ORDER')} className="po-btn po-btn-outline">🖨️ In Lại PO</button>
                         <button onClick={() => handlePrintPDF('RETURN')} className="po-btn po-btn-outline" style={{ borderColor: "#fca5a5", color: "#dc2626" }}>🖨️ In Phiếu Trả</button>
@@ -451,7 +487,6 @@ export const POModal = ({
                       </div>
                     </div>
 
-                    {/* KHU VỰC BẢNG (TỰ DO CUỘN) */}
                     <div style={{ flex: 1, overflowY: "auto" }}>
                       <table className="po-table" style={{ width: "100%", borderCollapse: "collapse" }}>
                         <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
