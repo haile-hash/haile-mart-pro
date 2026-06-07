@@ -167,50 +167,40 @@ export default function App() {
 
   const totalValue = useMemo(() => products.reduce((sum, p) => sum + ((p.stock || 0) * (p.import_price || 0)), 0), [products]);
   const lowStockCount = useMemo(() => products.filter(p => p.stock > 0 && p.stock < 10).length, [products]);
-// ĐOẠN CODE LẮNG NGHE REALTIME: ĐÁ VĂNG KHI BỊ XÓA TÀI KHOẢN
+
+  // ĐOẠN CODE TỰ BẢO VỆ: ĐÁ VĂNG KHI TÀI KHOẢN BỊ XÓA HOẶC KHÓA (CHẠY NGẦM MỖI 30 GIÂY)
   useEffect(() => {
-    let authChannel: any;
+    if (!isLoggedIn) return;
 
-    const setupRealtimeKick = async () => {
-      // 1. Lấy thông tin người dùng đang đăng nhập trên máy này
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // 2. Bật kênh lắng nghe sự kiện XÓA (DELETE) trên bảng 'stores' của đúng user này
-      authChannel = supabase
-        .channel('force-kick-channel')
-        .on(
-          'postgres_changes',
-          {
-            event: 'DELETE',
-            schema: 'public',
-            table: 'stores',
-            filter: `owner_id=eq.${user.id}`, // Chỉ bắt sóng nếu ID bị xóa khớp với ID người này
-          },
-          async (payload) => {
-            // 3. THI HÀNH ÁN: Khi nhận được tin báo bị xóa
-            alert("Tài khoản của bạn đã bị Quản trị viên vô hiệu hóa hoặc xóa khỏi hệ thống!");
-            
-            // Xóa phiên đăng nhập trên Supabase
-            await supabase.auth.signOut();
-            
-            // Dọn sạch mọi dấu vết trong máy tính
-            window.localStorage.clear(); 
-            
-            // Ép tải lại trang để văng thẳng ra màn hình Login
-            window.location.reload(); 
-          }
-        )
-        .subscribe();
+    const checkAccountStatus = async () => {
+      // Gọi lên Supabase hỏi xin thông tin user hiện tại
+      const { data: { user }, error } = await supabase.auth.getUser();
+      
+      // Nếu có lỗi trả về (ví dụ lỗi Token invalid do tài khoản đã bị xóa/khóa)
+      // HOẶC dữ liệu user trả về là null (không tồn tại)
+      if (error || !user) {
+        alert("Phiên đăng nhập không còn hợp lệ do Tài khoản của bạn đã bị vô hiệu hóa hoặc xóa khỏi hệ thống bởi Quản trị viên!");
+        
+        // 1. Quét sạch LocalStorage
+        window.localStorage.clear();
+        window.sessionStorage.clear();
+        
+        // 2. Đá văng ra ngoài
+        setIsLoggedIn(false);
+        window.location.reload();
+      }
     };
 
-    setupRealtimeKick();
+    // Kiểm tra ngay khi vừa mở web lên
+    checkAccountStatus();
 
-    // Dọn dẹp kênh lắng nghe khi tắt component
-    return () => {
-      if (authChannel) supabase.removeChannel(authChannel);
-    };
-  }, []);
+    // Thiết lập đồng hồ, cứ 30 giây lại gọi lên hỏi 1 lần
+    const intervalId = setInterval(checkAccountStatus, 30000);
+
+    // Dọn dẹp đồng hồ khi tắt component
+    return () => clearInterval(intervalId);
+  }, [isLoggedIn]);
+
   useEffect(() => { const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e); }; window.addEventListener('beforeinstallprompt', handler); return () => window.removeEventListener('beforeinstallprompt', handler); }, []);
   const handleInstallApp = async () => { if (!installPrompt) return; installPrompt.prompt(); const { outcome } = await installPrompt.userChoice; if (outcome === 'accepted') { setInstallPrompt(null); toast.success("Cài đặt App thành công!"); logAudit("HỆ THỐNG", "Cài đặt ứng dụng PWA"); } };
 
