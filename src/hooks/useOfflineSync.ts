@@ -38,15 +38,22 @@ export const useOfflineSync = ({
   // Hàm đồng bộ 1 bảng lên Cloud
   const syncToCloud = async (tableName: string, dataArray: any, isObject = false) => {
     if (!navigator.onLine) { setSyncStatus('error'); return false; }
+    
+    // BẢO MẬT: Lấy ID của cửa hàng để đóng dấu vào dữ liệu trước khi đẩy lên
+    const ownerId = window.localStorage.getItem("mart_owner_id");
+    if (!ownerId) return false;
+
     try {
       setSyncStatus('syncing');
       let formattedData = [];
       
       if (isObject) { 
         const safeObj = dataArray || {};
-        formattedData = Object.keys(safeObj).map(key => ({ phone: key, ...safeObj[key] })); 
+        // Tự động gắn owner_id vào mỗi object khách hàng
+        formattedData = Object.keys(safeObj).map(key => ({ phone: key, ...safeObj[key], owner_id: ownerId })); 
       } else { 
-        formattedData = dataArray || []; 
+        // Tự động gắn owner_id vào mỗi dòng dữ liệu (Nhật ký, Lịch sử, Chi phí...)
+        formattedData = (dataArray || []).map((item: any) => ({ ...item, owner_id: ownerId })); 
       }
       
       if (formattedData.length === 0) { setSyncStatus('synced'); return true; }
@@ -97,15 +104,24 @@ export const useOfflineSync = ({
 
   // Kéo dữ liệu từ Cloud về khi đăng nhập
   const loadCloudData = async () => {
+    // CHỐT CHẶN BẢO MẬT: Bắt buộc phải có thẻ nhận diện cửa hàng (owner_id)
+    const ownerId = window.localStorage.getItem("mart_owner_id");
+    if (!ownerId) {
+      console.warn("Không tìm thấy chủ sở hữu, từ chối tải dữ liệu đám mây!");
+      return; 
+    }
+
     try {
       setSyncStatus('syncing');
+      
+      // TẢI DỮ LIỆU ĐỘC LẬP: Chỉ tải những dòng có Sổ đỏ (owner_id) khớp với cửa hàng hiện tại
       const [rCust, rHist, rExp, rSup, rAud, rHold] = await Promise.all([
-        supabase.from('customers').select('*'), 
-        supabase.from('history').select('*').order('id', { ascending: false }).limit(1500),
-        supabase.from('expenses').select('*').order('id', { ascending: false }), 
-        supabase.from('suppliers').select('*').order('id', { ascending: false }),
-        supabase.from('audit_logs').select('*').order('id', { ascending: false }).limit(300), 
-        supabase.from('held_orders').select('*')
+        supabase.from('customers').select('*').eq('owner_id', ownerId), 
+        supabase.from('history').select('*').eq('owner_id', ownerId).order('id', { ascending: false }).limit(1500),
+        supabase.from('expenses').select('*').eq('owner_id', ownerId).order('id', { ascending: false }), 
+        supabase.from('suppliers').select('*').eq('owner_id', ownerId).order('id', { ascending: false }),
+        supabase.from('audit_logs').select('*').eq('owner_id', ownerId).order('id', { ascending: false }).limit(300), 
+        supabase.from('held_orders').select('*').eq('owner_id', ownerId)
       ]);
 
       if (rCust.data && rCust.data.length > 0) { 
