@@ -30,7 +30,7 @@ export const Header = (props: any) => {
       <style>{`
         .premium-banner { background: linear-gradient(135deg, #DA251D 0%, #A61611 100%); box-shadow: 0 10px 20px -5px rgba(218, 37, 29, 0.4); transition: all 0.3s ease; }
         .premium-banner:hover { transform: translateY(-2px); box-shadow: 0 12px 25px -4px rgba(218, 37, 29, 0.5); }
-        .modern-stat-card { background: ${ui.darkMode ? 'rgba(255, 255, 255, 0.05)' : '#ffffff'}; border: 1px solid ${ui.darkMode ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0'}; border-radius: 12px; padding: 8px 16px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; min-width: 120px; box-shadow: 0 2px 6px rgba(0,0,0,0.02); }
+        .modern-stat-card { background: ${ui.darkMode ? 'rgba(255, 255, 255, 0.05)' : '#ffffff'}; border: 1px solid ${ui.darkMode ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0'}; border-radius: 12px; padding: 8px 16px; display: flex; flex-direction: column; align-items: flex-start; justifyContent: center; min-width: 120px; box-shadow: 0 2px 6px rgba(0,0,0,0.02); }
         .main-menu-btn { background: ${ui.darkMode ? '#334155' : '#1e293b'}; color: white; padding: 8px 20px; border-radius: 10px; display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; border: none; cursor: pointer; transition: 0.2s; }
         .main-menu-btn:hover { background: #0f172a; }
         .dropdown-menu-saas button { width: 100%; text-align: left; padding: 10px 14px; background: none; border: none; color: ${ui.darkMode ? '#cbd5e1' : '#334155'}; font-size: 13px; font-weight: 600; cursor: pointer; display: block; border-bottom: 1px solid ${ui.darkMode ? 'rgba(255,255,255,0.05)' : '#f1f5f9'}; }
@@ -39,7 +39,7 @@ export const Header = (props: any) => {
         @keyframes wave-slide { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
       `}</style>
 
-      <div style={{ display: "flex", justify-content: "space-between", alignItems: "center", width: "100%" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
         <div className="premium-banner" onClick={toggleWindyMusic} style={{ display: 'flex', alignItems: 'center', padding: '10px 24px', borderRadius: '16px', cursor: 'pointer', minWidth: '320px', position: 'relative', overflow: 'hidden' }} title="Bật/Tắt nhạc">
           <div style={{ position: 'absolute', bottom: 0, left: 0, width: '200%', height: '55%', animation: 'wave-slide 4s linear infinite', pointerEvents: 'none' }}>
             <svg viewBox="0 0 800 100" preserveAspectRatio="none" style={{ width: '100%', height: '100%' }}>
@@ -51,7 +51,7 @@ export const Header = (props: any) => {
               <path d="M0,50 Q100,100 200,50 T400,50 T600,50 T800,50 L800,120 L0,120 Z" fill="rgba(255, 255, 255, 0.08)" />
             </svg>
           </div>
-          <div style={{ position: 'relative', zIndex: 1, marginRight: '16px', display: 'flex', alignItems: 'center', justify-content: 'center', width: '38px', height: '38px', borderRadius: storeInfo.logo ? '8px' : '0', overflow: 'hidden', transform: isPlaying ? 'scale(1.1)' : 'none', transition: 'all 0.3s ease' }}>
+          <div style={{ position: 'relative', zIndex: 1, marginRight: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: storeInfo.logo ? '8px' : '0', overflow: 'hidden', transform: isPlaying ? 'scale(1.1)' : 'none', transition: 'all 0.3s ease' }}>
             {storeInfo.logo ? ( <img src={storeInfo.logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> ) : isPlaying ? ( <span style={{ animation: 'spinSlow 3s linear infinite', fontSize: '26px' }}>📀</span> ) : ( <svg width="34" height="34" viewBox="0 0 50 50" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.25))' }}><polygon points="25,2 32.35,17.15 48.77,19.54 36.88,31.13 39.69,47.5 25,39.77 10.31,47.5 13.12,31.13 1.23,19.54 17.65,17.15" fill="#FFCE00" /></svg> )}
           </div>
           <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -60,7 +60,7 @@ export const Header = (props: any) => {
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: "10px", flex: 1, justify-content: "center" }}>
+        <div style={{ display: "flex", gap: "10px", flex: 1, justifyContent: "center" }}>
           <div className="modern-stat-card"><span style={{ fontSize: "11px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Vốn hàng hoá</span><span style={{ fontSize: "17px", fontWeight: "800", color: ui.darkMode ? "#cbd5e1" : "#334155" }}>{Math.round(props.totalValue).toLocaleString()}đ</span></div>
           <div className="modern-stat-card" onClick={() => ui.setCashFlowModalInfo?.('TIỀN MẶT')} style={{ cursor: 'pointer', borderBottom: '3px solid #10b981' }}><span style={{ fontSize: "11px", fontWeight: "700", color: "#10b981", textTransform: "uppercase" }}>Tiền mặt 👆</span><span style={{ fontSize: "17px", fontWeight: "800", color: "#059669" }}>{Math.round(props.currentShiftStats.cash).toLocaleString()}đ</span></div>
           <div className="modern-stat-card" onClick={() => ui.setCashFlowModalInfo?.('CHUYỂN KHOẢN')} style={{ cursor: 'pointer', borderBottom: '3px solid #3b82f6' }}><span style={{ fontSize: "11px", fontWeight: "700", color: "#3b82f6", textTransform: "uppercase" }}>Chuyển khoản 👆</span><span style={{ fontSize: "17px", fontWeight: "800", color: "#2563eb" }}>{Math.round(props.currentShiftStats.transfer).toLocaleString()}đ</span></div>
@@ -77,7 +77,7 @@ export const Header = (props: any) => {
         </div>
       </div>
 
-      <div style={{ display: "flex", justify-content: "flex-start", width: "100%", position: "relative" }}>
+      <div style={{ display: "flex", justifyContent: "flex-start", width: "100%", position: "relative" }}>
         <button className="main-menu-btn" onClick={(e) => { e.stopPropagation(); ui.setShowMainMenu?.(!ui.showMainMenu); }}>☰ MENU TÍNH NĂNG</button>
         
         {ui.showMainMenu && (
