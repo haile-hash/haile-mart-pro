@@ -77,12 +77,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const ALL_BANKS = [...E_WALLETS_AND_DIGITAL, ...TRADITIONAL_BANKS];
 
-  // STATE CHO TÍNH NĂNG TÌM KIẾM NGÂN HÀNG
   const [searchTerm, setSearchTerm] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Hiển thị tên ngân hàng ban đầu dựa trên mã BIN đã lưu
   useEffect(() => {
     if (newBankBin) {
       const found = ALL_BANKS.find(b => b.bin === newBankBin);
@@ -91,18 +89,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, [newBankBin]);
 
-  // Lọc danh sách ngân hàng theo từ khóa
   const filteredBanks = ALL_BANKS.filter(b => 
     b.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     b.bin.includes(searchTerm)
   );
 
-  // Xử lý click ra ngoài để đóng Dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false);
-        // Tự hoàn tác tên hiển thị nếu chưa chọn cái nào mới
         const found = ALL_BANKS.find(b => b.bin === newBankBin);
         if (found) setSearchTerm(found.name);
         else if (newBankBin) setSearchTerm(`Khác (BIN: ${newBankBin})`);
@@ -132,7 +127,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <h3 style={{ margin: "0 0 16px 0", fontSize: "14px", color: "#0f172a", textTransform: "uppercase", fontWeight: "800" }}>1. TÀI KHOẢN NGÂN HÀNG (VIETQR)</h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
               
-              {/* VÙNG CHỌN NGÂN HÀNG THÔNG MINH */}
               <div ref={dropdownRef} style={{ position: "relative" }}>
                 <label style={{ fontSize: "12px", color: "#64748b", fontWeight: "700", display: "block", marginBottom: "8px" }}>TÌM / CHỌN NGÂN HÀNG (VÍ)</label>
                 <input 
@@ -283,12 +277,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         <div style={{ padding: "20px 24px", borderTop: "1px solid #e2e8f0", background: "#ffffff", display: "flex", justifyContent: "flex-end", gap: "12px" }}>
           <button onClick={() => setShowSettings(false)} style={{ padding: "12px 20px", borderRadius: "10px", border: "1px solid #cbd5e1", background: "#fff", color: "#475569", fontWeight: "700", cursor: "pointer" }}>HỦY</button>
-          <button onClick={() => {
-            // Lấy trực tiếp searchTerm lưu làm bankBin nếu người dùng không chọn mà gõ tay
+          
+          {/* Đã thêm lệnh gọi tự động tắt cửa sổ (setShowSettings(false)) sau khi tiến hành Save */}
+          <button onClick={async () => {
             if (searchTerm && !ALL_BANKS.find(b => b.name === searchTerm)) {
                setNewBankBin(searchTerm);
             }
-            saveSettings();
+            await saveSettings();
+            setShowSettings(false); 
           }} disabled={loading} style={{ padding: "12px 24px", borderRadius: "10px", border: "none", background: "#2563eb", color: "#fff", fontWeight: "700", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
             {loading ? "ĐANG LƯU..." : "💾 LƯU CÀI ĐẶT"}
           </button>
