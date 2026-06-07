@@ -176,28 +176,33 @@ export default function App() {
       // Gọi lên Supabase hỏi xin thông tin user hiện tại
       const { data: { user }, error } = await supabase.auth.getUser();
       
-      // Nếu có lỗi trả về (ví dụ lỗi Token invalid do tài khoản đã bị xóa/khóa)
-      // HOẶC dữ liệu user trả về là null (không tồn tại)
+      // Nếu có lỗi hoặc không tìm thấy user
       if (error || !user) {
         alert("Phiên đăng nhập không còn hợp lệ do Tài khoản của bạn đã bị vô hiệu hóa hoặc xóa khỏi hệ thống bởi Quản trị viên!");
         
-        // 1. Quét sạch LocalStorage
+        // --- 1. BỔ SUNG: QUÉT SẠCH KÉT SẮT INDEXEDDB TRƯỚC KHI VĂNG ---
+        const keysToRemove = [
+          "mart_logged_in", "mart_shift", "mart_current_store", 
+          "mart_history", "mart_customers", "mart_held_orders", 
+          "mart_expenses", "mart_pos", "mart_audit", 
+          "mart_suppliers", "mart_products_cache", "mart_pending_imports"
+        ];
+        for (const key of keysToRemove) {
+          await dbRemove(key);
+        }
+        
+        // 2. Quét sạch LocalStorage & SessionStorage
         window.localStorage.clear();
         window.sessionStorage.clear();
         
-        // 2. Đá văng ra ngoài
+        // 3. Đá văng ra ngoài
         setIsLoggedIn(false);
         window.location.reload();
       }
     };
 
-    // Kiểm tra ngay khi vừa mở web lên
     checkAccountStatus();
-
-    // Thiết lập đồng hồ, cứ 30 giây lại gọi lên hỏi 1 lần
     const intervalId = setInterval(checkAccountStatus, 30000);
-
-    // Dọn dẹp đồng hồ khi tắt component
     return () => clearInterval(intervalId);
   }, [isLoggedIn]);
 
