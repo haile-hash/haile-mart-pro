@@ -12,12 +12,24 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // LUỒNG TỰ ĐỘNG BẮT ĐĂNG NHẬP GOOGLE KHI QUAY LẠI TRANG
   useEffect(() => {
+    // 1. Kiểm tra xem hiện tại đã có user đăng nhập chưa (dành cho Google OAuth quay về)
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setRole("admin");
+        setIsLoggedIn(true);
+      }
+    };
+    checkUser();
+
+    // 2. Lắng nghe thay đổi trạng thái nếu user khôi phục mật khẩu
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') setAuthMode('update_password');
     });
     return () => subscription.unsubscribe();
-  }, []);
+  }, [setIsLoggedIn, setRole]);
 
   // Hàm xử lý Đăng nhập bằng Google
   const handleGoogleLogin = async () => {
@@ -26,7 +38,7 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin
+          redirectTo: window.location.origin // Tự động quay về trang chủ sau khi chọn Gmail
         }
       });
       if (error) throw error;
@@ -131,7 +143,6 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
           </button>
         </form>
 
-        {/* Vùng chèn nút Đăng nhập bằng Google */}
         {(authMode === 'login' || authMode === 'register') && (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0 16px 0' }}>
