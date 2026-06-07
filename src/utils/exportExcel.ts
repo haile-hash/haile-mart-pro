@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+// @ts-ignore
 import { saveAs } from 'file-saver';
 
 export const exportPOToExcel = async (
@@ -91,20 +92,44 @@ export const exportPOToExcel = async (
     currentRow++;
   });
 
+  // --- PHẦN TỔNG KẾT (3 DÒNG TIỀN) ---
   worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
   const totalLabelCell = worksheet.getCell(`A${currentRow}`);
   totalLabelCell.value = 'TỔNG TIỀN HÀNG:';
   totalLabelCell.font = { bold: true };
   totalLabelCell.alignment = { horizontal: 'right' };
+  worksheet.getCell(`F${currentRow}`).value = totalAmount;
+  worksheet.getCell(`F${currentRow}`).font = { bold: true }; 
+  worksheet.getCell(`F${currentRow}`).numFmt = '#,##0';
+  currentRow++;
+
+  const paid = po.paidAmount || 0;
+  const debt = totalAmount - paid;
+
+  worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
+  worksheet.getCell(`A${currentRow}`).value = 'ĐÃ TRẢ TRƯỚC:';
+  worksheet.getCell(`A${currentRow}`).font = { italic: true };
+  worksheet.getCell(`A${currentRow}`).alignment = { horizontal: 'right' };
+  worksheet.getCell(`F${currentRow}`).value = paid;
+  worksheet.getCell(`F${currentRow}`).font = { italic: true, color: { argb: 'FF059669' } }; 
+  worksheet.getCell(`F${currentRow}`).numFmt = '#,##0';
+  currentRow++;
+
+  worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
+  const debtLabelCell = worksheet.getCell(`A${currentRow}`);
+  debtLabelCell.value = 'CÒN NỢ LẠI:';
+  debtLabelCell.font = { bold: true };
+  debtLabelCell.alignment = { horizontal: 'right' };
+  worksheet.getCell(`F${currentRow}`).value = debt;
+  worksheet.getCell(`F${currentRow}`).font = { bold: true, color: { argb: 'FFDC2626' } }; 
+  worksheet.getCell(`F${currentRow}`).numFmt = '#,##0';
   
-  const totalValueCell = worksheet.getCell(`F${currentRow}`);
-  totalValueCell.value = totalAmount;
-  totalValueCell.font = { bold: true, color: { argb: 'FFDC2626' } }; 
-  totalValueCell.numFmt = '#,##0';
-  
-  ['A', 'F'].forEach(col => {
-    worksheet.getCell(`${col}${currentRow}`).border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-  });
+  // Kẻ viền cho 3 khối tổng kết
+  for (let r = currentRow - 2; r <= currentRow; r++) {
+    ['A', 'F'].forEach(col => {
+      worksheet.getCell(`${col}${r}`).border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+    });
+  }
 
   currentRow += 3;
   worksheet.getCell(`B${currentRow}`).value = 'ĐẠI DIỆN BÊN MUA';
