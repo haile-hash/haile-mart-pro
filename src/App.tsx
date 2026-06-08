@@ -501,7 +501,6 @@ export default function App() {
         if (navigator.onLine) await supabase.from("products").update({ stock: Math.max(0, item.product.stock - item.qty) }).eq("id", item.product.id);
         let itemSplitCash = 0; if(payMethod === 'KẾT HỢP') { const safeRatio = finalToPay > 0 ? (splitCashAmt / finalToPay) : 0; itemSplitCash = Math.round(safeRatio * Math.round(item.qty * getActualPrice(item.product) * (1 + VAT_RATE))); }
         
-        // Công thức tính toán biên lợi nhuận chuẩn ERP dựa theo giá vốn sếp đã thiết lập
         const calculatedItemProfit = Math.round(item.qty * (getActualPrice(item.product) - (item.product.import_price || 0)));
         
         newLogs.push({ id: Date.now() + Math.random(), shift, type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", name: cleanName(item.product.name), qty: item.qty, total: item.total, profit: calculatedItemProfit, customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id, paymentMethod: payMethod, split_cash: itemSplitCash, time: new Date().toLocaleString('vi-VN'), order_id: orderIdStr });
@@ -1041,6 +1040,7 @@ export default function App() {
     } catch (e) { toast.error("Đã xảy ra lỗi khi lưu PO!"); } finally { setLoading(false); }
   };
 
+  // ĐÃ SỬA LỖI TRỪ KÉP KHI XUẤT EXCEL
   const handleConfirmReceipt = async (updatedPO: any, finalReceiveItems: any) => {
     setLoading(true);
     try {
@@ -1056,9 +1056,8 @@ export default function App() {
         ];
 
         finalReceiveItems.forEach((item: any) => {
-          const receiveQ = Number(item.receiveQty !== undefined ? item.receiveQty : item.qty) || 0;
-          const faultQ = Number(item.faultyQty || item.errorQty || item.returnQty) || 0;
-          const actualImport = Math.max(0, receiveQ - faultQ);
+          // LẤY ĐÚNG SỐ THỰC NHẬN (Vì đã được tự động tính trừ lỗi từ ngoài Modal)
+          const actualImport = Number(item.receiveQty !== undefined ? item.receiveQty : item.qty) || 0;
 
           if (actualImport > 0) {
             const baseProd = products.find(p => p.product_code === item.product_code || p.name === item.name);
@@ -1071,7 +1070,7 @@ export default function App() {
               baseProd?.promo_price || "",
               "",
               "",
-              actualImport,
+              actualImport, // LẤY ĐÚNG SỐ ĐƯA VÀO FILE EXCEL
               ""
             ]);
           }
