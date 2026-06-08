@@ -46,24 +46,17 @@ import { Toaster, toast } from "react-hot-toast";
 import './styles/App.css';
 import './styles/Print.css';
 
-// ============================================================================
-// KHÓA TỬ (MASTER SWITCH): NGĂN CHẶN CÚ GIÃY CHẾT CỦA REACT
-// ============================================================================
 let APP_IS_WIPING = false; 
 
 const dbName = "HaileMartIndexedDB";
 const storeName = "kv_store";
 const initDB = (): Promise<IDBDatabase> => { return new Promise((resolve, reject) => { const request = indexedDB.open(dbName, 1); request.onupgradeneeded = () => { request.result.createObjectStore(storeName); }; request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); }); };
-const dbGet = async (key: string): Promise<any> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readonly"); const store = tx.objectStore(storeName); const req = store.get(key); req.onsuccess = () => resolve(request.result); req.onerror = () => reject(request.error); }); };
 
-const dbSet = async (key: string, value: any): Promise<void> => { 
-  if (APP_IS_WIPING) return; 
-  const db = await initDB(); 
-  return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.put(value, key); req.onsuccess = () => resolve(); req.onerror = () => reject(request.error); }); 
-};
-
-const dbRemove = async (key: string): Promise<void> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.delete(key); req.onsuccess = () => resolve(); req.onerror = () => reject(request.error); }); };
-const dbClearAll = async (): Promise<void> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.clear(); req.onsuccess = () => resolve(); req.onerror = () => reject(request.error); }); };
+// ĐÃ SỬA LỖI TRUYẾN BIẾN req.error ĐỂ HỆ THỐNG ĐĂNG XUẤT HOẠT ĐỘNG
+const dbGet = async (key: string): Promise<any> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readonly"); const store = tx.objectStore(storeName); const req = store.get(key); req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); }); };
+const dbSet = async (key: string, value: any): Promise<void> => { if (APP_IS_WIPING) return; const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.put(value, key); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
+const dbRemove = async (key: string): Promise<void> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.delete(key); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
+const dbClearAll = async (): Promise<void> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.clear(); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
 
 export default function App() {
   if (typeof window !== "undefined" && window.location.search.includes("scanner=true")) return <MobileScanner />;
@@ -304,20 +297,23 @@ export default function App() {
     }
   }, [isLoggedIn]);
 
+  // ĐÃ SỬA LỖI LIỆT NÚT CAMERA: THÊM setTimeOut ĐỂ ĐỢI DOM RENDER KỊP
   useEffect(() => {
     if (ui.scannerMode !== null) {
       let scanner: any;
       let lastScanTime = 0;
       const loadScanner = () => {
-        if ((window as any).Html5QrcodeScanner) {
-          scanner = new (window as any).Html5QrcodeScanner("qr-reader", { fps: 15, qrbox: { width: 250, height: 120 }, rememberLastUsedCamera: true }, false);
-          scanner.render((text: string) => {
-            const now = Date.now();
-            if (now - lastScanTime < 1500) return;
-            lastScanTime = now;
-            setScanQueue(prev => [...prev, text]);
-          }, undefined);
-        }
+        setTimeout(() => {
+          if ((window as any).Html5QrcodeScanner && document.getElementById("qr-reader")) {
+            scanner = new (window as any).Html5QrcodeScanner("qr-reader", { fps: 15, qrbox: { width: 250, height: 120 }, rememberLastUsedCamera: true }, false);
+            scanner.render((text: string) => {
+              const now = Date.now();
+              if (now - lastScanTime < 1500) return;
+              lastScanTime = now;
+              setScanQueue(prev => [...prev, text]);
+            }, undefined);
+          }
+        }, 150);
       };
       if (!(window as any).Html5QrcodeScanner) {
         const script = document.createElement("script");
