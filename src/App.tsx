@@ -162,12 +162,10 @@ export default function App() {
   const totalValue = useMemo(() => products.reduce((sum, p) => sum + ((p.stock || 0) * (p.import_price || 0)), 0), [products]);
   const lowStockCount = useMemo(() => products.filter(p => p.stock > 0 && p.stock < 10).length, [products]);
 
-  // ĐÃ SỬA: TẮT CƠ CHẾ ĐÁ VĂNG TÀI KHOẢN DO MẠNG YẾU!
-  // Chỉ kiểm tra session 1 lần lúc bật web. Không tự động xóa dữ liệu nếu chập chờn mạng.
   useEffect(() => {
     if (!isLoggedIn) return;
     const initDataAndCheckLeak = async () => {
-      if (!navigator.onLine) return; // Nếu mất mạng thì thôi không kiểm tra để tránh lỗi
+      if (!navigator.onLine) return;
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
@@ -1043,7 +1041,6 @@ export default function App() {
     } catch (e) { toast.error("Đã xảy ra lỗi khi lưu PO!"); } finally { setLoading(false); }
   };
 
-  // ĐÃ SỬA CHUẨN KẾ TOÁN KHO: TRỪ CHÍNH XÁC HÀNG LỖI TRƯỚC KHI XUẤT EXCEL
   const handleConfirmReceipt = async (updatedPO: any, finalReceiveItems: any) => {
     setLoading(true);
     try {
@@ -1053,35 +1050,29 @@ export default function App() {
       const savedPOs = currentPOs.map((po: any) => po.id === finalPO.id ? finalPO : po);
       await dbSet("mart_pos", savedPOs);
 
-      // TẠO FILE EXCEL CHUẨN MAU_NHAP_HANG ĐỂ KHO KIỂM DUYỆT LẠI
       if ((window as any).XLSX) {
         const wsData = [
           ["Mã sản phẩm (*)", "Tên sản phẩm (*)", "Danh mục", "Giá Nhập", "Giá Bán (*)", "Giá Khuyến mãi", "Điều kiện mua tặng", "Sản phẩm tặng kèm", "Số lượng", "Hạn sử dụng (mm/yyyy)"]
         ];
 
         finalReceiveItems.forEach((item: any) => {
-          // BƯỚC TÍNH TOÁN QUAN TRỌNG NHẤT: THỰC NHẬN TRỪ ĐI HÀNG LỖI
           const receiveQ = Number(item.receiveQty !== undefined ? item.receiveQty : item.qty) || 0;
           const faultQ = Number(item.faultyQty || item.errorQty || item.returnQty) || 0;
-          
-          // Chốt số lượng cuối cùng nhập vào kho
           const actualImport = Math.max(0, receiveQ - faultQ);
 
           if (actualImport > 0) {
-            // Lấy data gốc từ kho để có giá bán, danh mục...
             const baseProd = products.find(p => p.product_code === item.product_code || p.name === item.name);
-
             wsData.push([
-              item.product_code || baseProd?.product_code || `SP-PO-${Date.now().toString().slice(-4)}`, // Mã SP
-              item.name, // Tên SP
-              baseProd?.category || "Chưa phân loại", // Danh mục
-              item.importPrice || baseProd?.import_price || 0, // Giá Nhập
-              baseProd?.sale_price || 0, // Giá Bán
-              baseProd?.promo_price || "", // Giá KM
-              "", // ĐK tặng
-              "", // SP Tặng
-              actualImport, // SL NHẬP (ĐÃ TRỪ CHUẨN XÁC HÀNG LỖI SẾP VỪA NHẬP)
-              "" // HSD
+              item.product_code || baseProd?.product_code || `SP-PO-${Date.now().toString().slice(-4)}`,
+              item.name,
+              baseProd?.category || "Chưa phân loại",
+              item.importPrice || baseProd?.import_price || 0,
+              baseProd?.sale_price || 0,
+              baseProd?.promo_price || "",
+              "",
+              "",
+              actualImport,
+              ""
             ]);
           }
         });
@@ -1103,6 +1094,7 @@ export default function App() {
       
     } catch (e) { toast.error("Lỗi khi xử lý PO!"); } finally { setLoading(false); }
   };
+  
   if (!isStorageLoading && (!isLoggedIn || isLocked)) {
     return (
       <div className={`app-container ${ui.darkMode ? "dark-theme" : "light-theme"}`} style={{ minHeight: "100vh", position: "relative" }}>
@@ -1144,7 +1136,6 @@ export default function App() {
         bankNameStr={bankNameStr}
       />
 
-      {/* POPUP CAMERA SCANNERR HIỂN THỊ KHI NHẤP VÀO NÚT MÀU ĐỎ */}
       {ui.scannerMode !== null && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', zIndex: 999999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
           <h2 style={{ color: 'white', marginBottom: '20px', fontSize: '24px' }}>📷 Đưa mã vạch vào khung hình</h2>
@@ -1194,7 +1185,35 @@ export default function App() {
       {ui.showExpenseModal && <ExpenseModal showExpenseModal={ui.showExpenseModal} setShowExpenseModal={ui.setShowExpenseModal} expenses={expenses} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} addExpense={addExpense} deleteExpense={deleteExpense} />}
       {ui.showSupplierModal && <SupplierModal showSupplierModal={ui.showSupplierModal} setShowSupplierModal={ui.setShowSupplierModal} suppliers={suppliers} supName={supName} setSupName={setSupName} supPhone={supPhone} setSupPhone={setSupPhone} supAddress={supAddress} setSupAddress={setSupAddress} supItem={supItem} setSupItem={setSupItem} supTaxCode={supTaxCode} setSupTaxCode={setSupTaxCode} supBankAccount={supBankAccount} setSupBankAccount={setSupBankAccount} addSupplier={addSupplier} deleteSupplier={deleteSupplier} />}
       
-      {ui.showPOModal && <POModal showPOModal={ui.showPOModal} setShowPOModal={ui.setShowPOModal} poTab={poTab} setPoTab={setPoTab} suppliers={suppliers} selectedSupplierId={selectedSupplierId} setSelectedSupplierId={setSelectedSupplierId} products={products} poSearch={poSearch} setPoSearch={setPoSearch} poItems={poItems} setPoItems={setPoItems} poNote={poNote} setPoNote={setPoNote} paidAmount={paidAmount} setPaidAmount={setPaidAmount} searchPoCode={searchPoCode} setSearchPoCode={setSearchPoCode} foundPO={foundPO} setFoundPO={setFoundPO} receiveItems={receiveItems} setReceiveItems={setReceiveItems} allPOs={allPOs} loading={loading} onSaveNewPO={handleSaveNewPO} onConfirmReceipt={handleConfirmReceipt} />}
+      {ui.showPOModal && <POModal 
+        showPOModal={ui.showPOModal} 
+        setShowPOModal={ui.setShowPOModal} 
+        poTab={poTab} 
+        setPoTab={setPoTab} 
+        suppliers={suppliers} 
+        selectedSupplierId={selectedSupplierId} 
+        setSelectedSupplierId={setSelectedSupplierId} 
+        products={products} 
+        poSearch={poSearch} 
+        setPoSearch={setPoSearch} 
+        poItems={poItems} 
+        setPoItems={setPoItems} 
+        poNote={poNote} 
+        setPoNote={setPoNote} 
+        paidAmount={paidAmount} 
+        setPaidAmount={setPaidAmount} 
+        searchPoCode={searchPoCode} 
+        setSearchPoCode={setSearchPoCode} 
+        foundPO={foundPO} 
+        setFoundPO={setFoundPO} 
+        receiveItems={receiveItems} 
+        setReceiveItems={setReceiveItems} 
+        allPOs={allPOs} 
+        loading={loading} 
+        onSaveNewPO={handleSaveNewPO} 
+        onConfirmReceipt={handleConfirmReceipt} 
+        onPrintPO={(po) => { setPrintPOData(po); ui.setPrintMode('po'); }} 
+      />}
       
       {ui.showStatsModal && <StatsModal reportStartDate={reportStartDate} setReportStartDate={setReportStartDate} reportEndDate={reportEndDate} setReportEndDate={setReportEndDate} history={history} onClose={() => ui.setShowStatsModal(false)} />}
       
