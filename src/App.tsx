@@ -259,6 +259,33 @@ export default function App() {
     initializeEnterpriseStorage();
   }, []);
 
+  // --- TỰ ĐỘNG DỌN DẸP PO QUÁ HẠN 30 NGÀY ---
+  useEffect(() => {
+    if (!isStorageLoading && allPOs.length > 0) {
+      const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+      const now = Date.now();
+      let deletedCount = 0;
+
+      const validPOs = allPOs.filter(po => {
+        if (po.status === 'PENDING') {
+          const createdAt = new Date(po.created_at || po.id).getTime();
+          if (now - createdAt >= THIRTY_DAYS_MS) {
+            deletedCount++;
+            return false; // Hủy bỏ khỏi mảng
+          }
+        }
+        return true;
+      });
+
+      if (deletedCount > 0) {
+        setAllPOs(validPOs);
+        dbSet("mart_pos", validPOs).catch(() => {});
+        toast.success(`Hệ thống đã tự động hủy ${deletedCount} Phiếu đặt hàng (PO) quá hạn 30 ngày để giải phóng ngân sách!`);
+        logAudit("DỌN DẸP PO", `Tự động xóa ${deletedCount} PO Pending quá hạn 30 ngày`);
+      }
+    }
+  }, [isStorageLoading]);
+
   useEffect(() => { 
     if (!isStorageLoading && !APP_IS_WIPING) {
       dbSet("mart_logged_in", isLoggedIn ? "true" : "false"); 
@@ -1040,7 +1067,6 @@ export default function App() {
     } catch (e) { toast.error("Đã xảy ra lỗi khi lưu PO!"); } finally { setLoading(false); }
   };
 
-  // ĐÃ SỬA LỖI TRỪ KÉP KHI XUẤT EXCEL
   const handleConfirmReceipt = async (updatedPO: any, finalReceiveItems: any) => {
     setLoading(true);
     try {
@@ -1056,7 +1082,6 @@ export default function App() {
         ];
 
         finalReceiveItems.forEach((item: any) => {
-          // LẤY ĐÚNG SỐ THỰC NHẬN (Vì đã được tự động tính trừ lỗi từ ngoài Modal)
           const actualImport = Number(item.receiveQty !== undefined ? item.receiveQty : item.qty) || 0;
 
           if (actualImport > 0) {
@@ -1070,7 +1095,7 @@ export default function App() {
               baseProd?.promo_price || "",
               "",
               "",
-              actualImport, // LẤY ĐÚNG SỐ ĐƯA VÀO FILE EXCEL
+              actualImport,
               ""
             ]);
           }
