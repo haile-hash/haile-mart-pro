@@ -170,7 +170,7 @@ export default function App() {
       const currentPOs = await dbGet("mart_pos") || [];
       if (currentPOs.length === 0) return;
 
-      const EXPIRATION_TIME_MS = 30 * 24 * 60 * 60 * 1000; // Đã chốt lại 30 ngày cho sếp
+      const EXPIRATION_TIME_MS = 30 * 24 * 60 * 60 * 1000; // Đã chốt 30 ngày cho sếp
       const now = Date.now();
       let changedCount = 0;
 
@@ -193,7 +193,7 @@ export default function App() {
     };
 
     checkAndCancelPOs();
-    const intervalId = setInterval(checkAndCancelPOs, 60000); // Quét mỗi 60 giây để nhẹ hệ thống
+    const intervalId = setInterval(checkAndCancelPOs, 60000); 
 
     return () => clearInterval(intervalId);
   }, [isStorageLoading]);
@@ -202,7 +202,6 @@ export default function App() {
   useEffect(() => {
     if (!isLoggedIn) return;
 
-    // Hàm đá văng bọc thép xóa sạch dữ liệu
     const forceLogout = () => {
       APP_IS_WIPING = true; 
       supabase.auth.signOut().catch(() => {});
@@ -252,7 +251,6 @@ export default function App() {
 
     initData();
 
-    // Bảo vệ ngầm mỗi 15s để bắt tín hiệu sếp xóa tài khoản
     const securityPing = setInterval(() => { checkAuthStatus(); }, 15000); 
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
@@ -546,17 +544,24 @@ export default function App() {
   
   const handleLogoutClick = () => { logAudit("ĐĂNG XUẤT", `Thoát ca ${shift}`); ui.setShowHandoverModal?.(true); };
 
-  const confirmHandover = async () => { 
-    try { 
-      if (navigator.onLine) { await supabase.auth.signOut(); } 
-    } catch (error) {} 
-    finally { 
-      APP_IS_WIPING = true; 
-      await dbClearAll();
-      window.localStorage.clear();
-      window.sessionStorage.clear();
-      window.location.reload(); 
-    } 
+  // --- HÀM CẮT CẦU DAO ĐĂNG XUẤT (KHÔNG CHỜ) ---
+  const confirmHandover = () => { 
+    APP_IS_WIPING = true; 
+    
+    // Bắn lệnh lên mạng nhưng không thèm đợi (Tránh kẹt promise)
+    if (navigator.onLine) { supabase.auth.signOut().catch(() => {}); } 
+    
+    // Xóa LocalStorage ngay lập tức
+    try { window.localStorage.clear(); } catch(e) {}
+    try { window.sessionStorage.clear(); } catch(e) {}
+    
+    // Yêu cầu xóa DB nhưng kệ nó chạy ngầm
+    dbClearAll().catch(() => {});
+    
+    // Ép F5 bằng Javascript thuần trong 1/10 giây
+    setTimeout(() => {
+      window.location.replace(window.location.origin); 
+    }, 100);
   };
 
   const handleEditPhone = async (oldPhone: string) => { executeWithAdminCheck(() => { const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customersData[newPhone]) return toast.error("SĐT đã tồn tại!"); const cData = customersData[oldPhone]; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = { ...cData, phone: newPhone }; delete updated[oldPhone]; return updated }); logAudit("SỬA KHÁCH HÀNG", `Đổi SĐT ${oldPhone} -> ${newPhone}`); toast.success("Cập nhật thành công!"); } }); };
