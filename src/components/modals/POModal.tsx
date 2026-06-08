@@ -52,6 +52,46 @@ export const POModal: React.FC<POModalProps> = ({
     setActiveTab('LIST');
   };
 
+  // --- HÀM TẠO FILE PDF ĐƠN ĐẶT HÀNG (PO) ---
+  const handlePrintOrder = (po: any) => {
+    const storeInfo = JSON.parse(window.localStorage.getItem("mart_current_store") || "{}");
+    const dateStr = new Date(po.created_at || Date.now()).toLocaleDateString('vi-VN');
+    let itemsHtml = ""; 
+    
+    (po.items || []).forEach((item: any, index: number) => {
+      const qty = Number(item.qty) || 0; 
+      const price = Number(item.importPrice) || 0; 
+      const rowTotal = qty * price;
+      itemsHtml += `<tr><td style="padding: 10px 8px; border: 1px solid #cbd5e1; text-align: center;">${index + 1}</td><td style="padding: 10px 8px; border: 1px solid #cbd5e1;">${item?.product?.product_code || ""}</td><td style="padding: 10px 8px; border: 1px solid #cbd5e1;">${cleanName(item?.product?.name || item?.name || "SP")}</td><td style="padding: 10px 8px; border: 1px solid #cbd5e1; text-align: center;">${qty}</td><td style="padding: 10px 8px; border: 1px solid #cbd5e1; text-align: right;">${price.toLocaleString('vi-VN')} đ</td><td style="padding: 10px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold;">${rowTotal.toLocaleString('vi-VN')} đ</td></tr>`;
+    });
+
+    const printTotal = po.total_amount || 0;
+    const printPaid = po.paid_amount || 0;
+    const printDebt = printTotal - printPaid;
+
+    const htmlContent = `<html><head><title>ĐƠN ĐẶT HÀNG_${po.po_code}</title><style>@page { size: A4; margin: 15mm; } body { font-family: 'Times New Roman', Times, serif; font-size: 14px; line-height: 1.5; color: #000; margin: 0; } .header { text-align: center; margin-bottom: 30px; } .title { font-size: 24px; font-weight: bold; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px; } .flex-container { display: flex; justify-content: space-between; margin-bottom: 25px; } .box { width: 48%; padding: 15px; border: 1px solid #000; border-radius: 8px; } .box-title { font-weight: bold; text-decoration: underline; margin-bottom: 8px; font-size: 15px; text-transform: uppercase; } table { width: 100%; border-collapse: collapse; margin-bottom: 25px; } th { padding: 12px 8px; border: 1px solid #cbd5e1; background-color: #f1f5f9; font-weight: bold; text-transform: uppercase; font-size: 13px; } .total-section { width: 300px; margin-left: auto; text-align: right; font-size: 15px; margin-bottom: 40px; } .total-line { display: flex; justify-content: space-between; margin-bottom: 6px; } .signature-section { display: flex; justify-content: space-between; padding: 0 40px; text-align: center; } .sig-title { font-weight: bold; font-size: 15px; margin-bottom: 5px; } .sig-sub { font-style: italic; font-size: 13px; color: #475569; }</style></head><body><div class="header"><h1 class="title">ĐƠN ĐẶT HÀNG (PURCHASE ORDER)</h1><div>Tham chiếu gốc (Mã PO): <strong>${po.po_code}</strong> &nbsp;|&nbsp; Ngày lập: ${dateStr}</div></div><div class="flex-container"><div class="box"><div class="box-title">Thông tin Bên Mua (Cửa Hàng)</div><table style="width: 100%; border: none; margin: 0; font-size: 14px;"><tr><td style="width: 90px; border: none; padding: 3px 0;"><strong>Tên ĐV:</strong></td><td style="border: none; padding: 3px 0;">${storeInfo.store_name || "HỆ THỐNG POS PRO"}</td></tr><tr><td style="border: none; padding: 3px 0;"><strong>Địa chỉ:</strong></td><td style="border: none; padding: 3px 0;">${storeInfo.address || "Chưa cập nhật"}</td></tr><tr><td style="border: none; padding: 3px 0;"><strong>Điện thoại:</strong></td><td style="border: none; padding: 3px 0;">${storeInfo.phone || "Chưa cập nhật"}</td></tr><tr><td style="border: none; padding: 3px 0;"><strong>MST:</strong></td><td style="border: none; padding: 3px 0;">${storeInfo.tax_code || "Chưa cập nhật"}</td></tr></table></div><div class="box"><div class="box-title">Thông tin Bên Bán (Nhà CC)</div><table style="width: 100%; border: none; margin: 0; font-size: 14px;"><tr><td style="width: 90px; border: none; padding: 3px 0;"><strong>Nhà CC:</strong></td><td style="border: none; padding: 3px 0;">${po.supplier?.name || "Chưa rõ"}</td></tr><tr><td style="border: none; padding: 3px 0;"><strong>Địa chỉ:</strong></td><td style="border: none; padding: 3px 0;">${po.supplier?.address || "Chưa cập nhật"}</td></tr><tr><td style="border: none; padding: 3px 0;"><strong>Điện thoại:</strong></td><td style="border: none; padding: 3px 0;">${po.supplier?.phone || "Chưa cập nhật"}</td></tr><tr><td style="border: none; padding: 3px 0;"><strong>STK/MST:</strong></td><td style="border: none; padding: 3px 0;">${po.supplier?.taxCode || po.supplier?.bankAccount || "Chưa cập nhật"}</td></tr></table></div></div><div style="margin-bottom: 15px; padding-left: 5px;"><strong>Ghi chú:</strong> ${po.note || "Không có"}</div><table><thead><tr><th style="width: 5%;">STT</th><th style="width: 15%;">Mã SP</th><th style="width: 35%; text-align: left;">Tên Sản Phẩm</th><th style="width: 10%;">SL</th><th style="width: 15%; text-align: right;">Đơn Giá</th><th style="width: 20%; text-align: right;">Thành Tiền</th></tr></thead><tbody>${itemsHtml}</tbody></table><div class="total-section"><div class="total-line"><strong>TỔNG ĐƠN HÀNG:</strong> <span><strong>${printTotal.toLocaleString('vi-VN')} đ</strong></span></div><div class="total-line" style="font-style: italic; color: #059669;"><span>Đã trả trước:</span> <span>${printPaid.toLocaleString('vi-VN')} đ</span></div><div class="total-line" style="border-top: 1px solid #000; padding-top: 5px; color: #dc2626;"><strong>CÒN NỢ LẠI:</strong> <span><strong>${printDebt.toLocaleString('vi-VN')} đ</strong></span></div></div><div class="signature-section"><div><div class="sig-title">ĐẠI DIỆN CỬA HÀNG</div><div class="sig-sub">(Ký, ghi rõ họ tên)</div></div><div><div class="sig-title">ĐẠI DIỆN NHÀ CUNG CẤP</div><div class="sig-sub">(Ký, ghi rõ họ tên)</div></div></div><script>window.onload = function() { setTimeout(function() { window.print(); window.onafterprint = function() { window.close(); } }, 500); }</script></body></html>`;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) { printWindow.document.open(); printWindow.document.write(htmlContent); printWindow.document.close(); } 
+    else { alert("Trình duyệt đã chặn popup. Vui lòng cho phép popup để xuất PDF."); }
+  };
+
+  const handlePrintDraft = () => {
+    if (poItems.length === 0) return toast.error("Phiếu đặt hàng trống!");
+    const supplier = suppliers.find(s => String(s.id) === String(selectedSupplierId)) || {};
+    const totalAmtTab1 = poItems.reduce((sum, item) => sum + (item.qty || 0) * (item.importPrice || 0), 0);
+    const draftPO = {
+      po_code: `DRAFT_${Date.now().toString().slice(-6)}`,
+      created_at: new Date().toISOString(),
+      supplier: supplier,
+      items: poItems,
+      note: poNote,
+      total_amount: totalAmtTab1,
+      paid_amount: paidAmount || 0
+    };
+    handlePrintOrder(draftPO);
+  };
+
   const openReceiveScreen = (po: any) => {
     setReceivingPO(po);
     setReceiveItems(po.items.map((i: any) => ({ ...i, receiveQty: i.qty, faultyQty: 0 })));
@@ -85,7 +125,6 @@ export const POModal: React.FC<POModalProps> = ({
   };
 
   const submitReceipt = () => {
-    // Ép trạng thái thành COMPLETED để không hiển thị lại ở mục Chờ Nhập nữa
     const completedPO = { ...receivingPO, status: 'COMPLETED' };
     onConfirmReceipt(completedPO, receiveItems);
     if (onPrintPO) {
@@ -99,11 +138,9 @@ export const POModal: React.FC<POModalProps> = ({
   const pendingPOs = allPOs.filter(p => p.status === 'PENDING').sort((a,b) => b.id - a.id);
   const completedPOs = allPOs.filter(p => p.status === 'COMPLETED').sort((a,b) => b.id - a.id);
 
-  // TÍNH TOÁN TAB 1:
   const totalAmtTab1 = poItems.reduce((sum, item) => sum + (item.qty || 0) * (item.importPrice || 0), 0);
   const remainAmtTab1 = totalAmtTab1 - (paidAmount || 0);
 
-  // TÍNH TOÁN TAB NHẬP KHO:
   const totalActualAmt = receiveItems.reduce((sum, item) => sum + ((item.receiveQty !== undefined ? item.receiveQty : item.qty) * (item.importPrice || 0)), 0);
   const previouslyPaid = receivingPO?.paid_amount || 0;
   const remainingToPay = totalActualAmt - previouslyPaid;
@@ -117,7 +154,7 @@ export const POModal: React.FC<POModalProps> = ({
           <button onClick={() => setShowPOModal(false)} style={{ background: 'none', border: 'none', fontSize: '28px', cursor: 'pointer', color: '#64748b' }}>&times;</button>
         </div>
 
-        {/* MÀN HÌNH NHẬP KHO (CHI TIẾT) */}
+        {/* MÀN HÌNH NHẬP KHO */}
         {receivingPO ? (
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <div style={{ padding: '15px 20px', background: '#eff6ff', borderBottom: '1px solid #bfdbfe', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -241,7 +278,6 @@ export const POModal: React.FC<POModalProps> = ({
 
                   <textarea placeholder="Ghi chú đơn đặt hàng..." value={poNote} onChange={e => setPoNote(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', height: '60px', marginBottom: '15px', boxSizing: 'border-box' }}></textarea>
                   
-                  {/* PHẦN ỨNG TIỀN VÀ TÍNH TOÁN CÔNG NỢ */}
                   <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '15px', display: 'flex', justifyContent: 'flex-end' }}>
                      <div style={{ width: '350px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
@@ -265,9 +301,12 @@ export const POModal: React.FC<POModalProps> = ({
                      </div>
                   </div>
 
-                  <button onClick={handleCreatePOClick} disabled={loading} style={{ width: '100%', padding: '12px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer' }}>
-                    {loading ? "ĐANG LƯU..." : "TẠO ĐƠN (PO)"}
-                  </button>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button onClick={handlePrintDraft} style={{ padding: '12px 20px', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer' }}>🖨️ IN NHÁP</button>
+                    <button onClick={handleCreatePOClick} disabled={loading} style={{ flex: 1, padding: '12px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer' }}>
+                      {loading ? "ĐANG LƯU..." : "TẠO ĐƠN (PO)"}
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -297,7 +336,8 @@ export const POModal: React.FC<POModalProps> = ({
                                 <div style={{ fontWeight: 'bold' }}>{(po.total_amount || 0).toLocaleString()}đ</div>
                                 <div style={{ fontSize: '12px', color: '#10b981' }}>Đã ứng: {(po.paid_amount || 0).toLocaleString()}đ</div>
                             </td>
-                            <td style={{ padding: '12px', textAlign: 'center' }}>
+                            <td style={{ padding: '12px', textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                              <button onClick={() => handlePrintOrder(po)} style={{ padding: '6px 12px', background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>🖨️ In PO</button>
                               <button onClick={() => openReceiveScreen(po)} style={{ padding: '6px 12px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>📥 Nhập kho</button>
                             </td>
                           </tr>
