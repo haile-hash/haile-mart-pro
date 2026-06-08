@@ -162,13 +162,14 @@ export default function App() {
   const totalValue = useMemo(() => products.reduce((sum, p) => sum + ((p.stock || 0) * (p.import_price || 0)), 0), [products]);
   const lowStockCount = useMemo(() => products.filter(p => p.stock > 0 && p.stock < 10).length, [products]);
 
-  // --- KIỂM TRA PHIÊN ĐĂNG NHẬP & XỬ LÝ KHI BỊ XÓA TÀI KHOẢN ---
+  // --- KIỂM TRA PHIÊN ĐĂNG NHẬP & XỬ LÝ KHI BỊ XÓA TÀI KHOẢN (BẢN AN TOÀN) ---
   useEffect(() => {
     if (!isLoggedIn) return;
 
-    // Hàm đá văng và xóa sạch dữ liệu thiết bị nếu bị thu hồi quyền
+    // Hàm đá văng và xóa sạch dữ liệu thiết bị
     const forceLogout = async () => {
       APP_IS_WIPING = true; 
+      await supabase.auth.signOut().catch(() => {});
       await dbClearAll();
       window.localStorage.clear();
       window.sessionStorage.clear();
@@ -176,13 +177,15 @@ export default function App() {
     };
 
     const initDataAndCheckLeak = async () => {
-      if (!navigator.onLine) return; // Nếu mất mạng tạm thời thì cho phép chạy Offline
+      if (!navigator.onLine) return; 
       try {
-        // Lấy thông tin phiên làm việc mới nhất từ máy chủ Supabase
         const { data: { user }, error } = await supabase.auth.getUser();
         
-        // QUAN TRỌNG: Nếu lỗi token hoặc tài khoản đã bị xóa/khóa -> ĐÁ VĂNG NGAY!
-        if (error || !user) {
+        // Chỉ đá văng nếu lỗi là lỗi xác thực (401, 403, 400)
+        if (error && error.status >= 400 && error.status < 500) {
+          forceLogout();
+          return;
+        } else if (!error && !user) {
           forceLogout();
           return;
         }
@@ -203,14 +206,31 @@ export default function App() {
           }
           fetchProducts(); loadCloudData(); fetchSettingsFromCloud();
         }
-      } catch(e) {
-         // Lỗi vặt do đường truyền thì bỏ qua để tránh văng app oan uổng
-      }
+      } catch(e) {}
     };
 
     initDataAndCheckLeak();
 
-    // Bắt sự kiện Lắng nghe Realtime: Thu hồi quyền là tự động đăng xuất máy trạm lập tức
+    // CHỐT CHẶN AN TOÀN: Ping server mỗi 60 giây (1 phút) để không bị chặn API
+    const securityPing = setInterval(async () => {
+      if (!navigator.onLine) return;
+      
+      const { data, error } = await supabase.auth.getUser();
+      
+      // NẾU CÓ LỖI: Phải kiểm tra kỹ xem có phải lỗi do tài khoản bị vô hiệu hóa không
+      if (error) {
+        // Lỗi 401 (Unauthorized), 403 (Forbidden) hoặc 400 (Bad Request) -> Thẻ bài bị hủy/User bị xóa
+        if (error.status === 401 || error.status === 403 || error.status === 400 || error.message?.includes('User not found')) {
+           clearInterval(securityPing);
+           forceLogout();
+        }
+        // Còn nếu error.status là 500 hoặc undefined (Lỗi mạng/đứt cáp) thì BỎ QUA, không đá văng người dùng.
+      } else if (!data?.user) {
+        clearInterval(securityPing);
+        forceLogout();
+      }
+    }, 60000); // 60,000ms = 1 phút
+
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT' || event === 'USER_DELETED' || !session) {
          forceLogout();
@@ -229,6 +249,7 @@ export default function App() {
       .subscribe();
 
     return () => { 
+      clearInterval(securityPing);
       supabase.removeChannel(channel); 
       authListener.subscription.unsubscribe();
     };
