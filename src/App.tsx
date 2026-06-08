@@ -539,63 +539,72 @@ export default function App() {
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => { const code = e.target.value; setNewCode(code); const p = products.find((x: any) => x.product_code === code); if (p) { setNewName(cleanName(p.name)); setNewCategory(formatCategoryStr(p.category)); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewExpiry(p.expiry_date || ""); const gift = parseGift(p.gift_info); setNewGiftCondition(gift.cond.toString()); setNewGiftInfo(gift.text) } };
 
   // ============================================================================
-  // TÍNH NĂNG ĐỘC QUYỀN: AI TỰ ĐỘNG PHÂN LOẠI SẢN PHẨM (MAGIC CATEGORIZATION)
+  // CẢI TIẾN THÀNH CÔNG: SỬA HÀM GỌI AI HOẠT ĐỘNG KHÔNG CẦN THƯ VIỆN NGOÀI
   // ============================================================================
   const handleMagicAICategorize = async () => {
-    // Kéo khóa từ file .env (Sếp đã setup xong rồi nha!)
+    // Kéo mã khóa bảo mật từ cài đặt cấu hình Vercel bạn đã điền
     const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
 
-    if (!GEMINI_API_KEY) return toast.error("Bảo trì: Chưa cấu hình hệ thống AI (Thiếu API Key)!");
+    if (!GEMINI_API_KEY) {
+      return toast.error("Bảo trì: Chưa cấu hình hệ thống AI (Thiếu API Key trên Vercel hoặc file .env)!");
+    }
 
     const ownerId = window.localStorage.getItem("mart_owner_id");
-    if (!ownerId) return toast.error("Lỗi phiên làm việc!");
+    if (!ownerId) return toast.error("Lỗi phiên làm việc, vui lòng tải lại trang!");
 
-    // Quét 50 món đang hiển thị trên bảng
+    // Lấy tối đa 50 sản phẩm từ danh sách đang hiển thị trên bảng của cửa hàng để AI quét
     const productsToFix = sortedAndFilteredProducts.slice(0, 50); 
-    if (productsToFix.length === 0) return toast.error("Không có sản phẩm nào để phân loại!");
+    if (productsToFix.length === 0) return toast.error("Không có sản phẩm nào hiển thị để phân loại!");
 
-    const toastId = toast.loading("✨ AI đang suy nghĩ và sắp xếp lại danh mục...");
+    const toastId = toast.loading("✨ Hệ thống AI đang quét tên hàng và tự động phân loại danh mục...");
 
     try {
-      const promptData = productsToFix.map(p => ({ id: p.id, name: p.name, current_category: p.category }));
-      const prompt = `Bạn là chuyên gia siêu thị. Hãy phân loại lại danh sách hàng hóa sau vào các danh mục ngắn gọn, chuẩn xác nhất (Ví dụ: Thịt, Hải sản, Đồ uống, Hóa phẩm, Gia vị, Trái cây, Rau củ, Đồ ăn vặt, VPP...).
-      TRẢ VỀ DUY NHẤT MỘT MẢNG JSON ĐỊNH DẠNG: [{"id": "id_sản_phẩm", "category": "Tên_Danh_Mục_Mới"}].
-      Tuyệt đối không xuất ra văn bản nào khác ngoài mảng JSON này.
-      Dữ liệu cần phân loại: ${JSON.stringify(promptData)}`;
+      // Đóng gói dữ liệu tối giản để truyền lên AI xử lý nhanh
+      const promptData = productsToFix.map(p => ({ id: p.id, name: p.name }));
+      
+      const prompt = `Bạn là trợ lý ảo phân loại hàng hóa thông minh cho siêu thị Hải Lê Mart.
+      Nhiệm vụ của bạn là đọc danh sách sản phẩm sau và phân chúng vào đúng các danh mục phù hợp tốt nhất (Ví dụ: Thịt, Trứng, Hải sản, Hóa phẩm, Đồ uống, Khác).
+      TRẢ VỀ DUY NHẤT MỘT MẢNG JSON ĐỊNH DẠNG CHUẨN KHÔNG CÓ KÝ TỰ BAO NGOÀI: [{"id": "id_sản_phẩm", "category": "Tên_Danh_Mục_Đã_Phân_Loại"}].
+      Tuyệt đối không giải thích dông dài, không viết text chào hỏi, chỉ trả ra mảng JSON.
+      Danh sách cần xử lý: ${JSON.stringify(promptData)}`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      // Thực hiện cuộc gọi HTTP Fetch trực tiếp đến máy chủ Google Gemini phiên bản mới ổn định nhất
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
       });
 
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error?.message || "Lỗi gọi API từ Google");
+      if (!response.ok) throw new Error(result.error?.message || "Lỗi phản hồi hệ thống AI từ máy chủ Google");
 
       const aiText = result.candidates[0].content.parts[0].text;
       
-      // Lọc code rác thừa của AI
+      // Xóa các định dạng mã markdown code block dư thừa nếu AI vô tình trả về
       const jsonString = aiText.replace(/```json/g, "").replace(/```/g, "").trim();
       const updatedCategories = JSON.parse(jsonString);
 
       let successCount = 0;
       for (const item of updatedCategories) {
         if (item.id && item.category) {
-          // Lưu lên mây
+          const cleanCategory = formatCategoryStr(item.category);
+          
+          // 1. Lưu đồng bộ trực tiếp lên Cloud database Supabase của bạn
           if (navigator.onLine) {
-            await supabase.from("products").update({ category: item.category }).eq("id", item.id).eq("owner_id", ownerId);
+            await supabase.from("products").update({ category: cleanCategory }).eq("id", item.id).eq("owner_id", ownerId);
           }
-          // Lưu xuống máy (State)
-          setProducts(prev => prev.map(p => p.id === item.id ? { ...p, category: item.category } : p));
+          // 2. Cập nhật giao diện màn hình ngay lập tức (State)
+          setProducts(prev => prev.map(p => p.id === item.id ? { ...p, category: cleanCategory } : p));
           successCount++;
         }
       }
 
-      toast.success(`✨ Phép thuật thành công! AI đã phân loại lại ${successCount} sản phẩm.`, { id: toastId });
+      toast.success(`✨ Thành công! Hệ thống AI đã phân loại tự động ${successCount} sản phẩm vào kho dữ liệu.`, { id: toastId });
+      logAudit("AI PHÂN LOẠI", `Tự động phân loại hàng loạt ${successCount} sản phẩm thành công.`);
       
     } catch (error) {
       console.error(error);
-      toast.error("AI đang bận hoặc phản hồi lỗi, vui lòng thử lại!", { id: toastId });
+      toast.error("Hệ thống AI đang bận xử lý dữ liệu hoặc phản hồi chậm, vui lòng bấm thử lại!", { id: toastId });
     }
   };
 
@@ -928,7 +937,7 @@ export default function App() {
   const handleEdit = async (id: any, field: string, old: any, isText: boolean = false) => { 
     executeWithAdminCheck(async () => { 
       if (!navigator.onLine) return toast.error("Mạng yếu!"); 
-      let label = field; if (field === 'category') label = 'Danh mục'; if (field === 'sale_price') label = 'Giá bán'; if (field === 'promo_price') label = 'Giá KM'; if (field === 'gift_info') label = 'Quà tặng'; if (field === 'expiry_date') label = 'HSD'; if (field === 'name') label = 'Tên SP'; if(field === 'import_price') label = 'Giá vốn';
+      let label = field; if (field === 'category') label = 'Danh mục'; if (field === 'sale_price') label = 'Giá bán'; if (field === 'promo_price') label = 'Giá KM'; if (field === 'gift_info') label = 'Quà tặng'; if (field === 'expiry_date') label = 'HSD'; if (field === 'name') label = 'Tên SP'; if (field === 'import_price') label = 'Giá vốn';
       const val = window.prompt(`Sửa ${label}:`, old || ""); 
       if (val !== null) { 
         let updateData: any = isText ? (field === 'category' ? formatCategoryStr(val) : val) : (Number(String(val).replace(/[^0-9]/g, '')) || 0); 
@@ -951,7 +960,7 @@ export default function App() {
     const existingItem = cart.find((i: CartItem) => i.product.id === p.id); const currentQtyInCart = existingItem ? existingItem.qty : 0;
     if (currentQtyInCart >= p.stock) { playSound('error'); toast.error(`❌ Vượt quá tồn kho: ${cleanName(p.name)}`, { id: `out-${p.id}`, duration: 2000 }); return; }
     playSound('success'); toast.success(`+1 ${cleanName(p.name)}`, { id: `add-${p.id}`, duration: 1000 });
-    setCart((prev: CartItem[]) => { if (existingItem) { return prev.map(i => i.product.id === p.id ? { ...i, qty: i.qty + 1, total: (i.qty + 1) * getActualPrice(p) } : i); } else { return [...prev, { product: p, qty: 1, total: getActualPrice(p) }]; } });
+    setCart((prev: CartItem[]) => { if (existingItem) { return prev.map(i => i.product.id === p.id ? { ...i, qty: i.qty + 1, total: (i.qty + 1) * getActualPrice(p) } : i); } else { return [...prev, { product: p, qty: 1, total: getActualPrice(p Lecturer) }]; } });
     setBarcodeInput(""); setSearchTerm(""); setShowSuggestions(false);
   };
 
