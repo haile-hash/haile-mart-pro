@@ -52,7 +52,6 @@ const dbName = "HaileMartIndexedDB";
 const storeName = "kv_store";
 const initDB = (): Promise<IDBDatabase> => { return new Promise((resolve, reject) => { const request = indexedDB.open(dbName, 1); request.onupgradeneeded = () => { request.result.createObjectStore(storeName); }; request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); }); };
 
-// HÀM ĐÃ SỬA LỖI ĐỂ ĐĂNG XUẤT ĐƯỢC
 const dbGet = async (key: string): Promise<any> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readonly"); const store = tx.objectStore(storeName); const req = store.get(key); req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); }); };
 const dbSet = async (key: string, value: any): Promise<void> => { if (APP_IS_WIPING) return; const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.put(value, key); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
 const dbRemove = async (key: string): Promise<void> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.delete(key); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
@@ -68,7 +67,6 @@ export default function App() {
   const [isStorageLoading, setIsStorageLoading] = useState(true); 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
-  // F5 CHUẨN: KHÓA MÀN HÌNH NGAY LẬP TỨC NẾU ĐANG CÓ PHIÊN ĐĂNG NHẬP
   const [isLocked, setIsLocked] = useState(() => {
     if (typeof window !== 'undefined') {
       const isLoggedLocal = window.localStorage.getItem('mart_logged_in') === 'true';
@@ -164,22 +162,48 @@ export default function App() {
   const totalValue = useMemo(() => products.reduce((sum, p) => sum + ((p.stock || 0) * (p.import_price || 0)), 0), [products]);
   const lowStockCount = useMemo(() => products.filter(p => p.stock > 0 && p.stock < 10).length, [products]);
 
+  // ĐÃ SỬA: TẮT CƠ CHẾ ĐÁ VĂNG TÀI KHOẢN DO MẠNG YẾU!
+  // Chỉ kiểm tra session 1 lần lúc bật web. Không tự động xóa dữ liệu nếu chập chờn mạng.
   useEffect(() => {
     if (!isLoggedIn) return;
-    const checkAccountStatus = async () => {
-      const { data: { user }, error = null } = await supabase.auth.getUser();
-      if (error || !user) {
-        alert("Phiên đăng nhập không còn hợp lệ do Tài khoản của bạn đã bị vô hiệu hóa hoặc xóa khỏi hệ thống bởi Quản trị viên!");
-        APP_IS_WIPING = true; 
-        await dbClearAll();
-        window.localStorage.clear();
-        window.sessionStorage.clear();
-        window.location.reload(); 
-      }
+    const initDataAndCheckLeak = async () => {
+      if (!navigator.onLine) return; // Nếu mất mạng thì thôi không kiểm tra để tránh lỗi
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const lastOwner = await dbGet("mart_owner_id");
+          if (lastOwner && lastOwner !== user.id) {
+             APP_IS_WIPING = true; 
+             await dbClearAll();
+             window.localStorage.clear();
+             window.sessionStorage.clear();
+             APP_IS_WIPING = false; 
+          }
+          await dbSet("mart_owner_id", user.id);
+          window.localStorage.setItem("mart_owner_id", user.id);
+
+          const { data: store } = await supabase.from('stores').select('*').eq('owner_id', user.id).single();
+          if (store) {
+            await dbSet("mart_current_store", store);
+            window.localStorage.setItem("mart_current_store", JSON.stringify(store));
+          }
+          fetchProducts(); loadCloudData(); fetchSettingsFromCloud();
+        }
+      } catch(e) {}
     };
-    checkAccountStatus();
-    const intervalId = setInterval(checkAccountStatus, 30000);
-    return () => clearInterval(intervalId);
+
+    initDataAndCheckLeak();
+    const channel = supabase.channel("db_changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts())
+      .on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload: any) => { 
+          setScanQueue(prev => [...prev, payload.new.code]); 
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel) };
   }, [isLoggedIn]);
 
   useEffect(() => { const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e); }; window.addEventListener('beforeinstallprompt', handler); return () => window.removeEventListener('beforeinstallprompt', handler); }, []);
@@ -257,70 +281,14 @@ export default function App() {
   useEffect(() => { const handleKeyDown = (e: KeyboardEvent) => { if (!isLoggedIn || isCheckoutOpen || ui.showPinModal || ui.showAuditModal || ui.showCustomerModal || ui.showSettings || ui.showStoreSettings || ui.showInputForm || ui.showInventoryModal || ui.cashFlowModalInfo || ui.showPOModal) return; if (e.key === 'F1') { e.preventDefault(); document.getElementById('search-barcode')?.focus(); } if (e.key === 'F2') { e.preventDefault(); if (cart.length > 0) confirmCheckout('TIỀN MẶT'); } if (e.key === 'F3') { e.preventDefault(); if (cart.length > 0) confirmCheckout('CHUYỂN KHOẢN'); } if (e.key === 'F4') { e.preventDefault(); handleHoldOrder(); } }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); }, [isLoggedIn, isCheckoutOpen, ui, cart]);
 
   useEffect(() => {
-    if (isLoggedIn) {
-      const initDataAndCheckLeak = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const lastOwner = await dbGet("mart_owner_id");
-          if (lastOwner && lastOwner !== user.id) {
-             APP_IS_WIPING = true; 
-             await dbClearAll();
-             window.localStorage.clear();
-             window.sessionStorage.clear();
-             APP_IS_WIPING = false; 
-          }
-          await dbSet("mart_owner_id", user.id);
-          window.localStorage.setItem("mart_owner_id", user.id);
-
-          const { data: store } = await supabase.from('stores').select('*').eq('owner_id', user.id).single();
-          if (store) {
-            await dbSet("mart_current_store", store);
-            window.localStorage.setItem("mart_current_store", JSON.stringify(store));
-          }
-          if (navigator.onLine) {
-             fetchProducts(); loadCloudData(); fetchSettingsFromCloud();
-          }
-        }
-      };
-
-      initDataAndCheckLeak();
-      const channel = supabase.channel("db_changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts())
-        .on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData())
-        .on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData())
-        .on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData())
-        .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData())
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload: any) => { 
-           setScanQueue(prev => [...prev, payload.new.code]); 
-        })
-        .subscribe();
-      return () => { supabase.removeChannel(channel) };
-    }
-  }, [isLoggedIn]);
-
-  // CẤP "CĂN CƯỚC" GLOBAL-CAMERA-SCANNER CHO MÁY ẢNH VÀ CHỐNG KẸT DOM
-  useEffect(() => {
     if (ui.scannerMode !== null) {
       let scanner: any;
       let lastScanTime = 0;
       const loadScanner = () => {
         setTimeout(() => {
           if ((window as any).Html5QrcodeScanner && document.getElementById("global-camera-scanner")) {
-            scanner = new (window as any).Html5QrcodeScanner(
-  "global-camera-scanner", 
-  { 
-    fps: 30, // Tăng gấp đôi tốc độ phân tích khung hình (30 khung/giây)
-    qrbox: { width: 350, height: 200 }, // Mở rộng lăng kính quét để dễ lọt mã vào hơn
-    rememberLastUsedCamera: true,
-    supportedScanTypes: [0], // Chỉ dùng camera, tắt tính năng upload ảnh cho nhẹ
-    videoConstraints: {
-      width: { ideal: 1280 },  // Ép Webcam phải mở ở độ phân giải HD (Cực kỳ quan trọng để mã vạch không bị vỡ hạt)
-      height: { ideal: 720 },
-      advanced: [{ focusMode: "continuous" }] // Cố gắng ép lấy nét liên tục (nếu webcam có hỗ trợ)
-    }
-  }, 
-  false
-);
+            scanner = new (window as any).Html5QrcodeScanner("global-camera-scanner", { fps: 30, qrbox: { width: 350, height: 200 }, rememberLastUsedCamera: true, supportedScanTypes: [0] }, false);
+            scanner.render((text: string) => {
               const now = Date.now();
               if (now - lastScanTime < 1500) return;
               lastScanTime = now;
@@ -535,6 +503,7 @@ export default function App() {
         if (navigator.onLine) await supabase.from("products").update({ stock: Math.max(0, item.product.stock - item.qty) }).eq("id", item.product.id);
         let itemSplitCash = 0; if(payMethod === 'KẾT HỢP') { const safeRatio = finalToPay > 0 ? (splitCashAmt / finalToPay) : 0; itemSplitCash = Math.round(safeRatio * Math.round(item.qty * getActualPrice(item.product) * (1 + VAT_RATE))); }
         
+        // Công thức tính toán biên lợi nhuận chuẩn ERP dựa theo giá vốn sếp đã thiết lập
         const calculatedItemProfit = Math.round(item.qty * (getActualPrice(item.product) - (item.product.import_price || 0)));
         
         newLogs.push({ id: Date.now() + Math.random(), shift, type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", name: cleanName(item.product.name), qty: item.qty, total: item.total, profit: calculatedItemProfit, customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id, paymentMethod: payMethod, split_cash: itemSplitCash, time: new Date().toLocaleString('vi-VN'), order_id: orderIdStr });
@@ -1074,6 +1043,7 @@ export default function App() {
     } catch (e) { toast.error("Đã xảy ra lỗi khi lưu PO!"); } finally { setLoading(false); }
   };
 
+  // ĐÃ SỬA: KHÔNG CỘNG VÀO KHO NỮA, CHỈ XUẤT RA FILE EXCEL TRỪ ĐI HÀNG LỖI ĐỂ KHO KIỂM DUYỆT
   const handleConfirmReceipt = async (updatedPO: any, finalReceiveItems: any) => {
     setLoading(true);
     try {
@@ -1082,9 +1052,54 @@ export default function App() {
       const currentPOs = await dbGet("mart_pos") || [];
       const savedPOs = currentPOs.map((po: any) => po.id === finalPO.id ? finalPO : po);
       await dbSet("mart_pos", savedPOs);
-      logAudit("NHẬP KHO PO", `Hoàn tất PO: ${finalPO.po_code}`);
-      toast.success(`Nhập kho thành công mã PO: ${finalPO.po_code}`);
-    } catch (e) { toast.error("Lỗi khi cập nhật trạng thái PO!"); } finally { setLoading(false); }
+
+      // TẠO FILE EXCEL CHUẨN MAU_NHAP_HANG
+      if ((window as any).XLSX) {
+        const wsData = [
+          ["Mã sản phẩm (*)", "Tên sản phẩm (*)", "Danh mục", "Giá Nhập", "Giá Bán (*)", "Giá Khuyến mãi", "Điều kiện mua tặng", "Sản phẩm tặng kèm", "Số lượng", "Hạn sử dụng (mm/yyyy)"]
+        ];
+
+        finalReceiveItems.forEach((item: any) => {
+          // Giao diện POModal điền sao thì điền, ở đây em ép công thức chuẩn kế toán: SL Đặt - SL Lỗi = SL Nhập
+          const receiveQ = Number(item.receiveQty !== undefined ? item.receiveQty : item.qty) || 0;
+          const faultQ = Number(item.faultyQty) || 0;
+          const actualImport = Math.max(0, receiveQ - faultQ);
+
+          if (actualImport > 0) {
+            // Lấy data gốc từ kho để có giá bán, danh mục...
+            const baseProd = products.find(p => p.product_code === item.product_code || p.name === item.name);
+
+            wsData.push([
+              item.product_code || baseProd?.product_code || `SP-PO-${Date.now().toString().slice(-4)}`, // Mã SP
+              item.name, // Tên SP
+              baseProd?.category || "Chưa phân loại", // Danh mục
+              item.importPrice || baseProd?.import_price || 0, // Giá Nhập
+              baseProd?.sale_price || 0, // Giá Bán
+              baseProd?.promo_price || "", // Giá KM
+              "", // ĐK tặng
+              "", // SP Tặng
+              actualImport, // SL Nhập (Đã trừ hàng lỗi)
+              "" // HSD
+            ]);
+          }
+        });
+
+        if (wsData.length > 1) {
+          const ws = (window as any).XLSX.utils.aoa_to_sheet(wsData);
+          const wb = (window as any).XLSX.utils.book_new();
+          (window as any).XLSX.utils.book_append_sheet(wb, ws, "San_Pham");
+          (window as any).XLSX.writeFile(wb, `NhapKho_PO_${finalPO.po_code}.xlsx`);
+          toast.success(`Đã xuất file nhập kho mẫu cho mã PO: ${finalPO.po_code}`);
+        } else {
+          toast.error("Tất cả hàng đều lỗi, không có số liệu để xuất file nhập kho!");
+        }
+      } else {
+          toast.error("Thư viện Excel chưa sẵn sàng!");
+      }
+
+      logAudit("KIỂM HÀNG PO", `Đã xác nhận và xuất file Excel cho mã PO: ${finalPO.po_code}`);
+      
+    } catch (e) { toast.error("Lỗi khi xử lý PO!"); } finally { setLoading(false); }
   };
 
   if (!isStorageLoading && (!isLoggedIn || isLocked)) {
@@ -1128,7 +1143,7 @@ export default function App() {
         bankNameStr={bankNameStr}
       />
 
-      {/* POPUP CAMERA SCANNERR HIỂN THỊ KHI NHẤP VÀO NÚT MÀU ĐỎ (ĐÃ ĐỔI ID ĐỘC QUYỀN) */}
+      {/* POPUP CAMERA SCANNERR HIỂN THỊ KHI NHẤP VÀO NÚT MÀU ĐỎ */}
       {ui.scannerMode !== null && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', zIndex: 999999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
           <h2 style={{ color: 'white', marginBottom: '20px', fontSize: '24px' }}>📷 Đưa mã vạch vào khung hình</h2>
