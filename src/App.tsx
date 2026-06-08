@@ -262,7 +262,7 @@ export default function App() {
   // --- TỰ ĐỘNG DỌN DẸP PO QUÁ HẠN 30 NGÀY ---
   useEffect(() => {
     if (!isStorageLoading && allPOs.length > 0) {
-      const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+      const THIRTY_DAYS_MS = 1 * 60 * 1000;
       const now = Date.now();
       let deletedCount = 0;
 
