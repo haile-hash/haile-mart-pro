@@ -1060,10 +1060,26 @@ export default function App() {
         ];
 
         finalReceiveItems.forEach((item: any) => {
-          // Giao diện POModal điền sao thì điền, ở đây em ép công thức chuẩn kế toán: SL Đặt - SL Lỗi = SL Nhập
-          const receiveQ = Number(item.receiveQty !== undefined ? item.receiveQty : item.qty) || 0;
-          const faultQ = Number(item.faultyQty) || 0;
-          const actualImport = Math.max(0, receiveQ - faultQ);
+          // BƯỚC 1: QUÉT SỐ LIỆU TỪ POModal (Bao trùm mọi tên biến để không bao giờ bị xót)
+          const orderQty = Number(item.qty) || 0;
+          const receiveQty = item.receiveQty !== undefined ? Number(item.receiveQty) : orderQty;
+          
+          // Lấy số lượng hàng lỗi sếp đã gõ (bắt trúng mọi tên biến mà Modal có thể nhả ra)
+          const faultQ = Number(item.faultyQty || item.faulty || item.errorQty || item.returnQty || item.rejectQty) || 0;
+
+          // BƯỚC 2: TÍNH TOÁN SỐ LƯỢNG THỰC TẾ ĐỂ UP LÊN KHO
+          let actualImport = 0;
+          
+          if (receiveQty < orderQty) {
+            // Trường hợp 1: Nếu sếp đã gõ thẳng vào ô "Thực nhận" là 4.700.000 -> Lấy luôn 4.7tr
+            actualImport = receiveQty;
+          } else if (faultQ > 0) {
+            // Trường hợp 2: Nếu ô thực nhận vẫn để 5.000.000 nhưng sếp gõ ô "Lỗi" là 300.000 -> Tự trừ ra 4.7tr
+            actualImport = Math.max(0, orderQty - faultQ);
+          } else {
+            // Trường hợp 3: Hàng về đẹp 100%, không lỗi lầm -> Lấy đủ
+            actualImport = receiveQty;
+          }
 
           if (actualImport > 0) {
             // Lấy data gốc từ kho để có giá bán, danh mục...
@@ -1078,7 +1094,7 @@ export default function App() {
               baseProd?.promo_price || "", // Giá KM
               "", // ĐK tặng
               "", // SP Tặng
-              actualImport, // SL Nhập (Đã trừ hàng lỗi)
+              actualImport, // SL Nhập (Đã trừ hàng lỗi cực kỳ chính xác)
               "" // HSD
             ]);
           }
@@ -1101,7 +1117,6 @@ export default function App() {
       
     } catch (e) { toast.error("Lỗi khi xử lý PO!"); } finally { setLoading(false); }
   };
-
   if (!isStorageLoading && (!isLoggedIn || isLocked)) {
     return (
       <div className={`app-container ${ui.darkMode ? "dark-theme" : "light-theme"}`} style={{ minHeight: "100vh", position: "relative" }}>
