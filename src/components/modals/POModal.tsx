@@ -31,13 +31,15 @@ interface POModalProps {
 export const POModal: React.FC<POModalProps> = ({
   showPOModal, setShowPOModal, suppliers, selectedSupplierId, setSelectedSupplierId, products, poSearch, setPoSearch, poItems, setPoItems, poNote, setPoNote, paidAmount, setPaidAmount, allPOs, loading, onSaveNewPO, onConfirmReceipt, onPrintPO
 }) => {
-  const [activeTab, setActiveTab] = useState<'NEW' | 'LIST' | 'HISTORY'>('NEW');
+  // Thêm CANCELLED vào Tab
+  const [activeTab, setActiveTab] = useState<'NEW' | 'LIST' | 'HISTORY' | 'CANCELLED'>('NEW');
   const [receivingPO, setReceivingPO] = useState<any | null>(null);
   const [receiveItems, setReceiveItems] = useState<any[]>([]);
 
-  // Thêm 2 state để lưu từ khóa tìm kiếm cho 2 tab
+  // State tìm kiếm cho các Tab
   const [searchPending, setSearchPending] = useState("");
   const [searchHistory, setSearchHistory] = useState("");
+  const [searchCancelled, setSearchCancelled] = useState("");
 
   if (!showPOModal) return null;
 
@@ -56,7 +58,6 @@ export const POModal: React.FC<POModalProps> = ({
     setActiveTab('LIST');
   };
 
-  // --- HÀM TẠO FILE PDF ĐƠN ĐẶT HÀNG (PO) ---
   const handlePrintOrder = (po: any) => {
     const storeInfo = JSON.parse(window.localStorage.getItem("mart_current_store") || "{}");
     const dateStr = new Date(po.created_at || Date.now()).toLocaleDateString('vi-VN');
@@ -80,7 +81,6 @@ export const POModal: React.FC<POModalProps> = ({
 
     const printWindow = window.open('', '_blank');
     if (printWindow) { printWindow.document.open(); printWindow.document.write(htmlContent); printWindow.document.close(); } 
-    else { alert("Trình duyệt đã chặn popup. Vui lòng cho phép popup để xuất PDF."); }
   };
 
   const handlePrintDraft = () => {
@@ -108,7 +108,6 @@ export const POModal: React.FC<POModalProps> = ({
     const newVal = val === "" ? 0 : Number(val);
     const newItems = [...receiveItems];
     const orderQty = Number(newItems[idx].qty) || 0;
-    
     const validFaulty = Math.min(newVal, orderQty);
     newItems[idx].faultyQty = validFaulty;
     newItems[idx].receiveQty = Math.max(0, orderQty - validFaulty);
@@ -119,7 +118,6 @@ export const POModal: React.FC<POModalProps> = ({
     const newVal = val === "" ? 0 : Number(val);
     const newItems = [...receiveItems];
     const orderQty = Number(newItems[idx].qty) || 0;
-    
     const validReceive = Math.max(0, newVal);
     newItems[idx].receiveQty = validReceive;
     
@@ -142,7 +140,7 @@ export const POModal: React.FC<POModalProps> = ({
     setActiveTab('HISTORY');
   };
 
-  // --- LỌC DS PO CÓ KẾT HỢP TỪ KHÓA TÌM KIẾM ---
+  // --- LỌC DS PO THEO TRẠNG THÁI & TỪ KHÓA ---
   const pendingPOs = allPOs
     .filter(p => p.status === 'PENDING')
     .filter(p => p.po_code?.toLowerCase().includes(searchPending.toLowerCase()) || p.supplier?.name?.toLowerCase().includes(searchPending.toLowerCase()))
@@ -151,6 +149,11 @@ export const POModal: React.FC<POModalProps> = ({
   const completedPOs = allPOs
     .filter(p => p.status === 'COMPLETED')
     .filter(p => p.po_code?.toLowerCase().includes(searchHistory.toLowerCase()) || p.supplier?.name?.toLowerCase().includes(searchHistory.toLowerCase()))
+    .sort((a,b) => b.id - a.id);
+
+  const cancelledPOs = allPOs
+    .filter(p => p.status === 'CANCELLED')
+    .filter(p => p.po_code?.toLowerCase().includes(searchCancelled.toLowerCase()) || p.supplier?.name?.toLowerCase().includes(searchCancelled.toLowerCase()))
     .sort((a,b) => b.id - a.id);
 
   const totalAmtTab1 = poItems.reduce((sum, item) => sum + (item.qty || 0) * (item.importPrice || 0), 0);
@@ -236,12 +239,13 @@ export const POModal: React.FC<POModalProps> = ({
             </div>
           </div>
         ) : (
-          // BA TAB GIAO DIỆN CHÍNH
+          // BỐN TAB GIAO DIỆN CHÍNH
           <>
             <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>
               <button onClick={() => setActiveTab('NEW')} style={{ flex: 1, padding: '14px', border: 'none', background: activeTab === 'NEW' ? 'white' : 'transparent', fontWeight: 'bold', color: activeTab === 'NEW' ? '#2563eb' : '#64748b', borderBottom: activeTab === 'NEW' ? '3px solid #2563eb' : '3px solid transparent', cursor: 'pointer', fontSize: '14px' }}>TẠO ĐƠN MỚI (PO)</button>
               <button onClick={() => setActiveTab('LIST')} style={{ flex: 1, padding: '14px', border: 'none', background: activeTab === 'LIST' ? 'white' : 'transparent', fontWeight: 'bold', color: activeTab === 'LIST' ? '#f59e0b' : '#64748b', borderBottom: activeTab === 'LIST' ? '3px solid #f59e0b' : '3px solid transparent', cursor: 'pointer', fontSize: '14px' }}>DS ĐƠN CHỜ NHẬP ({allPOs.filter(p => p.status === 'PENDING').length})</button>
               <button onClick={() => setActiveTab('HISTORY')} style={{ flex: 1, padding: '14px', border: 'none', background: activeTab === 'HISTORY' ? 'white' : 'transparent', fontWeight: 'bold', color: activeTab === 'HISTORY' ? '#10b981' : '#64748b', borderBottom: activeTab === 'HISTORY' ? '3px solid #10b981' : '3px solid transparent', cursor: 'pointer', fontSize: '14px' }}>LỊCH SỬ NHẬP KHO</button>
+              <button onClick={() => setActiveTab('CANCELLED')} style={{ flex: 1, padding: '14px', border: 'none', background: activeTab === 'CANCELLED' ? 'white' : 'transparent', fontWeight: 'bold', color: activeTab === 'CANCELLED' ? '#ef4444' : '#64748b', borderBottom: activeTab === 'CANCELLED' ? '3px solid #ef4444' : '3px solid transparent', cursor: 'pointer', fontSize: '14px' }}>ĐÃ HỦY/QUÁ HẠN</button>
             </div>
 
             <div style={{ padding: '20px', overflowY: 'auto', flex: 1 }}>
@@ -430,6 +434,50 @@ export const POModal: React.FC<POModalProps> = ({
                             </tr>
                            )
                         })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              )}
+
+              {/* TAB 4: ĐƠN ĐÃ HỦY/QUÁ HẠN */}
+              {activeTab === 'CANCELLED' && (
+                <div>
+                  <div style={{ marginBottom: '15px' }}>
+                    <input 
+                      type="text" 
+                      placeholder="🔍 Tìm kiếm theo Mã PO hoặc Tên Nhà cung cấp..." 
+                      value={searchCancelled} 
+                      onChange={e => setSearchCancelled(e.target.value)} 
+                      style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} 
+                    />
+                  </div>
+
+                   {cancelledPOs.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>Không có đơn hàng nào bị hủy hoặc quá hạn.</div>
+                  ) : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                      <thead style={{ background: '#fef2f2', borderBottom: '2px solid #fca5a5' }}>
+                        <tr>
+                          <th style={{ padding: '12px', textAlign: 'left', color: '#b91c1c' }}>Mã PO</th>
+                          <th style={{ padding: '12px', textAlign: 'left', color: '#b91c1c' }}>Nhà Cung Cấp</th>
+                          <th style={{ padding: '12px', textAlign: 'center', color: '#b91c1c' }}>Ngày tạo</th>
+                          <th style={{ padding: '12px', textAlign: 'right', color: '#b91c1c' }}>Tổng tiền (Dự kiến)</th>
+                          <th style={{ padding: '12px', textAlign: 'center', color: '#b91c1c' }}>Trạng thái</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cancelledPOs.map((po, idx) => (
+                           <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', opacity: 0.8 }}>
+                              <td style={{ padding: '12px', fontWeight: 'bold', color: '#94a3b8', textDecoration: 'line-through' }}>{po.po_code}</td>
+                              <td style={{ padding: '12px', color: '#64748b' }}>{po.supplier?.name}</td>
+                              <td style={{ padding: '12px', textAlign: 'center', color: '#64748b' }}>{new Date(po.created_at).toLocaleDateString('vi-VN')}</td>
+                              <td style={{ padding: '12px', textAlign: 'right', fontWeight: 'bold', color: '#94a3b8' }}>{(po.total_amount || 0).toLocaleString()}đ</td>
+                              <td style={{ padding: '12px', textAlign: 'center' }}>
+                                <span style={{ padding: '4px 8px', background: '#fee2e2', color: '#ef4444', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>Đã Hủy (Quá hạn)</span>
+                              </td>
+                            </tr>
+                        ))}
                       </tbody>
                     </table>
                   )}
