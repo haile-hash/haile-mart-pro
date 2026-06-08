@@ -269,7 +269,7 @@ export default function App() {
       if (currentPOs.length === 0) return;
 
       // Sếp để 1 * 60 * 1000 để test 1 phút, test xong nhớ sửa lại 30 * 24 * 60 * 60 * 1000 nhé
-      const EXPIRATION_TIME_MS = 1 * 60 * 1000; 
+      const EXPIRATION_TIME_MS = 30 * 24 * 60 * 60 * 1000; 
       const now = Date.now();
       let changedCount = 0;
 
