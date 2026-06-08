@@ -937,7 +937,7 @@ export default function App() {
   const handleEdit = async (id: any, field: string, old: any, isText: boolean = false) => { 
     executeWithAdminCheck(async () => { 
       if (!navigator.onLine) return toast.error("Mạng yếu!"); 
-      let label = field; if (field === 'category') label = 'Danh mục'; if (field === 'sale_price') label = 'Giá bán'; if (field === 'promo_price') label = 'Giá KM'; if (field === 'gift_info') label = 'Quà tặng'; if (field === 'expiry_date') label = 'HSD'; if (field === 'name') label = 'Tên SP'; if (field === 'import_price') label = 'Giá vốn';
+      let label = field; if (field === 'category') label = 'Danh mục'; if (field === 'sale_price') label = 'Giá bán'; if (field === 'promo_price') label = 'Giá KM'; if (field === 'gift_info') label = 'Quà tặng'; if (field === 'expiry_date') label = 'HSD'; if (field === 'name') label = 'Tên SP'; if(field === 'import_price') label = 'Giá vốn';
       const val = window.prompt(`Sửa ${label}:`, old || ""); 
       if (val !== null) { 
         let updateData: any = isText ? (field === 'category' ? formatCategoryStr(val) : val) : (Number(String(val).replace(/[^0-9]/g, '')) || 0); 
@@ -960,7 +960,7 @@ export default function App() {
     const existingItem = cart.find((i: CartItem) => i.product.id === p.id); const currentQtyInCart = existingItem ? existingItem.qty : 0;
     if (currentQtyInCart >= p.stock) { playSound('error'); toast.error(`❌ Vượt quá tồn kho: ${cleanName(p.name)}`, { id: `out-${p.id}`, duration: 2000 }); return; }
     playSound('success'); toast.success(`+1 ${cleanName(p.name)}`, { id: `add-${p.id}`, duration: 1000 });
-    setCart((prev: CartItem[]) => { if (existingItem) { return prev.map(i => i.product.id === p.id ? { ...i, qty: i.qty + 1, total: (i.qty + 1) * getActualPrice(p) } : i); } else { return [...prev, { product: p, qty: 1, total: getActualPrice(p Lecturer) }]; } });
+    setCart((prev: CartItem[]) => { if (existingItem) { return prev.map(i => i.product.id === p.id ? { ...i, qty: i.qty + 1, total: (i.qty + 1) * getActualPrice(p) } : i); } else { return [...prev, { product: p, qty: 1, total: getActualPrice(p) }]; } });
     setBarcodeInput(""); setSearchTerm(""); setShowSuggestions(false);
   };
 
