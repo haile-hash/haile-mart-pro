@@ -48,92 +48,14 @@ import './styles/Print.css';
 
 let APP_IS_WIPING = false; 
 
-// ==========================================
-// VÁ LỖI CHÍ MẠNG 1: INDEXEDDB CONNECTION POOLING 
-// (Chỉ mở 1 luồng kết nối duy nhất để tránh treo máy)
-// ==========================================
 const dbName = "HaileMartIndexedDB";
 const storeName = "kv_store";
+const initDB = (): Promise<IDBDatabase> => { return new Promise((resolve, reject) => { const request = indexedDB.open(dbName, 1); request.onupgradeneeded = () => { request.result.createObjectStore(storeName); }; request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); }); };
 
-let dbInstance: IDBDatabase | null = null;
-let dbInitPromise: Promise<IDBDatabase> | null = null;
-
-const initDB = (): Promise<IDBDatabase> => { 
-  if (dbInstance) return Promise.resolve(dbInstance);
-  if (dbInitPromise) return dbInitPromise;
-  
-  dbInitPromise = new Promise((resolve, reject) => { 
-    try {
-      const request = indexedDB.open(dbName, 1); 
-      request.onupgradeneeded = () => { 
-        if (!request.result.objectStoreNames.contains(storeName)) {
-          request.result.createObjectStore(storeName); 
-        }
-      }; 
-      request.onsuccess = () => { 
-        dbInstance = request.result; 
-        resolve(dbInstance); 
-      }; 
-      request.onerror = () => reject(request.error); 
-    } catch(err) {
-      reject(err);
-    }
-  }); 
-  return dbInitPromise;
-};
-
-const dbGet = async (key: string): Promise<any> => { 
-  try {
-    const db = await initDB(); 
-    return new Promise((resolve, reject) => { 
-      const tx = db.transaction(storeName, "readonly"); 
-      const store = tx.objectStore(storeName); 
-      const req = store.get(key); 
-      req.onsuccess = () => resolve(req.result); 
-      req.onerror = () => reject(req.error); 
-    }); 
-  } catch(e) { return null; }
-};
-
-const dbSet = async (key: string, value: any): Promise<void> => { 
-  if (APP_IS_WIPING) return; 
-  try {
-    const db = await initDB(); 
-    return new Promise((resolve, reject) => { 
-      const tx = db.transaction(storeName, "readwrite"); 
-      const store = tx.objectStore(storeName); 
-      const req = store.put(value, key); 
-      req.onsuccess = () => resolve(); 
-      req.onerror = () => reject(req.error); 
-    }); 
-  } catch(e) { console.error("DB Save Error:", e); }
-};
-
-const dbRemove = async (key: string): Promise<void> => { 
-  try {
-    const db = await initDB(); 
-    return new Promise((resolve, reject) => { 
-      const tx = db.transaction(storeName, "readwrite"); 
-      const store = tx.objectStore(storeName); 
-      const req = store.delete(key); 
-      req.onsuccess = () => resolve(); 
-      req.onerror = () => reject(req.error); 
-    }); 
-  } catch(e) { console.error(e); }
-};
-
-const dbClearAll = async (): Promise<void> => { 
-  try {
-    const db = await initDB(); 
-    return new Promise((resolve, reject) => { 
-      const tx = db.transaction(storeName, "readwrite"); 
-      const store = tx.objectStore(storeName); 
-      const req = store.clear(); 
-      req.onsuccess = () => resolve(); 
-      req.onerror = () => reject(req.error); 
-    }); 
-  } catch(e) { console.error(e); }
-};
+const dbGet = async (key: string): Promise<any> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readonly"); const store = tx.objectStore(storeName); const req = store.get(key); req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); }); };
+const dbSet = async (key: string, value: any): Promise<void> => { if (APP_IS_WIPING) return; const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.put(value, key); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
+const dbRemove = async (key: string): Promise<void> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.delete(key); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
+const dbClearAll = async (): Promise<void> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.clear(); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
 
 export default function App() {
   if (typeof window !== "undefined" && window.location.search.includes("scanner=true")) return <MobileScanner />;
@@ -191,11 +113,6 @@ export default function App() {
   const { newCode, setNewCode, newName, setNewName, newImportPrice, setNewImportPrice, newPrice, setNewPrice, newPromoPrice, setNewPromoPrice, newGiftCondition, setNewGiftCondition, newGiftInfo, setNewGiftInfo, newStock, setNewStock, newExpiry, setNewExpiry, newCategory, setNewCategory, resetProductForm } = useProductInput();
   const { cart, setCart, barcodeInput, setBarcodeInput, isCheckoutOpen, setIsCheckoutOpen, checkoutStep, setCheckoutStep, customerInput, setCustomerInput, custPhone, setCustPhone, custName, setCustName, useWallet, setUseWallet, voucherInput, setVoucherInput, appliedVoucherAmount, setAppliedVoucherAmount, customerGiven, setCustomerGiven, lastOrder, setLastOrder, resetCheckout, custAddress, setCustAddress } = useCheckoutState();
 
-  const cartRef = useRef(cart);
-  const uiRef = useRef(ui);
-  useEffect(() => { cartRef.current = cart; }, [cart]);
-  useEffect(() => { uiRef.current = ui; }, [ui]);
-
   const [customersData, setCustomers] = useState<Record<string, Customer>>({});
   const [heldOrders, setHeldOrders] = useState<HeldOrder[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
@@ -203,12 +120,7 @@ export default function App() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [history, setHistory] = useState<TransactionLog[]>([]);
 
-  // Tối ưu để tránh useOfflineSync tạo ra vòng lặp vô hạn
-  const offlineSyncConfig = useMemo(() => ({
-    isLoggedIn, history, setHistory, customers: customersData, setCustomers, heldOrders, setHeldOrders, auditLogs, setAuditLogs, expenses, setExpenses, suppliers, setSuppliers
-  }), [isLoggedIn, history, customersData, heldOrders, auditLogs, expenses, suppliers]);
-  
-  const { isOnline, syncStatus, syncAllOfflineData, loadCloudData } = useOfflineSync(offlineSyncConfig);
+  const { isOnline, syncStatus, syncAllOfflineData, loadCloudData } = useOfflineSync({ isLoggedIn, history, setHistory, customers: customersData, setCustomers, heldOrders, setHeldOrders, auditLogs, setAuditLogs, expenses, setExpenses, suppliers, setSuppliers });
   const isPrintingRef = useRef(false);
 
   const findProductByCode = (code: string) => products.find(p => p.product_code === code);
@@ -251,100 +163,34 @@ export default function App() {
   const lowStockCount = useMemo(() => products.filter(p => p.stock > 0 && p.stock < 10).length, [products]);
 
   useEffect(() => {
-    if (isStorageLoading) return;
-
-    const checkAndCancelPOs = async () => {
-      const currentPOs = await dbGet("mart_pos") || [];
-      if (currentPOs.length === 0) return;
-
-      const EXPIRATION_TIME_MS = 30 * 24 * 60 * 60 * 1000; 
-      const now = Date.now();
-      let changedCount = 0;
-
-      const updatedPOs = currentPOs.map((po: any) => {
-        if (po.status === 'PENDING') {
-          const createdAt = new Date(po.created_at || po.id).getTime();
-          if (now - createdAt >= EXPIRATION_TIME_MS) {
-            changedCount++;
-            return { ...po, status: 'CANCELLED' };
-          }
-        }
-        return po;
-      });
-
-      if (changedCount > 0) {
-        setAllPOs(updatedPOs); 
-        await dbSet("mart_pos", updatedPOs); 
-        toast.error(`Hệ thống bot đã tự động chuyển ${changedCount} Phiếu PO sang ĐÃ HỦY do quá hạn 30 ngày!`);
-      }
-    };
-
-    checkAndCancelPOs();
-    const intervalId = setInterval(checkAndCancelPOs, 60000); 
-
-    return () => clearInterval(intervalId);
-  }, [isStorageLoading]);
-
-  useEffect(() => {
     if (!isLoggedIn) return;
-
-    const forceLogout = () => {
-      APP_IS_WIPING = true; 
-      supabase.auth.signOut().catch(() => {});
-      dbClearAll().catch(() => {});
-      try { window.localStorage.clear(); } catch(e) {}
-      try { window.sessionStorage.clear(); } catch(e) {}
-      setTimeout(() => {
-        window.location.replace(window.location.origin); 
-      }, 500);
-    };
-
-    const checkAuthStatus = async () => {
-      if (!navigator.onLine) return; 
+    const initDataAndCheckLeak = async () => {
+      if (!navigator.onLine) return;
       try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error) {
-          if (error.message?.includes('Fetch') || error.message?.includes('fetch') || error.status >= 500) return;
-          forceLogout();
-          return;
-        } 
-        if (!user) {
-          forceLogout();
-          return;
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const lastOwner = await dbGet("mart_owner_id");
+          if (lastOwner && lastOwner !== user.id) {
+             APP_IS_WIPING = true; 
+             await dbClearAll();
+             window.localStorage.clear();
+             window.sessionStorage.clear();
+             APP_IS_WIPING = false; 
+          }
+          await dbSet("mart_owner_id", user.id);
+          window.localStorage.setItem("mart_owner_id", user.id);
+
+          const { data: store } = await supabase.from('stores').select('*').eq('owner_id', user.id).single();
+          if (store) {
+            await dbSet("mart_current_store", store);
+            window.localStorage.setItem("mart_current_store", JSON.stringify(store));
+          }
+          fetchProducts(); loadCloudData(); fetchSettingsFromCloud();
         }
-        const lastOwner = window.localStorage.getItem("mart_owner_id");
-        if (lastOwner && lastOwner !== user.id) {
-           forceLogout();
-           return;
-        }
-      } catch(e) {
-        forceLogout(); 
-      }
+      } catch(e) {}
     };
 
-    const initData = async () => {
-      await checkAuthStatus();
-      const ownerId = window.localStorage.getItem("mart_owner_id");
-      if (ownerId) {
-        const { data: store } = await supabase.from('stores').select('*').eq('owner_id', ownerId).single();
-        if (store) {
-          await dbSet("mart_current_store", store);
-          window.localStorage.setItem("mart_current_store", JSON.stringify(store));
-        }
-        fetchProducts(); loadCloudData(); fetchSettingsFromCloud();
-      }
-    };
-
-    initData();
-
-    const securityPing = setInterval(() => { checkAuthStatus(); }, 15000); 
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT' || event === 'USER_DELETED' || !session) {
-         forceLogout();
-      }
-    });
-
+    initDataAndCheckLeak();
     const channel = supabase.channel("db_changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts())
       .on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData())
@@ -354,21 +200,8 @@ export default function App() {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload: any) => { 
           setScanQueue(prev => [...prev, payload.new.code]); 
       })
-      .on("postgres_changes", { event: "DELETE", schema: "public", table: "stores" }, (payload) => {
-          const currentOwner = window.localStorage.getItem("mart_owner_id");
-          if (payload.old && payload.old.owner_id === currentOwner) forceLogout(); 
-      })
-      .on("broadcast", { event: "FORCE_LOGOUT" }, (payload) => {
-         const currentOwner = window.localStorage.getItem("mart_owner_id");
-         if (payload.payload?.owner_id === currentOwner || payload.payload?.target === 'ALL') forceLogout();
-      })
       .subscribe();
-
-    return () => { 
-      clearInterval(securityPing);
-      supabase.removeChannel(channel); 
-      authListener.subscription.unsubscribe();
-    };
+    return () => { supabase.removeChannel(channel) };
   }, [isLoggedIn]);
 
   useEffect(() => { const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e); }; window.addEventListener('beforeinstallprompt', handler); return () => window.removeEventListener('beforeinstallprompt', handler); }, []);
@@ -384,7 +217,6 @@ export default function App() {
   useEffect(() => { 
     if (!isLoggedIn || isLocked) return; 
     let timeout: any; 
-    
     const resetTimer = () => { 
       clearTimeout(timeout); 
       timeout = setTimeout(() => {
@@ -392,18 +224,15 @@ export default function App() {
         if (typeof window !== 'undefined') window.localStorage.setItem('mart_is_locked', 'true');
       }, IDLE_TIMEOUT); 
     }; 
-    
-    window.addEventListener('keydown', resetTimer, { passive: true }); 
-    window.addEventListener('click', resetTimer, { passive: true }); 
-    window.addEventListener('touchstart', resetTimer, { passive: true }); 
-    
+    window.addEventListener('mousemove', resetTimer); 
+    window.addEventListener('keydown', resetTimer); 
+    window.addEventListener('click', resetTimer); 
     resetTimer(); 
-    
     return () => { 
       clearTimeout(timeout); 
+      window.removeEventListener('mousemove', resetTimer); 
       window.removeEventListener('keydown', resetTimer); 
       window.removeEventListener('click', resetTimer); 
-      window.removeEventListener('touchstart', resetTimer); 
     }; 
   }, [isLoggedIn, isLocked]);
 
@@ -425,12 +254,37 @@ export default function App() {
         setLocalPOs(await dbGet("mart_pos") || []); setCustomers(await dbGet("mart_customers") || {}); setHeldOrders(await dbGet("mart_held_orders") || []); setAuditLogs(await dbGet("mart_audit") || []); setExpenses(await dbGet("mart_expenses") || []); setSuppliers(await dbGet("mart_suppliers") || []); setHistory(await dbGet("mart_history") || []);
         const storedPOs = await dbGet("mart_pos") || [];
         setAllPOs(storedPOs);
-      } catch (err) {
-        console.error("Storage Init Error", err);
-      } finally { setIsStorageLoading(false); }
+      } catch (err) {} finally { setIsStorageLoading(false); }
     };
     initializeEnterpriseStorage();
   }, []);
+
+  // --- TỰ ĐỘNG DỌN DẸP PO QUÁ HẠN 30 NGÀY ---
+  useEffect(() => {
+    if (!isStorageLoading && allPOs.length > 0) {
+      const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+      const now = Date.now();
+      let deletedCount = 0;
+
+      const validPOs = allPOs.filter(po => {
+        if (po.status === 'PENDING') {
+          const createdAt = new Date(po.created_at || po.id).getTime();
+          if (now - createdAt >= THIRTY_DAYS_MS) {
+            deletedCount++;
+            return false; // Hủy bỏ khỏi mảng
+          }
+        }
+        return true;
+      });
+
+      if (deletedCount > 0) {
+        setAllPOs(validPOs);
+        dbSet("mart_pos", validPOs).catch(() => {});
+        toast.success(`Hệ thống đã tự động hủy ${deletedCount} Phiếu đặt hàng (PO) quá hạn 30 ngày để giải phóng ngân sách!`);
+        logAudit("DỌN DẸP PO", `Tự động xóa ${deletedCount} PO Pending quá hạn 30 ngày`);
+      }
+    }
+  }, [isStorageLoading]);
 
   useEffect(() => { 
     if (!isStorageLoading && !APP_IS_WIPING) {
@@ -449,22 +303,7 @@ export default function App() {
   useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_suppliers", suppliers); }, [suppliers, isStorageLoading]);
   useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_history", history); }, [history, isStorageLoading]);
 
-  useEffect(() => { 
-    const handleKeyDown = (e: KeyboardEvent) => { 
-      const currentUI = uiRef.current;
-      const currentCart = cartRef.current;
-      
-      if (!isLoggedIn || isCheckoutOpen || currentUI.showPinModal || currentUI.showAuditModal || currentUI.showCustomerModal || currentUI.showSettings || currentUI.showStoreSettings || currentUI.showInputForm || currentUI.showInventoryModal || currentUI.cashFlowModalInfo || currentUI.showPOModal) return; 
-      
-      if (e.key === 'F1') { e.preventDefault(); document.getElementById('search-barcode')?.focus(); } 
-      if (e.key === 'F2') { e.preventDefault(); if (currentCart.length > 0) confirmCheckout('TIỀN MẶT'); } 
-      if (e.key === 'F3') { e.preventDefault(); if (currentCart.length > 0) confirmCheckout('CHUYỂN KHOẢN'); } 
-      if (e.key === 'F4') { e.preventDefault(); handleHoldOrder(); } 
-    }; 
-    
-    window.addEventListener('keydown', handleKeyDown); 
-    return () => window.removeEventListener('keydown', handleKeyDown); 
-  }, [isLoggedIn, isCheckoutOpen]); 
+  useEffect(() => { const handleKeyDown = (e: KeyboardEvent) => { if (!isLoggedIn || isCheckoutOpen || ui.showPinModal || ui.showAuditModal || ui.showCustomerModal || ui.showSettings || ui.showStoreSettings || ui.showInputForm || ui.showInventoryModal || ui.cashFlowModalInfo || ui.showPOModal) return; if (e.key === 'F1') { e.preventDefault(); document.getElementById('search-barcode')?.focus(); } if (e.key === 'F2') { e.preventDefault(); if (cart.length > 0) confirmCheckout('TIỀN MẶT'); } if (e.key === 'F3') { e.preventDefault(); if (cart.length > 0) confirmCheckout('CHUYỂN KHOẢN'); } if (e.key === 'F4') { e.preventDefault(); handleHoldOrder(); } }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); }, [isLoggedIn, isCheckoutOpen, ui, cart]);
 
   useEffect(() => {
     if (ui.scannerMode !== null) {
@@ -651,19 +490,17 @@ export default function App() {
   
   const handleLogoutClick = () => { logAudit("ĐĂNG XUẤT", `Thoát ca ${shift}`); ui.setShowHandoverModal?.(true); };
 
-  const confirmHandover = () => { 
-    APP_IS_WIPING = true; 
-    
-    if (navigator.onLine) { supabase.auth.signOut().catch(() => {}); } 
-    
-    try { window.localStorage.clear(); } catch(e) {}
-    try { window.sessionStorage.clear(); } catch(e) {}
-    
-    dbClearAll().catch(() => {});
-    
-    setTimeout(() => {
-      window.location.replace(window.location.origin); 
-    }, 100);
+  const confirmHandover = async () => { 
+    try { 
+      if (navigator.onLine) { await supabase.auth.signOut(); } 
+    } catch (error) {} 
+    finally { 
+      APP_IS_WIPING = true; 
+      await dbClearAll();
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+      window.location.reload(); 
+    } 
   };
 
   const handleEditPhone = async (oldPhone: string) => { executeWithAdminCheck(() => { const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customersData[newPhone]) return toast.error("SĐT đã tồn tại!"); const cData = customersData[oldPhone]; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = { ...cData, phone: newPhone }; delete updated[oldPhone]; return updated }); logAudit("SỬA KHÁCH HÀNG", `Đổi SĐT ${oldPhone} -> ${newPhone}`); toast.success("Cập nhật thành công!"); } }); };
@@ -1281,20 +1118,8 @@ export default function App() {
       
     } catch (e) { toast.error("Lỗi khi xử lý PO!"); } finally { setLoading(false); }
   };
-
-  // ==========================================
-  // VÁ LỖI CHÍ MẠNG 2: NGĂN BYPASS MÀN HÌNH LOADING KHI DB ĐANG TẢI
-  // ==========================================
-  if (isStorageLoading) {
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: ui.darkMode ? "#0f172a" : "#f8fafc" }}>
-        <div style={{ fontSize: "40px", marginBottom: "16px", animation: "spin 1s linear infinite" }}>⏳</div>
-        <h2 style={{ color: ui.darkMode ? "white" : "#1e293b", fontFamily: "sans-serif" }}>Đang tải cấu trúc dữ liệu, vui lòng chờ...</h2>
-      </div>
-    );
-  }
-
-  if (!isLoggedIn || isLocked) {
+  
+  if (!isStorageLoading && (!isLoggedIn || isLocked)) {
     return (
       <div className={`app-container ${ui.darkMode ? "dark-theme" : "light-theme"}`} style={{ minHeight: "100vh", position: "relative" }}>
         <Toaster position="top-right" containerStyle={{ zIndex: 9999999 }} />
