@@ -538,6 +538,67 @@ export default function App() {
   const shareToZalo = (phone: string) => { const cust = customersData[phone]; const code = cust.cardCode || phone; navigator.clipboard.writeText(`Chào ${cust.name},\nMã Thẻ VIP của bạn là: ${code}`).then(() => { toast.success(`Đang mở Zalo...`); logAudit("CHIA SẺ ZALO", phone); window.open(`https://zalo.me/${phone}`, '_blank') }).catch(() => { window.open(`https://zalo.me/${phone}`, '_blank') }) };
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => { const code = e.target.value; setNewCode(code); const p = products.find((x: any) => x.product_code === code); if (p) { setNewName(cleanName(p.name)); setNewCategory(formatCategoryStr(p.category)); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewExpiry(p.expiry_date || ""); const gift = parseGift(p.gift_info); setNewGiftCondition(gift.cond.toString()); setNewGiftInfo(gift.text) } };
 
+  // ============================================================================
+  // TÍNH NĂNG ĐỘC QUYỀN: AI TỰ ĐỘNG PHÂN LOẠI SẢN PHẨM (MAGIC CATEGORIZATION)
+  // ============================================================================
+  const handleMagicAICategorize = async () => {
+    // Kéo khóa từ file .env (Sếp đã setup xong rồi nha!)
+    const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
+
+    if (!GEMINI_API_KEY) return toast.error("Bảo trì: Chưa cấu hình hệ thống AI (Thiếu API Key)!");
+
+    const ownerId = window.localStorage.getItem("mart_owner_id");
+    if (!ownerId) return toast.error("Lỗi phiên làm việc!");
+
+    // Quét 50 món đang hiển thị trên bảng
+    const productsToFix = sortedAndFilteredProducts.slice(0, 50); 
+    if (productsToFix.length === 0) return toast.error("Không có sản phẩm nào để phân loại!");
+
+    const toastId = toast.loading("✨ AI đang suy nghĩ và sắp xếp lại danh mục...");
+
+    try {
+      const promptData = productsToFix.map(p => ({ id: p.id, name: p.name, current_category: p.category }));
+      const prompt = `Bạn là chuyên gia siêu thị. Hãy phân loại lại danh sách hàng hóa sau vào các danh mục ngắn gọn, chuẩn xác nhất (Ví dụ: Thịt, Hải sản, Đồ uống, Hóa phẩm, Gia vị, Trái cây, Rau củ, Đồ ăn vặt, VPP...).
+      TRẢ VỀ DUY NHẤT MỘT MẢNG JSON ĐỊNH DẠNG: [{"id": "id_sản_phẩm", "category": "Tên_Danh_Mục_Mới"}].
+      Tuyệt đối không xuất ra văn bản nào khác ngoài mảng JSON này.
+      Dữ liệu cần phân loại: ${JSON.stringify(promptData)}`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error?.message || "Lỗi gọi API từ Google");
+
+      const aiText = result.candidates[0].content.parts[0].text;
+      
+      // Lọc code rác thừa của AI
+      const jsonString = aiText.replace(/```json/g, "").replace(/```/g, "").trim();
+      const updatedCategories = JSON.parse(jsonString);
+
+      let successCount = 0;
+      for (const item of updatedCategories) {
+        if (item.id && item.category) {
+          // Lưu lên mây
+          if (navigator.onLine) {
+            await supabase.from("products").update({ category: item.category }).eq("id", item.id).eq("owner_id", ownerId);
+          }
+          // Lưu xuống máy (State)
+          setProducts(prev => prev.map(p => p.id === item.id ? { ...p, category: item.category } : p));
+          successCount++;
+        }
+      }
+
+      toast.success(`✨ Phép thuật thành công! AI đã phân loại lại ${successCount} sản phẩm.`, { id: toastId });
+      
+    } catch (error) {
+      console.error(error);
+      toast.error("AI đang bận hoặc phản hồi lỗi, vui lòng thử lại!", { id: toastId });
+    }
+  };
+
   const syncInventory = async () => {
     if (Object.keys(actualStockInput).length === 0) return toast.error("Chưa có dữ liệu cập nhật!");
     if (!window.confirm("Hệ thống sẽ cập nhật số lượng tồn kho theo số liệu thực tế.\nXác nhận đồng bộ?")) return;
@@ -646,9 +707,6 @@ export default function App() {
     } catch (err) { toast.error("Lỗi khi lưu sản phẩm"); } finally { setLoading(false); }
   };
 
-  // ============================================================================
-  // CẬP NHẬT ĐỌC EXCEL "MINH BẠCH", BÁO CÁO RÕ RÀNG TỪNG LỖI VÀ THÀNH CÔNG
-  // ============================================================================
   const handleFileUpload = async (e: any) => {
     const file = e?.target?.files?.[0] || e; 
     if (!file || !file.name) { 
@@ -988,6 +1046,19 @@ export default function App() {
       <div className="pos-main-workspace" style={{ display: "grid", gridTemplateColumns: "70% 30%", gap: "16px" }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <ProductSearchAndActions barcodeInput={barcodeInput} setBarcodeInput={setBarcodeInput} setScannerMode={ui.setScannerMode} showSuggestions={showSuggestions} setShowSuggestions={setShowSuggestions} searchTerm={searchTerm} setSearchTerm={setSearchTerm} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} categories={categories} sortedAndFilteredProducts={sortedAndFilteredProducts} handleSelectSuggest={handleSelectSuggest} setShowInputForm={ui.setShowInputForm} handleFileUpload={handleFileUpload} downloadSampleExcel={downloadSampleExcel} />
+          
+          {/* ================================================================= */}
+          {/* NÚT BẤM MAGIC AI CATEGORIZE */}
+          {/* ================================================================= */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+            <button 
+              onClick={handleMagicAICategorize} 
+              style={{ background: 'linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 6px rgba(168, 85, 247, 0.3)' }}
+            >
+              ✨ AI Tự Động Phân Loại ({sortedAndFilteredProducts.length > 50 ? '50' : sortedAndFilteredProducts.length} SP đang hiển thị)
+            </button>
+          </div>
+
           {ui.showInputForm && <ProductInputForm newCode={newCode} setNewCode={setNewCode} newName={newName} setNewName={setNewName} newCategory={newCategory} setNewCategory={setNewCategory} newImportPrice={newImportPrice} setNewImportPrice={setNewImportPrice} newPrice={newPrice} setNewPrice={setNewPrice} newPromoPrice={newPromoPrice} setNewPromoPrice={setNewPromoPrice} newGiftCondition={newGiftCondition} setNewGiftCondition={setNewGiftCondition} newGiftInfo={newGiftInfo} setNewGiftInfo={setNewGiftInfo} newStock={newStock} setNewStock={setNewStock} newExpiry={newExpiry} setNewExpiry={setNewExpiry} handleAddProduct={handleAddProduct} setShowInputForm={ui.setShowInputForm} handleCodeChange={handleCodeChange} categories={categories} loading={loading} />}
           <ProductTable products={sortedAndFilteredProducts} handleSelectSuggest={handleSelectSuggest} handleEdit={handleEdit} handleDelete={handleDelete} setPrintBarcodeProduct={setPrintBarcodeProduct} />
         </div>
