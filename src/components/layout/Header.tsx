@@ -74,7 +74,7 @@ export const Header = (props: any) => {
           </div>
           <button onClick={() => ui.setDarkMode?.(!ui.darkMode)} style={{ background: ui.darkMode ? 'rgba(255,255,255,0.05)' : '#ffffff', border: `1px solid ${ui.darkMode ? 'rgba(255,255,255,0.1)' : '#e2e8f0'}`, cursor: 'pointer', width: '44px', height: '44px', borderRadius: '12px', fontSize: '18px' }}>{ui.darkMode ? "☀️" : "🌙"}</button>
           
-          {/* NÚT KHÓA MÀN HÌNH TÍCH HỢP MỚI */}
+          {/* NÚT KHÓA MÀN HÌNH */}
           <button onClick={props.handleLockScreen} style={{ background: ui.darkMode ? 'rgba(245,158,11,0.1)' : '#fffbeb', color: '#d97706', border: `1px solid ${ui.darkMode ? 'rgba(245,158,11,0.2)' : '#fcd34d'}`, cursor: 'pointer', width: '44px', height: '44px', borderRadius: '12px', fontSize: '18px' }} title="Khóa màn hình">🔒</button>
 
           <button onClick={props.handleLogoutClick} style={{ background: ui.darkMode ? 'rgba(239,68,68,0.1)' : '#fef2f2', color: '#dc2626', border: `1px solid ${ui.darkMode ? 'rgba(239,68,68,0.2)' : '#fecaca'}`, width: '44px', height: '44px', borderRadius: '12px', cursor: 'pointer', fontSize: '18px' }} title="Đăng xuất">⏻</button>
@@ -97,8 +97,8 @@ export const Header = (props: any) => {
             <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
               <div style={{ padding: "4px 12px", fontSize: "11px", fontWeight: "800", color: "#94a3b8", textTransform: "uppercase" }}>ĐỐI TÁC & HỆ THỐNG</div>
               
-              {/* MENU KẾT NỐI ĐIỆN THOẠI CHUẨN XỊN */}
-              <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowScannerLinkModal?.(true); }}>📲 Kết nối Điện Thoại Quét (QR)</button>
+              {/* MENU KẾT NỐI ĐIỆN THOẠI CHUẨN XỊN ĐÃ VÀO ĐÚNG VỊ TRÍ */}
+              <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowScannerLinkModal?.(true); }}>📲 Kết nối Điện Thoại (QR)</button>
               
               <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowCustomerModal?.(true); }}>💳 Danh sách VIP</button>
               <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowSupplierModal?.(true); }}>🏭 Nhà Cung Cấp</button>
