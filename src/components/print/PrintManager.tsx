@@ -282,6 +282,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
             <thead>
               <tr style={{ backgroundColor: '#f1f5f9' }}>
                 <th style={{ border: '1px solid #000', padding: '10px', textAlign: 'center' }}>STT</th>
+                <th style={{ border: '1px solid #000', padding: '10px', textAlign: 'center' }}>Mã SP</th>
                 <th style={{ border: '1px solid #000', padding: '10px', textAlign: 'left' }}>Tên Sản Phẩm</th>
                 <th style={{ border: '1px solid #000', padding: '10px', textAlign: 'center' }}>Thực Nhận</th>
                 <th style={{ border: '1px solid #000', padding: '10px', textAlign: 'right' }}>Đơn Giá</th>
@@ -293,10 +294,12 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
                 const actualQty = getActualPOQty(item);
                 const price = Number(item.importPrice) || 0;
                 const lineTotal = actualQty * price;
+                const pCode = item.product_code || item.product?.product_code || "N/A";
 
                 return (
                   <tr key={idx}>
                     <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center' }}>{idx + 1}</td>
+                    <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center', fontWeight: 'bold' }}>{pCode}</td>
                     <td style={{ border: '1px solid #000', padding: '8px' }}>{item.product?.name || item.name}</td>
                     <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center', fontWeight: 'bold' }}>{actualQty}</td>
                     <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'right' }}>{price.toLocaleString()}đ</td>
@@ -368,6 +371,7 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
               <thead>
                 <tr style={{ backgroundColor: '#fef2f2' }}>
                   <th style={{ border: '1px solid #000', padding: '10px', textAlign: 'center' }}>STT</th>
+                  <th style={{ border: '1px solid #000', padding: '10px', textAlign: 'center' }}>Mã SP</th>
                   <th style={{ border: '1px solid #000', padding: '10px', textAlign: 'left' }}>Tên Sản Phẩm Lỗi/Hỏng</th>
                   <th style={{ border: '1px solid #000', padding: '10px', textAlign: 'center' }}>SL Trả Lại</th>
                   <th style={{ border: '1px solid #000', padding: '10px', textAlign: 'right' }}>Đơn Giá (Nhập)</th>
@@ -379,10 +383,12 @@ export const PrintManager: React.FC<PrintManagerProps> = ({
                   const faultQ = Number(item.faultyQty || item.errorQty || item.returnQty) || 0;
                   const price = Number(item.importPrice) || 0;
                   const lineTotal = faultQ * price;
+                  const pCode = item.product_code || item.product?.product_code || "N/A";
 
                   return (
                     <tr key={idx}>
                       <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center' }}>{idx + 1}</td>
+                      <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center', fontWeight: 'bold' }}>{pCode}</td>
                       <td style={{ border: '1px solid #000', padding: '8px' }}>{item.product?.name || item.name}</td>
                       <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center', fontWeight: 'bold', color: '#ef4444' }}>{faultQ}</td>
                       <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'right' }}>{price.toLocaleString()}đ</td>
