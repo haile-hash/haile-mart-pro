@@ -162,20 +162,36 @@ export default function App() {
   const totalValue = useMemo(() => products.reduce((sum, p) => sum + ((p.stock || 0) * (p.import_price || 0)), 0), [products]);
   const lowStockCount = useMemo(() => products.filter(p => p.stock > 0 && p.stock < 10).length, [products]);
 
+  // --- KIỂM TRA PHIÊN ĐĂNG NHẬP & XỬ LÝ KHI BỊ XÓA TÀI KHOẢN ---
   useEffect(() => {
     if (!isLoggedIn) return;
+
+    // Hàm đá văng và xóa sạch dữ liệu thiết bị nếu bị thu hồi quyền
+    const forceLogout = async () => {
+      APP_IS_WIPING = true; 
+      await dbClearAll();
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+      window.location.reload(); 
+    };
+
     const initDataAndCheckLeak = async () => {
-      if (!navigator.onLine) return;
+      if (!navigator.onLine) return; // Nếu mất mạng tạm thời thì cho phép chạy Offline
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        // Lấy thông tin phiên làm việc mới nhất từ máy chủ Supabase
+        const { data: { user }, error } = await supabase.auth.getUser();
+        
+        // QUAN TRỌNG: Nếu lỗi token hoặc tài khoản đã bị xóa/khóa -> ĐÁ VĂNG NGAY!
+        if (error || !user) {
+          forceLogout();
+          return;
+        }
+
         if (user) {
           const lastOwner = await dbGet("mart_owner_id");
           if (lastOwner && lastOwner !== user.id) {
-             APP_IS_WIPING = true; 
-             await dbClearAll();
-             window.localStorage.clear();
-             window.sessionStorage.clear();
-             APP_IS_WIPING = false; 
+             forceLogout();
+             return;
           }
           await dbSet("mart_owner_id", user.id);
           window.localStorage.setItem("mart_owner_id", user.id);
@@ -187,10 +203,20 @@ export default function App() {
           }
           fetchProducts(); loadCloudData(); fetchSettingsFromCloud();
         }
-      } catch(e) {}
+      } catch(e) {
+         // Lỗi vặt do đường truyền thì bỏ qua để tránh văng app oan uổng
+      }
     };
 
     initDataAndCheckLeak();
+
+    // Bắt sự kiện Lắng nghe Realtime: Thu hồi quyền là tự động đăng xuất máy trạm lập tức
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || event === 'USER_DELETED' || !session) {
+         forceLogout();
+      }
+    });
+
     const channel = supabase.channel("db_changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts())
       .on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData())
@@ -201,7 +227,11 @@ export default function App() {
           setScanQueue(prev => [...prev, payload.new.code]); 
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel) };
+
+    return () => { 
+      supabase.removeChannel(channel); 
+      authListener.subscription.unsubscribe();
+    };
   }, [isLoggedIn]);
 
   useEffect(() => { const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e); }; window.addEventListener('beforeinstallprompt', handler); return () => window.removeEventListener('beforeinstallprompt', handler); }, []);
