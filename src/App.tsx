@@ -262,7 +262,6 @@ export default function App() {
       };
 
       initDataAndCheckLeak();
-      // Kênh đồng bộ tối cao lắng nghe cả hàng hóa lẫn tín hiệu quét từ máy Mobile Scanner xa
       const channel = supabase.channel("db_changes")
         .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts())
         .on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData())
@@ -270,7 +269,6 @@ export default function App() {
         .on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData())
         .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData())
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload: any) => { 
-           // Đẩy mã vừa quét từ xa vào hàng đợi xử lý tự động
            setScanQueue(prev => [...prev, payload.new.code]); 
         })
         .subscribe();
@@ -278,7 +276,7 @@ export default function App() {
     }
   }, [isLoggedIn]);
 
-  // HỒI SINH MÁY QUÉT WEBCAM TẠI CHỖ KHI NHẤP NÚT ĐỎ CAMERA
+  // BỘ PHẬN XỬ LÝ CAMERA QUÉT MÃ (KHÔI PHỤC HOÀN TOÀN)
   useEffect(() => {
     if (ui.scannerMode !== null) {
       let scanner: any;
@@ -488,7 +486,6 @@ export default function App() {
   const handleCustomerInputChange = (e: React.ChangeEvent<HTMLInputElement>) => { const val = e.target.value; setCustomerInput(val); const matchedPhone = Object.keys(customersData || {}).find(phone => phone === val.trim() || customersData[phone]?.cardCode === val.trim()); if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customersData[matchedPhone].name); setCustAddress(customersData[matchedPhone].address || ""); setUseWallet(false); } else { setCustPhone(val); setCustName(""); setCustAddress(""); setUseWallet(false); } };
   const handleNextToQR = () => { if (cart.length === 0) return toast.error("Giỏ hàng trống!"); if (custPhone && !customersData[custPhone] && !custName) return toast.error("Vui lòng nhập Tên khách mới!"); setCheckoutStep(2); };
 
-  // NÂNG CẤP THANH TOÁN TỐI ƯU ERP (ĐỒNG BỘ ĐẦY ĐỦ GIÁ VỐN GIÁ BÁN TỪ SỔ SUPABASE)
   const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 'GHI NỢ' | 'KẾT HỢP' | 'QUẸT THẺ' | 'ZALO PAY') => {
     if (cart.some(i => !i.qty || i.qty <= 0)) { playSound('error'); return toast.error("Lỗi số lượng sản phẩm!") }
     if (payMethod === 'GHI NỢ' && !custPhone) return toast.error("Thanh toán Ghi nợ cần SĐT Khách hàng!");
@@ -596,9 +593,6 @@ export default function App() {
   const shareToZalo = (phone: string) => { const cust = customersData[phone]; const code = cust.cardCode || phone; navigator.clipboard.writeText(`Chào ${cust.name},\nMã Thẻ VIP của bạn là: ${code}`).then(() => { toast.success(`Đang mở Zalo...`); logAudit("CHIA SẺ ZALO", phone); window.open(`https://zalo.me/${phone}`, '_blank') }).catch(() => { window.open(`https://zalo.me/${phone}`, '_blank') }) };
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => { const code = e.target.value; setNewCode(code); const p = products.find((x: any) => x.product_code === code); if (p) { setNewName(cleanName(p.name)); setNewCategory(formatCategoryStr(p.category)); setNewImportPrice(p.import_price?.toString() || ""); setNewPrice(p.sale_price.toString()); setNewPromoPrice(p.promo_price?.toString() || ""); setNewExpiry(p.expiry_date || ""); const gift = parseGift(p.gift_info); setNewGiftCondition(gift.cond.toString()); setNewGiftInfo(gift.text) } };
 
-  // ============================================================================
-  // CẢI TIẾN THÀNH CÔNG: SỬA HÀM GỌI AI HOẠT ĐỘNG KHÔNG CẦN THƯ VIỆN NGOÀI
-  // ============================================================================
   const handleMagicAICategorize = async () => {
     const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
 
@@ -1009,7 +1003,11 @@ export default function App() {
       const wb = (window as any).XLSX.utils.book_new(); const wsData = [ ["MÃ ĐẶT HÀNG:", po.po_code, "NGÀY ĐẶT:", new Date(po.created_at).toLocaleDateString('vi-VN')], ["NHÀ CUNG CẤP:", suppliers.find(s => s.id == po.supplier_id)?.name || "", "SĐT:", suppliers.find(s => s.id == po.supplier_id)?.phone || ""], ["GHI CHÚ:", po.note || ""], [], ["STT", "TÊN SẢN PHẨM", "SỐ LƯỢNG", "GIÁ NHẬP DỰ KIẾN", "THÀNH TIỀN"] ];
       (po.items || []).forEach((item: any, index: number) => { wsData.push([ index + 1, cleanName(item.name), item.qty, item.importPrice, item.qty * item.importPrice ]); });
       wsData.push([]); wsData.push(["", "", "", "TỔNG CỘNG:", (po.items || []).reduce((sum: number, i: any) => sum + (i.qty * i.importPrice), 0)]);
-      const ws = (window as any).XLSX.utils.aoa_to_sheet(wsData); (window as any).XLSX.utils.book_append_sheet(wb, ws, "Phieu_Dat_Hang"); (window as any).XLSX.writeFile(wb, `DatHang_${po.po_code}.xlsx`); toast.success("Xuất file Đặt hàng thành công!");
+      const ws = (window as any).XLSX.utils.aoa_to_sheet(wsData); 
+      const wb = (window as any).XLSX.utils.book_new(); 
+      (window as any).XLSX.utils.book_append_sheet(wb, ws, "Phieu_Dat_Hang"); 
+      (window as any).XLSX.writeFile(wb, `DatHang_${po.po_code}.xlsx`); 
+      toast.success("Xuất file Đặt hàng thành công!");
     } catch(e) { toast.error("Lỗi xuất file"); }
   };
 
@@ -1081,14 +1079,31 @@ export default function App() {
         lowStockCount={lowStockCount} isOnline={isOnline} syncStatus={syncStatus} syncAllOfflineData={syncPendingImports} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr}
       />
 
-      {/* POPUP CAMERA SCANNERR HIỂN THỊ KHI NHẤP VÀO NÚT MÀU ĐỎ */}
-      {ui.scannerMode !== null && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', zIndex: 999999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-          <h2 style={{ color: 'white', marginBottom: '20px', fontSize: '24px' }}>📷 Đưa mã vạch vào khung hình</h2>
-          <div id="qr-reader" style={{ width: '350px', background: 'white', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}></div>
-          <button onClick={() => ui.setScannerMode(null)} style={{ marginTop: '24px', padding: '12px 30px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}>Đóng Máy Ảnh (Hủy)</button>
+      {/* TẠO THANH LỆNH NHANH CHO HỆ THỐNG TRONG KHI HEADER KHÔNG GỌI ĐƯỢC */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '10px 16px', borderRadius: '12px', marginBottom: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' }}>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button 
+            onClick={() => ui.setShowScannerLinkModal?.(true)} 
+            style={{ padding: '8px 16px', background: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}
+          >
+            📲 KẾT NỐI ĐIỆN THOẠI QUÉT DI ĐỘNG (QR)
+          </button>
         </div>
-      )}
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button 
+            onClick={() => setIsLocked(true)} 
+            style={{ padding: '8px 16px', background: '#f59e0b', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}
+          >
+            🔒 KHÓA MÀN HÌNH
+          </button>
+          <button 
+            onClick={handleLogoutClick} 
+            style={{ padding: '8px 16px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}
+          >
+            🚪 ĐĂNG XUẤT & CHỐT CA
+          </button>
+        </div>
+      </div>
 
       <div className="pos-main-workspace" style={{ display: "grid", gridTemplateColumns: "70% 30%", gap: "16px" }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
