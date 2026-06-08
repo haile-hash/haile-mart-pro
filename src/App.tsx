@@ -52,7 +52,7 @@ const dbName = "HaileMartIndexedDB";
 const storeName = "kv_store";
 const initDB = (): Promise<IDBDatabase> => { return new Promise((resolve, reject) => { const request = indexedDB.open(dbName, 1); request.onupgradeneeded = () => { request.result.createObjectStore(storeName); }; request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); }); };
 
-// ĐÃ SỬA LỖI TRUYẾN BIẾN req.error ĐỂ HỆ THỐNG ĐĂNG XUẤT HOẠT ĐỘNG
+// HÀM ĐÃ SỬA LỖI ĐỂ ĐĂNG XUẤT ĐƯỢC
 const dbGet = async (key: string): Promise<any> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readonly"); const store = tx.objectStore(storeName); const req = store.get(key); req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); }); };
 const dbSet = async (key: string, value: any): Promise<void> => { if (APP_IS_WIPING) return; const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.put(value, key); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
 const dbRemove = async (key: string): Promise<void> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.delete(key); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
@@ -68,6 +68,7 @@ export default function App() {
   const [isStorageLoading, setIsStorageLoading] = useState(true); 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
+  // F5 CHUẨN: KHÓA MÀN HÌNH NGAY LẬP TỨC NẾU ĐANG CÓ PHIÊN ĐĂNG NHẬP
   const [isLocked, setIsLocked] = useState(() => {
     if (typeof window !== 'undefined') {
       const isLoggedLocal = window.localStorage.getItem('mart_logged_in') === 'true';
@@ -297,15 +298,15 @@ export default function App() {
     }
   }, [isLoggedIn]);
 
-  // ĐÃ SỬA LỖI LIỆT NÚT CAMERA: THÊM setTimeOut ĐỂ ĐỢI DOM RENDER KỊP
+  // CẤP "CĂN CƯỚC" GLOBAL-CAMERA-SCANNER CHO MÁY ẢNH VÀ CHỐNG KẸT DOM
   useEffect(() => {
     if (ui.scannerMode !== null) {
       let scanner: any;
       let lastScanTime = 0;
       const loadScanner = () => {
         setTimeout(() => {
-          if ((window as any).Html5QrcodeScanner && document.getElementById("qr-reader")) {
-            scanner = new (window as any).Html5QrcodeScanner("qr-reader", { fps: 15, qrbox: { width: 250, height: 120 }, rememberLastUsedCamera: true }, false);
+          if ((window as any).Html5QrcodeScanner && document.getElementById("global-camera-scanner")) {
+            scanner = new (window as any).Html5QrcodeScanner("global-camera-scanner", { fps: 15, qrbox: { width: 250, height: 120 }, rememberLastUsedCamera: true }, false);
             scanner.render((text: string) => {
               const now = Date.now();
               if (now - lastScanTime < 1500) return;
@@ -521,7 +522,6 @@ export default function App() {
         if (navigator.onLine) await supabase.from("products").update({ stock: Math.max(0, item.product.stock - item.qty) }).eq("id", item.product.id);
         let itemSplitCash = 0; if(payMethod === 'KẾT HỢP') { const safeRatio = finalToPay > 0 ? (splitCashAmt / finalToPay) : 0; itemSplitCash = Math.round(safeRatio * Math.round(item.qty * getActualPrice(item.product) * (1 + VAT_RATE))); }
         
-        // Công thức tính toán biên lợi nhuận chuẩn ERP dựa theo giá vốn sếp đã thiết lập
         const calculatedItemProfit = Math.round(item.qty * (getActualPrice(item.product) - (item.product.import_price || 0)));
         
         newLogs.push({ id: Date.now() + Math.random(), shift, type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", name: cleanName(item.product.name), qty: item.qty, total: item.total, profit: calculatedItemProfit, customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id, paymentMethod: payMethod, split_cash: itemSplitCash, time: new Date().toLocaleString('vi-VN'), order_id: orderIdStr });
@@ -1114,6 +1114,15 @@ export default function App() {
         bankAcc={bankAcc} 
         bankNameStr={bankNameStr}
       />
+
+      {/* POPUP CAMERA SCANNERR HIỂN THỊ KHI NHẤP VÀO NÚT MÀU ĐỎ (ĐÃ ĐỔI ID ĐỘC QUYỀN) */}
+      {ui.scannerMode !== null && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', zIndex: 999999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+          <h2 style={{ color: 'white', marginBottom: '20px', fontSize: '24px' }}>📷 Đưa mã vạch vào khung hình</h2>
+          <div id="global-camera-scanner" style={{ width: '350px', background: 'white', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}></div>
+          <button onClick={() => ui.setScannerMode(null)} style={{ marginTop: '24px', padding: '12px 30px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}>Đóng Máy Ảnh (Hủy)</button>
+        </div>
+      )}
 
       <div className="pos-main-workspace" style={{ display: "grid", gridTemplateColumns: "70% 30%", gap: "16px" }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
