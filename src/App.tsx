@@ -162,58 +162,78 @@ export default function App() {
   const totalValue = useMemo(() => products.reduce((sum, p) => sum + ((p.stock || 0) * (p.import_price || 0)), 0), [products]);
   const lowStockCount = useMemo(() => products.filter(p => p.stock > 0 && p.stock < 10).length, [products]);
 
+  // --- TỰ ĐỘNG DỌN DẸP PO QUÁ HẠN 30 NGÀY (BOT CHẠY NGẦM LIÊN TỤC) ---
+  useEffect(() => {
+    if (isStorageLoading) return;
+
+    const checkAndCancelPOs = async () => {
+      const currentPOs = await dbGet("mart_pos") || [];
+      if (currentPOs.length === 0) return;
+
+      const EXPIRATION_TIME_MS = 30 * 24 * 60 * 60 * 1000; // Đã chốt lại 30 ngày cho sếp
+      const now = Date.now();
+      let changedCount = 0;
+
+      const updatedPOs = currentPOs.map((po: any) => {
+        if (po.status === 'PENDING') {
+          const createdAt = new Date(po.created_at || po.id).getTime();
+          if (now - createdAt >= EXPIRATION_TIME_MS) {
+            changedCount++;
+            return { ...po, status: 'CANCELLED' };
+          }
+        }
+        return po;
+      });
+
+      if (changedCount > 0) {
+        setAllPOs(updatedPOs); 
+        await dbSet("mart_pos", updatedPOs); 
+        toast.error(`Hệ thống bot đã tự động chuyển ${changedCount} Phiếu PO sang ĐÃ HỦY do quá hạn 30 ngày!`);
+      }
+    };
+
+    checkAndCancelPOs();
+    const intervalId = setInterval(checkAndCancelPOs, 60000); // Quét mỗi 60 giây để nhẹ hệ thống
+
+    return () => clearInterval(intervalId);
+  }, [isStorageLoading]);
+
   // --- KIỂM TRA PHIÊN ĐĂNG NHẬP & NHẬN CHỈ THỊ TỪ QUẢN LÝ ---
   useEffect(() => {
     if (!isLoggedIn) return;
 
-    // HÀM ĐÁ VĂNG BỌC THÉP: Quyết tâm xóa sạch thẻ bài bất chấp lỗi trình duyệt!
+    // Hàm đá văng bọc thép xóa sạch dữ liệu
     const forceLogout = () => {
       APP_IS_WIPING = true; 
-      
-      // Xóa Session trên Supabase (chạy ngầm không đợi)
       supabase.auth.signOut().catch(() => {});
-      
-      // Xóa bộ nhớ IndexedDB (Bọc try-catch, lỗi thì bỏ qua chạy tiếp)
       dbClearAll().catch(() => {});
-      
-      // Dùng try-catch dọn dẹp bộ nhớ cục bộ, không để sót rác
       try { window.localStorage.clear(); } catch(e) {}
       try { window.sessionStorage.clear(); } catch(e) {}
-      
-      // Ép tải lại trang kịch khung để reset toàn bộ màn hình
       setTimeout(() => {
         window.location.replace(window.location.origin); 
       }, 500);
     };
 
-    // Hàm kiểm tra an ninh độc lập
     const checkAuthStatus = async () => {
       if (!navigator.onLine) return; 
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
-        
-        // CHỐT CHẶN 1: Bị Supabase báo lỗi xác thực -> ĐÁ VĂNG!
         if (error) {
           if (error.message?.includes('Fetch') || error.message?.includes('fetch') || error.status >= 500) return;
           forceLogout();
           return;
         } 
-        
-        // CHỐT CHẶN 2: Không tìm thấy User -> ĐÁ VĂNG!
         if (!user) {
           forceLogout();
           return;
         }
-
-        // CHỐT CHẶN 3: Bị thay đổi ID chủ cửa hàng ngầm -> ĐÁ VĂNG!
         const lastOwner = window.localStorage.getItem("mart_owner_id");
         if (lastOwner && lastOwner !== user.id) {
            forceLogout();
            return;
         }
-        
       } catch(e) {
-        forceLogout(); // Gặp lỗi không mong muốn -> Thà giết lầm hơn bỏ sót
+        forceLogout(); 
       }
     };
 
@@ -232,8 +252,8 @@ export default function App() {
 
     initData();
 
-    // Con bot cẩu thả lúc nãy giờ vẫn chạy tuần tra mỗi 10 giây
-    const securityPing = setInterval(() => { checkAuthStatus(); }, 10000); 
+    // Bảo vệ ngầm mỗi 15s để bắt tín hiệu sếp xóa tài khoản
+    const securityPing = setInterval(() => { checkAuthStatus(); }, 15000); 
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT' || event === 'USER_DELETED' || !session) {
@@ -242,7 +262,6 @@ export default function App() {
     });
 
     const channel = supabase.channel("db_changes")
-      // Lắng nghe data cập nhật
       .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts())
       .on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData())
       .on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData())
@@ -251,19 +270,13 @@ export default function App() {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload: any) => { 
           setScanQueue(prev => [...prev, payload.new.code]); 
       })
-      // NHẬN CHỈ THỊ 1: Nếu quản lý xóa dòng dữ liệu "Cửa hàng" trong database
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "stores" }, (payload) => {
           const currentOwner = window.localStorage.getItem("mart_owner_id");
-          if (payload.old && payload.old.owner_id === currentOwner) {
-              forceLogout(); // Tử hình ngay không nói nhiều
-          }
+          if (payload.old && payload.old.owner_id === currentOwner) forceLogout(); 
       })
-      // NHẬN CHỈ THỊ 2: Lệnh Broadcast chủ động từ sếp (Gửi lệnh FORCE_LOGOUT)
       .on("broadcast", { event: "FORCE_LOGOUT" }, (payload) => {
          const currentOwner = window.localStorage.getItem("mart_owner_id");
-         if (payload.payload?.owner_id === currentOwner || payload.payload?.target === 'ALL') {
-             forceLogout();
-         }
+         if (payload.payload?.owner_id === currentOwner || payload.payload?.target === 'ALL') forceLogout();
       })
       .subscribe();
 
@@ -273,6 +286,7 @@ export default function App() {
       authListener.subscription.unsubscribe();
     };
   }, [isLoggedIn]);
+
   useEffect(() => { const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e); }; window.addEventListener('beforeinstallprompt', handler); return () => window.removeEventListener('beforeinstallprompt', handler); }, []);
   const handleInstallApp = async () => { if (!installPrompt) return; installPrompt.prompt(); const { outcome } = await installPrompt.userChoice; if (outcome === 'accepted') { setInstallPrompt(null); toast.success("Cài đặt App thành công!"); logAudit("HỆ THỐNG", "Cài đặt ứng dụng PWA"); } };
 
@@ -327,49 +341,6 @@ export default function App() {
     };
     initializeEnterpriseStorage();
   }, []);
-
-  // --- TỰ ĐỘNG DỌN DẸP PO QUÁ HẠN (BOT CHẠY NGẦM LIÊN TỤC) ---
-  useEffect(() => {
-    if (isStorageLoading) return;
-
-    const checkAndCancelPOs = async () => {
-      // Lấy danh sách PO mới nhất ngầm dưới DB để quét, tránh bị sai lệch
-      const currentPOs = await dbGet("mart_pos") || [];
-      if (currentPOs.length === 0) return;
-
-      // Sếp để 1 * 60 * 1000 để test 1 phút, test xong nhớ sửa lại 30 * 24 * 60 * 60 * 1000 nhé
-      const EXPIRATION_TIME_MS = 30 * 24 * 60 * 60 * 1000; 
-      const now = Date.now();
-      let changedCount = 0;
-
-      const updatedPOs = currentPOs.map((po: any) => {
-        if (po.status === 'PENDING') {
-          const createdAt = new Date(po.created_at || po.id).getTime();
-          if (now - createdAt >= EXPIRATION_TIME_MS) {
-            changedCount++;
-            return { ...po, status: 'CANCELLED' };
-          }
-        }
-        return po;
-      });
-
-      if (changedCount > 0) {
-        setAllPOs(updatedPOs); // Cập nhật ra ngoài màn hình
-        await dbSet("mart_pos", updatedPOs); // Lưu chốt vào DB
-        toast.error(`Hệ thống bot đã tự động chuyển ${changedCount} Phiếu PO sang ĐÃ HỦY do quá hạn!`);
-      }
-    };
-
-    // 1. Chạy ngay lập tức 1 lần khi sếp vừa mở web
-    checkAndCancelPOs();
-
-    // 2. Gắn Bot chạy ngầm: Cứ 10 giây quét DB 1 lần
-    const intervalId = setInterval(() => {
-      checkAndCancelPOs();
-    }, 10000); 
-
-    return () => clearInterval(intervalId); // Tự dọn dẹp bộ nhớ khi tắt web
-  }, [isStorageLoading]);
 
   useEffect(() => { 
     if (!isStorageLoading && !APP_IS_WIPING) {
