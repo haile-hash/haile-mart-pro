@@ -114,10 +114,6 @@ export default function App() {
   const [scanQueue, setScanQueue] = useState<string[]>([]); const [printBarcodeProduct, setPrintBarcodeProduct] = useState<Product | null>(null); const [printCustomer, setPrintCustomer] = useState<Customer | null>(null); const [barcodeCount, setBarcodeCount] = useState<number>(30); const [selectedAuditLog, setSelectedAuditLog] = useState<AuditLog | null>(null);
   const [localPOs, setLocalPOs] = useState<any[]>([]); const [poTab, setPoTab] = useState<'NEW' | 'RECEIVE'>('NEW'); const [selectedSupplierId, setSelectedSupplierId] = useState(""); const [poItems, setPoItems] = useState<any[]>([]); const [poSearch, setPoSearch] = useState(""); const [poNote, setPoNote] = useState(""); const [paidAmount, setPaidAmount] = useState<number>(0); const [searchPoCode, setSearchPoCode] = useState(""); const [foundPO, setFoundPO] = useState<any>(null); const [receiveItems, setReceiveItems] = useState<any[]>([]); const [allPOs, setAllPOs] = useState<any[]>([]); const [printPOData, setPrintPOData] = useState<any>(null);
 
-  // Mở rộng giao diện điều khiển Máy Quét Cục Bộ/Từ xa mới bổ sung
-  const [showWebcamScanner, setShowWebcamScanner] = useState(false);
-  const currentAppUrl = typeof window !== "undefined" ? window.location.href : "";
-
   const { newCode, setNewCode, newName, setNewName, newImportPrice, setNewImportPrice, newPrice, setNewPrice, newPromoPrice, setNewPromoPrice, newGiftCondition, setNewGiftCondition, newGiftInfo, setNewGiftInfo, newStock, setNewStock, newExpiry, setNewExpiry, newCategory, setNewCategory, resetProductForm } = useProductInput();
   const { cart, setCart, barcodeInput, setBarcodeInput, isCheckoutOpen, setIsCheckoutOpen, checkoutStep, setCheckoutStep, customerInput, setCustomerInput, custPhone, setCustPhone, custName, setCustName, useWallet, setUseWallet, voucherInput, setVoucherInput, appliedVoucherAmount, setAppliedVoucherAmount, customerGiven, setCustomerGiven, lastOrder, setLastOrder, resetCheckout, custAddress, setCustAddress } = useCheckoutState();
 
@@ -174,7 +170,7 @@ export default function App() {
   useEffect(() => {
     if (!isLoggedIn) return;
     const checkAccountStatus = async () => {
-      const { data: { user }, error } = await supabase.auth.getUser();
+      const { data: { user }, error = null } = await supabase.auth.getUser();
       if (error || !user) {
         alert("Phiên đăng nhập không còn hợp lệ do Tài khoản của bạn đã bị vô hiệu hóa hoặc xóa khỏi hệ thống bởi Quản trị viên!");
         
@@ -239,7 +235,7 @@ export default function App() {
 
   useEffect(() => { const handleKeyDown = (e: KeyboardEvent) => { if (!isLoggedIn || isCheckoutOpen || ui.showPinModal || ui.showAuditModal || ui.showCustomerModal || ui.showSettings || ui.showStoreSettings || ui.showInputForm || ui.showInventoryModal || ui.cashFlowModalInfo || ui.showPOModal) return; if (e.key === 'F1') { e.preventDefault(); document.getElementById('search-barcode')?.focus(); } if (e.key === 'F2') { e.preventDefault(); if (cart.length > 0) confirmCheckout('TIỀN MẶT'); } if (e.key === 'F3') { e.preventDefault(); if (cart.length > 0) confirmCheckout('CHUYỂN KHOẢN'); } if (e.key === 'F4') { e.preventDefault(); handleHoldOrder(); } }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); }, [isLoggedIn, isCheckoutOpen, ui, cart]);
 
-  // CƠ CHẾ ĐỒNG BỘ REALTIME TOÀN DIỆN KÈM MÁY QUÉT ĐIỆN THOẠI DI ĐỘNG XA
+  // CƠ CHẾ CHỐNG LỘ DỮ LIỆU CHÉO SAU KHI ĐĂNG NHẬP
   useEffect(() => {
     if (isLoggedIn) {
       const initDataAndCheckLeak = async () => {
@@ -268,58 +264,17 @@ export default function App() {
       };
 
       initDataAndCheckLeak();
-      // Kênh đồng bộ tối cao lắng nghe cả hàng hóa lẫn tín hiệu quét từ máy Mobile Scanner xa
-      const channel = supabase.channel("db_changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts())
-        .on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData())
-        .on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData())
-        .on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData())
-        .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData())
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload: any) => { 
-           // Đẩy mã vừa quét từ xa vào hàng đợi xử lý tự động
-           setScanQueue(prev => [...prev, payload.new.code]); 
-        })
-        .subscribe();
+      const channel = supabase.channel("db_changes").on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts()).on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData()).on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload: any) => { setScanQueue(prev => [...prev, payload.new.code]); }).subscribe();
       return () => { supabase.removeChannel(channel) };
     }
   }, [isLoggedIn]);
-
-  // NHÚNG BỘ QUÉT CAMERA WEBCAM TẠI CHỖ KHI SẾP BẤM KÍCH HOẠT
-  useEffect(() => {
-    if (showWebcamScanner) {
-      let scanner: any;
-      let lastScanTime = 0;
-      const loadScanner = () => {
-        if ((window as any).Html5QrcodeScanner) {
-          scanner = new (window as any).Html5QrcodeScanner("qr-reader-local", { fps: 15, qrbox: { width: 260, height: 140 }, rememberLastUsedCamera: true }, false);
-          scanner.render((text: string) => {
-            const now = Date.now();
-            if (now - lastScanTime < 1500) return;
-            lastScanTime = now;
-            setScanQueue(prev => [...prev, text]);
-            // Tự động đóng cam sau khi quét trúng một mã
-            setShowWebcamScanner(false);
-          }, undefined);
-        }
-      };
-      if (!(window as any).Html5QrcodeScanner) {
-        const script = document.createElement("script");
-        script.src = "https://unpkg.com/html5-qrcode";
-        script.onload = loadScanner;
-        document.head.appendChild(script);
-      } else {
-        loadScanner();
-      }
-      return () => { if (scanner) scanner.clear().catch(() => {}); };
-    }
-  }, [showWebcamScanner]);
 
   useEffect(() => { if (ui.scannerMode !== null && ui.scannerMode !== 'barcode' && ui.scannerMode !== 'voucher' && ui.scannerMode !== 'customer') { let scanner: any; let lastScanTime = 0; const loadScanner = () => { if ((window as any).Html5QrcodeScanner) { scanner = new (window as any).Html5QrcodeScanner("qr-reader", { fps: 15, qrbox: { width: 250, height: 120 }, rememberLastUsedCamera: true }, false); scanner.render((text: string) => { const now = Date.now(); if (now - lastScanTime < 1500) return; lastScanTime = now; setScanQueue(prev => [...prev, text]); }, undefined) } }; if (!(window as any).Html5QrcodeScanner) { const script = document.createElement("script"); script.src = "https://unpkg.com/html5-qrcode"; script.onload = loadScanner; document.head.appendChild(script) } else { loadScanner(); } return () => { if (scanner) scanner.clear().catch(() => { }) } } }, [ui.scannerMode]);
 
   useEffect(() => {
     if (scanQueue.length > 0) {
       const currentCode = scanQueue[0];
-      if (ui.scannerMode === 'product' || ui.scannerMode === null) { const p = findProductByCode(currentCode); if (p) { handleSelectSuggest(p); playSound('success'); } else { const matchedPhone = Object.keys(customersData || {}).find(phone => phone === currentCode.trim() || customersData[phone]?.cardCode === currentCode.trim()); if (matchedPhone) { playSound('success'); setCustomerInput(customersData[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customersData[matchedPhone].name); } else { playSound('error'); toast.error(`Mã vạch lạ [${currentCode}], đã điền tự động vào ô nhập hàng nhanh!`); setNewCode(currentCode.trim()); } } }
+      if (ui.scannerMode === 'product' || ui.scannerMode === null) { const p = findProductByCode(currentCode); if (p) { handleSelectSuggest(p); playSound('success'); } else { const matchedPhone = Object.keys(customersData || {}).find(phone => phone === currentCode.trim() || customersData[phone]?.cardCode === currentCode.trim()); if (matchedPhone) { playSound('success'); setCustomerInput(customersData[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customersData[matchedPhone].name); } else { playSound('error'); } } }
       else if (ui.scannerMode === 'voucher') { const code = currentCode.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); setVoucherInput(code); playSound('success'); } else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); setVoucherInput(code); playSound('success'); } else { playSound('error'); toast.error("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0) } }
       else if (ui.scannerMode === 'customer') { const val = currentCode.trim(); setCustomerInput(val); const matchedPhone = Object.keys(customersData || {}).find(phone => phone === val || customersData[phone]?.cardCode === val); if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customersData[matchedPhone].name); setCustAddress(customersData[matchedPhone].address || ""); playSound('success'); } else { setCustPhone(val); setCustName(""); setCustAddress(""); playSound('success'); } }
       setTimeout(() => ui.setScannerMode?.(null), 1000); setScanQueue(prev => prev.slice(1));
@@ -389,7 +344,7 @@ export default function App() {
         if (data.happy_hour_end) { setHappyEnd(data.happy_hour_end); setNewHappyEnd(data.happy_hour_end); } 
         if (data.happy_hour_discount !== undefined) {
           setHappyDiscount(data.happy_hour_discount);
-          newHappyDiscount(data.happy_hour_discount);
+          setNewHappyDiscount(data.happy_hour_discount);
           window.localStorage.setItem('mart_happy_discount', data.happy_hour_discount);
         }
         window.localStorage.setItem('mart_happy_start', data.happy_hour_start || "11:00");
@@ -476,7 +431,6 @@ export default function App() {
   const handleCustomerInputChange = (e: React.ChangeEvent<HTMLInputElement>) => { const val = e.target.value; setCustomerInput(val); const matchedPhone = Object.keys(customersData || {}).find(phone => phone === val.trim() || customersData[phone]?.cardCode === val.trim()); if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customersData[matchedPhone].name); setCustAddress(customersData[matchedPhone].address || ""); setUseWallet(false); } else { setCustPhone(val); setCustName(""); setCustAddress(""); setUseWallet(false); } };
   const handleNextToQR = () => { if (cart.length === 0) return toast.error("Giỏ hàng trống!"); if (custPhone && !customersData[custPhone] && !custName) return toast.error("Vui lòng nhập Tên khách mới!"); setCheckoutStep(2); };
 
-  // NÂNG CẤP THANH TOÁN TỐI ƯU ERP (ĐỒNG BỘ ĐẦY ĐỦ GIÁ VỐN GIÁ BÁN TỪ SỔ SUPABASE)
   const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 'GHI NỢ' | 'KẾT HỢP' | 'QUẸT THẺ' | 'ZALO PAY') => {
     if (cart.some(i => !i.qty || i.qty <= 0)) { playSound('error'); return toast.error("Lỗi số lượng sản phẩm!") }
     if (payMethod === 'GHI NỢ' && !custPhone) return toast.error("Thanh toán Ghi nợ cần SĐT Khách hàng!");
@@ -488,11 +442,7 @@ export default function App() {
       for (const item of cart) {
         if (navigator.onLine) await supabase.from("products").update({ stock: Math.max(0, item.product.stock - item.qty) }).eq("id", item.product.id);
         let itemSplitCash = 0; if(payMethod === 'KẾT HỢP') { const safeRatio = finalToPay > 0 ? (splitCashAmt / finalToPay) : 0; itemSplitCash = Math.round(safeRatio * Math.round(item.qty * getActualPrice(item.product) * (1 + VAT_RATE))); }
-        
-        // Công thức tính toán biên lợi nhuận chuẩn ERP dựa theo giá vốn sếp đã thiết lập
-        const calculatedItemProfit = Math.round(item.qty * (getActualPrice(item.product) - (item.product.import_price || 0)));
-        
-        newLogs.push({ id: Date.now() + Math.random(), shift, type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", name: cleanName(item.product.name), qty: item.qty, total: item.total, profit: calculatedItemProfit, customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id, paymentMethod: payMethod, split_cash: itemSplitCash, time: new Date().toLocaleString('vi-VN'), order_id: orderIdStr });
+        newLogs.push({ id: Date.now() + Math.random(), shift, type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", name: cleanName(item.product.name), qty: item.qty, total: item.total, profit: Math.round(item.qty * (getActualPrice(item.product) - (item.product.import_price || 0))), customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id, paymentMethod: payMethod, split_cash: itemSplitCash, time: new Date().toLocaleString('vi-VN'), order_id: orderIdStr });
       }
 
       if (custPhone) {
@@ -717,7 +667,6 @@ export default function App() {
 
   useEffect(() => { if (isOnline && isLoggedIn) { syncPendingImports(); } }, [isOnline, isLoggedIn]);
 
-  // HÀM ĐỒNG BỘ SỔ CÁI ERP: Ghi nhận đầy đủ giá vốn, giá bán, giá KM, hạn sử dụng lên mây
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault(); setLoading(true);
     const ownerId = window.localStorage.getItem("mart_owner_id");
@@ -781,7 +730,7 @@ export default function App() {
       try {
         if (!lines || lines.length <= 1) { 
           toast.error("File rỗng hoặc chỉ có tiêu đề!", { id: toastId }); 
-          setLoading(false)
+          setLoading(false); 
           return; 
         } 
         
@@ -1070,36 +1019,11 @@ export default function App() {
         lowStockCount={lowStockCount} isOnline={isOnline} syncStatus={syncStatus} syncAllOfflineData={syncPendingImports} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr}
       />
 
-      {/* POPUP CAMERA SCANNERR TẠI CHỖ (MỚI BỔ SUNG THEO YÊU CẦU) */}
-      {showWebcamScanner && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', zIndex: 999999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-          <div style={{ background: 'white', padding: '20px', borderRadius: '16px', textAlign: 'center', width: '90%', maxWidth: '400px' }}>
-            <h3 style={{ margin: '0 0 15px 0', color: '#1e293b' }}>📷 Máy quét Camera tại chỗ (POS)</h3>
-            <div id="qr-reader-local" style={{ width: '100%', background: '#f8fafc', borderRadius: '12px', overflow: 'hidden' }}></div>
-            <button onClick={() => setShowWebcamScanner(false)} style={{ marginTop: '15px', width: '100%', padding: '12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>ĐÓNG CAMERA (HỦY)</button>
-          </div>
-        </div>
-      )}
-
-      {ui.scannerMode !== null && ui.scannerMode !== 'barcode' && ui.scannerMode !== 'voucher' && ui.scannerMode !== 'customer' && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', zIndex: 999999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-          <h2 style={{ color: 'white', marginBottom: '20px', fontSize: '24px' }}>📷 Đưa mã vạch vào khung hình</h2>
-          <div id="qr-reader" style={{ width: '350px', background: 'white', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}></div>
-          <button onClick={() => ui.setScannerMode(null)} style={{ marginTop: '24px', padding: '12px 30px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}>Đóng Máy Ảnh (Hủy)</button>
-        </div>
-      )}
-
-      {/* THANH ĐIỀU KHIỂN HỆ THỐNG MÁY QUÉT ĐA NĂNG MỚI KHÔI PHỤC */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', marginTop: '5px' }}>
-        <button 
-          onClick={() => setShowWebcamScanner(true)} 
-          style={{ padding: '10px 18px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 4px 6px rgba(59,130,246,0.2)' }}
-        >
-          📷 QUÉT BẰNG CAMERA (WEBCAM)
-        </button>
+      {/* THANH ĐIỀU KHIỂN ĐÃ TINH CHỈNH: NẰM NGANG HÀNG VỚI NÚT MENU TÍNH NĂNG VÀ ĐÃ BỎ BỚT NÚT WEBCAM THỪA */}
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', alignItems: 'center' }}>
         <button 
           onClick={() => ui.setShowScannerLinkModal?.(true)} 
-          style={{ padding: '10px 18px', background: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 4px 6px rgba(0,0,0,0.15)' }}
+          style={{ padding: '10px 18px', background: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 4px 6px rgba(0,0,0,0.15)', transition: '0.2s' }}
         >
           📲 KẾT NỐI ĐIỆN THOẠI QUÉT DI ĐỘNG (QR LINK)
         </button>
