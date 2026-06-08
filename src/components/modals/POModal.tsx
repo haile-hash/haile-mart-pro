@@ -62,7 +62,11 @@ export const POModal: React.FC<POModalProps> = ({
       const qty = Number(item.qty) || 0; 
       const price = Number(item.importPrice) || 0; 
       const rowTotal = qty * price;
-      itemsHtml += `<tr><td style="padding: 10px 8px; border: 1px solid #cbd5e1; text-align: center;">${index + 1}</td><td style="padding: 10px 8px; border: 1px solid #cbd5e1;">${item?.product?.product_code || ""}</td><td style="padding: 10px 8px; border: 1px solid #cbd5e1;">${cleanName(item?.product?.name || item?.name || "SP")}</td><td style="padding: 10px 8px; border: 1px solid #cbd5e1; text-align: center;">${qty}</td><td style="padding: 10px 8px; border: 1px solid #cbd5e1; text-align: right;">${price.toLocaleString('vi-VN')} đ</td><td style="padding: 10px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold;">${rowTotal.toLocaleString('vi-VN')} đ</td></tr>`;
+      // Đã sửa lại để kéo đúng mã sản phẩm ra PDF
+      const pCode = item.product_code || item.product?.product_code || "";
+      const pName = cleanName(item.name || item.product?.name || "SP");
+
+      itemsHtml += `<tr><td style="padding: 10px 8px; border: 1px solid #cbd5e1; text-align: center;">${index + 1}</td><td style="padding: 10px 8px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold;">${pCode}</td><td style="padding: 10px 8px; border: 1px solid #cbd5e1;">${pName}</td><td style="padding: 10px 8px; border: 1px solid #cbd5e1; text-align: center;">${qty}</td><td style="padding: 10px 8px; border: 1px solid #cbd5e1; text-align: right;">${price.toLocaleString('vi-VN')} đ</td><td style="padding: 10px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold;">${rowTotal.toLocaleString('vi-VN')} đ</td></tr>`;
     });
 
     const printTotal = po.total_amount || 0;
@@ -169,6 +173,7 @@ export const POModal: React.FC<POModalProps> = ({
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                 <thead style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
                   <tr>
+                    <th style={{ padding: '12px', textAlign: 'left' }}>Mã SP</th>
                     <th style={{ padding: '12px', textAlign: 'left' }}>Sản phẩm</th>
                     <th style={{ padding: '12px', textAlign: 'center' }}>SL Đặt</th>
                     <th style={{ padding: '12px', textAlign: 'center', color: '#1e3a8a' }}>Thực Nhận (Vào Kho)</th>
@@ -186,6 +191,7 @@ export const POModal: React.FC<POModalProps> = ({
 
                     return (
                       <tr key={idx} style={{ backgroundColor: fQty > 0 ? '#fef2f2' : 'transparent', borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '12px', fontWeight: 'bold' }}>{item.product_code || item.product?.product_code || "N/A"}</td>
                         <td style={{ padding: '12px' }}>{cleanName(item.name)}</td>
                         <td style={{ padding: '12px', textAlign: 'center' }}>{orderQty}</td>
                         <td style={{ padding: '12px', textAlign: 'center' }}>
@@ -254,11 +260,19 @@ export const POModal: React.FC<POModalProps> = ({
                   {poItems.length > 0 && (
                     <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
                       <thead style={{ background: '#f8fafc' }}>
-                        <tr><th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #cbd5e1' }}>Sản phẩm</th><th style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #cbd5e1' }}>SL Đặt</th><th style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #cbd5e1' }}>Giá Nhập (Dự kiến)</th><th style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #cbd5e1' }}>Thành Tiền</th><th style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #cbd5e1' }}></th></tr>
+                        <tr>
+                          <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #cbd5e1' }}>Mã SP</th>
+                          <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #cbd5e1' }}>Sản phẩm</th>
+                          <th style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #cbd5e1' }}>SL Đặt</th>
+                          <th style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #cbd5e1' }}>Giá Nhập (Dự kiến)</th>
+                          <th style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #cbd5e1' }}>Thành Tiền</th>
+                          <th style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #cbd5e1' }}></th>
+                        </tr>
                       </thead>
                       <tbody>
                         {poItems.map((item, idx) => (
                           <tr key={idx}>
+                            <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9', fontWeight: 'bold' }}>{item.product_code || item.product?.product_code || "N/A"}</td>
                             <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{cleanName(item.name)}</td>
                             <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9', textAlign: 'center' }}>
                               <input type="number" min="1" value={item.qty} onChange={e => { const newItems = [...poItems]; newItems[idx].qty = Number(e.target.value); setPoItems(newItems); }} style={{ width: '60px', padding: '4px', textAlign: 'center' }} />
