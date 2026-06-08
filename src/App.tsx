@@ -113,6 +113,12 @@ export default function App() {
   const { newCode, setNewCode, newName, setNewName, newImportPrice, setNewImportPrice, newPrice, setNewPrice, newPromoPrice, setNewPromoPrice, newGiftCondition, setNewGiftCondition, newGiftInfo, setNewGiftInfo, newStock, setNewStock, newExpiry, setNewExpiry, newCategory, setNewCategory, resetProductForm } = useProductInput();
   const { cart, setCart, barcodeInput, setBarcodeInput, isCheckoutOpen, setIsCheckoutOpen, checkoutStep, setCheckoutStep, customerInput, setCustomerInput, custPhone, setCustPhone, custName, setCustName, useWallet, setUseWallet, voucherInput, setVoucherInput, appliedVoucherAmount, setAppliedVoucherAmount, customerGiven, setCustomerGiven, lastOrder, setLastOrder, resetCheckout, custAddress, setCustAddress } = useCheckoutState();
 
+  // FIX TỐI ƯU HIỆU SUẤT RE-RENDER PHÍM TẮT: Sử dụng refs để lưu phiên bản mới nhất của trạng thái giỏ hàng và UI
+  const cartRef = useRef(cart);
+  const uiRef = useRef(ui);
+  useEffect(() => { cartRef.current = cart; }, [cart]);
+  useEffect(() => { uiRef.current = ui; }, [ui]);
+
   const [customersData, setCustomers] = useState<Record<string, Customer>>({});
   const [heldOrders, setHeldOrders] = useState<HeldOrder[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
@@ -295,9 +301,11 @@ export default function App() {
     }
   }, [isLocked]);
 
+  // FIX 1: LOẠI BỎ LẮNG NGHE MOUSEMOVE GÂY QUÁ TẢI CPU
   useEffect(() => { 
     if (!isLoggedIn || isLocked) return; 
     let timeout: any; 
+    
     const resetTimer = () => { 
       clearTimeout(timeout); 
       timeout = setTimeout(() => {
@@ -305,15 +313,19 @@ export default function App() {
         if (typeof window !== 'undefined') window.localStorage.setItem('mart_is_locked', 'true');
       }, IDLE_TIMEOUT); 
     }; 
-    window.addEventListener('mousemove', resetTimer); 
-    window.addEventListener('keydown', resetTimer); 
-    window.addEventListener('click', resetTimer); 
+    
+    // Đã loại bỏ mousemove, thay vào đó dùng touchstart cho thiết bị di động
+    window.addEventListener('keydown', resetTimer, { passive: true }); 
+    window.addEventListener('click', resetTimer, { passive: true }); 
+    window.addEventListener('touchstart', resetTimer, { passive: true }); 
+    
     resetTimer(); 
+    
     return () => { 
       clearTimeout(timeout); 
-      window.removeEventListener('mousemove', resetTimer); 
       window.removeEventListener('keydown', resetTimer); 
       window.removeEventListener('click', resetTimer); 
+      window.removeEventListener('touchstart', resetTimer); 
     }; 
   }, [isLoggedIn, isLocked]);
 
@@ -357,7 +369,23 @@ export default function App() {
   useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_suppliers", suppliers); }, [suppliers, isStorageLoading]);
   useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_history", history); }, [history, isStorageLoading]);
 
-  useEffect(() => { const handleKeyDown = (e: KeyboardEvent) => { if (!isLoggedIn || isCheckoutOpen || ui.showPinModal || ui.showAuditModal || ui.showCustomerModal || ui.showSettings || ui.showStoreSettings || ui.showInputForm || ui.showInventoryModal || ui.cashFlowModalInfo || ui.showPOModal) return; if (e.key === 'F1') { e.preventDefault(); document.getElementById('search-barcode')?.focus(); } if (e.key === 'F2') { e.preventDefault(); if (cart.length > 0) confirmCheckout('TIỀN MẶT'); } if (e.key === 'F3') { e.preventDefault(); if (cart.length > 0) confirmCheckout('CHUYỂN KHOẢN'); } if (e.key === 'F4') { e.preventDefault(); handleHoldOrder(); } }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); }, [isLoggedIn, isCheckoutOpen, ui, cart]);
+  // FIX 2: TỐI ƯU USEEFFECT PHÍM TẮT ĐỂ TRÁNH RE-BINDING LIÊN TỤC GÂY LAG
+  useEffect(() => { 
+    const handleKeyDown = (e: KeyboardEvent) => { 
+      const currentUI = uiRef.current;
+      const currentCart = cartRef.current;
+      
+      if (!isLoggedIn || isCheckoutOpen || currentUI.showPinModal || currentUI.showAuditModal || currentUI.showCustomerModal || currentUI.showSettings || currentUI.showStoreSettings || currentUI.showInputForm || currentUI.showInventoryModal || currentUI.cashFlowModalInfo || currentUI.showPOModal) return; 
+      
+      if (e.key === 'F1') { e.preventDefault(); document.getElementById('search-barcode')?.focus(); } 
+      if (e.key === 'F2') { e.preventDefault(); if (currentCart.length > 0) confirmCheckout('TIỀN MẶT'); } 
+      if (e.key === 'F3') { e.preventDefault(); if (currentCart.length > 0) confirmCheckout('CHUYỂN KHOẢN'); } 
+      if (e.key === 'F4') { e.preventDefault(); handleHoldOrder(); } 
+    }; 
+    
+    window.addEventListener('keydown', handleKeyDown); 
+    return () => window.removeEventListener('keydown', handleKeyDown); 
+  }, [isLoggedIn, isCheckoutOpen]); 
 
   useEffect(() => {
     if (ui.scannerMode !== null) {
