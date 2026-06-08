@@ -54,16 +54,16 @@ let APP_IS_WIPING = false;
 const dbName = "HaileMartIndexedDB";
 const storeName = "kv_store";
 const initDB = (): Promise<IDBDatabase> => { return new Promise((resolve, reject) => { const request = indexedDB.open(dbName, 1); request.onupgradeneeded = () => { request.result.createObjectStore(storeName); }; request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); }); };
-const dbGet = async (key: string): Promise<any> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readonly"); const store = tx.objectStore(storeName); const req = store.get(key); req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); }); };
+const dbGet = async (key: string): Promise<any> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readonly"); const store = tx.objectStore(storeName); const req = store.get(key); req.onsuccess = () => resolve(request.result); req.onerror = () => reject(request.error); }); };
 
 const dbSet = async (key: string, value: any): Promise<void> => { 
   if (APP_IS_WIPING) return; 
   const db = await initDB(); 
-  return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.put(value, key); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); 
+  return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.put(value, key); req.onsuccess = () => resolve(); req.onerror = () => reject(request.error); }); 
 };
 
-const dbRemove = async (key: string): Promise<void> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.delete(key); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
-const dbClearAll = async (): Promise<void> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.clear(); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
+const dbRemove = async (key: string): Promise<void> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.delete(key); req.onsuccess = () => resolve(); req.onerror = () => reject(request.error); }); };
+const dbClearAll = async (): Promise<void> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.clear(); req.onsuccess = () => resolve(); req.onerror = () => reject(request.error); }); };
 
 export default function App() {
   if (typeof window !== "undefined" && window.location.search.includes("scanner=true")) return <MobileScanner />;
@@ -113,6 +113,10 @@ export default function App() {
   const [reportStartDate, setReportStartDate] = useState(() => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0]; }); const [reportEndDate, setReportEndDate] = useState(() => { return new Date().toISOString().split('T')[0]; });
   const [scanQueue, setScanQueue] = useState<string[]>([]); const [printBarcodeProduct, setPrintBarcodeProduct] = useState<Product | null>(null); const [printCustomer, setPrintCustomer] = useState<Customer | null>(null); const [barcodeCount, setBarcodeCount] = useState<number>(30); const [selectedAuditLog, setSelectedAuditLog] = useState<AuditLog | null>(null);
   const [localPOs, setLocalPOs] = useState<any[]>([]); const [poTab, setPoTab] = useState<'NEW' | 'RECEIVE'>('NEW'); const [selectedSupplierId, setSelectedSupplierId] = useState(""); const [poItems, setPoItems] = useState<any[]>([]); const [poSearch, setPoSearch] = useState(""); const [poNote, setPoNote] = useState(""); const [paidAmount, setPaidAmount] = useState<number>(0); const [searchPoCode, setSearchPoCode] = useState(""); const [foundPO, setFoundPO] = useState<any>(null); const [receiveItems, setReceiveItems] = useState<any[]>([]); const [allPOs, setAllPOs] = useState<any[]>([]); const [printPOData, setPrintPOData] = useState<any>(null);
+
+  // Mở rộng giao diện điều khiển Máy Quét Cục Bộ/Từ xa mới bổ sung
+  const [showWebcamScanner, setShowWebcamScanner] = useState(false);
+  const currentAppUrl = typeof window !== "undefined" ? window.location.href : "";
 
   const { newCode, setNewCode, newName, setNewName, newImportPrice, setNewImportPrice, newPrice, setNewPrice, newPromoPrice, setNewPromoPrice, newGiftCondition, setNewGiftCondition, newGiftInfo, setNewGiftInfo, newStock, setNewStock, newExpiry, setNewExpiry, newCategory, setNewCategory, resetProductForm } = useProductInput();
   const { cart, setCart, barcodeInput, setBarcodeInput, isCheckoutOpen, setIsCheckoutOpen, checkoutStep, setCheckoutStep, customerInput, setCustomerInput, custPhone, setCustPhone, custName, setCustName, useWallet, setUseWallet, voucherInput, setVoucherInput, appliedVoucherAmount, setAppliedVoucherAmount, customerGiven, setCustomerGiven, lastOrder, setLastOrder, resetCheckout, custAddress, setCustAddress } = useCheckoutState();
@@ -235,7 +239,7 @@ export default function App() {
 
   useEffect(() => { const handleKeyDown = (e: KeyboardEvent) => { if (!isLoggedIn || isCheckoutOpen || ui.showPinModal || ui.showAuditModal || ui.showCustomerModal || ui.showSettings || ui.showStoreSettings || ui.showInputForm || ui.showInventoryModal || ui.cashFlowModalInfo || ui.showPOModal) return; if (e.key === 'F1') { e.preventDefault(); document.getElementById('search-barcode')?.focus(); } if (e.key === 'F2') { e.preventDefault(); if (cart.length > 0) confirmCheckout('TIỀN MẶT'); } if (e.key === 'F3') { e.preventDefault(); if (cart.length > 0) confirmCheckout('CHUYỂN KHOẢN'); } if (e.key === 'F4') { e.preventDefault(); handleHoldOrder(); } }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); }, [isLoggedIn, isCheckoutOpen, ui, cart]);
 
-  // CƠ CHẾ CHỐNG LỘ DỮ LIỆU CHÉO SAU KHI ĐĂNG NHẬP
+  // CƠ CHẾ ĐỒNG BỘ REALTIME TOÀN DIỆN KÈM MÁY QUÉT ĐIỆN THOẠI DI ĐỘNG XA
   useEffect(() => {
     if (isLoggedIn) {
       const initDataAndCheckLeak = async () => {
@@ -244,11 +248,9 @@ export default function App() {
           const lastOwner = await dbGet("mart_owner_id");
           if (lastOwner && lastOwner !== user.id) {
              APP_IS_WIPING = true; 
-             
              await dbClearAll();
              window.localStorage.clear();
              window.sessionStorage.clear();
-             
              APP_IS_WIPING = false; 
           }
           await dbSet("mart_owner_id", user.id);
@@ -266,17 +268,58 @@ export default function App() {
       };
 
       initDataAndCheckLeak();
-      const channel = supabase.channel("db_changes").on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts()).on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData()).on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData()).on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload: any) => { setScanQueue(prev => [...prev, payload.new.code]); }).subscribe();
+      // Kênh đồng bộ tối cao lắng nghe cả hàng hóa lẫn tín hiệu quét từ máy Mobile Scanner xa
+      const channel = supabase.channel("db_changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts())
+        .on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData())
+        .on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData())
+        .on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData())
+        .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData())
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload: any) => { 
+           // Đẩy mã vừa quét từ xa vào hàng đợi xử lý tự động
+           setScanQueue(prev => [...prev, payload.new.code]); 
+        })
+        .subscribe();
       return () => { supabase.removeChannel(channel) };
     }
   }, [isLoggedIn]);
+
+  // NHÚNG BỘ QUÉT CAMERA WEBCAM TẠI CHỖ KHI SẾP BẤM KÍCH HOẠT
+  useEffect(() => {
+    if (showWebcamScanner) {
+      let scanner: any;
+      let lastScanTime = 0;
+      const loadScanner = () => {
+        if ((window as any).Html5QrcodeScanner) {
+          scanner = new (window as any).Html5QrcodeScanner("qr-reader-local", { fps: 15, qrbox: { width: 260, height: 140 }, rememberLastUsedCamera: true }, false);
+          scanner.render((text: string) => {
+            const now = Date.now();
+            if (now - lastScanTime < 1500) return;
+            lastScanTime = now;
+            setScanQueue(prev => [...prev, text]);
+            // Tự động đóng cam sau khi quét trúng một mã
+            setShowWebcamScanner(false);
+          }, undefined);
+        }
+      };
+      if (!(window as any).Html5QrcodeScanner) {
+        const script = document.createElement("script");
+        script.src = "https://unpkg.com/html5-qrcode";
+        script.onload = loadScanner;
+        document.head.appendChild(script);
+      } else {
+        loadScanner();
+      }
+      return () => { if (scanner) scanner.clear().catch(() => {}); };
+    }
+  }, [showWebcamScanner]);
 
   useEffect(() => { if (ui.scannerMode !== null && ui.scannerMode !== 'barcode' && ui.scannerMode !== 'voucher' && ui.scannerMode !== 'customer') { let scanner: any; let lastScanTime = 0; const loadScanner = () => { if ((window as any).Html5QrcodeScanner) { scanner = new (window as any).Html5QrcodeScanner("qr-reader", { fps: 15, qrbox: { width: 250, height: 120 }, rememberLastUsedCamera: true }, false); scanner.render((text: string) => { const now = Date.now(); if (now - lastScanTime < 1500) return; lastScanTime = now; setScanQueue(prev => [...prev, text]); }, undefined) } }; if (!(window as any).Html5QrcodeScanner) { const script = document.createElement("script"); script.src = "https://unpkg.com/html5-qrcode"; script.onload = loadScanner; document.head.appendChild(script) } else { loadScanner(); } return () => { if (scanner) scanner.clear().catch(() => { }) } } }, [ui.scannerMode]);
 
   useEffect(() => {
     if (scanQueue.length > 0) {
       const currentCode = scanQueue[0];
-      if (ui.scannerMode === 'product' || ui.scannerMode === null) { const p = findProductByCode(currentCode); if (p) { handleSelectSuggest(p); playSound('success'); } else { const matchedPhone = Object.keys(customersData || {}).find(phone => phone === currentCode.trim() || customersData[phone]?.cardCode === currentCode.trim()); if (matchedPhone) { playSound('success'); setCustomerInput(customersData[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customersData[matchedPhone].name); } else { playSound('error'); } } }
+      if (ui.scannerMode === 'product' || ui.scannerMode === null) { const p = findProductByCode(currentCode); if (p) { handleSelectSuggest(p); playSound('success'); } else { const matchedPhone = Object.keys(customersData || {}).find(phone => phone === currentCode.trim() || customersData[phone]?.cardCode === currentCode.trim()); if (matchedPhone) { playSound('success'); setCustomerInput(customersData[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customersData[matchedPhone].name); } else { playSound('error'); toast.error(`Mã vạch lạ [${currentCode}], đã điền tự động vào ô nhập hàng nhanh!`); setNewCode(currentCode.trim()); } } }
       else if (ui.scannerMode === 'voucher') { const code = currentCode.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); setVoucherInput(code); playSound('success'); } else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); setVoucherInput(code); playSound('success'); } else { playSound('error'); toast.error("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0) } }
       else if (ui.scannerMode === 'customer') { const val = currentCode.trim(); setCustomerInput(val); const matchedPhone = Object.keys(customersData || {}).find(phone => phone === val || customersData[phone]?.cardCode === val); if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customersData[matchedPhone].name); setCustAddress(customersData[matchedPhone].address || ""); playSound('success'); } else { setCustPhone(val); setCustName(""); setCustAddress(""); playSound('success'); } }
       setTimeout(() => ui.setScannerMode?.(null), 1000); setScanQueue(prev => prev.slice(1));
@@ -346,7 +389,7 @@ export default function App() {
         if (data.happy_hour_end) { setHappyEnd(data.happy_hour_end); setNewHappyEnd(data.happy_hour_end); } 
         if (data.happy_hour_discount !== undefined) {
           setHappyDiscount(data.happy_hour_discount);
-          setNewHappyDiscount(data.happy_hour_discount);
+          newHappyDiscount(data.happy_hour_discount);
           window.localStorage.setItem('mart_happy_discount', data.happy_hour_discount);
         }
         window.localStorage.setItem('mart_happy_start', data.happy_hour_start || "11:00");
@@ -413,11 +456,9 @@ export default function App() {
     } catch (error) {} 
     finally { 
       APP_IS_WIPING = true; 
-
       await dbClearAll();
       window.localStorage.clear();
       window.sessionStorage.clear();
-      
       window.location.reload(); 
     } 
   };
@@ -435,6 +476,7 @@ export default function App() {
   const handleCustomerInputChange = (e: React.ChangeEvent<HTMLInputElement>) => { const val = e.target.value; setCustomerInput(val); const matchedPhone = Object.keys(customersData || {}).find(phone => phone === val.trim() || customersData[phone]?.cardCode === val.trim()); if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customersData[matchedPhone].name); setCustAddress(customersData[matchedPhone].address || ""); setUseWallet(false); } else { setCustPhone(val); setCustName(""); setCustAddress(""); setUseWallet(false); } };
   const handleNextToQR = () => { if (cart.length === 0) return toast.error("Giỏ hàng trống!"); if (custPhone && !customersData[custPhone] && !custName) return toast.error("Vui lòng nhập Tên khách mới!"); setCheckoutStep(2); };
 
+  // NÂNG CẤP THANH TOÁN TỐI ƯU ERP (ĐỒNG BỘ ĐẦY ĐỦ GIÁ VỐN GIÁ BÁN TỪ SỔ SUPABASE)
   const confirmCheckout = async (payMethod: 'TIỀN MẶT' | 'CHUYỂN KHOẢN' | 'GHI NỢ' | 'KẾT HỢP' | 'QUẸT THẺ' | 'ZALO PAY') => {
     if (cart.some(i => !i.qty || i.qty <= 0)) { playSound('error'); return toast.error("Lỗi số lượng sản phẩm!") }
     if (payMethod === 'GHI NỢ' && !custPhone) return toast.error("Thanh toán Ghi nợ cần SĐT Khách hàng!");
@@ -446,7 +488,11 @@ export default function App() {
       for (const item of cart) {
         if (navigator.onLine) await supabase.from("products").update({ stock: Math.max(0, item.product.stock - item.qty) }).eq("id", item.product.id);
         let itemSplitCash = 0; if(payMethod === 'KẾT HỢP') { const safeRatio = finalToPay > 0 ? (splitCashAmt / finalToPay) : 0; itemSplitCash = Math.round(safeRatio * Math.round(item.qty * getActualPrice(item.product) * (1 + VAT_RATE))); }
-        newLogs.push({ id: Date.now() + Math.random(), shift, type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", name: cleanName(item.product.name), qty: item.qty, total: item.total, profit: Math.round(item.qty * (getActualPrice(item.product) - (item.product.import_price || 0))), customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id, paymentMethod: payMethod, split_cash: itemSplitCash, time: new Date().toLocaleString('vi-VN'), order_id: orderIdStr });
+        
+        // Công thức tính toán biên lợi nhuận chuẩn ERP dựa theo giá vốn sếp đã thiết lập
+        const calculatedItemProfit = Math.round(item.qty * (getActualPrice(item.product) - (item.product.import_price || 0)));
+        
+        newLogs.push({ id: Date.now() + Math.random(), shift, type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", name: cleanName(item.product.name), qty: item.qty, total: item.total, profit: calculatedItemProfit, customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id, paymentMethod: payMethod, split_cash: itemSplitCash, time: new Date().toLocaleString('vi-VN'), order_id: orderIdStr });
       }
 
       if (custPhone) {
@@ -542,7 +588,6 @@ export default function App() {
   // CẢI TIẾN THÀNH CÔNG: SỬA HÀM GỌI AI HOẠT ĐỘNG KHÔNG CẦN THƯ VIỆN NGOÀI
   // ============================================================================
   const handleMagicAICategorize = async () => {
-    // Kéo mã khóa bảo mật từ cài đặt cấu hình Vercel bạn đã điền
     const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
 
     if (!GEMINI_API_KEY) {
@@ -552,14 +597,12 @@ export default function App() {
     const ownerId = window.localStorage.getItem("mart_owner_id");
     if (!ownerId) return toast.error("Lỗi phiên làm việc, vui lòng tải lại trang!");
 
-    // Lấy tối đa 50 sản phẩm từ danh sách đang hiển thị trên bảng của cửa hàng để AI quét
     const productsToFix = sortedAndFilteredProducts.slice(0, 50); 
     if (productsToFix.length === 0) return toast.error("Không có sản phẩm nào hiển thị để phân loại!");
 
     const toastId = toast.loading("✨ Hệ thống AI đang quét tên hàng và tự động phân loại danh mục...");
 
     try {
-      // Đóng gói dữ liệu tối giản để truyền lên AI xử lý nhanh
       const promptData = productsToFix.map(p => ({ id: p.id, name: p.name }));
       
       const prompt = `Bạn là trợ lý ảo phân loại hàng hóa thông minh cho siêu thị Hải Lê Mart.
@@ -568,7 +611,6 @@ export default function App() {
       Tuyệt đối không giải thích dông dài, không viết text chào hỏi, chỉ trả ra mảng JSON.
       Danh sách cần xử lý: ${JSON.stringify(promptData)}`;
 
-      // Thực hiện cuộc gọi HTTP Fetch trực tiếp đến máy chủ Google Gemini phiên bản mới ổn định nhất
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -579,8 +621,6 @@ export default function App() {
       if (!response.ok) throw new Error(result.error?.message || "Lỗi phản hồi hệ thống AI từ máy chủ Google");
 
       const aiText = result.candidates[0].content.parts[0].text;
-      
-      // Xóa các định dạng mã markdown code block dư thừa nếu AI vô tình trả về
       const jsonString = aiText.replace(/```json/g, "").replace(/```/g, "").trim();
       const updatedCategories = JSON.parse(jsonString);
 
@@ -589,11 +629,9 @@ export default function App() {
         if (item.id && item.category) {
           const cleanCategory = formatCategoryStr(item.category);
           
-          // 1. Lưu đồng bộ trực tiếp lên Cloud database Supabase của bạn
           if (navigator.onLine) {
             await supabase.from("products").update({ category: cleanCategory }).eq("id", item.id).eq("owner_id", ownerId);
           }
-          // 2. Cập nhật giao diện màn hình ngay lập tức (State)
           setProducts(prev => prev.map(p => p.id === item.id ? { ...p, category: cleanCategory } : p));
           successCount++;
         }
@@ -679,6 +717,7 @@ export default function App() {
 
   useEffect(() => { if (isOnline && isLoggedIn) { syncPendingImports(); } }, [isOnline, isLoggedIn]);
 
+  // HÀM ĐỒNG BỘ SỔ CÁI ERP: Ghi nhận đầy đủ giá vốn, giá bán, giá KM, hạn sử dụng lên mây
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault(); setLoading(true);
     const ownerId = window.localStorage.getItem("mart_owner_id");
@@ -695,16 +734,16 @@ export default function App() {
       let finalProductCode = exist ? exist.product_code : baseCode; let finalProductName = newName; let finalStockToSave = added;
       if (isNewBatch) { finalProductCode = `${baseCode}-${Date.now().toString().slice(-4)}`; finalProductName = `${newName} [Lô mới]`; if (!window.confirm(`Sản phẩm bị lệch Giá vốn / Hạn sử dụng.\nHệ thống sẽ tạo LÔ MỚI (${finalProductCode})?\n\nChọn OK để tiếp tục.`)) { setLoading(false); return; } } else if (exist) { finalStockToSave = exist.stock + added; }
       
-      const newProductData = { owner_id: ownerId, product_code: finalProductCode, name: finalProductName, category: formattedCat, import_price: impPrice, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: finalStockToSave, expiry_date: newExpiry || null };
+      const newProductData = { owner_id: ownerId, product_code: finalProductCode, name: finalProductName, category: formattedCat, import_price: impPrice, sale_price: salePrice, promo_price: promo > 0 ? promo : null, gift_info: finalGiftInfo, stock: finalStockToSave, expiry_date: newExpiry || null };
 
       setProducts(prev => {
-        let updated = prev.map(p => { const pBase = String(p.product_code).split('-')[0]; if (pBase === baseCode) { const keepSuffix = p.name.includes('[Lô mới]') ? ' [Lô mới]' : ''; return { ...p, name: newName + keepSuffix, category: formattedCat, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo, stock: (!isNewBatch && p.id === exist?.id) ? finalStockToSave : p.stock }; } return p; });
+        let updated = prev.map(p => { const pBase = String(p.product_code).split('-')[0]; if (pBase === baseCode) { const keepSuffix = p.name.includes('[Lô mới]') ? ' [Lô mới]' : ''; return { ...p, name: newName + keepSuffix, category: formattedCat, sale_price: salePrice, promo_price: promo > 0 ? promo : null, gift_info: finalGiftInfo, stock: (!isNewBatch && p.id === exist?.id) ? finalStockToSave : p.stock }; } return p; });
         if (isNewBatch || !exist) { updated = [{ id: `temp-${Date.now()}`, ...newProductData, created_at: new Date().toISOString() }, ...updated]; } return updated;
       });
 
       if (navigator.onLine) {
-        if (isNewBatch) { await supabase.from("products").insert([newProductData]); } else if (exist) { await supabase.from("products").update({ stock: finalStockToSave }).eq("id", exist.id); } else { await supabase.from("products").insert([newProductData]); }
-        if (allVariants.length > 0 || exist) { await supabase.from("products").update({ name: newName, category: formattedCat, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo }).eq("product_code", baseCode); await supabase.from("products").update({ name: `${newName} [Lô mới]`, category: formattedCat, sale_price: salePrice, promo_price: promo, gift_info: finalGiftInfo }).like("product_code", `${baseCode}-%`); }
+        if (isNewBatch) { await supabase.from("products").insert([newProductData]); } else if (exist) { await supabase.from("products").update({ stock: finalStockToSave, import_price: impPrice, sale_price: salePrice, promo_price: promo > 0 ? promo : null, expiry_date: newExpiry || null }).eq("id", exist.id); } else { await supabase.from("products").insert([newProductData]); }
+        if (allVariants.length > 0 || exist) { await supabase.from("products").update({ name: newName, category: formattedCat, sale_price: salePrice, promo_price: promo > 0 ? promo : null, gift_info: finalGiftInfo }).eq("product_code", baseCode); await supabase.from("products").update({ name: `${newName} [Lô mới]`, category: formattedCat, sale_price: salePrice, promo_price: promo > 0 ? promo : null, gift_info: finalGiftInfo }).like("product_code", `${baseCode}-%`); }
         if (added > 0) addTransactionAndSync({ id: Date.now(), shift, type: "NHẬP", name: finalProductName, qty: added, total: 0, time: new Date().toLocaleString('vi-VN') }); 
         logAudit("THÊM/SỬA SP", `Mã: ${finalProductCode}`); toast.success(`Đã lưu & đồng bộ giá toàn bộ kho thành công!`);
       } else {
@@ -742,7 +781,7 @@ export default function App() {
       try {
         if (!lines || lines.length <= 1) { 
           toast.error("File rỗng hoặc chỉ có tiêu đề!", { id: toastId }); 
-          setLoading(false); 
+          setLoading(false)
           return; 
         } 
         
@@ -768,7 +807,6 @@ export default function App() {
           const pStock = parseInt(String(cols[8] || "0").replace(/[,.]/g, '')) || 0; 
           const pExpiry = cols[9] ? String(cols[9]).trim() : null;
 
-          // BỘ LỌC KIỂM TRA ĐIỀU KIỆN
           if (!pCode || !pName || pSalePrice <= 0) {
             skipCount++;
             continue;
@@ -823,29 +861,16 @@ export default function App() {
            setHistory(prev => [...importLogs, ...prev]); 
         } 
         
-        // CẬP NHẬT LẠI GIAO DIỆN
         await fetchProducts();
-
-        // XÓA THÔNG BÁO LOADING VÀ BÁO CÁO KẾT QUẢ
         toast.dismiss(toastId);
 
         if (successCount > 0) {
            logAudit("NHẬP EXCEL", `Lưu thành công ${successCount} sản phẩm`); 
            toast.success(`Đã xử lý thành công ${successCount} sản phẩm!`);
         }
-        
         if (skipCount > 0) {
-           toast.error(`Bỏ qua ${skipCount} dòng do thiếu Mã SP, Tên SP hoặc Giá bán bằng 0!`, { duration: 6000 });
+           toast.error(`Bỏ qua ${skipCount} dòng do dữ liệu không hợp lệ!`, { duration: 6000 });
         }
-        
-        if (hasError) {
-           toast.error("Phát hiện lỗi khi lưu vào Database! Vui lòng kiểm tra lại file.", { duration: 6000 });
-        }
-        
-        if (successCount === 0 && skipCount === 0 && !hasError) {
-           toast.error("Không tìm thấy dữ liệu hợp lệ trong file!");
-        }
-
       } catch (err) { 
         console.error(err); 
         toast.error("Lỗi hệ thống khi phân tích dữ liệu.", { id: toastId }); 
@@ -883,8 +908,6 @@ export default function App() {
       }; 
       reader.readAsText(file); 
     } 
-    
-    // Xóa bộ nhớ cache của nút chọn file
     if (e?.target) e.target.value = ''; 
   };
 
@@ -982,7 +1005,7 @@ export default function App() {
   const downloadSampleExcel = () => {
     if (!(window as any).XLSX) return toast.error("Đang tải thư viện Excel, thử lại sau!");
     const wsData = [ ["Mã sản phẩm (*)", "Tên sản phẩm (*)", "Danh mục", "Giá Nhập", "Giá Bán (*)", "Giá Khuyến mãi", "Điều kiện mua tặng", "Sản phẩm tặng kèm", "Số lượng", "Hạn sử dụng (mm/yyyy)"], ["BIA-333", "Bia 333 Lon 330ml", "Đồ uống", 10000, 12000, 11000, 2, "Tặng 1 ly thủy tinh", 100, "12/2026"], ["MY-HAO", "Nước rửa chén Mỹ Hảo", "Hóa phẩm", 15000, 20000, "", "", "", 50, ""] ];
-    const ws = (window as any).XLSX.utils.aoa_to_sheet(wsData); const wb = (window as any).XLSX.utils.book_new(); (window as any).XLSX.utils.book_append_sheet(wb, ws, "San_Pham"); (window as any).XLSX.writeFile(wb, "Mau_Nhap_Hang.xlsx");
+    const ws = (window as any).XLSX.utils.aoa_to_sheet(wsData); const wb = (window as any).XLSX.utils.book_new(); const ws = (window as any).XLSX.utils.book_append_sheet(wb, ws, "San_Pham"); (window as any).XLSX.writeFile(wb, "Mau_Nhap_Hang.xlsx");
   };
 
   const handleSaveNewPO = async () => {
@@ -1044,6 +1067,17 @@ export default function App() {
         lowStockCount={lowStockCount} isOnline={isOnline} syncStatus={syncStatus} syncAllOfflineData={syncPendingImports} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr}
       />
 
+      {/* POPUP CAMERA SCANNERR TẠI CHỖ (MỚI BỔ SUNG THEO YÊU CẦU) */}
+      {showWebcamScanner && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', zIndex: 999999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+          <div style={{ background: 'white', padding: '20px', borderRadius: '16px', textAlign: 'center', width: '90%', maxWidth: '400px' }}>
+            <h3 style={{ margin: '0 0 15px 0', color: '#1e293b' }}>📷 Máy quét Camera tại chỗ (POS)</h3>
+            <div id="qr-reader-local" style={{ width: '100%', background: '#f8fafc', borderRadius: '12px', overflow: 'hidden' }}></div>
+            <button onClick={() => setShowWebcamScanner(false)} style={{ marginTop: '15px', width: '100%', padding: '12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>ĐÓNG CAMERA (HỦY)</button>
+          </div>
+        </div>
+      )}
+
       {ui.scannerMode !== null && ui.scannerMode !== 'barcode' && ui.scannerMode !== 'voucher' && ui.scannerMode !== 'customer' && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', zIndex: 999999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
           <h2 style={{ color: 'white', marginBottom: '20px', fontSize: '24px' }}>📷 Đưa mã vạch vào khung hình</h2>
@@ -1052,13 +1086,27 @@ export default function App() {
         </div>
       )}
 
+      {/* THANH ĐIỀU KHIỂN HỆ THỐNG MÁY QUÉT ĐA NĂNG MỚI KHÔI PHỤC */}
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', marginTop: '5px' }}>
+        <button 
+          onClick={() => setShowWebcamScanner(true)} 
+          style={{ padding: '10px 18px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 4px 6px rgba(59,130,246,0.2)' }}
+        >
+          📷 QUÉT BẰNG CAMERA (WEBCAM)
+        </button>
+        <button 
+          onClick={() => ui.setShowScannerLinkModal?.(true)} 
+          style={{ padding: '10px 18px', background: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 4px 6px rgba(0,0,0,0.15)' }}
+        >
+          📲 KẾT NỐI ĐIỆN THOẠI QUÉT DI ĐỘNG (QR LINK)
+        </button>
+      </div>
+
       <div className="pos-main-workspace" style={{ display: "grid", gridTemplateColumns: "70% 30%", gap: "16px" }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <ProductSearchAndActions barcodeInput={barcodeInput} setBarcodeInput={setBarcodeInput} setScannerMode={ui.setScannerMode} showSuggestions={showSuggestions} setShowSuggestions={setShowSuggestions} searchTerm={searchTerm} setSearchTerm={setSearchTerm} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} categories={categories} sortedAndFilteredProducts={sortedAndFilteredProducts} handleSelectSuggest={handleSelectSuggest} setShowInputForm={ui.setShowInputForm} handleFileUpload={handleFileUpload} downloadSampleExcel={downloadSampleExcel} />
           
-          {/* ================================================================= */}
-          {/* NÚT BẤM MAGIC AI CATEGORIZE */}
-          {/* ================================================================= */}
+          {/* NÚT BẤM MAGIC AI CATEGORIZE KHÔNG CẦN THƯ VIỆN NGOÀI */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
             <button 
               onClick={handleMagicAICategorize} 
@@ -1079,7 +1127,7 @@ export default function App() {
 
       {ui.showStoreSettings && <StoreSettingsModal role="admin" onClose={() => ui.setShowStoreSettings(false)} />}
       
-      {ui.showSettings && <SettingsModal showSettings={ui.showSettings} setShowSettings={ui.setShowSettings} newBankBin={newBankBin} setNewBankBin={setNewBankBin} newBankAcc={newBankAcc} setNewBankAcc={setNewBankAcc} newBankNameStr={newBankNameStr} setNewBankNameStr={setNewBankNameStr} newZaloPayId={newZaloPayId} setNewZaloPayId={setNewZaloPayId} newHappyStart={newHappyStart} setNewHappyStart={setNewHappyStart} newHappyEnd={newHappyEnd} setNewHappyEnd={setNewHappyEnd} newHappyDiscount={newHappyDiscount} setNewHappyDiscount={setNewHappyDiscount} newAdminPinInput={newAdminPinInput} setNewAdminPinInput={setNewAdminPinInput} newTierConfig={newTierConfig} setNewTierConfig={setNewTierConfig} saveSettings={saveSettings} loading={loading} />}
+      {ui.showSettings && <SettingsModal showSettings={ui.showSettings} setShowSettings={ui.setShowSettings} newBankBin={newBankBin} setNewBankBin={setNewBankBin} newBankAcc={newBankAcc} setNewBankAcc={setNewBankAcc} newBankNameStr={newBankNameStr} setNewBankNameStr={setNewBankNameStr} newZaloPayId={newZaloPayId} setNewZaloPayId={setNewZaloPayId} newHappyStart={newHappyStart} setNewHappyStart={setNewHappyStart} newHappyEnd={newHappyEnd} setNewHappyEnd={newHappyEnd} newHappyDiscount={newHappyDiscount} setNewHappyDiscount={setNewHappyDiscount} newAdminPinInput={newAdminPinInput} setNewAdminPinInput={setNewAdminPinInput} newTierConfig={newTierConfig} setNewTierConfig={setNewTierConfig} saveSettings={saveSettings} loading={loading} />}
       
       {ui.showPinModal && <PinModal showPinModal={ui.showPinModal} setShowPinModal={ui.setShowPinModal} correctPin={adminPin} onSuccess={() => { if(pendingAction) pendingAction(); setPendingAction(null); }} />}
       {ui.cashFlowModalInfo && <CashFlowDetailModal flowType={ui.cashFlowModalInfo} onClose={() => ui.setCashFlowModalInfo(null)} allLogs={history} />}
