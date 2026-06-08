@@ -48,14 +48,92 @@ import './styles/Print.css';
 
 let APP_IS_WIPING = false; 
 
+// ==========================================
+// VÁ LỖI CHÍ MẠNG 1: INDEXEDDB CONNECTION POOLING 
+// (Chỉ mở 1 luồng kết nối duy nhất để tránh treo máy)
+// ==========================================
 const dbName = "HaileMartIndexedDB";
 const storeName = "kv_store";
-const initDB = (): Promise<IDBDatabase> => { return new Promise((resolve, reject) => { const request = indexedDB.open(dbName, 1); request.onupgradeneeded = () => { request.result.createObjectStore(storeName); }; request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); }); };
 
-const dbGet = async (key: string): Promise<any> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readonly"); const store = tx.objectStore(storeName); const req = store.get(key); req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); }); };
-const dbSet = async (key: string, value: any): Promise<void> => { if (APP_IS_WIPING) return; const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.put(value, key); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
-const dbRemove = async (key: string): Promise<void> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.delete(key); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
-const dbClearAll = async (): Promise<void> => { const db = await initDB(); return new Promise((resolve, reject) => { const tx = db.transaction(storeName, "readwrite"); const store = tx.objectStore(storeName); const req = store.clear(); req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); }); };
+let dbInstance: IDBDatabase | null = null;
+let dbInitPromise: Promise<IDBDatabase> | null = null;
+
+const initDB = (): Promise<IDBDatabase> => { 
+  if (dbInstance) return Promise.resolve(dbInstance);
+  if (dbInitPromise) return dbInitPromise;
+  
+  dbInitPromise = new Promise((resolve, reject) => { 
+    try {
+      const request = indexedDB.open(dbName, 1); 
+      request.onupgradeneeded = () => { 
+        if (!request.result.objectStoreNames.contains(storeName)) {
+          request.result.createObjectStore(storeName); 
+        }
+      }; 
+      request.onsuccess = () => { 
+        dbInstance = request.result; 
+        resolve(dbInstance); 
+      }; 
+      request.onerror = () => reject(request.error); 
+    } catch(err) {
+      reject(err);
+    }
+  }); 
+  return dbInitPromise;
+};
+
+const dbGet = async (key: string): Promise<any> => { 
+  try {
+    const db = await initDB(); 
+    return new Promise((resolve, reject) => { 
+      const tx = db.transaction(storeName, "readonly"); 
+      const store = tx.objectStore(storeName); 
+      const req = store.get(key); 
+      req.onsuccess = () => resolve(req.result); 
+      req.onerror = () => reject(req.error); 
+    }); 
+  } catch(e) { return null; }
+};
+
+const dbSet = async (key: string, value: any): Promise<void> => { 
+  if (APP_IS_WIPING) return; 
+  try {
+    const db = await initDB(); 
+    return new Promise((resolve, reject) => { 
+      const tx = db.transaction(storeName, "readwrite"); 
+      const store = tx.objectStore(storeName); 
+      const req = store.put(value, key); 
+      req.onsuccess = () => resolve(); 
+      req.onerror = () => reject(req.error); 
+    }); 
+  } catch(e) { console.error("DB Save Error:", e); }
+};
+
+const dbRemove = async (key: string): Promise<void> => { 
+  try {
+    const db = await initDB(); 
+    return new Promise((resolve, reject) => { 
+      const tx = db.transaction(storeName, "readwrite"); 
+      const store = tx.objectStore(storeName); 
+      const req = store.delete(key); 
+      req.onsuccess = () => resolve(); 
+      req.onerror = () => reject(req.error); 
+    }); 
+  } catch(e) { console.error(e); }
+};
+
+const dbClearAll = async (): Promise<void> => { 
+  try {
+    const db = await initDB(); 
+    return new Promise((resolve, reject) => { 
+      const tx = db.transaction(storeName, "readwrite"); 
+      const store = tx.objectStore(storeName); 
+      const req = store.clear(); 
+      req.onsuccess = () => resolve(); 
+      req.onerror = () => reject(req.error); 
+    }); 
+  } catch(e) { console.error(e); }
+};
 
 export default function App() {
   if (typeof window !== "undefined" && window.location.search.includes("scanner=true")) return <MobileScanner />;
@@ -113,7 +191,6 @@ export default function App() {
   const { newCode, setNewCode, newName, setNewName, newImportPrice, setNewImportPrice, newPrice, setNewPrice, newPromoPrice, setNewPromoPrice, newGiftCondition, setNewGiftCondition, newGiftInfo, setNewGiftInfo, newStock, setNewStock, newExpiry, setNewExpiry, newCategory, setNewCategory, resetProductForm } = useProductInput();
   const { cart, setCart, barcodeInput, setBarcodeInput, isCheckoutOpen, setIsCheckoutOpen, checkoutStep, setCheckoutStep, customerInput, setCustomerInput, custPhone, setCustPhone, custName, setCustName, useWallet, setUseWallet, voucherInput, setVoucherInput, appliedVoucherAmount, setAppliedVoucherAmount, customerGiven, setCustomerGiven, lastOrder, setLastOrder, resetCheckout, custAddress, setCustAddress } = useCheckoutState();
 
-  // FIX TỐI ƯU HIỆU SUẤT RE-RENDER PHÍM TẮT: Sử dụng refs để lưu phiên bản mới nhất của trạng thái giỏ hàng và UI
   const cartRef = useRef(cart);
   const uiRef = useRef(ui);
   useEffect(() => { cartRef.current = cart; }, [cart]);
@@ -126,7 +203,12 @@ export default function App() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [history, setHistory] = useState<TransactionLog[]>([]);
 
-  const { isOnline, syncStatus, syncAllOfflineData, loadCloudData } = useOfflineSync({ isLoggedIn, history, setHistory, customers: customersData, setCustomers, heldOrders, setHeldOrders, auditLogs, setAuditLogs, expenses, setExpenses, suppliers, setSuppliers });
+  // Tối ưu để tránh useOfflineSync tạo ra vòng lặp vô hạn
+  const offlineSyncConfig = useMemo(() => ({
+    isLoggedIn, history, setHistory, customers: customersData, setCustomers, heldOrders, setHeldOrders, auditLogs, setAuditLogs, expenses, setExpenses, suppliers, setSuppliers
+  }), [isLoggedIn, history, customersData, heldOrders, auditLogs, expenses, suppliers]);
+  
+  const { isOnline, syncStatus, syncAllOfflineData, loadCloudData } = useOfflineSync(offlineSyncConfig);
   const isPrintingRef = useRef(false);
 
   const findProductByCode = (code: string) => products.find(p => p.product_code === code);
@@ -168,7 +250,6 @@ export default function App() {
   const totalValue = useMemo(() => products.reduce((sum, p) => sum + ((p.stock || 0) * (p.import_price || 0)), 0), [products]);
   const lowStockCount = useMemo(() => products.filter(p => p.stock > 0 && p.stock < 10).length, [products]);
 
-  // --- TỰ ĐỘNG DỌN DẸP PO QUÁ HẠN 30 NGÀY (BOT CHẠY NGẦM LIÊN TỤC) ---
   useEffect(() => {
     if (isStorageLoading) return;
 
@@ -176,7 +257,7 @@ export default function App() {
       const currentPOs = await dbGet("mart_pos") || [];
       if (currentPOs.length === 0) return;
 
-      const EXPIRATION_TIME_MS = 30 * 24 * 60 * 60 * 1000; // Đã chốt 30 ngày cho sếp
+      const EXPIRATION_TIME_MS = 30 * 24 * 60 * 60 * 1000; 
       const now = Date.now();
       let changedCount = 0;
 
@@ -204,7 +285,6 @@ export default function App() {
     return () => clearInterval(intervalId);
   }, [isStorageLoading]);
 
-  // --- KIỂM TRA PHIÊN ĐĂNG NHẬP & NHẬN CHỈ THỊ TỪ QUẢN LÝ ---
   useEffect(() => {
     if (!isLoggedIn) return;
 
@@ -301,7 +381,6 @@ export default function App() {
     }
   }, [isLocked]);
 
-  // FIX 1: LOẠI BỎ LẮNG NGHE MOUSEMOVE GÂY QUÁ TẢI CPU
   useEffect(() => { 
     if (!isLoggedIn || isLocked) return; 
     let timeout: any; 
@@ -314,7 +393,6 @@ export default function App() {
       }, IDLE_TIMEOUT); 
     }; 
     
-    // Đã loại bỏ mousemove, thay vào đó dùng touchstart cho thiết bị di động
     window.addEventListener('keydown', resetTimer, { passive: true }); 
     window.addEventListener('click', resetTimer, { passive: true }); 
     window.addEventListener('touchstart', resetTimer, { passive: true }); 
@@ -347,7 +425,9 @@ export default function App() {
         setLocalPOs(await dbGet("mart_pos") || []); setCustomers(await dbGet("mart_customers") || {}); setHeldOrders(await dbGet("mart_held_orders") || []); setAuditLogs(await dbGet("mart_audit") || []); setExpenses(await dbGet("mart_expenses") || []); setSuppliers(await dbGet("mart_suppliers") || []); setHistory(await dbGet("mart_history") || []);
         const storedPOs = await dbGet("mart_pos") || [];
         setAllPOs(storedPOs);
-      } catch (err) {} finally { setIsStorageLoading(false); }
+      } catch (err) {
+        console.error("Storage Init Error", err);
+      } finally { setIsStorageLoading(false); }
     };
     initializeEnterpriseStorage();
   }, []);
@@ -369,7 +449,6 @@ export default function App() {
   useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_suppliers", suppliers); }, [suppliers, isStorageLoading]);
   useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_history", history); }, [history, isStorageLoading]);
 
-  // FIX 2: TỐI ƯU USEEFFECT PHÍM TẮT ĐỂ TRÁNH RE-BINDING LIÊN TỤC GÂY LAG
   useEffect(() => { 
     const handleKeyDown = (e: KeyboardEvent) => { 
       const currentUI = uiRef.current;
@@ -572,21 +651,16 @@ export default function App() {
   
   const handleLogoutClick = () => { logAudit("ĐĂNG XUẤT", `Thoát ca ${shift}`); ui.setShowHandoverModal?.(true); };
 
-  // --- HÀM CẮT CẦU DAO ĐĂNG XUẤT (KHÔNG CHỜ) ---
   const confirmHandover = () => { 
     APP_IS_WIPING = true; 
     
-    // Bắn lệnh lên mạng nhưng không thèm đợi (Tránh kẹt promise)
     if (navigator.onLine) { supabase.auth.signOut().catch(() => {}); } 
     
-    // Xóa LocalStorage ngay lập tức
     try { window.localStorage.clear(); } catch(e) {}
     try { window.sessionStorage.clear(); } catch(e) {}
     
-    // Yêu cầu xóa DB nhưng kệ nó chạy ngầm
     dbClearAll().catch(() => {});
     
-    // Ép F5 bằng Javascript thuần trong 1/10 giây
     setTimeout(() => {
       window.location.replace(window.location.origin); 
     }, 100);
@@ -1207,8 +1281,20 @@ export default function App() {
       
     } catch (e) { toast.error("Lỗi khi xử lý PO!"); } finally { setLoading(false); }
   };
-  
-  if (!isStorageLoading && (!isLoggedIn || isLocked)) {
+
+  // ==========================================
+  // VÁ LỖI CHÍ MẠNG 2: NGĂN BYPASS MÀN HÌNH LOADING KHI DB ĐANG TẢI
+  // ==========================================
+  if (isStorageLoading) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: ui.darkMode ? "#0f172a" : "#f8fafc" }}>
+        <div style={{ fontSize: "40px", marginBottom: "16px", animation: "spin 1s linear infinite" }}>⏳</div>
+        <h2 style={{ color: ui.darkMode ? "white" : "#1e293b", fontFamily: "sans-serif" }}>Đang tải cấu trúc dữ liệu, vui lòng chờ...</h2>
+      </div>
+    );
+  }
+
+  if (!isLoggedIn || isLocked) {
     return (
       <div className={`app-container ${ui.darkMode ? "dark-theme" : "light-theme"}`} style={{ minHeight: "100vh", position: "relative" }}>
         <Toaster position="top-right" containerStyle={{ zIndex: 9999999 }} />
