@@ -1043,7 +1043,7 @@ export default function App() {
     } catch (e) { toast.error("Đã xảy ra lỗi khi lưu PO!"); } finally { setLoading(false); }
   };
 
-  // ĐÃ SỬA: KHÔNG CỘNG VÀO KHO NỮA, CHỈ XUẤT RA FILE EXCEL TRỪ ĐI HÀNG LỖI ĐỂ KHO KIỂM DUYỆT
+  // ĐÃ SỬA CHUẨN KẾ TOÁN KHO: TRỪ CHÍNH XÁC HÀNG LỖI TRƯỚC KHI XUẤT EXCEL
   const handleConfirmReceipt = async (updatedPO: any, finalReceiveItems: any) => {
     setLoading(true);
     try {
@@ -1053,33 +1053,19 @@ export default function App() {
       const savedPOs = currentPOs.map((po: any) => po.id === finalPO.id ? finalPO : po);
       await dbSet("mart_pos", savedPOs);
 
-      // TẠO FILE EXCEL CHUẨN MAU_NHAP_HANG
+      // TẠO FILE EXCEL CHUẨN MAU_NHAP_HANG ĐỂ KHO KIỂM DUYỆT LẠI
       if ((window as any).XLSX) {
         const wsData = [
           ["Mã sản phẩm (*)", "Tên sản phẩm (*)", "Danh mục", "Giá Nhập", "Giá Bán (*)", "Giá Khuyến mãi", "Điều kiện mua tặng", "Sản phẩm tặng kèm", "Số lượng", "Hạn sử dụng (mm/yyyy)"]
         ];
 
         finalReceiveItems.forEach((item: any) => {
-          // BƯỚC 1: QUÉT SỐ LIỆU TỪ POModal (Bao trùm mọi tên biến để không bao giờ bị xót)
-          const orderQty = Number(item.qty) || 0;
-          const receiveQty = item.receiveQty !== undefined ? Number(item.receiveQty) : orderQty;
+          // BƯỚC TÍNH TOÁN QUAN TRỌNG NHẤT: THỰC NHẬN TRỪ ĐI HÀNG LỖI
+          const receiveQ = Number(item.receiveQty !== undefined ? item.receiveQty : item.qty) || 0;
+          const faultQ = Number(item.faultyQty || item.errorQty || item.returnQty) || 0;
           
-          // Lấy số lượng hàng lỗi sếp đã gõ (bắt trúng mọi tên biến mà Modal có thể nhả ra)
-          const faultQ = Number(item.faultyQty || item.faulty || item.errorQty || item.returnQty || item.rejectQty) || 0;
-
-          // BƯỚC 2: TÍNH TOÁN SỐ LƯỢNG THỰC TẾ ĐỂ UP LÊN KHO
-          let actualImport = 0;
-          
-          if (receiveQty < orderQty) {
-            // Trường hợp 1: Nếu sếp đã gõ thẳng vào ô "Thực nhận" là 4.700.000 -> Lấy luôn 4.7tr
-            actualImport = receiveQty;
-          } else if (faultQ > 0) {
-            // Trường hợp 2: Nếu ô thực nhận vẫn để 5.000.000 nhưng sếp gõ ô "Lỗi" là 300.000 -> Tự trừ ra 4.7tr
-            actualImport = Math.max(0, orderQty - faultQ);
-          } else {
-            // Trường hợp 3: Hàng về đẹp 100%, không lỗi lầm -> Lấy đủ
-            actualImport = receiveQty;
-          }
+          // Chốt số lượng cuối cùng nhập vào kho
+          const actualImport = Math.max(0, receiveQ - faultQ);
 
           if (actualImport > 0) {
             // Lấy data gốc từ kho để có giá bán, danh mục...
@@ -1094,7 +1080,7 @@ export default function App() {
               baseProd?.promo_price || "", // Giá KM
               "", // ĐK tặng
               "", // SP Tặng
-              actualImport, // SL Nhập (Đã trừ hàng lỗi cực kỳ chính xác)
+              actualImport, // SL NHẬP (ĐÃ TRỪ CHUẨN XÁC HÀNG LỖI SẾP VỪA NHẬP)
               "" // HSD
             ]);
           }
@@ -1107,7 +1093,7 @@ export default function App() {
           (window as any).XLSX.writeFile(wb, `NhapKho_PO_${finalPO.po_code}.xlsx`);
           toast.success(`Đã xuất file nhập kho mẫu cho mã PO: ${finalPO.po_code}`);
         } else {
-          toast.error("Tất cả hàng đều lỗi, không có số liệu để xuất file nhập kho!");
+          toast.error("Tất cả hàng đều lỗi, không có số lượng để xuất file nhập kho!");
         }
       } else {
           toast.error("Thư viện Excel chưa sẵn sàng!");
