@@ -1005,7 +1005,10 @@ export default function App() {
   const downloadSampleExcel = () => {
     if (!(window as any).XLSX) return toast.error("Đang tải thư viện Excel, thử lại sau!");
     const wsData = [ ["Mã sản phẩm (*)", "Tên sản phẩm (*)", "Danh mục", "Giá Nhập", "Giá Bán (*)", "Giá Khuyến mãi", "Điều kiện mua tặng", "Sản phẩm tặng kèm", "Số lượng", "Hạn sử dụng (mm/yyyy)"], ["BIA-333", "Bia 333 Lon 330ml", "Đồ uống", 10000, 12000, 11000, 2, "Tặng 1 ly thủy tinh", 100, "12/2026"], ["MY-HAO", "Nước rửa chén Mỹ Hảo", "Hóa phẩm", 15000, 20000, "", "", "", 50, ""] ];
-    const ws = (window as any).XLSX.utils.aoa_to_sheet(wsData); const wb = (window as any).XLSX.utils.book_new(); const ws = (window as any).XLSX.utils.book_append_sheet(wb, ws, "San_Pham"); (window as any).XLSX.writeFile(wb, "Mau_Nhap_Hang.xlsx");
+    const ws = (window as any).XLSX.utils.aoa_to_sheet(wsData); 
+    const wb = (window as any).XLSX.utils.book_new(); 
+    (window as any).XLSX.utils.book_append_sheet(wb, ws, "San_Pham"); 
+    (window as any).XLSX.writeFile(wb, "Mau_Nhap_Hang.xlsx");
   };
 
   const handleSaveNewPO = async () => {
