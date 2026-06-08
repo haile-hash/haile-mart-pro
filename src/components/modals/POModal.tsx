@@ -29,7 +29,7 @@ interface POModalProps {
 }
 
 export const POModal: React.FC<POModalProps> = ({
-  showPOModal, setShowPOModal, suppliers, selectedSupplierId, setSelectedSupplierId, products, poSearch, setPoSearch, poItems, setPoItems, poNote, setPoNote, allPOs, loading, onSaveNewPO, onConfirmReceipt, onPrintPO
+  showPOModal, setShowPOModal, suppliers, selectedSupplierId, setSelectedSupplierId, products, poSearch, setPoSearch, poItems, setPoItems, poNote, setPoNote, paidAmount, setPaidAmount, allPOs, loading, onSaveNewPO, onConfirmReceipt, onPrintPO
 }) => {
   const [activeTab, setActiveTab] = useState<'NEW' | 'LIST' | 'HISTORY'>('NEW');
   const [receivingPO, setReceivingPO] = useState<any | null>(null);
@@ -57,23 +57,17 @@ export const POModal: React.FC<POModalProps> = ({
     setReceiveItems(po.items.map((i: any) => ({ ...i, receiveQty: i.qty, faultyQty: 0 })));
   };
 
-  // TỰ ĐỘNG TRỪ THỰC NHẬN KHI NHẬP LỖI
   const handleFaultyQtyChange = (idx: number, val: string) => {
     const newVal = val === "" ? 0 : Number(val);
     const newItems = [...receiveItems];
     const orderQty = Number(newItems[idx].qty) || 0;
     
-    // Giới hạn lỗi không được vượt quá số lượng đặt
     const validFaulty = Math.min(newVal, orderQty);
     newItems[idx].faultyQty = validFaulty;
-    
-    // Tự động trừ thẳng vào số lượng Thực nhận
     newItems[idx].receiveQty = Math.max(0, orderQty - validFaulty);
-    
     setReceiveItems(newItems);
   };
 
-  // TỰ ĐỘNG TÍNH LỖI KHI SỬA THỰC NHẬN
   const handleReceiveQtyChange = (idx: number, val: string) => {
     const newVal = val === "" ? 0 : Number(val);
     const newItems = [...receiveItems];
@@ -82,20 +76,20 @@ export const POModal: React.FC<POModalProps> = ({
     const validReceive = Math.max(0, newVal);
     newItems[idx].receiveQty = validReceive;
     
-    // Nếu thực nhận nhỏ hơn số lượng đặt, tự động đẩy phần thiếu vào Hàng Lỗi
     if (validReceive <= orderQty) {
       newItems[idx].faultyQty = orderQty - validReceive;
     } else {
       newItems[idx].faultyQty = 0;
     }
-    
     setReceiveItems(newItems);
   };
 
   const submitReceipt = () => {
-    onConfirmReceipt(receivingPO, receiveItems);
+    // Ép trạng thái thành COMPLETED để không hiển thị lại ở mục Chờ Nhập nữa
+    const completedPO = { ...receivingPO, status: 'COMPLETED' };
+    onConfirmReceipt(completedPO, receiveItems);
     if (onPrintPO) {
-        const finalPO = { ...receivingPO, items: receiveItems };
+        const finalPO = { ...completedPO, items: receiveItems };
         setTimeout(() => onPrintPO(finalPO), 1000);
     }
     setReceivingPO(null);
@@ -104,6 +98,15 @@ export const POModal: React.FC<POModalProps> = ({
 
   const pendingPOs = allPOs.filter(p => p.status === 'PENDING').sort((a,b) => b.id - a.id);
   const completedPOs = allPOs.filter(p => p.status === 'COMPLETED').sort((a,b) => b.id - a.id);
+
+  // TÍNH TOÁN TAB 1:
+  const totalAmtTab1 = poItems.reduce((sum, item) => sum + (item.qty || 0) * (item.importPrice || 0), 0);
+  const remainAmtTab1 = totalAmtTab1 - (paidAmount || 0);
+
+  // TÍNH TOÁN TAB NHẬP KHO:
+  const totalActualAmt = receiveItems.reduce((sum, item) => sum + ((item.receiveQty !== undefined ? item.receiveQty : item.qty) * (item.importPrice || 0)), 0);
+  const previouslyPaid = receivingPO?.paid_amount || 0;
+  const remainingToPay = totalActualAmt - previouslyPaid;
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
@@ -114,7 +117,7 @@ export const POModal: React.FC<POModalProps> = ({
           <button onClick={() => setShowPOModal(false)} style={{ background: 'none', border: 'none', fontSize: '28px', cursor: 'pointer', color: '#64748b' }}>&times;</button>
         </div>
 
-        {/* MÀN HÌNH NHẬP KHO */}
+        {/* MÀN HÌNH NHẬP KHO (CHI TIẾT) */}
         {receivingPO ? (
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <div style={{ padding: '15px 20px', background: '#eff6ff', borderBottom: '1px solid #bfdbfe', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -142,8 +145,6 @@ export const POModal: React.FC<POModalProps> = ({
                     const orderQty = Number(item.qty) || 0;
                     const rQty = item.receiveQty !== undefined ? Number(item.receiveQty) : orderQty;
                     const fQty = Number(item.faultyQty) || 0;
-                    
-                    // Thành tiền giờ chỉ phụ thuộc duy nhất vào Thực Nhận
                     const lineTotal = rQty * (Number(item.importPrice) || 0);
 
                     return (
@@ -166,10 +167,14 @@ export const POModal: React.FC<POModalProps> = ({
             </div>
 
             <div style={{ padding: '20px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: '18px' }}>
-                    Tổng thanh toán NCC: <strong style={{ color: '#dc2626', fontSize: '22px' }}>
-                        {receiveItems.reduce((sum, item) => sum + ((item.receiveQty !== undefined ? item.receiveQty : item.qty) * (item.importPrice || 0)), 0).toLocaleString()}đ
-                    </strong>
+                <div>
+                    <div style={{ fontSize: '15px', color: '#64748b', marginBottom: '5px' }}>Tổng tiền thực nhận: {totalActualAmt.toLocaleString()}đ</div>
+                    <div style={{ fontSize: '15px', color: '#10b981', marginBottom: '5px' }}>Đã ứng trước: {previouslyPaid.toLocaleString()}đ</div>
+                    <div style={{ fontSize: '18px' }}>
+                        CÒN PHẢI TRẢ NCC: <strong style={{ color: '#dc2626', fontSize: '22px' }}>
+                            {remainingToPay.toLocaleString()}đ
+                        </strong>
+                    </div>
                 </div>
                 <button onClick={submitReceipt} disabled={loading} style={{ padding: '12px 24px', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}>
                     {loading ? "ĐANG XỬ LÝ..." : "✅ XÁC NHẬN NHẬP KHO & IN PHIẾU"}
@@ -181,7 +186,7 @@ export const POModal: React.FC<POModalProps> = ({
           <>
             <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>
               <button onClick={() => setActiveTab('NEW')} style={{ flex: 1, padding: '14px', border: 'none', background: activeTab === 'NEW' ? 'white' : 'transparent', fontWeight: 'bold', color: activeTab === 'NEW' ? '#2563eb' : '#64748b', borderBottom: activeTab === 'NEW' ? '3px solid #2563eb' : '3px solid transparent', cursor: 'pointer', fontSize: '14px' }}>TẠO ĐƠN MỚI (PO)</button>
-              <button onClick={() => setActiveTab('LIST')} style={{ flex: 1, padding: '14px', border: 'none', background: activeTab === 'LIST' ? 'white' : 'transparent', fontWeight: 'bold', color: activeTab === 'LIST' ? '#f59e0b' : '#64748b', borderBottom: activeTab === 'LIST' ? '3px solid #f59e0b' : '3px solid transparent', cursor: 'pointer', fontSize: '14px' }}>DS ĐƠN HÀNG ({pendingPOs.length})</button>
+              <button onClick={() => setActiveTab('LIST')} style={{ flex: 1, padding: '14px', border: 'none', background: activeTab === 'LIST' ? 'white' : 'transparent', fontWeight: 'bold', color: activeTab === 'LIST' ? '#f59e0b' : '#64748b', borderBottom: activeTab === 'LIST' ? '3px solid #f59e0b' : '3px solid transparent', cursor: 'pointer', fontSize: '14px' }}>DS ĐƠN CHỜ NHẬP ({pendingPOs.length})</button>
               <button onClick={() => setActiveTab('HISTORY')} style={{ flex: 1, padding: '14px', border: 'none', background: activeTab === 'HISTORY' ? 'white' : 'transparent', fontWeight: 'bold', color: activeTab === 'HISTORY' ? '#10b981' : '#64748b', borderBottom: activeTab === 'HISTORY' ? '3px solid #10b981' : '3px solid transparent', cursor: 'pointer', fontSize: '14px' }}>LỊCH SỬ NHẬP KHO</button>
             </div>
 
@@ -235,6 +240,31 @@ export const POModal: React.FC<POModalProps> = ({
                   )}
 
                   <textarea placeholder="Ghi chú đơn đặt hàng..." value={poNote} onChange={e => setPoNote(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', height: '60px', marginBottom: '15px', boxSizing: 'border-box' }}></textarea>
+                  
+                  {/* PHẦN ỨNG TIỀN VÀ TÍNH TOÁN CÔNG NỢ */}
+                  <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '15px', display: 'flex', justifyContent: 'flex-end' }}>
+                     <div style={{ width: '350px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                            <span style={{ fontWeight: 'bold' }}>Tổng tiền đơn hàng:</span>
+                            <span style={{ fontWeight: 'bold', fontSize: '16px' }}>{totalAmtTab1.toLocaleString()}đ</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', alignItems: 'center' }}>
+                            <span>Tiền ứng trước NCC:</span>
+                            <input 
+                              type="number" 
+                              value={paidAmount === 0 ? '' : paidAmount} 
+                              placeholder="0"
+                              onChange={e => setPaidAmount && setPaidAmount(Number(e.target.value))} 
+                              style={{ width: '120px', padding: '6px', textAlign: 'right', borderRadius: '4px', border: '1px solid #cbd5e1' }} 
+                            />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #cbd5e1', paddingTop: '10px' }}>
+                            <span style={{ fontWeight: 'bold', color: '#dc2626' }}>Còn phải trả:</span>
+                            <span style={{ fontWeight: 'bold', color: '#dc2626', fontSize: '18px' }}>{remainAmtTab1.toLocaleString()}đ</span>
+                        </div>
+                     </div>
+                  </div>
+
                   <button onClick={handleCreatePOClick} disabled={loading} style={{ width: '100%', padding: '12px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer' }}>
                     {loading ? "ĐANG LƯU..." : "TẠO ĐƠN (PO)"}
                   </button>
@@ -253,7 +283,7 @@ export const POModal: React.FC<POModalProps> = ({
                           <th style={{ padding: '12px', textAlign: 'left' }}>Mã PO</th>
                           <th style={{ padding: '12px', textAlign: 'left' }}>Nhà Cung Cấp</th>
                           <th style={{ padding: '12px', textAlign: 'center' }}>Ngày tạo</th>
-                          <th style={{ padding: '12px', textAlign: 'right' }}>Tổng tiền (Dự kiến)</th>
+                          <th style={{ padding: '12px', textAlign: 'right' }}>Tổng / Đã ứng</th>
                           <th style={{ padding: '12px', textAlign: 'center' }}>Thao tác</th>
                         </tr>
                       </thead>
@@ -263,7 +293,10 @@ export const POModal: React.FC<POModalProps> = ({
                             <td style={{ padding: '12px', fontWeight: 'bold', color: '#1e3a8a' }}>{po.po_code}</td>
                             <td style={{ padding: '12px' }}>{po.supplier?.name}</td>
                             <td style={{ padding: '12px', textAlign: 'center' }}>{new Date(po.created_at).toLocaleDateString('vi-VN')}</td>
-                            <td style={{ padding: '12px', textAlign: 'right', fontWeight: 'bold' }}>{(po.total_amount || 0).toLocaleString()}đ</td>
+                            <td style={{ padding: '12px', textAlign: 'right' }}>
+                                <div style={{ fontWeight: 'bold' }}>{(po.total_amount || 0).toLocaleString()}đ</div>
+                                <div style={{ fontSize: '12px', color: '#10b981' }}>Đã ứng: {(po.paid_amount || 0).toLocaleString()}đ</div>
+                            </td>
                             <td style={{ padding: '12px', textAlign: 'center' }}>
                               <button onClick={() => openReceiveScreen(po)} style={{ padding: '6px 12px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>📥 Nhập kho</button>
                             </td>
@@ -287,16 +320,14 @@ export const POModal: React.FC<POModalProps> = ({
                           <th style={{ padding: '12px', textAlign: 'left' }}>Mã PO</th>
                           <th style={{ padding: '12px', textAlign: 'left' }}>Nhà Cung Cấp</th>
                           <th style={{ padding: '12px', textAlign: 'center' }}>Ngày nhập</th>
-                          <th style={{ padding: '12px', textAlign: 'right' }}>Tổng tiền (Thực tế)</th>
+                          <th style={{ padding: '12px', textAlign: 'right' }}>Đã Thanh Toán</th>
                           <th style={{ padding: '12px', textAlign: 'center' }}>Thao tác</th>
                         </tr>
                       </thead>
                       <tbody>
                         {completedPOs.map((po, idx) => {
-                           // Tính tổng tiền dựa trên Thực nhận
                            const actualTotal = (po.items || []).reduce((sum: number, item: any) => {
                              const rQty = item.receiveQty !== undefined ? item.receiveQty : item.qty;
-                             // Trong trường hợp data cũ chưa tự cập nhật, ta vẫn trừ hao an toàn
                              const fQty = item.faultyQty || 0;
                              const finalQty = (item.receiveQty !== undefined) ? item.receiveQty : Math.max(0, rQty - fQty);
                              return sum + (finalQty * (item.importPrice || 0));
