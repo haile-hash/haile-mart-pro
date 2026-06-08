@@ -162,74 +162,78 @@ export default function App() {
   const totalValue = useMemo(() => products.reduce((sum, p) => sum + ((p.stock || 0) * (p.import_price || 0)), 0), [products]);
   const lowStockCount = useMemo(() => products.filter(p => p.stock > 0 && p.stock < 10).length, [products]);
 
-  // --- KIỂM TRA PHIÊN ĐĂNG NHẬP & XỬ LÝ KHI BỊ XÓA TÀI KHOẢN (BẢN AN TOÀN) ---
+  // --- KIỂM TRA PHIÊN ĐĂNG NHẬP & NHẬN CHỈ THỊ TỪ QUẢN LÝ ---
   useEffect(() => {
     if (!isLoggedIn) return;
 
-    // Hàm đá văng và xóa sạch dữ liệu thiết bị
-    const forceLogout = async () => {
+    // HÀM ĐÁ VĂNG BỌC THÉP: Quyết tâm xóa sạch thẻ bài bất chấp lỗi trình duyệt!
+    const forceLogout = () => {
       APP_IS_WIPING = true; 
-      await supabase.auth.signOut().catch(() => {});
-      await dbClearAll();
-      window.localStorage.clear();
-      window.sessionStorage.clear();
-      window.location.reload(); 
+      
+      // Xóa Session trên Supabase (chạy ngầm không đợi)
+      supabase.auth.signOut().catch(() => {});
+      
+      // Xóa bộ nhớ IndexedDB (Bọc try-catch, lỗi thì bỏ qua chạy tiếp)
+      dbClearAll().catch(() => {});
+      
+      // Dùng try-catch dọn dẹp bộ nhớ cục bộ, không để sót rác
+      try { window.localStorage.clear(); } catch(e) {}
+      try { window.sessionStorage.clear(); } catch(e) {}
+      
+      // Ép tải lại trang kịch khung để reset toàn bộ màn hình
+      setTimeout(() => {
+        window.location.replace(window.location.origin); 
+      }, 500);
     };
 
-    const initDataAndCheckLeak = async () => {
+    // Hàm kiểm tra an ninh độc lập
+    const checkAuthStatus = async () => {
       if (!navigator.onLine) return; 
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
         
-        // Chỉ đá văng nếu lỗi là lỗi xác thực (401, 403, 400)
-        if (error && error.status >= 400 && error.status < 500) {
+        // CHỐT CHẶN 1: Bị Supabase báo lỗi xác thực -> ĐÁ VĂNG!
+        if (error) {
+          if (error.message?.includes('Fetch') || error.message?.includes('fetch') || error.status >= 500) return;
           forceLogout();
           return;
-        } else if (!error && !user) {
+        } 
+        
+        // CHỐT CHẶN 2: Không tìm thấy User -> ĐÁ VĂNG!
+        if (!user) {
           forceLogout();
           return;
         }
 
-        if (user) {
-          const lastOwner = await dbGet("mart_owner_id");
-          if (lastOwner && lastOwner !== user.id) {
-             forceLogout();
-             return;
-          }
-          await dbSet("mart_owner_id", user.id);
-          window.localStorage.setItem("mart_owner_id", user.id);
-
-          const { data: store } = await supabase.from('stores').select('*').eq('owner_id', user.id).single();
-          if (store) {
-            await dbSet("mart_current_store", store);
-            window.localStorage.setItem("mart_current_store", JSON.stringify(store));
-          }
-          fetchProducts(); loadCloudData(); fetchSettingsFromCloud();
+        // CHỐT CHẶN 3: Bị thay đổi ID chủ cửa hàng ngầm -> ĐÁ VĂNG!
+        const lastOwner = window.localStorage.getItem("mart_owner_id");
+        if (lastOwner && lastOwner !== user.id) {
+           forceLogout();
+           return;
         }
-      } catch(e) {}
+        
+      } catch(e) {
+        forceLogout(); // Gặp lỗi không mong muốn -> Thà giết lầm hơn bỏ sót
+      }
     };
 
-    initDataAndCheckLeak();
-
-    // CHỐT CHẶN AN TOÀN: Ping server mỗi 60 giây (1 phút) để không bị chặn API
-    const securityPing = setInterval(async () => {
-      if (!navigator.onLine) return;
-      
-      const { data, error } = await supabase.auth.getUser();
-      
-      // NẾU CÓ LỖI: Phải kiểm tra kỹ xem có phải lỗi do tài khoản bị vô hiệu hóa không
-      if (error) {
-        // Lỗi 401 (Unauthorized), 403 (Forbidden) hoặc 400 (Bad Request) -> Thẻ bài bị hủy/User bị xóa
-        if (error.status === 401 || error.status === 403 || error.status === 400 || error.message?.includes('User not found')) {
-           clearInterval(securityPing);
-           forceLogout();
+    const initData = async () => {
+      await checkAuthStatus();
+      const ownerId = window.localStorage.getItem("mart_owner_id");
+      if (ownerId) {
+        const { data: store } = await supabase.from('stores').select('*').eq('owner_id', ownerId).single();
+        if (store) {
+          await dbSet("mart_current_store", store);
+          window.localStorage.setItem("mart_current_store", JSON.stringify(store));
         }
-        // Còn nếu error.status là 500 hoặc undefined (Lỗi mạng/đứt cáp) thì BỎ QUA, không đá văng người dùng.
-      } else if (!data?.user) {
-        clearInterval(securityPing);
-        forceLogout();
+        fetchProducts(); loadCloudData(); fetchSettingsFromCloud();
       }
-    }, 60000); // 60,000ms = 1 phút
+    };
+
+    initData();
+
+    // Con bot cẩu thả lúc nãy giờ vẫn chạy tuần tra mỗi 10 giây
+    const securityPing = setInterval(() => { checkAuthStatus(); }, 10000); 
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT' || event === 'USER_DELETED' || !session) {
@@ -238,6 +242,7 @@ export default function App() {
     });
 
     const channel = supabase.channel("db_changes")
+      // Lắng nghe data cập nhật
       .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts())
       .on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData())
       .on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData())
@@ -245,6 +250,20 @@ export default function App() {
       .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData())
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload: any) => { 
           setScanQueue(prev => [...prev, payload.new.code]); 
+      })
+      // NHẬN CHỈ THỊ 1: Nếu quản lý xóa dòng dữ liệu "Cửa hàng" trong database
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "stores" }, (payload) => {
+          const currentOwner = window.localStorage.getItem("mart_owner_id");
+          if (payload.old && payload.old.owner_id === currentOwner) {
+              forceLogout(); // Tử hình ngay không nói nhiều
+          }
+      })
+      // NHẬN CHỈ THỊ 2: Lệnh Broadcast chủ động từ sếp (Gửi lệnh FORCE_LOGOUT)
+      .on("broadcast", { event: "FORCE_LOGOUT" }, (payload) => {
+         const currentOwner = window.localStorage.getItem("mart_owner_id");
+         if (payload.payload?.owner_id === currentOwner || payload.payload?.target === 'ALL') {
+             forceLogout();
+         }
       })
       .subscribe();
 
@@ -254,7 +273,6 @@ export default function App() {
       authListener.subscription.unsubscribe();
     };
   }, [isLoggedIn]);
-
   useEffect(() => { const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e); }; window.addEventListener('beforeinstallprompt', handler); return () => window.removeEventListener('beforeinstallprompt', handler); }, []);
   const handleInstallApp = async () => { if (!installPrompt) return; installPrompt.prompt(); const { outcome } = await installPrompt.userChoice; if (outcome === 'accepted') { setInstallPrompt(null); toast.success("Cài đặt App thành công!"); logAudit("HỆ THỐNG", "Cài đặt ứng dụng PWA"); } };
 
