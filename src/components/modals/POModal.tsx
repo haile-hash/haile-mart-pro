@@ -35,6 +35,10 @@ export const POModal: React.FC<POModalProps> = ({
   const [receivingPO, setReceivingPO] = useState<any | null>(null);
   const [receiveItems, setReceiveItems] = useState<any[]>([]);
 
+  // Thêm 2 state để lưu từ khóa tìm kiếm cho 2 tab
+  const [searchPending, setSearchPending] = useState("");
+  const [searchHistory, setSearchHistory] = useState("");
+
   if (!showPOModal) return null;
 
   const filteredProducts = products.filter(p => p.name.toLowerCase().includes(poSearch.toLowerCase()) || (p.product_code && p.product_code.toLowerCase().includes(poSearch.toLowerCase()))).slice(0, 10);
@@ -62,7 +66,6 @@ export const POModal: React.FC<POModalProps> = ({
       const qty = Number(item.qty) || 0; 
       const price = Number(item.importPrice) || 0; 
       const rowTotal = qty * price;
-      // Đã sửa lại để kéo đúng mã sản phẩm ra PDF
       const pCode = item.product_code || item.product?.product_code || "";
       const pName = cleanName(item.name || item.product?.name || "SP");
 
@@ -139,8 +142,16 @@ export const POModal: React.FC<POModalProps> = ({
     setActiveTab('HISTORY');
   };
 
-  const pendingPOs = allPOs.filter(p => p.status === 'PENDING').sort((a,b) => b.id - a.id);
-  const completedPOs = allPOs.filter(p => p.status === 'COMPLETED').sort((a,b) => b.id - a.id);
+  // --- LỌC DS PO CÓ KẾT HỢP TỪ KHÓA TÌM KIẾM ---
+  const pendingPOs = allPOs
+    .filter(p => p.status === 'PENDING')
+    .filter(p => p.po_code?.toLowerCase().includes(searchPending.toLowerCase()) || p.supplier?.name?.toLowerCase().includes(searchPending.toLowerCase()))
+    .sort((a,b) => b.id - a.id);
+
+  const completedPOs = allPOs
+    .filter(p => p.status === 'COMPLETED')
+    .filter(p => p.po_code?.toLowerCase().includes(searchHistory.toLowerCase()) || p.supplier?.name?.toLowerCase().includes(searchHistory.toLowerCase()))
+    .sort((a,b) => b.id - a.id);
 
   const totalAmtTab1 = poItems.reduce((sum, item) => sum + (item.qty || 0) * (item.importPrice || 0), 0);
   const remainAmtTab1 = totalAmtTab1 - (paidAmount || 0);
@@ -229,7 +240,7 @@ export const POModal: React.FC<POModalProps> = ({
           <>
             <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>
               <button onClick={() => setActiveTab('NEW')} style={{ flex: 1, padding: '14px', border: 'none', background: activeTab === 'NEW' ? 'white' : 'transparent', fontWeight: 'bold', color: activeTab === 'NEW' ? '#2563eb' : '#64748b', borderBottom: activeTab === 'NEW' ? '3px solid #2563eb' : '3px solid transparent', cursor: 'pointer', fontSize: '14px' }}>TẠO ĐƠN MỚI (PO)</button>
-              <button onClick={() => setActiveTab('LIST')} style={{ flex: 1, padding: '14px', border: 'none', background: activeTab === 'LIST' ? 'white' : 'transparent', fontWeight: 'bold', color: activeTab === 'LIST' ? '#f59e0b' : '#64748b', borderBottom: activeTab === 'LIST' ? '3px solid #f59e0b' : '3px solid transparent', cursor: 'pointer', fontSize: '14px' }}>DS ĐƠN CHỜ NHẬP ({pendingPOs.length})</button>
+              <button onClick={() => setActiveTab('LIST')} style={{ flex: 1, padding: '14px', border: 'none', background: activeTab === 'LIST' ? 'white' : 'transparent', fontWeight: 'bold', color: activeTab === 'LIST' ? '#f59e0b' : '#64748b', borderBottom: activeTab === 'LIST' ? '3px solid #f59e0b' : '3px solid transparent', cursor: 'pointer', fontSize: '14px' }}>DS ĐƠN CHỜ NHẬP ({allPOs.filter(p => p.status === 'PENDING').length})</button>
               <button onClick={() => setActiveTab('HISTORY')} style={{ flex: 1, padding: '14px', border: 'none', background: activeTab === 'HISTORY' ? 'white' : 'transparent', fontWeight: 'bold', color: activeTab === 'HISTORY' ? '#10b981' : '#64748b', borderBottom: activeTab === 'HISTORY' ? '3px solid #10b981' : '3px solid transparent', cursor: 'pointer', fontSize: '14px' }}>LỊCH SỬ NHẬP KHO</button>
             </div>
 
@@ -327,6 +338,16 @@ export const POModal: React.FC<POModalProps> = ({
               {/* TAB 2: DANH SÁCH CHỜ NHẬP */}
               {activeTab === 'LIST' && (
                 <div>
+                  <div style={{ marginBottom: '15px' }}>
+                    <input 
+                      type="text" 
+                      placeholder="🔍 Tìm kiếm theo Mã PO hoặc Tên Nhà cung cấp..." 
+                      value={searchPending} 
+                      onChange={e => setSearchPending(e.target.value)} 
+                      style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} 
+                    />
+                  </div>
+
                   {pendingPOs.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>Không có đơn đặt hàng nào đang chờ.</div>
                   ) : (
@@ -365,6 +386,16 @@ export const POModal: React.FC<POModalProps> = ({
               {/* TAB 3: LỊCH SỬ NHẬP KHO */}
               {activeTab === 'HISTORY' && (
                 <div>
+                  <div style={{ marginBottom: '15px' }}>
+                    <input 
+                      type="text" 
+                      placeholder="🔍 Tìm kiếm theo Mã PO hoặc Tên Nhà cung cấp..." 
+                      value={searchHistory} 
+                      onChange={e => setSearchHistory(e.target.value)} 
+                      style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} 
+                    />
+                  </div>
+
                    {completedPOs.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>Chưa có lịch sử nhập kho nào.</div>
                   ) : (
