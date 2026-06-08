@@ -76,7 +76,11 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   const [isLocked, setIsLocked] = useState(() => {
-    if (typeof window !== 'undefined') return window.localStorage.getItem('mart_is_locked') === 'true';
+    if (typeof window !== 'undefined') {
+      const isLoggedLocal = window.localStorage.getItem('mart_logged_in') === 'true';
+      if (isLoggedLocal) return true;
+      return window.localStorage.getItem('mart_is_locked') === 'true';
+    }
     return false;
   });
 
@@ -166,7 +170,6 @@ export default function App() {
   const totalValue = useMemo(() => products.reduce((sum, p) => sum + ((p.stock || 0) * (p.import_price || 0)), 0), [products]);
   const lowStockCount = useMemo(() => products.filter(p => p.stock > 0 && p.stock < 10).length, [products]);
 
-  // ĐÁ VĂNG KHI TÀI KHOẢN BỊ XÓA (KIỂM TRA MỖI 30S)
   useEffect(() => {
     if (!isLoggedIn) return;
     const checkAccountStatus = async () => {
@@ -195,7 +198,28 @@ export default function App() {
     }
   }, [isLocked]);
 
-  useEffect(() => { if (!isLoggedIn || isLocked) return; let timeout: any; const resetTimer = () => { clearTimeout(timeout); timeout = setTimeout(() => setIsLocked(true), IDLE_TIMEOUT); }; window.addEventListener('mousemove', resetTimer); window.addEventListener('keydown', resetTimer); window.addEventListener('click', resetTimer); resetTimer(); return () => { clearTimeout(timeout); window.removeEventListener('mousemove', resetTimer); window.removeEventListener('keydown', resetTimer); window.removeEventListener('click', resetTimer); }; }, [isLoggedIn, isLocked]);
+  useEffect(() => { 
+    if (!isLoggedIn || isLocked) return; 
+    let timeout: any; 
+    const resetTimer = () => { 
+      clearTimeout(timeout); 
+      timeout = setTimeout(() => {
+        setIsLocked(true);
+        if (typeof window !== 'undefined') window.localStorage.setItem('mart_is_locked', 'true');
+      }, IDLE_TIMEOUT); 
+    }; 
+    window.addEventListener('mousemove', resetTimer); 
+    window.addEventListener('keydown', resetTimer); 
+    window.addEventListener('click', resetTimer); 
+    resetTimer(); 
+    return () => { 
+      clearTimeout(timeout); 
+      window.removeEventListener('mousemove', resetTimer); 
+      window.removeEventListener('keydown', resetTimer); 
+      window.removeEventListener('click', resetTimer); 
+    }; 
+  }, [isLoggedIn, isLocked]);
+
   useEffect(() => { const handler = setTimeout(() => { setDebouncedSearchTerm(searchTerm); }, 300); return () => clearTimeout(handler); }, [searchTerm]);
 
   useEffect(() => {
@@ -209,7 +233,6 @@ export default function App() {
         const savedCash = Number(await dbGet("mart_starting_cash") || 5000000); 
         
         setIsLoggedIn(loggedIn); 
-        if (loggedIn) setIsLocked(true);
 
         setShift(savedShift); setStartingCash(savedCash);
         setLocalPOs(await dbGet("mart_pos") || []); setCustomers(await dbGet("mart_customers") || {}); setHeldOrders(await dbGet("mart_held_orders") || []); setAuditLogs(await dbGet("mart_audit") || []); setExpenses(await dbGet("mart_expenses") || []); setSuppliers(await dbGet("mart_suppliers") || []); setHistory(await dbGet("mart_history") || []);
@@ -220,7 +243,13 @@ export default function App() {
     initializeEnterpriseStorage();
   }, []);
 
-  useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_logged_in", isLoggedIn ? "true" : "false"); }, [isLoggedIn, isStorageLoading]);
+  useEffect(() => { 
+    if (!isStorageLoading && !APP_IS_WIPING) {
+      dbSet("mart_logged_in", isLoggedIn ? "true" : "false"); 
+      if (typeof window !== 'undefined') window.localStorage.setItem("mart_logged_in", isLoggedIn ? "true" : "false");
+    }
+  }, [isLoggedIn, isStorageLoading]);
+  
   useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_shift", shift); }, [shift, isStorageLoading]);
   useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_starting_cash", startingCash.toString()); }, [startingCash, isStorageLoading]);
   useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_pos", localPOs); }, [localPOs, isStorageLoading]);
@@ -233,7 +262,6 @@ export default function App() {
 
   useEffect(() => { const handleKeyDown = (e: KeyboardEvent) => { if (!isLoggedIn || isCheckoutOpen || ui.showPinModal || ui.showAuditModal || ui.showCustomerModal || ui.showSettings || ui.showStoreSettings || ui.showInputForm || ui.showInventoryModal || ui.cashFlowModalInfo || ui.showPOModal) return; if (e.key === 'F1') { e.preventDefault(); document.getElementById('search-barcode')?.focus(); } if (e.key === 'F2') { e.preventDefault(); if (cart.length > 0) confirmCheckout('TIỀN MẶT'); } if (e.key === 'F3') { e.preventDefault(); if (cart.length > 0) confirmCheckout('CHUYỂN KHOẢN'); } if (e.key === 'F4') { e.preventDefault(); handleHoldOrder(); } }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); }, [isLoggedIn, isCheckoutOpen, ui, cart]);
 
-  // CƠ CHẾ ĐỒNG BỘ REALTIME TOÀN DIỆN KÈM MÁY QUÉT ĐIỆN THOẠI DI ĐỘNG XA
   useEffect(() => {
     if (isLoggedIn) {
       const initDataAndCheckLeak = async () => {
@@ -276,7 +304,6 @@ export default function App() {
     }
   }, [isLoggedIn]);
 
-  // BỘ PHẬN XỬ LÝ CAMERA QUÉT MÃ (KHÔI PHỤC HOÀN TOÀN)
   useEffect(() => {
     if (ui.scannerMode !== null) {
       let scanner: any;
@@ -1005,8 +1032,6 @@ export default function App() {
       (po.items || []).forEach((item: any, index: number) => { wsData.push([ index + 1, cleanName(item.name), item.qty, item.importPrice, item.qty * item.importPrice ]); });
       wsData.push([]); wsData.push(["", "", "", "TỔNG CỘNG:", (po.items || []).reduce((sum: number, i: any) => sum + (i.qty * i.importPrice), 0)]);
       const ws = (window as any).XLSX.utils.aoa_to_sheet(wsData); 
-      
-      // Khúc này em đã bỏ cái dòng "const wb = ..." bị trùng đi rồi sếp nhé!
       (window as any).XLSX.utils.book_append_sheet(wb, ws, "Phieu_Dat_Hang"); 
       (window as any).XLSX.writeFile(wb, `DatHang_${po.po_code}.xlsx`); 
       toast.success("Xuất file Đặt hàng thành công!");
@@ -1077,35 +1102,22 @@ export default function App() {
       
       <Header 
         ui={ui}
-        shift={shift} totalValue={totalValue} currentShiftStats={currentShiftStats} setCashFlowModalInfo={ui.setCashFlowModalInfo} darkMode={ui.darkMode} setDarkMode={ui.setDarkMode} handleLogoutClick={handleLogoutClick}
-        lowStockCount={lowStockCount} isOnline={isOnline} syncStatus={syncStatus} syncAllOfflineData={syncPendingImports} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr}
+        shift={shift} 
+        totalValue={totalValue} 
+        currentShiftStats={currentShiftStats} 
+        setCashFlowModalInfo={ui.setCashFlowModalInfo} 
+        darkMode={ui.darkMode} 
+        setDarkMode={ui.setDarkMode} 
+        handleLogoutClick={handleLogoutClick}
+        handleLockScreen={() => setIsLocked(true)} 
+        lowStockCount={lowStockCount} 
+        isOnline={isOnline} 
+        syncStatus={syncStatus} 
+        syncAllOfflineData={syncPendingImports} 
+        bankBin={bankBin} 
+        bankAcc={bankAcc} 
+        bankNameStr={bankNameStr}
       />
-
-      {/* TẠO THANH LỆNH NHANH CHO HỆ THỐNG TRONG KHI HEADER KHÔNG GỌI ĐƯỢC */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '10px 16px', borderRadius: '12px', marginBottom: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' }}>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button 
-            onClick={() => ui.setShowScannerLinkModal?.(true)} 
-            style={{ padding: '8px 16px', background: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}
-          >
-            📲 KẾT NỐI ĐIỆN THOẠI QUÉT DI ĐỘNG (QR)
-          </button>
-        </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button 
-            onClick={() => setIsLocked(true)} 
-            style={{ padding: '8px 16px', background: '#f59e0b', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}
-          >
-            🔒 KHÓA MÀN HÌNH
-          </button>
-          <button 
-            onClick={handleLogoutClick} 
-            style={{ padding: '8px 16px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}
-          >
-            🚪 ĐĂNG XUẤT & CHỐT CA
-          </button>
-        </div>
-      </div>
 
       <div className="pos-main-workspace" style={{ display: "grid", gridTemplateColumns: "70% 30%", gap: "16px" }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
