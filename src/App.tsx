@@ -259,29 +259,30 @@ export default function App() {
     initializeEnterpriseStorage();
   }, []);
 
-  // --- TỰ ĐỘNG DỌN DẸP PO QUÁ HẠN 30 NGÀY ---
+  // --- TỰ ĐỘNG DỌN DẸP PO QUÁ HẠN 30 NGÀY (CHUYỂN SANG ĐÃ HỦY) ---
   useEffect(() => {
     if (!isStorageLoading && allPOs.length > 0) {
-      const THIRTY_DAYS_MS = 1 * 60 * 1000;
+      // Để 1 * 60 * 1000 nếu sếp muốn test 1 phút, test xong nhớ đổi về 30 ngày nhé!
+      const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000; 
       const now = Date.now();
-      let deletedCount = 0;
+      let changedCount = 0;
 
-      const validPOs = allPOs.filter(po => {
+      const updatedPOs = allPOs.map(po => {
         if (po.status === 'PENDING') {
           const createdAt = new Date(po.created_at || po.id).getTime();
           if (now - createdAt >= THIRTY_DAYS_MS) {
-            deletedCount++;
-            return false; // Hủy bỏ khỏi mảng
+            changedCount++;
+            return { ...po, status: 'CANCELLED' }; // Đổi trạng thái thay vì xóa
           }
         }
-        return true;
+        return po;
       });
 
-      if (deletedCount > 0) {
-        setAllPOs(validPOs);
-        dbSet("mart_pos", validPOs).catch(() => {});
-        toast.success(`Hệ thống đã tự động hủy ${deletedCount} Phiếu đặt hàng (PO) quá hạn 30 ngày để giải phóng ngân sách!`);
-        logAudit("DỌN DẸP PO", `Tự động xóa ${deletedCount} PO Pending quá hạn 30 ngày`);
+      if (changedCount > 0) {
+        setAllPOs(updatedPOs);
+        dbSet("mart_pos", updatedPOs).catch(() => {});
+        toast.error(`Hệ thống đã tự động chuyển ${changedCount} Phiếu PO sang ĐÃ HỦY do quá hạn 30 ngày!`);
+        logAudit("DỌN DẸP PO", `Hủy tự động ${changedCount} PO Pending quá hạn 30 ngày`);
       }
     }
   }, [isStorageLoading]);
