@@ -1000,11 +1000,13 @@ export default function App() {
 
   const downloadPO = (po: any) => {
     try {
-      const wb = (window as any).XLSX.utils.book_new(); const wsData = [ ["MÃ ĐẶT HÀNG:", po.po_code, "NGÀY ĐẶT:", new Date(po.created_at).toLocaleDateString('vi-VN')], ["NHÀ CUNG CẤP:", suppliers.find(s => s.id == po.supplier_id)?.name || "", "SĐT:", suppliers.find(s => s.id == po.supplier_id)?.phone || ""], ["GHI CHÚ:", po.note || ""], [], ["STT", "TÊN SẢN PHẨM", "SỐ LƯỢNG", "GIÁ NHẬP DỰ KIẾN", "THÀNH TIỀN"] ];
+      const wb = (window as any).XLSX.utils.book_new(); 
+      const wsData = [ ["MÃ ĐẶT HÀNG:", po.po_code, "NGÀY ĐẶT:", new Date(po.created_at).toLocaleDateString('vi-VN')], ["NHÀ CUNG CẤP:", suppliers.find(s => s.id == po.supplier_id)?.name || "", "SĐT:", suppliers.find(s => s.id == po.supplier_id)?.phone || ""], ["GHI CHÚ:", po.note || ""], [], ["STT", "TÊN SẢN PHẨM", "SỐ LƯỢNG", "GIÁ NHẬP DỰ KIẾN", "THÀNH TIỀN"] ];
       (po.items || []).forEach((item: any, index: number) => { wsData.push([ index + 1, cleanName(item.name), item.qty, item.importPrice, item.qty * item.importPrice ]); });
       wsData.push([]); wsData.push(["", "", "", "TỔNG CỘNG:", (po.items || []).reduce((sum: number, i: any) => sum + (i.qty * i.importPrice), 0)]);
       const ws = (window as any).XLSX.utils.aoa_to_sheet(wsData); 
-      const wb = (window as any).XLSX.utils.book_new(); 
+      
+      // Khúc này em đã bỏ cái dòng "const wb = ..." bị trùng đi rồi sếp nhé!
       (window as any).XLSX.utils.book_append_sheet(wb, ws, "Phieu_Dat_Hang"); 
       (window as any).XLSX.writeFile(wb, `DatHang_${po.po_code}.xlsx`); 
       toast.success("Xuất file Đặt hàng thành công!");
