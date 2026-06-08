@@ -306,8 +306,21 @@ export default function App() {
       const loadScanner = () => {
         setTimeout(() => {
           if ((window as any).Html5QrcodeScanner && document.getElementById("global-camera-scanner")) {
-            scanner = new (window as any).Html5QrcodeScanner("global-camera-scanner", { fps: 15, qrbox: { width: 250, height: 120 }, rememberLastUsedCamera: true }, false);
-            scanner.render((text: string) => {
+            scanner = new (window as any).Html5QrcodeScanner(
+  "global-camera-scanner", 
+  { 
+    fps: 30, // Tăng gấp đôi tốc độ phân tích khung hình (30 khung/giây)
+    qrbox: { width: 350, height: 200 }, // Mở rộng lăng kính quét để dễ lọt mã vào hơn
+    rememberLastUsedCamera: true,
+    supportedScanTypes: [0], // Chỉ dùng camera, tắt tính năng upload ảnh cho nhẹ
+    videoConstraints: {
+      width: { ideal: 1280 },  // Ép Webcam phải mở ở độ phân giải HD (Cực kỳ quan trọng để mã vạch không bị vỡ hạt)
+      height: { ideal: 720 },
+      advanced: [{ focusMode: "continuous" }] // Cố gắng ép lấy nét liên tục (nếu webcam có hỗ trợ)
+    }
+  }, 
+  false
+);
               const now = Date.now();
               if (now - lastScanTime < 1500) return;
               lastScanTime = now;
