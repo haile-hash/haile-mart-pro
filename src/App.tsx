@@ -67,6 +67,10 @@ export default function App() {
   const [isStorageLoading, setIsStorageLoading] = useState(true); 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
+  // --- STATE QUẢN LÝ GÓI CƯỚC THUÊ BAO (SaaS) ---
+  const [isExpired, setIsExpired] = useState(false);
+  const [storeData, setStoreData] = useState<any>(null);
+
   const [isLocked, setIsLocked] = useState(() => {
     if (typeof window !== 'undefined') {
       const isLoggedLocal = window.localStorage.getItem('mart_logged_in') === 'true';
@@ -83,6 +87,17 @@ export default function App() {
 
   const [bankBin, setBankBin] = useState(""); const [bankAcc, setBankAcc] = useState(""); const [bankNameStr, setBankNameStr] = useState(""); const [zaloPayId, setZaloPayId] = useState(""); const [adminPin, setAdminPin] = useState("1234"); const [pendingAction, setPendingAction] = useState<(() => void) | null>(null); 
   
+  // =========================================================================
+  // ⚙️ CẤU HÌNH CỔNG THANH TOÁN VIETQR CHO TÀI KHOẢN CỦA SẾP
+  // Sếp thay mã ngân hàng (VD: MB, VCB, ACB) và Số tài khoản vào đây nhé:
+  // Danh sách mã ngân hàng xem tại: https://vietqr.net/portal/bank-list
+  // =========================================================================
+  const MY_BANK_ID = "MB";       // <-- Sửa mã ngân hàng của sếp ở đây
+  const MY_ACCOUNT_NO = "0936407061"; // <-- Sửa số tài khoản của sếp ở đây
+  const SUBSCRIPTION_FEE = 199000; // Giá gia hạn hàng tháng (199k)
+  const ACCOUNT_NAME = "HỆ THỐNG POS PRO"; // Tên hiển thị trên mã QR
+  // =========================================================================
+
   const [happyStart, setHappyStart] = useState("11:00"); 
   const [happyEnd, setHappyEnd] = useState("13:00");
   const [happyDiscount, setHappyDiscount] = useState(20);
@@ -162,46 +177,110 @@ export default function App() {
   const totalValue = useMemo(() => products.reduce((sum, p) => sum + ((p.stock || 0) * (p.import_price || 0)), 0), [products]);
   const lowStockCount = useMemo(() => products.filter(p => p.stock > 0 && p.stock < 10).length, [products]);
 
+  // --- TỰ ĐỘNG DỌN DẸP PO ---
+  useEffect(() => {
+    if (isStorageLoading) return;
+    const checkAndCancelPOs = async () => {
+      const currentPOs = await dbGet("mart_pos") || [];
+      if (currentPOs.length === 0) return;
+      const EXPIRATION_TIME_MS = 30 * 24 * 60 * 60 * 1000;
+      const now = Date.now();
+      let changedCount = 0;
+      const updatedPOs = currentPOs.map((po: any) => {
+        if (po.status === 'PENDING') {
+          const createdAt = new Date(po.created_at || po.id).getTime();
+          if (now - createdAt >= EXPIRATION_TIME_MS) { changedCount++; return { ...po, status: 'CANCELLED' }; }
+        }
+        return po;
+      });
+      if (changedCount > 0) { setAllPOs(updatedPOs); await dbSet("mart_pos", updatedPOs); }
+    };
+    checkAndCancelPOs();
+    const intervalId = setInterval(checkAndCancelPOs, 60000); 
+    return () => clearInterval(intervalId);
+  }, [isStorageLoading]);
+
+  // --- KIỂM TRA BẢO MẬT & TRẠNG THÁI GÓI CƯỚC ---
   useEffect(() => {
     if (!isLoggedIn) return;
-    const initDataAndCheckLeak = async () => {
-      if (!navigator.onLine) return;
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const lastOwner = await dbGet("mart_owner_id");
-          if (lastOwner && lastOwner !== user.id) {
-             APP_IS_WIPING = true; 
-             await dbClearAll();
-             window.localStorage.clear();
-             window.sessionStorage.clear();
-             APP_IS_WIPING = false; 
-          }
-          await dbSet("mart_owner_id", user.id);
-          window.localStorage.setItem("mart_owner_id", user.id);
 
-          const { data: store } = await supabase.from('stores').select('*').eq('owner_id', user.id).single();
-          if (store) {
-            await dbSet("mart_current_store", store);
-            window.localStorage.setItem("mart_current_store", JSON.stringify(store));
-          }
-          fetchProducts(); loadCloudData(); fetchSettingsFromCloud();
-        }
-      } catch(e) {}
+    const forceLogout = () => {
+      APP_IS_WIPING = true; 
+      supabase.auth.signOut().catch(() => {});
+      dbClearAll().catch(() => {});
+      try { window.localStorage.clear(); } catch(e) {}
+      try { window.sessionStorage.clear(); } catch(e) {}
+      setTimeout(() => { window.location.replace(window.location.origin); }, 500);
     };
 
-    initDataAndCheckLeak();
+    const checkAuthStatus = async () => {
+      if (!navigator.onLine) return; 
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) { if (error.message?.includes('Fetch') || error.message?.includes('fetch') || error.status >= 500) return; forceLogout(); return; } 
+        if (!user) { forceLogout(); return; }
+        const lastOwner = window.localStorage.getItem("mart_owner_id");
+        if (lastOwner && lastOwner !== user.id) { forceLogout(); return; }
+      } catch(e) { forceLogout(); }
+    };
+
+    const initData = async () => {
+      await checkAuthStatus();
+      const ownerId = window.localStorage.getItem("mart_owner_id");
+      if (ownerId) {
+        const { data: store } = await supabase.from('stores').select('*').eq('owner_id', ownerId).single();
+        if (store) {
+          setStoreData(store);
+          await dbSet("mart_current_store", store);
+          window.localStorage.setItem("mart_current_store", JSON.stringify(store));
+          
+          // Kiểm tra hạn sử dụng gói cước
+          if (store.expire_at) {
+              const expireDate = new Date(store.expire_at).getTime();
+              setIsExpired(Date.now() > expireDate);
+          }
+
+          fetchProducts(); loadCloudData(); fetchSettingsFromCloud();
+        }
+      }
+    };
+
+    initData();
+
+    const securityPing = setInterval(() => { checkAuthStatus(); }, 15000); 
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || event === 'USER_DELETED' || !session) forceLogout();
+    });
+
     const channel = supabase.channel("db_changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts())
       .on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData())
       .on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => loadCloudData())
       .on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData())
       .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData())
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload: any) => { 
-          setScanQueue(prev => [...prev, payload.new.code]); 
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload: any) => { setScanQueue(prev => [...prev, payload.new.code]); })
+      // Bắt sự kiện bảng store thay đổi (để cập nhật trạng thái mở khóa realtime khi nạp tiền)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "stores" }, (payload) => {
+          const currentOwner = window.localStorage.getItem("mart_owner_id");
+          if (payload.new && payload.new.owner_id === currentOwner) {
+              setStoreData(payload.new);
+              if (payload.new.expire_at) {
+                  setIsExpired(new Date().getTime() > new Date(payload.new.expire_at).getTime());
+              }
+          }
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "stores" }, (payload) => {
+          const currentOwner = window.localStorage.getItem("mart_owner_id");
+          if (payload.old && payload.old.owner_id === currentOwner) forceLogout(); 
+      })
+      .on("broadcast", { event: "FORCE_LOGOUT" }, (payload) => {
+         const currentOwner = window.localStorage.getItem("mart_owner_id");
+         if (payload.payload?.owner_id === currentOwner || payload.payload?.target === 'ALL') forceLogout();
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel) };
+
+    return () => { clearInterval(securityPing); supabase.removeChannel(channel); authListener.subscription.unsubscribe(); };
   }, [isLoggedIn]);
 
   useEffect(() => { const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e); }; window.addEventListener('beforeinstallprompt', handler); return () => window.removeEventListener('beforeinstallprompt', handler); }, []);
@@ -215,26 +294,12 @@ export default function App() {
   }, [isLocked]);
 
   useEffect(() => { 
-    if (!isLoggedIn || isLocked) return; 
+    if (!isLoggedIn || isLocked || isExpired) return; 
     let timeout: any; 
-    const resetTimer = () => { 
-      clearTimeout(timeout); 
-      timeout = setTimeout(() => {
-        setIsLocked(true);
-        if (typeof window !== 'undefined') window.localStorage.setItem('mart_is_locked', 'true');
-      }, IDLE_TIMEOUT); 
-    }; 
-    window.addEventListener('mousemove', resetTimer); 
-    window.addEventListener('keydown', resetTimer); 
-    window.addEventListener('click', resetTimer); 
-    resetTimer(); 
-    return () => { 
-      clearTimeout(timeout); 
-      window.removeEventListener('mousemove', resetTimer); 
-      window.removeEventListener('keydown', resetTimer); 
-      window.removeEventListener('click', resetTimer); 
-    }; 
-  }, [isLoggedIn, isLocked]);
+    const resetTimer = () => { clearTimeout(timeout); timeout = setTimeout(() => { setIsLocked(true); if (typeof window !== 'undefined') window.localStorage.setItem('mart_is_locked', 'true'); }, IDLE_TIMEOUT); }; 
+    window.addEventListener('mousemove', resetTimer); window.addEventListener('keydown', resetTimer); window.addEventListener('click', resetTimer); resetTimer(); 
+    return () => { clearTimeout(timeout); window.removeEventListener('mousemove', resetTimer); window.removeEventListener('keydown', resetTimer); window.removeEventListener('click', resetTimer); }; 
+  }, [isLoggedIn, isLocked, isExpired]);
 
   useEffect(() => { const handler = setTimeout(() => { setDebouncedSearchTerm(searchTerm); }, 300); return () => clearTimeout(handler); }, [searchTerm]);
 
@@ -243,72 +308,18 @@ export default function App() {
       try {
         let isMigrated = await dbGet("mart_storage_migrated") === "true";
         if (!isMigrated) { const keysToMigrate = ["mart_logged_in", "mart_shift", "mart_starting_cash", "mart_pos", "mart_customers", "mart_held_orders", "mart_audit", "mart_expenses", "mart_suppliers", "mart_history"]; for (const key of keysToMigrate) { const localData = localStorage.getItem(key); if (localData !== null) { try { if (localData.startsWith("[") || localData.startsWith("{")) { await dbSet(key, JSON.parse(localData)); } else { await dbSet(key, localData); } } catch (e) { await dbSet(key, localData); } localStorage.removeItem(key); } } await dbSet("mart_storage_migrated", "true"); }
-        
         const loggedIn = await dbGet("mart_logged_in") === "true"; 
         const savedShift = await dbGet("mart_shift") || "Ca Sáng"; 
         const savedCash = Number(await dbGet("mart_starting_cash") || 5000000); 
-        
-        setIsLoggedIn(loggedIn); 
-
-        setShift(savedShift); setStartingCash(savedCash);
+        setIsLoggedIn(loggedIn); setShift(savedShift); setStartingCash(savedCash);
         setLocalPOs(await dbGet("mart_pos") || []); setCustomers(await dbGet("mart_customers") || {}); setHeldOrders(await dbGet("mart_held_orders") || []); setAuditLogs(await dbGet("mart_audit") || []); setExpenses(await dbGet("mart_expenses") || []); setSuppliers(await dbGet("mart_suppliers") || []); setHistory(await dbGet("mart_history") || []);
-        const storedPOs = await dbGet("mart_pos") || [];
-        setAllPOs(storedPOs);
+        setAllPOs(await dbGet("mart_pos") || []);
       } catch (err) {} finally { setIsStorageLoading(false); }
     };
     initializeEnterpriseStorage();
   }, []);
 
-  // --- TỰ ĐỘNG DỌN DẸP PO QUÁ HẠN (BOT CHẠY NGẦM LIÊN TỤC) ---
-  useEffect(() => {
-    if (isStorageLoading) return;
-
-    const checkAndCancelPOs = async () => {
-      // Lấy danh sách PO mới nhất ngầm dưới DB để quét, tránh bị sai lệch
-      const currentPOs = await dbGet("mart_pos") || [];
-      if (currentPOs.length === 0) return;
-
-      // Sếp để 1 * 60 * 1000 để test 1 phút, test xong nhớ sửa lại 30 * 24 * 60 * 60 * 1000 nhé
-      const EXPIRATION_TIME_MS = 1 * 60 * 1000; 
-      const now = Date.now();
-      let changedCount = 0;
-
-      const updatedPOs = currentPOs.map((po: any) => {
-        if (po.status === 'PENDING') {
-          const createdAt = new Date(po.created_at || po.id).getTime();
-          if (now - createdAt >= EXPIRATION_TIME_MS) {
-            changedCount++;
-            return { ...po, status: 'CANCELLED' };
-          }
-        }
-        return po;
-      });
-
-      if (changedCount > 0) {
-        setAllPOs(updatedPOs); // Cập nhật ra ngoài màn hình
-        await dbSet("mart_pos", updatedPOs); // Lưu chốt vào DB
-        toast.error(`Hệ thống bot đã tự động chuyển ${changedCount} Phiếu PO sang ĐÃ HỦY do quá hạn!`);
-      }
-    };
-
-    // 1. Chạy ngay lập tức 1 lần khi sếp vừa mở web
-    checkAndCancelPOs();
-
-    // 2. Gắn Bot chạy ngầm: Cứ 10 giây quét DB 1 lần
-    const intervalId = setInterval(() => {
-      checkAndCancelPOs();
-    }, 10000); 
-
-    return () => clearInterval(intervalId); // Tự dọn dẹp bộ nhớ khi tắt web
-  }, [isStorageLoading]);
-
-  useEffect(() => { 
-    if (!isStorageLoading && !APP_IS_WIPING) {
-      dbSet("mart_logged_in", isLoggedIn ? "true" : "false"); 
-      if (typeof window !== 'undefined') window.localStorage.setItem("mart_logged_in", isLoggedIn ? "true" : "false");
-    }
-  }, [isLoggedIn, isStorageLoading]);
-  
+  useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) { dbSet("mart_logged_in", isLoggedIn ? "true" : "false"); if (typeof window !== 'undefined') window.localStorage.setItem("mart_logged_in", isLoggedIn ? "true" : "false"); } }, [isLoggedIn, isStorageLoading]);
   useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_shift", shift); }, [shift, isStorageLoading]);
   useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_starting_cash", startingCash.toString()); }, [startingCash, isStorageLoading]);
   useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_pos", localPOs); }, [localPOs, isStorageLoading]);
@@ -319,33 +330,13 @@ export default function App() {
   useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_suppliers", suppliers); }, [suppliers, isStorageLoading]);
   useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_history", history); }, [history, isStorageLoading]);
 
-  useEffect(() => { const handleKeyDown = (e: KeyboardEvent) => { if (!isLoggedIn || isCheckoutOpen || ui.showPinModal || ui.showAuditModal || ui.showCustomerModal || ui.showSettings || ui.showStoreSettings || ui.showInputForm || ui.showInventoryModal || ui.cashFlowModalInfo || ui.showPOModal) return; if (e.key === 'F1') { e.preventDefault(); document.getElementById('search-barcode')?.focus(); } if (e.key === 'F2') { e.preventDefault(); if (cart.length > 0) confirmCheckout('TIỀN MẶT'); } if (e.key === 'F3') { e.preventDefault(); if (cart.length > 0) confirmCheckout('CHUYỂN KHOẢN'); } if (e.key === 'F4') { e.preventDefault(); handleHoldOrder(); } }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); }, [isLoggedIn, isCheckoutOpen, ui, cart]);
+  useEffect(() => { const handleKeyDown = (e: KeyboardEvent) => { if (!isLoggedIn || isLocked || isExpired || isCheckoutOpen || ui.showPinModal || ui.showAuditModal || ui.showCustomerModal || ui.showSettings || ui.showStoreSettings || ui.showInputForm || ui.showInventoryModal || ui.cashFlowModalInfo || ui.showPOModal) return; if (e.key === 'F1') { e.preventDefault(); document.getElementById('search-barcode')?.focus(); } if (e.key === 'F2') { e.preventDefault(); if (cart.length > 0) confirmCheckout('TIỀN MẶT'); } if (e.key === 'F3') { e.preventDefault(); if (cart.length > 0) confirmCheckout('CHUYỂN KHOẢN'); } if (e.key === 'F4') { e.preventDefault(); handleHoldOrder(); } }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); }, [isLoggedIn, isLocked, isExpired, isCheckoutOpen, ui, cart]);
 
   useEffect(() => {
     if (ui.scannerMode !== null) {
-      let scanner: any;
-      let lastScanTime = 0;
-      const loadScanner = () => {
-        setTimeout(() => {
-          if ((window as any).Html5QrcodeScanner && document.getElementById("global-camera-scanner")) {
-            scanner = new (window as any).Html5QrcodeScanner("global-camera-scanner", { fps: 30, qrbox: { width: 350, height: 200 }, rememberLastUsedCamera: true, supportedScanTypes: [0] }, false);
-            scanner.render((text: string) => {
-              const now = Date.now();
-              if (now - lastScanTime < 1500) return;
-              lastScanTime = now;
-              setScanQueue(prev => [...prev, text]);
-            }, undefined);
-          }
-        }, 150);
-      };
-      if (!(window as any).Html5QrcodeScanner) {
-        const script = document.createElement("script");
-        script.src = "https://unpkg.com/html5-qrcode";
-        script.onload = loadScanner;
-        document.head.appendChild(script);
-      } else {
-        loadScanner();
-      }
+      let scanner: any; let lastScanTime = 0;
+      const loadScanner = () => { setTimeout(() => { if ((window as any).Html5QrcodeScanner && document.getElementById("global-camera-scanner")) { scanner = new (window as any).Html5QrcodeScanner("global-camera-scanner", { fps: 30, qrbox: { width: 350, height: 200 }, rememberLastUsedCamera: true, supportedScanTypes: [0] }, false); scanner.render((text: string) => { const now = Date.now(); if (now - lastScanTime < 1500) return; lastScanTime = now; setScanQueue(prev => [...prev, text]); }, undefined); } }, 150); };
+      if (!(window as any).Html5QrcodeScanner) { const script = document.createElement("script"); script.src = "https://unpkg.com/html5-qrcode"; script.onload = loadScanner; document.head.appendChild(script); } else { loadScanner(); }
       return () => { if (scanner) scanner.clear().catch(() => {}); };
     }
   }, [ui.scannerMode]);
@@ -353,32 +344,10 @@ export default function App() {
   useEffect(() => {
     if (scanQueue.length > 0) {
       const currentCode = scanQueue[0];
-      if (ui.scannerMode === 'product' || ui.scannerMode === 'barcode' || ui.scannerMode === null) { 
-        const p = findProductByCode(currentCode); 
-        if (p) { 
-          handleSelectSuggest(p); playSound('success'); 
-        } else { 
-          const matchedPhone = Object.keys(customersData || {}).find(phone => phone === currentCode.trim() || customersData[phone]?.cardCode === currentCode.trim()); 
-          if (matchedPhone) { 
-            playSound('success'); setCustomerInput(customersData[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customersData[matchedPhone].name); 
-          } else { 
-            playSound('error'); toast.error(`Mã vạch lạ [${currentCode}], đã điền tự động vào ô nhập hàng nhanh!`); setNewCode(currentCode.trim()); 
-          } 
-        } 
-      }
-      else if (ui.scannerMode === 'voucher') { 
-        const code = currentCode.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; 
-        if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); setVoucherInput(code); playSound('success'); } 
-        else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); setVoucherInput(code); playSound('success'); } 
-        else { playSound('error'); toast.error("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0) } 
-      }
-      else if (ui.scannerMode === 'customer') { 
-        const val = currentCode.trim(); setCustomerInput(val); const matchedPhone = Object.keys(customersData || {}).find(phone => phone === val || customersData[phone]?.cardCode === val); 
-        if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customersData[matchedPhone].name); setCustAddress(customersData[matchedPhone].address || ""); playSound('success'); } 
-        else { setCustPhone(val); setCustName(""); setCustAddress(""); playSound('success'); } 
-      }
-      setTimeout(() => ui.setScannerMode?.(null), 1000); 
-      setScanQueue(prev => prev.slice(1));
+      if (ui.scannerMode === 'product' || ui.scannerMode === 'barcode' || ui.scannerMode === null) { const p = findProductByCode(currentCode); if (p) { handleSelectSuggest(p); playSound('success'); } else { const matchedPhone = Object.keys(customersData || {}).find(phone => phone === currentCode.trim() || customersData[phone]?.cardCode === currentCode.trim()); if (matchedPhone) { playSound('success'); setCustomerInput(customersData[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customersData[matchedPhone].name); } else { playSound('error'); toast.error(`Mã vạch lạ [${currentCode}], đã điền tự động!`); setNewCode(currentCode.trim()); } } }
+      else if (ui.scannerMode === 'voucher') { const code = currentCode.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); setVoucherInput(code); playSound('success'); } else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); setVoucherInput(code); playSound('success'); } else { playSound('error'); toast.error("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0) } }
+      else if (ui.scannerMode === 'customer') { const val = currentCode.trim(); setCustomerInput(val); const matchedPhone = Object.keys(customersData || {}).find(phone => phone === val || customersData[phone]?.cardCode === val); if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customersData[matchedPhone].name); setCustAddress(customersData[matchedPhone].address || ""); playSound('success'); } else { setCustPhone(val); setCustName(""); setCustAddress(""); playSound('success'); } }
+      setTimeout(() => ui.setScannerMode?.(null), 1000); setScanQueue(prev => prev.slice(1));
     }
   }, [scanQueue, products, ui.scannerMode]);
 
@@ -386,139 +355,20 @@ export default function App() {
 
   const executeWithAdminCheck = (action: () => void) => { action(); };
   
-  const addTransactionAndSync = async (logData: any) => { 
-    const ownerId = window.localStorage.getItem("mart_owner_id");
-    if (!ownerId) return;
-    const dataWithOwner = { ...logData, owner_id: ownerId };
-    setHistory(prev => [dataWithOwner, ...prev]); 
-    if (navigator.onLine) { 
-      try { await supabase.from("history").insert([dataWithOwner]); } catch (err) {} 
-    } 
-  };
+  const addTransactionAndSync = async (logData: any) => { const ownerId = window.localStorage.getItem("mart_owner_id"); if (!ownerId) return; const dataWithOwner = { ...logData, owner_id: ownerId }; setHistory(prev => [dataWithOwner, ...prev]); if (navigator.onLine) { try { await supabase.from("history").insert([dataWithOwner]); } catch (err) {} } };
   
-  const logAudit = async (action: string, detail: string, extraData: any = null) => { 
-    const ownerId = window.localStorage.getItem("mart_owner_id");
-    if (!ownerId) return;
-    const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user_name: 'Người Dùng', shift, action, detail, extra_data: extraData ? JSON.stringify(extraData) : null, owner_id: ownerId }; 
-    setAuditLogs(prev => [newLog, ...prev].slice(0, 300)); 
-    if (navigator.onLine) { supabase.from("audit_logs").insert([newLog]).catch(()=>{}); }
-  };
+  const logAudit = async (action: string, detail: string, extraData: any = null) => { const ownerId = window.localStorage.getItem("mart_owner_id"); if (!ownerId) return; const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user_name: 'Người Dùng', shift, action, detail, extra_data: extraData ? JSON.stringify(extraData) : null, owner_id: ownerId }; setAuditLogs(prev => [newLog, ...prev].slice(0, 300)); if (navigator.onLine) { supabase.from("audit_logs").insert([newLog]).catch(()=>{}); } };
   
-  const exportAuditToCSV = () => {
-    if (!(window as any).XLSX) return toast.error("Đang tải thư viện Excel!");
-    try {
-      const wsData = [["Thời gian", "Tài khoản", "Ca làm việc", "Hành động", "Chi tiết"]];
-      auditLogs.forEach(log => { wsData.push([log.time, log.user_name, log.shift, log.action, log.detail]); });
-      const ws = (window as any).XLSX.utils.aoa_to_sheet(wsData);
-      const wb = (window as any).XLSX.utils.book_new();
-      (window as any).XLSX.utils.book_append_sheet(wb, ws, "NhatKy");
-      (window as any).XLSX.writeFile(wb, `NhatKyHeThong_${Date.now()}.xlsx`);
-      toast.success("Xuất file Nhật ký thành công!");
-    } catch (e) { toast.error("Lỗi xuất file!"); }
-  };
+  const exportAuditToCSV = () => { if (!(window as any).XLSX) return toast.error("Đang tải thư viện Excel!"); try { const wsData = [["Thời gian", "Tài khoản", "Ca làm việc", "Hành động", "Chi tiết"]]; auditLogs.forEach(log => { wsData.push([log.time, log.user_name, log.shift, log.action, log.detail]); }); const ws = (window as any).XLSX.utils.aoa_to_sheet(wsData); const wb = (window as any).XLSX.utils.book_new(); (window as any).XLSX.utils.book_append_sheet(wb, ws, "NhatKy"); (window as any).XLSX.writeFile(wb, `NhatKyHeThong_${Date.now()}.xlsx`); toast.success("Xuất file Nhật ký thành công!"); } catch (e) { toast.error("Lỗi xuất file!"); } };
   
-  const fetchProducts = async () => { 
-    const ownerId = window.localStorage.getItem("mart_owner_id");
-    if (!ownerId) return;
-    try { 
-      if (navigator.onLine) { 
-        const { data, error } = await supabase.from("products").select("*").eq("owner_id", ownerId).order("created_at", { ascending: false }); 
-        if (data && !error) { setProducts(data); await dbSet("mart_products_cache", data); } 
-      } else { 
-        const localData = await dbGet("mart_products_cache"); if (localData) setProducts(localData); 
-      } 
-    } catch (err) { 
-      const localData = await dbGet("mart_products_cache"); if (localData) setProducts(localData); 
-    } 
-  };
+  const fetchProducts = async () => { const ownerId = window.localStorage.getItem("mart_owner_id"); if (!ownerId) return; try { if (navigator.onLine) { const { data, error } = await supabase.from("products").select("*").eq("owner_id", ownerId).order("created_at", { ascending: false }); if (data && !error) { setProducts(data); await dbSet("mart_products_cache", data); } } else { const localData = await dbGet("mart_products_cache"); if (localData) setProducts(localData); } } catch (err) { const localData = await dbGet("mart_products_cache"); if (localData) setProducts(localData); } };
   
-  const fetchSettingsFromCloud = async () => { 
-    try { 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase.from("settings").select("*").eq("owner_id", user.id).single(); 
-      if (data) { 
-        setBankBin(data.bank_bin); setBankAcc(data.bank_acc); setBankNameStr(data.bank_name_str); setZaloPayId(data.zalopay_id || ""); 
-        setNewBankBin(data.bank_bin); setNewBankAcc(data.bank_acc); setNewBankNameStr(data.bank_name_str); setNewZaloPayId(data.zalopay_id || ""); 
-        if (data.admin_pin) { setAdminPin(data.admin_pin); setNewAdminPinInput(data.admin_pin); } 
-        if (data.happy_hour_start) { setHappyStart(data.happy_hour_start); setNewHappyStart(data.happy_hour_start); } 
-        if (data.happy_hour_end) { setHappyEnd(data.happy_hour_end); setNewHappyEnd(data.happy_hour_end); } 
-        if (data.happy_hour_discount !== undefined) {
-          setHappyDiscount(data.happy_hour_discount);
-          setNewHappyDiscount(data.happy_hour_discount);
-          window.localStorage.setItem('mart_happy_discount', data.happy_hour_discount);
-        }
-        window.localStorage.setItem('mart_happy_start', data.happy_hour_start || "11:00");
-        window.localStorage.setItem('mart_happy_end', data.happy_hour_end || "13:00");
-
-        if (data.tier_bronze !== undefined) {
-          const loadedTiers = { 
-            bronze: data.tier_bronze, bronze_discount: data.tier_bronze_discount || 0,
-            silver: data.tier_silver, silver_discount: data.tier_silver_discount || 0, 
-            gold: data.tier_gold, gold_discount: data.tier_gold_discount || 0, 
-            diamond: data.tier_diamond, diamond_discount: data.tier_diamond_discount || 0 
-          };
-          setTierConfig(loadedTiers); setNewTierConfig(loadedTiers);
-        }
-      } 
-    } catch (err) {} 
-  };
+  const fetchSettingsFromCloud = async () => { try { const { data: { user } } = await supabase.auth.getUser(); if (!user) return; const { data } = await supabase.from("settings").select("*").eq("owner_id", user.id).single(); if (data) { setBankBin(data.bank_bin); setBankAcc(data.bank_acc); setBankNameStr(data.bank_name_str); setZaloPayId(data.zalopay_id || ""); setNewBankBin(data.bank_bin); setNewBankAcc(data.bank_acc); setNewBankNameStr(data.bank_name_str); setNewZaloPayId(data.zalopay_id || ""); if (data.admin_pin) { setAdminPin(data.admin_pin); setNewAdminPinInput(data.admin_pin); } if (data.happy_hour_start) { setHappyStart(data.happy_hour_start); setNewHappyStart(data.happy_hour_start); } if (data.happy_hour_end) { setHappyEnd(data.happy_hour_end); setNewHappyEnd(data.happy_hour_end); } if (data.happy_hour_discount !== undefined) { setHappyDiscount(data.happy_hour_discount); setNewHappyDiscount(data.happy_hour_discount); window.localStorage.setItem('mart_happy_discount', data.happy_hour_discount); } window.localStorage.setItem('mart_happy_start', data.happy_hour_start || "11:00"); window.localStorage.setItem('mart_happy_end', data.happy_hour_end || "13:00"); if (data.tier_bronze !== undefined) { const loadedTiers = { bronze: data.tier_bronze, bronze_discount: data.tier_bronze_discount || 0, silver: data.tier_silver, silver_discount: data.tier_silver_discount || 0, gold: data.tier_gold, gold_discount: data.tier_gold_discount || 0, diamond: data.tier_diamond, diamond_discount: data.tier_diamond_discount || 0 }; setTierConfig(loadedTiers); setNewTierConfig(loadedTiers); } } } catch (err) {} };
   
-  const updateSettingsToCloud = async (bin: string, acc: string, nameStr: string, zaloId: string, hStart: string, hEnd: string, pin: string) => { 
-    if (!navigator.onLine) return toast.error("Mất mạng! Không thể lưu Cài đặt."); 
-    setLoading(true); 
-    try { 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Lỗi phiên đăng nhập!");
-
-      const payload = { 
-        owner_id: user.id,
-        bank_bin: bin, bank_acc: acc, bank_name_str: nameStr, zalopay_id: zaloId, 
-        happy_hour_start: hStart, happy_hour_end: hEnd, 
-        happy_hour_discount: newHappyDiscount, 
-        admin_pin: pin, 
-        tier_bronze: newTierConfig.bronze, tier_bronze_discount: newTierConfig.bronze_discount, 
-        tier_silver: newTierConfig.silver, tier_silver_discount: newTierConfig.silver_discount, 
-        tier_gold: newTierConfig.gold, tier_gold_discount: newTierConfig.gold_discount, 
-        tier_diamond: newTierConfig.diamond, tier_diamond_discount: newTierConfig.diamond_discount,
-        updated_at: new Date().toISOString() 
-      };
-
-      const { data, error } = await supabase.from("settings").update(payload).eq("owner_id", user.id).select(); 
-      if (error) { toast.error("Lỗi cập nhật: " + error.message); setLoading(false); return; }
-      if (!data || data.length === 0) {
-         const randomId = Math.floor(Math.random() * 2000000000);
-         const { error: insertErr } = await supabase.from("settings").insert([{ id: randomId, ...payload }]); 
-         if (insertErr) { toast.error("Lỗi tạo Cài đặt: " + insertErr.message); setLoading(false); return; }
-      }
-
-      setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr); setZaloPayId(zaloId); 
-      setHappyStart(hStart); setHappyEnd(hEnd); setAdminPin(pin); 
-      setTierConfig(newTierConfig);
-      setHappyDiscount(newHappyDiscount);
-      window.localStorage.setItem('mart_happy_start', hStart); window.localStorage.setItem('mart_happy_end', hEnd); window.localStorage.setItem('mart_happy_discount', newHappyDiscount.toString());
-
-      toast.success("Lưu Cài đặt thành công!"); ui.setShowSettings?.(false); logAudit("CÀI ĐẶT", "Cập nhật hệ thống"); 
-    } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); } 
-  };
-  
+  const updateSettingsToCloud = async (bin: string, acc: string, nameStr: string, zaloId: string, hStart: string, hEnd: string, pin: string) => { if (!navigator.onLine) return toast.error("Mất mạng! Không thể lưu Cài đặt."); setLoading(true); try { const { data: { user } } = await supabase.auth.getUser(); if (!user) throw new Error("Lỗi phiên đăng nhập!"); const payload = { owner_id: user.id, bank_bin: bin, bank_acc: acc, bank_name_str: nameStr, zalopay_id: zaloId, happy_hour_start: hStart, happy_hour_end: hEnd, happy_hour_discount: newHappyDiscount, admin_pin: pin, tier_bronze: newTierConfig.bronze, tier_bronze_discount: newTierConfig.bronze_discount, tier_silver: newTierConfig.silver, tier_silver_discount: newTierConfig.silver_discount, tier_gold: newTierConfig.gold, tier_gold_discount: newTierConfig.gold_discount, tier_diamond: newTierConfig.diamond, tier_diamond_discount: newTierConfig.diamond_discount, updated_at: new Date().toISOString() }; const { data, error } = await supabase.from("settings").update(payload).eq("owner_id", user.id).select(); if (error) { toast.error("Lỗi cập nhật: " + error.message); setLoading(false); return; } if (!data || data.length === 0) { const randomId = Math.floor(Math.random() * 2000000000); const { error: insertErr } = await supabase.from("settings").insert([{ id: randomId, ...payload }]); if (insertErr) { toast.error("Lỗi tạo Cài đặt: " + insertErr.message); setLoading(false); return; } } setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr); setZaloPayId(zaloId); setHappyStart(hStart); setHappyEnd(hEnd); setAdminPin(pin); setTierConfig(newTierConfig); setHappyDiscount(newHappyDiscount); window.localStorage.setItem('mart_happy_start', hStart); window.localStorage.setItem('mart_happy_end', hEnd); window.localStorage.setItem('mart_happy_discount', newHappyDiscount.toString()); toast.success("Lưu Cài đặt thành công!"); ui.setShowSettings?.(false); logAudit("CÀI ĐẶT", "Cập nhật hệ thống"); } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); } };
   const saveSettings = () => { const bin = newBankBin.trim(); const acc = newBankAcc.trim(); const nameStr = newBankNameStr.trim().toUpperCase(); const zaloId = newZaloPayId.trim(); const pin = newAdminPinInput.trim(); if (!bin || !acc || !nameStr || !pin) return toast.error("Vui lòng điền đủ thông tin & Mã PIN!"); updateSettingsToCloud(bin, acc, nameStr, zaloId, newHappyStart, newHappyEnd, pin); };
-  
   const handleLogoutClick = () => { logAudit("ĐĂNG XUẤT", `Thoát ca ${shift}`); ui.setShowHandoverModal?.(true); };
-
-  const confirmHandover = async () => { 
-    try { 
-      if (navigator.onLine) { await supabase.auth.signOut(); } 
-    } catch (error) {} 
-    finally { 
-      APP_IS_WIPING = true; 
-      await dbClearAll();
-      window.localStorage.clear();
-      window.sessionStorage.clear();
-      window.location.reload(); 
-    } 
-  };
-
+  const confirmHandover = () => { APP_IS_WIPING = true; if (navigator.onLine) { supabase.auth.signOut().catch(() => {}); } try { window.localStorage.clear(); } catch(e) {} try { window.sessionStorage.clear(); } catch(e) {} dbClearAll().catch(() => {}); setTimeout(() => { window.location.replace(window.location.origin); }, 100); };
   const handleEditPhone = async (oldPhone: string) => { executeWithAdminCheck(() => { const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customersData[newPhone]) return toast.error("SĐT đã tồn tại!"); const cData = customersData[oldPhone]; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = { ...cData, phone: newPhone }; delete updated[oldPhone]; return updated }); logAudit("SỬA KHÁCH HÀNG", `Đổi SĐT ${oldPhone} -> ${newPhone}`); toast.success("Cập nhật thành công!"); } }); };
   const addSupplier = async () => { if (!supName || !supPhone) return toast.error("Nhập đủ Tên/SĐT"); const newId = Date.now(); const newSupData = { id: newId, name: supName, phone: supPhone, address: supAddress, item: supItem, taxCode: supTaxCode, bankAccount: supBankAccount, debt: 0 }; setSuppliers(prev => [newSupData, ...prev]); if (navigator.onLine) { supabase.from('suppliers').insert([newSupData]).then(); } setSupName(""); setSupPhone(""); toast.success("Thêm NCC thành công!"); logAudit("THÊM NCC", supName); };
   const deleteSupplier = async (id: any) => { setSuppliers(prev => prev.filter(s => s.id !== id)); if (navigator.onLine) await supabase.from('suppliers').delete().eq('id', id); logAudit("XÓA NCC", `ID: ${id}`); };
@@ -543,9 +393,7 @@ export default function App() {
       for (const item of cart) {
         if (navigator.onLine) await supabase.from("products").update({ stock: Math.max(0, item.product.stock - item.qty) }).eq("id", item.product.id);
         let itemSplitCash = 0; if(payMethod === 'KẾT HỢP') { const safeRatio = finalToPay > 0 ? (splitCashAmt / finalToPay) : 0; itemSplitCash = Math.round(safeRatio * Math.round(item.qty * getActualPrice(item.product) * (1 + VAT_RATE))); }
-        
         const calculatedItemProfit = Math.round(item.qty * (getActualPrice(item.product) - (item.product.import_price || 0)));
-        
         newLogs.push({ id: Date.now() + Math.random(), shift, type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", name: cleanName(item.product.name), qty: item.qty, total: item.total, profit: calculatedItemProfit, customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id, paymentMethod: payMethod, split_cash: itemSplitCash, time: new Date().toLocaleString('vi-VN'), order_id: orderIdStr });
       }
 
@@ -556,7 +404,6 @@ export default function App() {
       }
 
       setHistory(prev => [...newLogs, ...prev]); if (navigator.onLine) { try { await supabase.from("history").insert(newLogs); } catch(err) {} }
-      
       setLastOrder({ orderId: orderIdStr, shift, cart: [...cart], subTotal, vatTotal, finalTotal: finalToPay, debtAmount: payMethod === 'GHI NỢ' ? finalToPay : 0, discount: appliedVoucherAmount + tierDiscountAmount, time: new Date().toLocaleString('vi-VN'), paymentMethod: payMethod, customerGiven: Number(customerGiven) || 0, custPhone, custName, isRefund: false, splitCash: splitCashAmt, splitTransfer: Math.max(0, finalToPay - splitCashAmt) });
       logAudit("THANH TOÁN", `${orderIdStr} - ${payMethod} - ${finalToPay.toLocaleString()}đ`);
       setCheckoutStep(3); fetchProducts(); 
@@ -610,7 +457,6 @@ export default function App() {
     const isRefundSlip = logsInBill[0].type === 'TRẢ HÀNG'; const reconstructedCart = logsInBill.map(l => ({ qty: Math.abs(l.qty || 1), total: Math.abs(l.total), product: { name: l.name.replace("HOÀN: ", ""), gift_info: null, isHappyHour: String(l.name).includes('[Giờ Vàng]') } as any, priceIncludingVat: Math.abs(l.total) / Math.abs(l.qty || 1) }));
     const subTotal = reconstructedCart.reduce((s, i) => s + (i.qty * (i.priceIncludingVat / (1 + VAT_RATE))), 0); const vatTotal = Math.round(subTotal * VAT_RATE); const discount = discountLog ? Math.abs(discountLog.total) : 0; const finalTotal = logsInBill.reduce((sum, l) => sum + Math.abs(l.total), 0) - discount; 
     let cPhone = ""; let cName = logsInBill[0].customer; if (cName && cName !== "Khách lẻ") { const match = cName.match(/\((.*?)\)/); if (match && match[1]) { cPhone = match[1]; cName = cName.replace(` (${cPhone})`, "").trim(); } else { cPhone = cName; } }
-    
     let calcSplitCash = 0; if(logsInBill[0].paymentMethod === 'KẾT HỢP') calcSplitCash = logsInBill.reduce((sum, l) => sum + (l.split_cash || 0), 0);
     setLastOrder({ orderId: logsInBill[0].order_id || (isRefundSlip ? "PHIẾU_TRẢ_HÀNG" : "HD_COPY"), shift: logsInBill[0].shift, cart: reconstructedCart, subTotal, vatTotal, finalTotal, debtAmount: logsInBill[0].type === 'GHI NỢ' ? finalTotal : 0, discount, time: timeStr, paymentMethod: logsInBill[0].paymentMethod || "TIỀN MẶT", customerGiven: logsInBill[0].paymentMethod === 'TIỀN MẶT' ? finalTotal : calcSplitCash, custName: cName || "Khách lẻ", custPhone: cPhone, isRefund: isRefundSlip, splitCash: calcSplitCash, splitTransfer: Math.max(0, finalTotal - calcSplitCash) }); 
     ui.setPrintMode?.(mode); logAudit("IN LẠI HÓA ĐƠN", `HĐ lúc ${timeStr}`);
@@ -640,114 +486,60 @@ export default function App() {
 
   const handleMagicAICategorize = async () => {
     const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
-
-    if (!GEMINI_API_KEY) {
-      return toast.error("Bảo trì: Chưa cấu hình hệ thống AI (Thiếu API Key trên Vercel hoặc file .env)!");
-    }
-
+    if (!GEMINI_API_KEY) return toast.error("Bảo trì: Chưa cấu hình hệ thống AI!");
     const ownerId = window.localStorage.getItem("mart_owner_id");
     if (!ownerId) return toast.error("Lỗi phiên làm việc, vui lòng tải lại trang!");
-
     const productsToFix = sortedAndFilteredProducts.slice(0, 50); 
     if (productsToFix.length === 0) return toast.error("Không có sản phẩm nào hiển thị để phân loại!");
-
     const toastId = toast.loading("✨ Hệ thống AI đang quét tên hàng và tự động phân loại danh mục...");
-
     try {
       const promptData = productsToFix.map(p => ({ id: p.id, name: p.name }));
-      
-      const prompt = `Bạn là trợ lý ảo phân loại hàng hóa thông minh cho siêu thị Hải Lê Mart.
-      Nhiệm vụ của bạn là đọc danh sách sản phẩm sau và phân chúng vào đúng các danh mục phù hợp tốt nhất (Ví dụ: Thịt, Trứng, Hải sản, Hóa phẩm, Đồ uống, Khác).
-      TRẢ VỀ DUY NHẤT MỘT MẢNG JSON ĐỊNH DẠNG CHUẨN KHÔNG CÓ KÝ TỰ BAO NGOÀI: [{"id": "id_sản_phẩm", "category": "Tên_Danh_Mục_Đã_Phân_Loại"}].
-      Tuyệt đối không giải thích dông dài, không viết text chào hỏi, chỉ trả ra mảng JSON.
-      Danh sách cần xử lý: ${JSON.stringify(promptData)}`;
-
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-      });
-
+      const prompt = `Bạn là trợ lý ảo phân loại hàng hóa thông minh. Đọc danh sách sản phẩm sau và phân vào các danh mục phù hợp. TRẢ VỀ DUY NHẤT MỘT MẢNG JSON KHÔNG CÓ KÝ TỰ BAO NGOÀI: [{"id": "id_sản_phẩm", "category": "Tên_Danh_Mục"}]. Danh sách: ${JSON.stringify(promptData)}`;
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error?.message || "Lỗi phản hồi hệ thống AI từ máy chủ Google");
-
+      if (!response.ok) throw new Error(result.error?.message || "Lỗi phản hồi hệ thống AI");
       const aiText = result.candidates[0].content.parts[0].text;
-      const jsonString = aiText.replace(/```json/g, "").replace(/```/g, "").trim();
+      const jsonString = aiText.replace(/```json/g, "").replace(/
+```/g, "").trim();
       const updatedCategories = JSON.parse(jsonString);
-
       let successCount = 0;
       for (const item of updatedCategories) {
         if (item.id && item.category) {
           const cleanCategory = formatCategoryStr(item.category);
-          
-          if (navigator.onLine) {
-            await supabase.from("products").update({ category: cleanCategory }).eq("id", item.id).eq("owner_id", ownerId);
-          }
+          if (navigator.onLine) await supabase.from("products").update({ category: cleanCategory }).eq("id", item.id).eq("owner_id", ownerId);
           setProducts(prev => prev.map(p => p.id === item.id ? { ...p, category: cleanCategory } : p));
           successCount++;
         }
       }
-
-      toast.success(`✨ Thành công! Hệ thống AI đã phân loại tự động ${successCount} sản phẩm vào kho dữ liệu.`, { id: toastId });
-      logAudit("AI PHÂN LOẠI", `Tự động phân loại hàng loạt ${successCount} sản phẩm thành công.`);
-      
-    } catch (error) {
-      console.error(error);
-      toast.error("Hệ thống AI đang bận xử lý dữ liệu hoặc phản hồi chậm, vui lòng bấm thử lại!", { id: toastId });
-    }
+      toast.success(`✨ Thành công! Đã phân loại tự động ${successCount} sản phẩm.`, { id: toastId });
+      logAudit("AI PHÂN LOẠI", `Tự động phân loại hàng loạt ${successCount} sản phẩm.`);
+    } catch (error) { toast.error("Hệ thống AI đang bận, vui lòng thử lại!", { id: toastId }); }
   };
 
   const syncInventory = async () => {
     if (Object.keys(actualStockInput).length === 0) return toast.error("Chưa có dữ liệu cập nhật!");
     if (!window.confirm("Hệ thống sẽ cập nhật số lượng tồn kho theo số liệu thực tế.\nXác nhận đồng bộ?")) return;
-    
     setLoading(true); 
     try { 
       let count = 0; 
-      
       if (navigator.onLine) {
         const entries = Object.entries(actualStockInput);
         for (let i = 0; i < entries.length; i += 20) {
            const chunk = entries.slice(i, i + 20);
-           const updatePromises = chunk.map(([id, actualQty]) => 
-              supabase.from("products").update({ stock: Number(actualQty), updated_at: new Date().toISOString() }).eq("id", id)
-           );
+           const updatePromises = chunk.map(([id, actualQty]) => supabase.from("products").update({ stock: Number(actualQty), updated_at: new Date().toISOString() }).eq("id", id));
            const results = await Promise.all(updatePromises);
-           
            const errors = results.filter((r: any) => r.error);
-           if (errors.length > 0) {
-              toast.error("Lỗi cập nhật mạng: " + errors[0].error.message);
-              setLoading(false);
-              return; 
-           }
+           if (errors.length > 0) { toast.error("Lỗi cập nhật mạng: " + errors[0].error.message); setLoading(false); return; }
         }
         count = entries.length;
-      } else {
-        count = Object.keys(actualStockInput).length;
-        toast.error("Mất mạng! Đã lưu tạm bộ nhớ máy, dữ liệu sẽ tự đẩy lên khi có mạng.");
-      }
+      } else { count = Object.keys(actualStockInput).length; toast.error("Mất mạng! Đã lưu tạm bộ nhớ máy."); }
 
       setProducts(prevProducts => {
-        const updatedProducts = prevProducts.map(p => {
-          if (actualStockInput[p.id] !== undefined) {
-            return { ...p, stock: Number(actualStockInput[p.id]) };
-          }
-          return p;
-        });
-        dbSet("mart_products_cache", updatedProducts).catch(()=>{});
-        return updatedProducts;
+        const updatedProducts = prevProducts.map(p => { if (actualStockInput[p.id] !== undefined) return { ...p, stock: Number(actualStockInput[p.id]) }; return p; });
+        dbSet("mart_products_cache", updatedProducts).catch(()=>{}); return updatedProducts;
       });
-
-      toast.success(`Đã cập nhật chênh lệch ${count} mã sản phẩm vào sổ kho!`); 
-      logAudit("KIỂM KHO", `Cập nhật tồn kho ${count} mã`); 
-      setActualStockInput({}); 
-      ui.setShowInventoryModal?.(false); 
-      
-    } catch (e: any) { 
-      toast.error("Lỗi đồng bộ kho: " + e.message); 
-    } finally { 
-      setLoading(false); 
-    }
+      toast.success(`Đã cập nhật chênh lệch ${count} mã sản phẩm vào sổ kho!`); logAudit("KIỂM KHO", `Cập nhật tồn kho ${count} mã`); setActualStockInput({}); ui.setShowInventoryModal?.(false); 
+    } catch (e: any) { toast.error("Lỗi đồng bộ kho: " + e.message); } finally { setLoading(false); }
   };
 
   const syncPendingImports = async () => {
@@ -769,17 +561,10 @@ export default function App() {
   useEffect(() => { if (isOnline && isLoggedIn) { syncPendingImports(); } }, [isOnline, isLoggedIn]);
 
   const handleAddProduct = async (e: React.FormEvent) => {
-    e.preventDefault(); setLoading(true);
-    const ownerId = window.localStorage.getItem("mart_owner_id");
-    if (!ownerId) { toast.error("Lỗi phiên làm việc"); setLoading(false); return; }
-
+    e.preventDefault(); setLoading(true); const ownerId = window.localStorage.getItem("mart_owner_id"); if (!ownerId) { toast.error("Lỗi phiên làm việc"); setLoading(false); return; }
     try {
       const added = Number(String(newStock).replace(/[^0-9]/g, '')) || 0; const impPrice = Number(String(newImportPrice).replace(/[^0-9]/g, '')) || 0; const salePrice = Number(String(newPrice).replace(/[^0-9]/g, '')) || 0; const promo = Number(String(newPromoPrice).replace(/[^0-9]/g, '')) || 0; const finalGiftInfo = newGiftInfo.trim() !== "" ? `${newGiftCondition};;;${newGiftInfo}` : null; 
-      const inputCode = newCode.trim(); const baseCode = inputCode.split('-')[0]; 
-      
-      let rawCat = newCategory.trim();
-      const formattedCat = rawCat === "" ? "Chưa phân loại" : formatCategoryStr(rawCat);
-      
+      const inputCode = newCode.trim(); const baseCode = inputCode.split('-')[0]; let rawCat = newCategory.trim(); const formattedCat = rawCat === "" ? "Chưa phân loại" : formatCategoryStr(rawCat);
       const allVariants = products.filter(p => String(p.product_code).split('-')[0] === baseCode); const exist = products.find(p => p.product_code === inputCode) || allVariants.find(p => p.product_code === baseCode); const isNewBatch = exist && (exist.import_price !== impPrice || (exist.expiry_date || "") !== (newExpiry || ""));
       let finalProductCode = exist ? exist.product_code : baseCode; let finalProductName = newName; let finalStockToSave = added;
       if (isNewBatch) { finalProductCode = `${baseCode}-${Date.now().toString().slice(-4)}`; finalProductName = `${newName} [Lô mới]`; if (!window.confirm(`Sản phẩm bị lệch Giá vốn / Hạn sử dụng.\nHệ thống sẽ tạo LÔ MỚI (${finalProductCode})?\n\nChọn OK để tiếp tục.`)) { setLoading(false); return; } } else if (exist) { finalStockToSave = exist.stock + added; }
@@ -806,157 +591,55 @@ export default function App() {
   };
 
   const handleFileUpload = async (e: any) => {
-    const file = e?.target?.files?.[0] || e; 
-    if (!file || !file.name) { 
-      if (e?.target) e.target.value = ''; 
-      return; 
-    } 
-    if (!navigator.onLine) { 
-      toast.error("Cần kết nối mạng để tải dữ liệu lên!"); 
-      if (e?.target) e.target.value = ''; 
-      return; 
-    }
-
+    const file = e?.target?.files?.[0] || e; if (!file || !file.name) { if (e?.target) e.target.value = ''; return; } 
+    if (!navigator.onLine) { toast.error("Cần kết nối mạng để tải dữ liệu lên!"); if (e?.target) e.target.value = ''; return; }
     const toastId = toast.loading(`Đang xử lý file ${file.name}...`);
 
     const processData = async (lines: any[]) => {
-      setLoading(true); 
-      const ownerId = window.localStorage.getItem("mart_owner_id");
-      if (!ownerId) { 
-        toast.error("Lỗi phiên làm việc, vui lòng đăng nhập lại!", { id: toastId }); 
-        setLoading(false); 
-        return; 
-      }
-
+      setLoading(true); const ownerId = window.localStorage.getItem("mart_owner_id");
+      if (!ownerId) { toast.error("Lỗi phiên làm việc, vui lòng đăng nhập lại!", { id: toastId }); setLoading(false); return; }
       try {
-        if (!lines || lines.length <= 1) { 
-          toast.error("File rỗng hoặc chỉ có tiêu đề!", { id: toastId }); 
-          setLoading(false); 
-          return; 
-        } 
-        
-        let successCount = 0; 
-        let skipCount = 0;
-        let hasError = false;
-        let importLogs: any[] = [];
+        if (!lines || lines.length <= 1) { toast.error("File rỗng hoặc chỉ có tiêu đề!", { id: toastId }); setLoading(false); return; } 
+        let successCount = 0; let skipCount = 0; let hasError = false; let importLogs: any[] = [];
 
         for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i]; 
-          if (!cols || !Array.isArray(cols) || cols.join('').trim() === '') continue; 
-          
-          const pCode = String(cols[0] || "").trim(); 
-          const pName = String(cols[1] || "").trim(); 
-          let rawCat = String(cols[2] || "").trim();
-          const pCategory = rawCat === "" ? "Chưa phân loại" : formatCategoryStr(rawCat);
-          const pImpPrice = parseInt(String(cols[3] || "0").replace(/[,.]/g, '')) || 0; 
-          const pSalePrice = parseInt(String(cols[4] || "0").replace(/[,.]/g, '')) || 0; 
-          const pPromoPrice = parseInt(String(cols[5] || "0").replace(/[,.]/g, '')) || 0; 
-          const pGiftCond = String(cols[6] || "1").trim(); 
-          const pGiftText = cols[7] ? String(cols[7]).trim() : ""; 
-          const pGift = pGiftText !== "" ? `${pGiftCond};;;${pGiftText}` : null; 
-          const pStock = parseInt(String(cols[8] || "0").replace(/[,.]/g, '')) || 0; 
-          const pExpiry = cols[9] ? String(cols[9]).trim() : null;
+          const cols = lines[i]; if (!cols || !Array.isArray(cols) || cols.join('').trim() === '') continue; 
+          const pCode = String(cols[0] || "").trim(); const pName = String(cols[1] || "").trim(); let rawCat = String(cols[2] || "").trim(); const pCategory = rawCat === "" ? "Chưa phân loại" : formatCategoryStr(rawCat);
+          const pImpPrice = parseInt(String(cols[3] || "0").replace(/[,.]/g, '')) || 0; const pSalePrice = parseInt(String(cols[4] || "0").replace(/[,.]/g, '')) || 0; const pPromoPrice = parseInt(String(cols[5] || "0").replace(/[,.]/g, '')) || 0; 
+          const pGiftCond = String(cols[6] || "1").trim(); const pGiftText = cols[7] ? String(cols[7]).trim() : ""; const pGift = pGiftText !== "" ? `${pGiftCond};;;${pGiftText}` : null; 
+          const pStock = parseInt(String(cols[8] || "0").replace(/[,.]/g, '')) || 0; const pExpiry = cols[9] ? String(cols[9]).trim() : null;
 
-          if (!pCode || !pName || pSalePrice <= 0) {
-            skipCount++;
-            continue;
-          }
-
-          const baseCode = pCode.split('-')[0]; 
-          const allVariants = products.filter(p => String(p.product_code).split('-')[0] === baseCode); 
-          
-          if (allVariants.length > 0) { 
-            const needSync = allVariants.some(v => v.sale_price !== pSalePrice || v.promo_price !== pPromoPrice || v.gift_info !== pGift || cleanName(v.name) !== pName); 
-            if (needSync) { 
-               await supabase.from("products").update({ name: pName, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, updated_at: new Date().toISOString() }).eq("product_code", baseCode).eq("owner_id", ownerId); 
-               await supabase.from("products").update({ name: `${pName} [Lô mới]`, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, updated_at: new Date().toISOString() }).like("product_code", `${baseCode}-%`).eq("owner_id", ownerId); 
-            } 
-          }
-
+          if (!pCode || !pName || pSalePrice <= 0) { skipCount++; continue; }
+          const baseCode = pCode.split('-')[0]; const allVariants = products.filter(p => String(p.product_code).split('-')[0] === baseCode); 
+          if (allVariants.length > 0) { const needSync = allVariants.some(v => v.sale_price !== pSalePrice || v.promo_price !== pPromoPrice || v.gift_info !== pGift || cleanName(v.name) !== pName); if (needSync) { await supabase.from("products").update({ name: pName, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, updated_at: new Date().toISOString() }).eq("product_code", baseCode).eq("owner_id", ownerId); await supabase.from("products").update({ name: `${pName} [Lô mới]`, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, updated_at: new Date().toISOString() }).like("product_code", `${baseCode}-%`).eq("owner_id", ownerId); } }
           const exist = allVariants.find(p => p.product_code === pCode); 
           
           if (exist) { 
-            if (exist.stock <= 0) { 
-               const { error } = await supabase.from("products").update({ name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry, updated_at: new Date().toISOString() }).eq("id", exist.id); 
-               if(error) { hasError = true; console.error(error); } else { successCount++; }
-            } 
+            if (exist.stock <= 0) { const { error } = await supabase.from("products").update({ name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry, updated_at: new Date().toISOString() }).eq("id", exist.id); if(error) { hasError = true; } else { successCount++; } } 
             else { 
-               if (exist.import_price !== pImpPrice || (exist.expiry_date || "") !== (pExpiry || "")) { 
-                  const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}${i}`; 
-                  const { error } = await supabase.from("products").insert([{ owner_id: ownerId, product_code: batchCode, name: `${pName} [Lô mới]`, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); 
-                  if(error) { hasError = true; console.error(error); } else { successCount++; }
-               } else { 
-                  const { error } = await supabase.from("products").update({ stock: exist.stock + pStock, updated_at: new Date().toISOString() }).eq("id", exist.id); 
-                  if(error) { hasError = true; console.error(error); } else { successCount++; }
-               } 
+               if (exist.import_price !== pImpPrice || (exist.expiry_date || "") !== (pExpiry || "")) { const batchCode = `${baseCode}-${Date.now().toString().slice(-4)}${i}`; const { error } = await supabase.from("products").insert([{ owner_id: ownerId, product_code: batchCode, name: `${pName} [Lô mới]`, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); if(error) { hasError = true; } else { successCount++; } } 
+               else { const { error } = await supabase.from("products").update({ stock: exist.stock + pStock, updated_at: new Date().toISOString() }).eq("id", exist.id); if(error) { hasError = true; } else { successCount++; } } 
             } 
           } else { 
              const { error } = await supabase.from("products").insert([{ owner_id: ownerId, product_code: pCode, name: pName, category: pCategory, import_price: pImpPrice, sale_price: pSalePrice, promo_price: pPromoPrice, gift_info: pGift, stock: pStock, expiry_date: pExpiry }]); 
-             if(error) { 
-                hasError = true; 
-                console.error("Supabase Error:", error);
-                toast.error(`Từ chối mã: ${pCode} (${error.message})`, { duration: 5000 }); 
-             } else {
-                successCount++;
-             }
+             if(error) { hasError = true; toast.error(`Từ chối mã: ${pCode}`, { duration: 5000 }); } else { successCount++; }
           }
-          
-          if (pStock > 0 && !hasError) { 
-             importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "NHẬP", name: cleanName(pName), qty: pStock, total: 0, time: new Date().toLocaleString('vi-VN') } as any); 
-          }
+          if (pStock > 0 && !hasError) { importLogs.push({ id: Date.now() + Math.random(), shift: shift, type: "NHẬP", name: cleanName(pName), qty: pStock, total: 0, time: new Date().toLocaleString('vi-VN') } as any); }
         }
         
-        if (importLogs.length > 0) { 
-           if(navigator.onLine) await supabase.from("history").insert(importLogs.map(l => ({...l, owner_id: ownerId}))); 
-           setHistory(prev => [...importLogs, ...prev]); 
-        } 
-        
-        await fetchProducts();
-        toast.dismiss(toastId);
-
-        if (successCount > 0) {
-           logAudit("NHẬP EXCEL", `Lưu thành công ${successCount} sản phẩm`); 
-           toast.success(`Đã xử lý thành công ${successCount} sản phẩm!`);
-        }
-        if (skipCount > 0) {
-           toast.error(`Bỏ qua ${skipCount} dòng do dữ liệu không hợp lệ!`, { duration: 6000 });
-        }
-      } catch (err) { 
-        console.error(err); 
-        toast.error("Lỗi hệ thống khi phân tích dữ liệu.", { id: toastId }); 
-      } finally { 
-        setLoading(false); 
-      }
+        if (importLogs.length > 0) { if(navigator.onLine) await supabase.from("history").insert(importLogs.map(l => ({...l, owner_id: ownerId}))); setHistory(prev => [...importLogs, ...prev]); } 
+        await fetchProducts(); toast.dismiss(toastId);
+        if (successCount > 0) { logAudit("NHẬP EXCEL", `Lưu thành công ${successCount} sản phẩm`); toast.success(`Đã xử lý thành công ${successCount} sản phẩm!`); }
+        if (skipCount > 0) { toast.error(`Bỏ qua ${skipCount} dòng do dữ liệu không hợp lệ!`, { duration: 6000 }); }
+      } catch (err) { toast.error("Lỗi hệ thống khi phân tích dữ liệu.", { id: toastId }); } finally { setLoading(false); }
     }; 
     
     const fileNameStr = file.name.toLowerCase();
     if (fileNameStr.endsWith('.xlsx') || fileNameStr.endsWith('.xls')) { 
-      if (!(window as any).XLSX) { 
-        toast.error("Đang tải thư viện Excel, vui lòng thử lại sau 3 giây!", { id: toastId }); 
-        if (e?.target) e.target.value = ''; 
-        return; 
-      } 
-      const reader = new FileReader(); 
-      reader.onload = (event) => { 
-        try { 
-          const data = new Uint8Array(event.target?.result as ArrayBuffer); 
-          const workbook = (window as any).XLSX.read(data, { type: 'array' }); 
-          const firstSheet = workbook.Sheets[workbook.SheetNames[0]]; 
-          const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false }); 
-          processData(jsonData); 
-        } catch (error) { 
-          toast.error("Lỗi định dạng file Excel.", { id: toastId }); 
-        } 
-      }; 
-      reader.readAsArrayBuffer(file); 
+      if (!(window as any).XLSX) { toast.error("Đang tải thư viện Excel, vui lòng thử lại sau 3 giây!", { id: toastId }); if (e?.target) e.target.value = ''; return; } 
+      const reader = new FileReader(); reader.onload = (event) => { try { const data = new Uint8Array(event.target?.result as ArrayBuffer); const workbook = (window as any).XLSX.read(data, { type: 'array' }); const firstSheet = workbook.Sheets[workbook.SheetNames[0]]; const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false }); processData(jsonData); } catch (error) { toast.error("Lỗi định dạng file Excel.", { id: toastId }); } }; reader.readAsArrayBuffer(file); 
     } else { 
-      const reader = new FileReader(); 
-      reader.onload = (event) => { 
-        const text = event.target?.result as string; 
-        const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''))); 
-        processData(lines); 
-      }; 
-      reader.readAsText(file); 
+      const reader = new FileReader(); reader.onload = (event) => { const text = event.target?.result as string; const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''))); processData(lines); }; reader.readAsText(file); 
     } 
     if (e?.target) e.target.value = ''; 
   };
@@ -964,27 +647,13 @@ export default function App() {
   const handleImportInventoryCSV = (e: any) => {
     const file = e?.target?.files?.[0] || e; if (!file || !file.name) { if (e?.target) e.target.value = ''; return; }
     const processData = (lines: any[]) => { 
-      let updatedStock = { ...actualStockInput }; 
-      let count = 0; 
+      let updatedStock = { ...actualStockInput }; let count = 0; 
       for (let i = 1; i < lines.length; i++) { 
-        const cols = lines[i]; 
-        if (!cols || !Array.isArray(cols) || cols.join('').trim() === '') continue; 
-        
-        const pCode = String(cols[0] || "").trim(); 
-        const actualValStr = String(cols[5] || "0").replace(/[,.]/g, ''); 
-        const actualVal = parseInt(actualValStr); 
-        
-        if (!isNaN(actualVal) && pCode) { 
-          const matchedProd = products.find(p => p.product_code === pCode); 
-          if (matchedProd && matchedProd.stock !== actualVal) { 
-            updatedStock[matchedProd.id] = actualVal; 
-            count++; 
-          } 
-        } 
+        const cols = lines[i]; if (!cols || !Array.isArray(cols) || cols.join('').trim() === '') continue; 
+        const pCode = String(cols[0] || "").trim(); const actualValStr = String(cols[5] || "0").replace(/[,.]/g, ''); const actualVal = parseInt(actualValStr); 
+        if (!isNaN(actualVal) && pCode) { const matchedProd = products.find(p => p.product_code === pCode); if (matchedProd && matchedProd.stock !== actualVal) { updatedStock[matchedProd.id] = actualVal; count++; } } 
       } 
-      setActualStockInput(updatedStock); 
-      toast.success(`Đã nạp số liệu thực tế!`); 
-      logAudit("KIỂM KHO BẰNG EXCEL", `Nạp ${count} mã`); 
+      setActualStockInput(updatedStock); toast.success(`Đã nạp số liệu thực tế!`); logAudit("KIỂM KHO BẰNG EXCEL", `Nạp ${count} mã`); 
     };
     const fileNameStr = file.name.toLowerCase();
     if (fileNameStr.endsWith('.xlsx') || fileNameStr.endsWith('.xls')) { if (!(window as any).XLSX) { toast.loading("Loading..."); if (e?.target) e.target.value = ''; return; } const reader = new FileReader(); reader.onload = (event) => { try { const data = new Uint8Array(event.target?.result as ArrayBuffer); const workbook = (window as any).XLSX.read(data, { type: 'array' }); const firstSheet = workbook.Sheets[workbook.SheetNames[0]]; const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false }); processData(jsonData); } catch(err) {} }; reader.readAsArrayBuffer(file); } else { const reader = new FileReader(); reader.onload = (event) => { const text = event.target?.result as string; const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''))); processData(lines); }; reader.readAsText(file); } if (e?.target) e.target.value = '';
@@ -993,15 +662,9 @@ export default function App() {
   const exportInventoryCSV = () => {
     if (!(window as any).XLSX) return toast.error("Đang tải thư viện Excel!");
     try {
-      const wb = (window as any).XLSX.utils.book_new();
-      const wsData = [["Mã SP", "Tên SP", "Danh mục", "Giá Nhập", "Giá Bán", "Tồn Kho Hiện Tại"]];
-      products.forEach(p => {
-        wsData.push([p.product_code, cleanName(p.name), p.category, p.import_price, p.sale_price, p.stock]);
-      });
-      const ws = (window as any).XLSX.utils.aoa_to_sheet(wsData);
-      (window as any).XLSX.utils.book_append_sheet(wb, ws, "Ton_Kho");
-      (window as any).XLSX.writeFile(wb, `DanhSachKiemKho_${Date.now()}.xlsx`);
-      logAudit("XUẤT FILE", "Xuất file kiểm kho");
+      const wb = (window as any).XLSX.utils.book_new(); const wsData = [["Mã SP", "Tên SP", "Danh mục", "Giá Nhập", "Giá Bán", "Tồn Kho Hiện Tại"]];
+      products.forEach(p => { wsData.push([p.product_code, cleanName(p.name), p.category, p.import_price, p.sale_price, p.stock]); });
+      const ws = (window as any).XLSX.utils.aoa_to_sheet(wsData); (window as any).XLSX.utils.book_append_sheet(wb, ws, "Ton_Kho"); (window as any).XLSX.writeFile(wb, `DanhSachKiemKho_${Date.now()}.xlsx`); logAudit("XUẤT FILE", "Xuất file kiểm kho");
     } catch (e) { toast.error("Lỗi xuất file!"); }
   };
 
@@ -1135,11 +798,13 @@ export default function App() {
     } catch (e) { toast.error("Lỗi khi xử lý PO!"); } finally { setLoading(false); }
   };
   
-  if (!isStorageLoading && (!isLoggedIn || isLocked)) {
+  if (!isStorageLoading && (!isLoggedIn || isLocked || isExpired)) {
     return (
       <div className={`app-container ${ui.darkMode ? "dark-theme" : "light-theme"}`} style={{ minHeight: "100vh", position: "relative" }}>
-        <Toaster position="top-right" containerStyle={{ zIndex: 9999999 }} />
-        {isLoggedIn && isLocked && (
+        <Toaster position="top-right" containerStyle="{{" zIndex: 9999999 }}/>
+        
+        
+        {isLoggedIn && isLocked && !isExpired && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
             <div style={{ background: ui.darkMode ? 'rgba(255,255,255,0.05)' : 'white', padding: '40px', borderRadius: '24px', textAlign: 'center', maxWidth: '400px', width: '90%', border: `1px solid ${ui.darkMode ? 'rgba(255,255,255,0.1)' : 'transparent'}`, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
               <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔒</div><h2 style={{ color: ui.darkMode ? 'white' : '#1e293b', margin: '0 0 8px 0', fontSize: '24px' }}>Màn Hình Đã Khóa</h2><p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>Vui lòng mở khóa để tiếp tục sử dụng.</p>
@@ -1148,25 +813,56 @@ export default function App() {
             </div>
           </div>
         )}
-        {!isLoggedIn && <Login setIsLoggedIn={setIsLoggedIn} setRole={() => {}} shift={shift} setShift={setShift} startingCash={startingCash} setStartingCash={setStartingCash} installPrompt={installPrompt} handleInstallApp={handleInstallApp} />}
+
+        
+        {isLoggedIn && isExpired && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 999999 }}>
+             <div style={{ background: 'white', padding: '40px', borderRadius: '24px', textAlign: 'center', maxWidth: '500px', width: '90%', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+                <div style={{ fontSize: '60px', marginBottom: '10px' }}>⚠️</div>
+                <h2 style={{ color: '#dc2626', margin: '0 0 10px 0', fontSize: '26px', textTransform: 'uppercase' }}>Tài khoản đã hết hạn</h2>
+                <p style={{ color: '#475569', fontSize: '15px', marginBottom: '20px', lineHeight: '1.5' }}>
+                   Gói cước <strong>{storeData?.plan_type || 'TRIAL'}</strong> của cửa hàng <strong>{storeData?.store_name}</strong> đã hết hạn vào ngày <strong>{new Date(storeData?.expire_at).toLocaleDateString('vi-VN')}</strong>.<br/>
+                   Vui lòng thanh toán gia hạn để hệ thống tiếp tục hoạt động.
+                </p>
+
+                <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '16px', border: '2px dashed #cbd5e1', marginBottom: '20px' }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '18px', color: '#1e293b', marginBottom: '15px' }}>Quét mã QR để Gia hạn (Tự động)</div>
+                    
+                    <img 
+                      src={`https://img.vietqr.io/image/${MY_BANK_ID}-${MY_ACCOUNT_NO}-compact2.png?amount=${SUBSCRIPTION_FEE}&addInfo=${encodeURIComponent(`GIAHAN POS ${storeData?.id}`)}&accountName=${encodeURIComponent(ACCOUNT_NAME)}`} 
+                      alt="VietQR Payment" 
+                      style={{ width: '250px', height: '250px', objectFit: 'contain', borderRadius: '10px' }}
+                    />
+                    <div style={{ marginTop: '15px', textAlign: 'left', background: 'white', padding: '15px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ marginBottom: '8px', fontSize: '14px' }}><span style={{ color: '#64748b' }}>Ngân hàng:</span> <strong>{MY_BANK_ID}</strong></div>
+                        <div style={{ marginBottom: '8px', fontSize: '14px' }}><span style={{ color: '#64748b' }}>Số tài khoản:</span> <strong style={{ fontSize: '16px', color: '#2563eb' }}>{MY_ACCOUNT_NO}</strong></div>
+                        <div style={{ marginBottom: '8px', fontSize: '14px' }}><span style={{ color: '#64748b' }}>Chủ tài khoản:</span> <strong>{ACCOUNT_NAME}</strong></div>
+                        <div style={{ marginBottom: '8px', fontSize: '14px' }}><span style={{ color: '#64748b' }}>Số tiền:</span> <strong style={{ color: '#ef4444', fontSize: '16px' }}>{SUBSCRIPTION_FEE.toLocaleString()}đ</strong> / tháng</div>
+                        <div style={{ fontSize: '14px' }}><span style={{ color: '#64748b' }}>Nội dung CK:</span> <strong style={{ background: '#fef3c7', padding: '2px 6px', borderRadius: '4px' }}>GIAHAN POS {storeData?.id}</strong></div>
+                    </div>
+                </div>
+
+                <div style={{ fontSize: '13px', color: '#64748b', fontStyle: 'italic', marginBottom: '20px' }}>
+                   *Sau khi chuyển khoản thành công, hệ thống sẽ tự động nhận diện và mở khóa màn hình trong vòng 30 giây.
+                </div>
+
+                <button onClick={handleLogoutClick} style={{ padding: '10px 20px', background: 'transparent', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                   Đăng xuất tài khoản
+                </button>
+             </div>
+          </div>
+        )}
+
+        {!isLoggedIn && <Login setIsLoggedIn="{setIsLoggedIn}" setRole="{()"> {}} shift={shift} setShift={setShift} startingCash={startingCash} setStartingCash={setStartingCash} installPrompt={installPrompt} handleInstallApp={handleInstallApp} />}
       </div>
     );
   }
 
   return (
     <div className={`app-container ${ui.darkMode ? "dark-theme" : "light-theme"}`} style={{ padding: "16px", minHeight: "100vh", fontFamily: "'Plus Jakarta Sans', -apple-system, sans-serif" }}>
-     <Toaster position="top-right" containerStyle={{ zIndex: 9999999 }} />
+     <Toaster position="top-right" containerStyle="{{" zIndex: 9999999 }}/>
       
-      <Header 
-        ui={ui}
-        shift={shift} 
-        totalValue={totalValue} 
-        currentShiftStats={currentShiftStats} 
-        setCashFlowModalInfo={ui.setCashFlowModalInfo} 
-        darkMode={ui.darkMode} 
-        setDarkMode={ui.setDarkMode} 
-        handleLogoutClick={handleLogoutClick}
-        handleLockScreen={() => setIsLocked(true)} 
+      <Header ui="{ui}" shift="{shift}" totalValue="{totalValue}" currentShiftStats="{currentShiftStats}" setCashFlowModalInfo="{ui.setCashFlowModalInfo}" darkMode="{ui.darkMode}" setDarkMode="{ui.setDarkMode}" handleLogoutClick="{handleLogoutClick}" handleLockScreen="{()"> setIsLocked(true)} 
         lowStockCount={lowStockCount} 
         isOnline={isOnline} 
         syncStatus={syncStatus} 
@@ -1187,7 +883,7 @@ export default function App() {
       <div className="pos-main-workspace" style={{ display: "grid", gridTemplateColumns: "70% 30%", gap: "16px" }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           
-          <ProductSearchAndActions barcodeInput={barcodeInput} setBarcodeInput={setBarcodeInput} setScannerMode={ui.setScannerMode} showSuggestions={showSuggestions} setShowSuggestions={setShowSuggestions} searchTerm={searchTerm} setSearchTerm={setSearchTerm} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} categories={categories} sortedAndFilteredProducts={sortedAndFilteredProducts} handleSelectSuggest={handleSelectSuggest} setShowInputForm={ui.setShowInputForm} handleFileUpload={handleFileUpload} downloadSampleExcel={downloadSampleExcel} />
+          <ProductSearchAndActions barcodeInput="{barcodeInput}" setBarcodeInput="{setBarcodeInput}" setScannerMode="{ui.setScannerMode}" showSuggestions="{showSuggestions}" setShowSuggestions="{setShowSuggestions}" searchTerm="{searchTerm}" setSearchTerm="{setSearchTerm}" selectedCategory="{selectedCategory}" setSelectedCategory="{setSelectedCategory}" categories="{categories}" sortedAndFilteredProducts="{sortedAndFilteredProducts}" handleSelectSuggest="{handleSelectSuggest}" setShowInputForm="{ui.setShowInputForm}" handleFileUpload="{handleFileUpload}" downloadSampleExcel="{downloadSampleExcel}"/>
           
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
             <button 
@@ -1198,86 +894,48 @@ export default function App() {
             </button>
           </div>
 
-          {ui.showInputForm && <ProductInputForm newCode={newCode} setNewCode={setNewCode} newName={newName} setNewName={setNewName} newCategory={newCategory} setNewCategory={setNewCategory} newImportPrice={newImportPrice} setNewImportPrice={setNewImportPrice} newPrice={newPrice} setNewPrice={setNewPrice} newPromoPrice={newPromoPrice} setNewPromoPrice={setNewPromoPrice} newGiftCondition={newGiftCondition} setNewGiftCondition={setNewGiftCondition} newGiftInfo={newGiftInfo} setNewGiftInfo={setNewGiftInfo} newStock={newStock} setNewStock={setNewStock} newExpiry={newExpiry} setNewExpiry={setNewExpiry} handleAddProduct={handleAddProduct} setShowInputForm={ui.setShowInputForm} handleCodeChange={handleCodeChange} categories={categories} loading={loading} />}
-          <ProductTable products={sortedAndFilteredProducts} handleSelectSuggest={handleSelectSuggest} handleEdit={handleEdit} handleDelete={handleDelete} setPrintBarcodeProduct={setPrintBarcodeProduct} />
+          {ui.showInputForm && <ProductInputForm newCode="{newCode}" setNewCode="{setNewCode}" newName="{newName}" setNewName="{setNewName}" newCategory="{newCategory}" setNewCategory="{setNewCategory}" newImportPrice="{newImportPrice}" setNewImportPrice="{setNewImportPrice}" newPrice="{newPrice}" setNewPrice="{setNewPrice}" newPromoPrice="{newPromoPrice}" setNewPromoPrice="{setNewPromoPrice}" newGiftCondition="{newGiftCondition}" setNewGiftCondition="{setNewGiftCondition}" newGiftInfo="{newGiftInfo}" setNewGiftInfo="{setNewGiftInfo}" newStock="{newStock}" setNewStock="{setNewStock}" newExpiry="{newExpiry}" setNewExpiry="{setNewExpiry}" handleAddProduct="{handleAddProduct}" setShowInputForm="{ui.setShowInputForm}" handleCodeChange="{handleCodeChange}" categories="{categories}" loading="{loading}"/>}
+          <ProductTable products="{sortedAndFilteredProducts}" handleSelectSuggest="{handleSelectSuggest}" handleEdit="{handleEdit}" handleDelete="{handleDelete}" setPrintBarcodeProduct="{setPrintBarcodeProduct}"/>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <CartPanel cart={cart} setCart={setCart} handleQtyChange={handleQtyChange} cartTotalAmountDisplay={cartTotalAmountDisplay} setIsCheckoutOpen={setIsCheckoutOpen} handleHoldOrder={handleHoldOrder} setCheckoutStep={setCheckoutStep} setShowHoldModal={ui.setShowHoldModal} />
-          <HistoryPanel history={history} shift={shift} handleRefund={handleRefund} handleReprint={handleReprint} />
+          <CartPanel cart="{cart}" setCart="{setCart}" handleQtyChange="{handleQtyChange}" cartTotalAmountDisplay="{cartTotalAmountDisplay}" setIsCheckoutOpen="{setIsCheckoutOpen}" handleHoldOrder="{handleHoldOrder}" setCheckoutStep="{setCheckoutStep}" setShowHoldModal="{ui.setShowHoldModal}"/>
+          <HistoryPanel history="{history}" shift="{shift}" handleRefund="{handleRefund}" handleReprint="{handleReprint}"/>
         </div>
       </div>
 
-      {ui.showStoreSettings && <StoreSettingsModal role="admin" onClose={() => ui.setShowStoreSettings(false)} />}
+      {ui.showStoreSettings && <StoreSettingsModal role="admin" onClose="{()"> ui.setShowStoreSettings(false)} />}
       
-      {ui.showSettings && <SettingsModal showSettings={ui.showSettings} setShowSettings={ui.setShowSettings} newBankBin={newBankBin} setNewBankBin={setNewBankBin} newBankAcc={newBankAcc} setNewBankAcc={setNewBankAcc} newBankNameStr={newBankNameStr} setNewBankNameStr={setNewBankNameStr} newZaloPayId={newZaloPayId} setNewZaloPayId={setNewZaloPayId} newHappyStart={newHappyStart} setNewHappyStart={setNewHappyStart} newHappyEnd={newHappyEnd} setNewHappyEnd={newHappyEnd} newHappyDiscount={newHappyDiscount} setNewHappyDiscount={setNewHappyDiscount} newAdminPinInput={newAdminPinInput} setNewAdminPinInput={setNewAdminPinInput} newTierConfig={newTierConfig} setNewTierConfig={setNewTierConfig} saveSettings={saveSettings} loading={loading} />}
+      {ui.showSettings && <SettingsModal showSettings="{ui.showSettings}" setShowSettings="{ui.setShowSettings}" newBankBin="{newBankBin}" setNewBankBin="{setNewBankBin}" newBankAcc="{newBankAcc}" setNewBankAcc="{setNewBankAcc}" newBankNameStr="{newBankNameStr}" setNewBankNameStr="{setNewBankNameStr}" newZaloPayId="{newZaloPayId}" setNewZaloPayId="{setNewZaloPayId}" newHappyStart="{newHappyStart}" setNewHappyStart="{setNewHappyStart}" newHappyEnd="{newHappyEnd}" setNewHappyEnd="{newHappyEnd}" newHappyDiscount="{newHappyDiscount}" setNewHappyDiscount="{setNewHappyDiscount}" newAdminPinInput="{newAdminPinInput}" setNewAdminPinInput="{setNewAdminPinInput}" newTierConfig="{newTierConfig}" setNewTierConfig="{setNewTierConfig}" saveSettings="{saveSettings}" loading="{loading}"/>}
       
-      {ui.showPinModal && <PinModal showPinModal={ui.showPinModal} setShowPinModal={ui.setShowPinModal} correctPin={adminPin} onSuccess={() => { if(pendingAction) pendingAction(); setPendingAction(null); }} />}
-      {ui.cashFlowModalInfo && <CashFlowDetailModal flowType={ui.cashFlowModalInfo} onClose={() => ui.setCashFlowModalInfo(null)} allLogs={history} />}
-      {isCheckoutOpen && <CheckoutModal checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} customersData={customersData} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} customerInput={customerInput} setCustomerInput={setCustomerInput} custAddress={custAddress} setCustAddress={setCustAddress} handleCustomerInputChange={handleCustomerInputChange} finalToPay={finalToPay} useWallet={useWallet} setUseWallet={setUseWallet} voucherInput={voucherInput} setVoucherInput={setVoucherInput} handleVoucherSubmit={handleVoucherSubmit} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} confirmCheckout={confirmCheckout} closeCheckout={closeCheckout} loading={loading} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} sendReceiptEmail={sendReceiptEmail} setScannerMode={ui.setScannerMode} handleNextToQR={handleNextToQR} setPrintMode={ui.setPrintMode} />}
-      {printBarcodeProduct && <ScannerModal product={printBarcodeProduct} barcodeCount={barcodeCount} setBarcodeCount={setBarcodeCount} onClose={() => setPrintBarcodeProduct(null)} />}
-      {ui.showScannerLinkModal && <ScannerLinkModal showModal={ui.showScannerLinkModal} setShowModal={ui.setShowScannerLinkModal} />}
-      {ui.showHandoverModal && <HandoverModal role="admin" shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onConfirm={confirmHandover} onClose={() => ui.setShowHandoverModal(false)} />}
+      {ui.showPinModal && <PinModal showPinModal="{ui.showPinModal}" setShowPinModal="{ui.setShowPinModal}" correctPin="{adminPin}" onSuccess="{()"> { if(pendingAction) pendingAction(); setPendingAction(null); }} />}
+      {ui.cashFlowModalInfo && <CashFlowDetailModal flowType="{ui.cashFlowModalInfo}" onClose="{()"> ui.setCashFlowModalInfo(null)} allLogs={history} />}
+      {isCheckoutOpen && <CheckoutModal checkoutStep="{checkoutStep}" setCheckoutStep="{setCheckoutStep}" customersData="{customersData}" custPhone="{custPhone}" setCustPhone="{setCustPhone}" custName="{custName}" setCustName="{setCustName}" customerInput="{customerInput}" setCustomerInput="{setCustomerInput}" custAddress="{custAddress}" setCustAddress="{setCustAddress}" handleCustomerInputChange="{handleCustomerInputChange}" finalToPay="{finalToPay}" useWallet="{useWallet}" setUseWallet="{setUseWallet}" voucherInput="{voucherInput}" setVoucherInput="{setVoucherInput}" handleVoucherSubmit="{handleVoucherSubmit}" customerGiven="{customerGiven}" setCustomerGiven="{setCustomerGiven}" confirmCheckout="{confirmCheckout}" closeCheckout="{closeCheckout}" loading="{loading}" bankBin="{bankBin}" bankAcc="{bankAcc}" bankNameStr="{bankNameStr}" sendReceiptEmail="{sendReceiptEmail}" setScannerMode="{ui.setScannerMode}" handleNextToQR="{handleNextToQR}" setPrintMode="{ui.setPrintMode}"/>}
+      {printBarcodeProduct && <ScannerModal product="{printBarcodeProduct}" barcodeCount="{barcodeCount}" setBarcodeCount="{setBarcodeCount}" onClose="{()"> setPrintBarcodeProduct(null)} />}
+      {ui.showScannerLinkModal && <ScannerLinkModal showModal="{ui.showScannerLinkModal}" setShowModal="{ui.setShowScannerLinkModal}"/>}
+      {ui.showHandoverModal && <HandoverModal role="admin" shift="{shift}" startingCash="{startingCash}" currentShiftStats="{currentShiftStats}" onConfirm="{confirmHandover}" onClose="{()"> ui.setShowHandoverModal(false)} />}
       
-      {ui.showAuditModal && <AuditModal showAuditModal={ui.showAuditModal} setShowAuditModal={ui.setShowAuditModal} auditLogs={auditLogs} exportAuditToCSV={exportAuditToCSV} setSelectedAuditLog={(log: AuditLog) => setSelectedAuditLog(log)} />}
+      {ui.showAuditModal && <AuditModal showAuditModal="{ui.showAuditModal}" setShowAuditModal="{ui.setShowAuditModal}" auditLogs="{auditLogs}" exportAuditToCSV="{exportAuditToCSV}" setSelectedAuditLog="{(log:"> setSelectedAuditLog(log)} />}
       
-      {selectedAuditLog && <AuditDetailModal selectedAuditLog={selectedAuditLog} setSelectedAuditLog={setSelectedAuditLog} />}
-      {ui.showHoldModal && <HoldOrdersModal onClose={() => ui.setShowHoldModal(false)} heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={deleteHeldOrder} />}
-      {ui.showExpenseModal && <ExpenseModal showExpenseModal={ui.showExpenseModal} setShowExpenseModal={ui.setShowExpenseModal} expenses={expenses} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} addExpense={addExpense} deleteExpense={deleteExpense} />}
-      {ui.showSupplierModal && <SupplierModal showSupplierModal={ui.showSupplierModal} setShowSupplierModal={ui.setShowSupplierModal} suppliers={suppliers} supName={supName} setSupName={setSupName} supPhone={supPhone} setSupPhone={setSupPhone} supAddress={supAddress} setSupAddress={setSupAddress} supItem={supItem} setSupItem={setSupItem} supTaxCode={supTaxCode} setSupTaxCode={setSupTaxCode} supBankAccount={supBankAccount} setSupBankAccount={setSupBankAccount} addSupplier={addSupplier} deleteSupplier={deleteSupplier} />}
+      {selectedAuditLog && <AuditDetailModal selectedAuditLog="{selectedAuditLog}" setSelectedAuditLog="{setSelectedAuditLog}"/>}
+      {ui.showHoldModal && <HoldOrdersModal onClose="{()"> ui.setShowHoldModal(false)} heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={deleteHeldOrder} />}
+      {ui.showExpenseModal && <ExpenseModal showExpenseModal="{ui.showExpenseModal}" setShowExpenseModal="{ui.setShowExpenseModal}" expenses="{expenses}" expName="{expName}" setExpName="{setExpName}" expAmount="{expAmount}" setExpAmount="{setExpAmount}" addExpense="{addExpense}" deleteExpense="{deleteExpense}"/>}
+      {ui.showSupplierModal && <SupplierModal showSupplierModal="{ui.showSupplierModal}" setShowSupplierModal="{ui.setShowSupplierModal}" suppliers="{suppliers}" supName="{supName}" setSupName="{setSupName}" supPhone="{supPhone}" setSupPhone="{setSupPhone}" supAddress="{supAddress}" setSupAddress="{setSupAddress}" supItem="{supItem}" setSupItem="{setSupItem}" supTaxCode="{supTaxCode}" setSupTaxCode="{setSupTaxCode}" supBankAccount="{supBankAccount}" setSupBankAccount="{setSupBankAccount}" addSupplier="{addSupplier}" deleteSupplier="{deleteSupplier}"/>}
       
-      {ui.showPOModal && <POModal 
-        showPOModal={ui.showPOModal} 
-        setShowPOModal={ui.setShowPOModal} 
-        poTab={poTab} 
-        setPoTab={setPoTab} 
-        suppliers={suppliers} 
-        selectedSupplierId={selectedSupplierId} 
-        setSelectedSupplierId={setSelectedSupplierId} 
-        products={products} 
-        poSearch={poSearch} 
-        setPoSearch={setPoSearch} 
-        poItems={poItems} 
-        setPoItems={setPoItems} 
-        poNote={poNote} 
-        setPoNote={setPoNote} 
-        paidAmount={paidAmount} 
-        setPaidAmount={setPaidAmount} 
-        searchPoCode={searchPoCode} 
-        setSearchPoCode={setSearchPoCode} 
-        foundPO={foundPO} 
-        setFoundPO={setFoundPO} 
-        receiveItems={receiveItems} 
-        setReceiveItems={setReceiveItems} 
-        allPOs={allPOs} 
-        loading={loading} 
-        onSaveNewPO={handleSaveNewPO} 
-        onConfirmReceipt={handleConfirmReceipt} 
-        onPrintPO={(po) => { setPrintPOData(po); ui.setPrintMode('po'); }} 
+      {ui.showPOModal && <POModal showPOModal="{ui.showPOModal}" setShowPOModal="{ui.setShowPOModal}" poTab="{poTab}" setPoTab="{setPoTab}" suppliers="{suppliers}" selectedSupplierId="{selectedSupplierId}" setSelectedSupplierId="{setSelectedSupplierId}" products="{products}" poSearch="{poSearch}" setPoSearch="{setPoSearch}" poItems="{poItems}" setPoItems="{setPoItems}" poNote="{poNote}" setPoNote="{setPoNote}" paidAmount="{paidAmount}" setPaidAmount="{setPaidAmount}" searchPoCode="{searchPoCode}" setSearchPoCode="{setSearchPoCode}" foundPO="{foundPO}" setFoundPO="{setFoundPO}" receiveItems="{receiveItems}" setReceiveItems="{setReceiveItems}" allPOs="{allPOs}" loading="{loading}" onSaveNewPO="{handleSaveNewPO}" onConfirmReceipt="{handleConfirmReceipt}" onPrintPO="{(po)"> { setPrintPOData(po); ui.setPrintMode('po'); }} 
       />}
       
-      {ui.showStatsModal && <StatsModal reportStartDate={reportStartDate} setReportStartDate={setReportStartDate} reportEndDate={reportEndDate} setReportEndDate={setReportEndDate} history={history} onClose={() => ui.setShowStatsModal(false)} />}
+      {ui.showStatsModal && <StatsModal reportStartDate="{reportStartDate}" setReportStartDate="{setReportStartDate}" reportEndDate="{reportEndDate}" setReportEndDate="{setReportEndDate}" history="{history}" onClose="{()"> ui.setShowStatsModal(false)} />}
       
-      {ui.showInventoryModal && <InventoryModal showInventoryModal={ui.showInventoryModal} setShowInventoryModal={ui.setShowInventoryModal} products={products} inventorySearchTerm={inventorySearchTerm} setInventorySearchTerm={setInventorySearchTerm} invFilter={invFilter} setInvFilter={setInvFilter} actualStockInput={actualStockInput} setActualStockInput={setActualStockInput} syncInventoryCheck={syncInventory} handleImportInventoryCSV={handleImportInventoryCSV} loading={loading} handleInventorySearchEnter={() => {}} exportInventoryCSV={exportInventoryCSV} />}
+      {ui.showInventoryModal && <InventoryModal showInventoryModal="{ui.showInventoryModal}" setShowInventoryModal="{ui.setShowInventoryModal}" products="{products}" inventorySearchTerm="{inventorySearchTerm}" setInventorySearchTerm="{setInventorySearchTerm}" invFilter="{invFilter}" setInvFilter="{setInvFilter}" actualStockInput="{actualStockInput}" setActualStockInput="{setActualStockInput}" syncInventoryCheck="{syncInventory}" handleImportInventoryCSV="{handleImportInventoryCSV}" loading="{loading}" handleInventorySearchEnter="{()"> {}} exportInventoryCSV={exportInventoryCSV} />}
       
-      {ui.showDebtModal && <DebtModal showDebtModal={ui.showDebtModal} setShowDebtModal={ui.setShowDebtModal} customers={customersData} handlePayDebt={handlePayDebt} />}
+      {ui.showDebtModal && <DebtModal showDebtModal="{ui.showDebtModal}" setShowDebtModal="{ui.setShowDebtModal}" customers="{customersData}" handlePayDebt="{handlePayDebt}"/>}
       
-      {ui.showCustomerModal && <CustomerModal showCustomerModal={ui.showCustomerModal} setShowCustomerModal={ui.setShowCustomerModal} customers={customersData} setCustomers={setCustomers} logAudit={logAudit} handleEditPhone={handleEditPhone} printCustomerCard={printCustomerCard} sendCardEmail={sendCardEmail} shareToZalo={shareToZalo} tierConfig={tierConfig} />}
+      {ui.showCustomerModal && <CustomerModal showCustomerModal="{ui.showCustomerModal}" setShowCustomerModal="{ui.setShowCustomerModal}" customers="{customersData}" setCustomers="{setCustomers}" logAudit="{logAudit}" handleEditPhone="{handleEditPhone}" printCustomerCard="{printCustomerCard}" sendCardEmail="{sendCardEmail}" shareToZalo="{shareToZalo}" tierConfig="{tierConfig}"/>}
       
-      {ui.showMarketingModal && <MarketingModal showMarketingModal={ui.showMarketingModal} setShowMarketingModal={ui.setShowMarketingModal} marketingTier={marketingTier} setMarketingTier={setMarketingTier} marketingMsg={marketingMsg} setMarketingMsg={setMarketingMsg} customersData={customersData} />}
+      {ui.showMarketingModal && <MarketingModal showMarketingModal="{ui.showMarketingModal}" setShowMarketingModal="{ui.setShowMarketingModal}" marketingTier="{marketingTier}" setMarketingTier="{setMarketingTier}" marketingMsg="{marketingMsg}" setMarketingMsg="{setMarketingMsg}" customersData="{customersData}"/>}
 
       <div className="print-only">
-        <PrintManager 
-          printMode={ui.printMode} 
-          lastOrder={lastOrder} 
-          shift={shift}
-          role="admin"
-          customers={customersData}
-          VAT_RATE={VAT_RATE}
-          printCustomer={printCustomer} 
-          printPOData={printPOData} 
-          printBarcodeProduct={printBarcodeProduct} 
-          barcodeCount={barcodeCount} 
-        />
+        <PrintManager printMode="{ui.printMode}" lastOrder="{lastOrder}" shift="{shift}" role="admin" customers="{customersData}" VAT_RATE="{VAT_RATE}" printCustomer="{printCustomer}" printPOData="{printPOData}" printBarcodeProduct="{printBarcodeProduct}" barcodeCount="{barcodeCount}"/>
       </div>
 
     </div>
