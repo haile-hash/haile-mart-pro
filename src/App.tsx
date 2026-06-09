@@ -90,10 +90,10 @@ export default function App() {
   // =========================================================================
   // ⚙️ CẤU HÌNH CỔNG THANH TOÁN VIETQR CHO TÀI KHOẢN CỦA SẾP
   // =========================================================================
-  const MY_BANK_ID = "MB";       // <-- Sửa mã ngân hàng của sếp ở đây
-  const MY_ACCOUNT_NO = "0936407061"; // <-- Sửa số tài khoản của sếp ở đây
-  const SUBSCRIPTION_FEE = 199000; // Giá gia hạn hàng tháng (199k)
-  const ACCOUNT_NAME = "HỆ THỐNG POS PRO"; // Tên hiển thị trên mã QR
+  const MY_BANK_ID = "MB";
+  const MY_ACCOUNT_NO = "0936407061";
+  const SUBSCRIPTION_FEE = 199000;
+  const ACCOUNT_NAME = "HỆ THỐNG POS PRO";
   // =========================================================================
 
   const [happyStart, setHappyStart] = useState("11:00"); 
@@ -799,7 +799,6 @@ export default function App() {
       <div className={`app-container ${ui.darkMode ? "dark-theme" : "light-theme"}`} style={{ minHeight: "100vh", position: "relative" }}>
         <Toaster position="top-right" containerStyle="{{" zIndex: 9999999 }}/>
         
-        
         {isLoggedIn && isLocked && !isExpired && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
             <div style={{ background: ui.darkMode ? 'rgba(255,255,255,0.05)' : 'white', padding: '40px', borderRadius: '24px', textAlign: 'center', maxWidth: '400px', width: '90%', border: `1px solid ${ui.darkMode ? 'rgba(255,255,255,0.1)' : 'transparent'}`, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
@@ -810,7 +809,6 @@ export default function App() {
           </div>
         )}
 
-        
         {isLoggedIn && isExpired && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 999999 }}>
              <div style={{ background: 'white', padding: '40px', borderRadius: '24px', textAlign: 'center', maxWidth: '500px', width: '90%', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
@@ -848,14 +846,21 @@ export default function App() {
           </div>
         )}
 
-        {!isLoggedIn && <Login setIsLoggedIn="{setIsLoggedIn}" setRole="{()"> {}} shift={shift} setShift={setShift} startingCash={startingCash} setStartingCash={setStartingCash} installPrompt={installPrompt} handleInstallApp={handleInstallApp} />}
+        {!isLoggedIn && <Login setIsLoggedIn="{setIsLoggedIn}" setRole="{()"> {}} 
+            shift={shift} 
+            setShift={setShift} 
+            startingCash={startingCash} 
+            setStartingCash={setStartingCash} 
+            installPrompt={installPrompt} 
+            handleInstallApp={handleInstallApp} 
+        />}
       </div>
     );
   }
 
   return (
     <div className={`app-container ${ui.darkMode ? "dark-theme" : "light-theme"}`} style={{ padding: "16px", minHeight: "100vh", fontFamily: "'Plus Jakarta Sans', -apple-system, sans-serif" }}>
-     <Toaster position="top-right" containerStyle="{{" zIndex: 9999999 }}/>
+      <Toaster position="top-right" containerStyle="{{" zIndex: 9999999 }}/>
       
       <Header ui="{ui}" shift="{shift}" totalValue="{totalValue}" currentShiftStats="{currentShiftStats}" setCashFlowModalInfo="{ui.setCashFlowModalInfo}" darkMode="{ui.darkMode}" setDarkMode="{ui.setDarkMode}" handleLogoutClick="{handleLogoutClick}" handleLockScreen="{()"> setIsLocked(true)} 
         lowStockCount={lowStockCount} 
@@ -902,20 +907,33 @@ export default function App() {
       
       {ui.showSettings && <SettingsModal showSettings="{ui.showSettings}" setShowSettings="{ui.setShowSettings}" newBankBin="{newBankBin}" setNewBankBin="{setNewBankBin}" newBankAcc="{newBankAcc}" setNewBankAcc="{setNewBankAcc}" newBankNameStr="{newBankNameStr}" setNewBankNameStr="{setNewBankNameStr}" newZaloPayId="{newZaloPayId}" setNewZaloPayId="{setNewZaloPayId}" newHappyStart="{newHappyStart}" setNewHappyStart="{setNewHappyStart}" newHappyEnd="{newHappyEnd}" setNewHappyEnd="{newHappyEnd}" newHappyDiscount="{newHappyDiscount}" setNewHappyDiscount="{setNewHappyDiscount}" newAdminPinInput="{newAdminPinInput}" setNewAdminPinInput="{setNewAdminPinInput}" newTierConfig="{newTierConfig}" setNewTierConfig="{setNewTierConfig}" saveSettings="{saveSettings}" loading="{loading}"/>}
       
-      {ui.showPinModal && <PinModal showPinModal="{ui.showPinModal}" setShowPinModal="{ui.setShowPinModal}" correctPin="{adminPin}" onSuccess="{()"> { if(pendingAction) pendingAction(); setPendingAction(null); }} />}
-      {ui.cashFlowModalInfo && <CashFlowDetailModal flowType="{ui.cashFlowModalInfo}" onClose="{()"> ui.setCashFlowModalInfo(null)} allLogs={history} />}
+      {ui.showPinModal && <PinModal showPinModal="{ui.showPinModal}" setShowPinModal="{ui.setShowPinModal}" correctPin="{adminPin}" onSuccess="{()"> { if(pendingAction) pendingAction(); setPendingAction(null); }} 
+      />}
+      
+      {ui.cashFlowModalInfo && <CashFlowDetailModal flowType="{ui.cashFlowModalInfo}" onClose="{()"> ui.setCashFlowModalInfo(null)} 
+        allLogs={history} 
+      />}
       
       {isCheckoutOpen && <CheckoutModal checkoutStep="{checkoutStep}" setCheckoutStep="{setCheckoutStep}" customersData="{customersData}" custPhone="{custPhone}" setCustPhone="{setCustPhone}" custName="{custName}" setCustName="{setCustName}" customerInput="{customerInput}" setCustomerInput="{setCustomerInput}" custAddress="{custAddress}" setCustAddress="{setCustAddress}" handleCustomerInputChange="{handleCustomerInputChange}" finalToPay="{finalToPay}" useWallet="{useWallet}" setUseWallet="{setUseWallet}" voucherInput="{voucherInput}" setVoucherInput="{setVoucherInput}" handleVoucherSubmit="{handleVoucherSubmit}" customerGiven="{customerGiven}" setCustomerGiven="{setCustomerGiven}" confirmCheckout="{confirmCheckout}" closeCheckout="{closeCheckout}" loading="{loading}" bankBin="{bankBin}" bankAcc="{bankAcc}" bankNameStr="{bankNameStr}" sendReceiptEmail="{sendReceiptEmail}" setScannerMode="{ui.setScannerMode}" handleNextToQR="{handleNextToQR}" setPrintMode="{ui.setPrintMode}"/>}
       
-      {printBarcodeProduct && <ScannerModal product="{printBarcodeProduct}" barcodeCount="{barcodeCount}" setBarcodeCount="{setBarcodeCount}" onClose="{()"> setPrintBarcodeProduct(null)} />}
+      {printBarcodeProduct && <ScannerModal product="{printBarcodeProduct}" barcodeCount="{barcodeCount}" setBarcodeCount="{setBarcodeCount}" onClose="{()"> setPrintBarcodeProduct(null)} 
+      />}
+      
       {ui.showScannerLinkModal && <ScannerLinkModal showModal="{ui.showScannerLinkModal}" setShowModal="{ui.setShowScannerLinkModal}"/>}
-      {ui.showHandoverModal && <HandoverModal role="admin" shift="{shift}" startingCash="{startingCash}" currentShiftStats="{currentShiftStats}" onConfirm="{confirmHandover}" onClose="{()"> ui.setShowHandoverModal(false)} />}
+      
+      {ui.showHandoverModal && <HandoverModal role="admin" shift="{shift}" startingCash="{startingCash}" currentShiftStats="{currentShiftStats}" onConfirm="{confirmHandover}" onClose="{()"> ui.setShowHandoverModal(false)} 
+      />}
       
       {ui.showAuditModal && <AuditModal showAuditModal="{ui.showAuditModal}" setShowAuditModal="{ui.setShowAuditModal}" auditLogs="{auditLogs}" exportAuditToCSV="{exportAuditToCSV}" setSelectedAuditLog="{(log)"> setSelectedAuditLog(log)} 
       />}
       
       {selectedAuditLog && <AuditDetailModal selectedAuditLog="{selectedAuditLog}" setSelectedAuditLog="{setSelectedAuditLog}"/>}
-      {ui.showHoldModal && <HoldOrdersModal onClose="{()"> ui.setShowHoldModal(false)} heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={deleteHeldOrder} />}
+      
+      {ui.showHoldModal && <HoldOrdersModal onClose="{()"> ui.setShowHoldModal(false)} 
+        heldOrders={heldOrders} 
+        restoreOrder={restoreOrder} 
+        deleteHeldOrder={deleteHeldOrder} 
+      />}
       
       {ui.showExpenseModal && <ExpenseModal showExpenseModal="{ui.showExpenseModal}" setShowExpenseModal="{ui.setShowExpenseModal}" expenses="{expenses}" expName="{expName}" setExpName="{setExpName}" expAmount="{expAmount}" setExpAmount="{setExpAmount}" addExpense="{addExpense}" deleteExpense="{deleteExpense}"/>}
       
@@ -927,7 +945,8 @@ export default function App() {
       {ui.showStatsModal && <StatsModal reportStartDate="{reportStartDate}" setReportStartDate="{setReportStartDate}" reportEndDate="{reportEndDate}" setReportEndDate="{setReportEndDate}" history="{history}" onClose="{()"> ui.setShowStatsModal(false)} 
       />}
       
-      {ui.showInventoryModal && <InventoryModal showInventoryModal="{ui.showInventoryModal}" setShowInventoryModal="{ui.setShowInventoryModal}" products="{products}" inventorySearchTerm="{inventorySearchTerm}" setInventorySearchTerm="{setInventorySearchTerm}" invFilter="{invFilter}" setInvFilter="{setInvFilter}" actualStockInput="{actualStockInput}" setActualStockInput="{setActualStockInput}" syncInventoryCheck="{syncInventory}" handleImportInventoryCSV="{handleImportInventoryCSV}" loading="{loading}" handleInventorySearchEnter="{()"> {}} exportInventoryCSV={exportInventoryCSV} 
+      {ui.showInventoryModal && <InventoryModal showInventoryModal="{ui.showInventoryModal}" setShowInventoryModal="{ui.setShowInventoryModal}" products="{products}" inventorySearchTerm="{inventorySearchTerm}" setInventorySearchTerm="{setInventorySearchTerm}" invFilter="{invFilter}" setInvFilter="{setInvFilter}" actualStockInput="{actualStockInput}" setActualStockInput="{setActualStockInput}" syncInventoryCheck="{syncInventory}" handleImportInventoryCSV="{handleImportInventoryCSV}" loading="{loading}" handleInventorySearchEnter="{()"> {}} 
+        exportInventoryCSV={exportInventoryCSV} 
       />}
       
       {ui.showDebtModal && <DebtModal showDebtModal="{ui.showDebtModal}" setShowDebtModal="{ui.setShowDebtModal}" customers="{customersData}" handlePayDebt="{handlePayDebt}"/>}
