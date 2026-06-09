@@ -6,8 +6,11 @@ export const Header = (props: any) => {
   const [storeInfo, setStoreInfo] = useState({ name: "HỆ THỐNG POS PRO", logo: "" });
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showRenewPopup, setShowRenewPopup] = useState(false);
   
   const ui = props.ui;
+  const daysLeft = props.daysLeft || 0;
+  const storeData = props.storeData;
 
   useEffect(() => {
     try {
@@ -25,6 +28,9 @@ export const Header = (props: any) => {
     else { audioRef.current.play().catch(err => console.log(err)); setIsPlaying(true); }
   };
 
+  // Điều kiện hiển thị banner: Đang là gói PRO, chưa hết hạn hoàn toàn (daysLeft > 0) và còn nhỏ hơn hoặc bằng 5 ngày
+  const shouldShowBanner = storeData?.plan_type === 'PRO' && daysLeft > 0 && daysLeft <= 5;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "20px" }} className="no-print">
       <style>{`
@@ -38,6 +44,75 @@ export const Header = (props: any) => {
         @keyframes spinSlow { 100% { transform: rotate(360deg); } }
         @keyframes wave-slide { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
       `}</style>
+
+      {/* BANNER THÔNG BÁO SẮP HẾT HẠN */}
+      {shouldShowBanner && (
+        <div style={{
+          backgroundColor: '#fff3cd',
+          color: '#856404',
+          padding: '12px 24px',
+          borderRadius: '12px',
+          textAlign: 'center',
+          fontSize: '14px',
+          fontWeight: 'bold',
+          border: '1px solid #ffeeba',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '12px',
+          width: '100%',
+          boxSizing: 'border-box'
+        }}>
+          <span>⚠️ Gói cước POS PRO của cửa hàng sẽ hết hạn sau <strong>{daysLeft} ngày</strong> nữa (vào ngày {new Date(storeData.expire_at).toLocaleDateString('vi-VN')}). Vui lòng chuẩn bị gia hạn để tránh gián đoạn.</span>
+          <button 
+            onClick={() => setShowRenewPopup(true)}
+            style={{
+              backgroundColor: '#856404',
+              color: '#ffffff',
+              border: 'none',
+              padding: '6px 14px',
+              borderRadius: '8px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              fontSize: '13px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              transition: 'all 0.2s'
+            }}
+          >
+            🚀 Gia hạn ngay
+          </button>
+        </div>
+      )}
+
+      {/* POPUP HIỂN THỊ MÃ QR GIA HẠN CHỦ ĐỘNG TRƯỚC HẠN */}
+      {showRenewPopup && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999999 }}>
+           <div style={{ background: 'white', padding: '30px', borderRadius: '24px', textAlign: 'center', maxWidth: '460px', width: '90%', boxSizing: 'border-box', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '18px', color: '#1e293b', marginBottom: '15px' }}>Quét mã QR để Gia hạn chủ động</div>
+              <img 
+                src={`https://img.vietqr.io/image/${props.MY_BANK_ID}-${props.MY_ACCOUNT_NO}-compact2.png?amount=${props.SUBSCRIPTION_FEE}&addInfo=${encodeURIComponent(`GIAHAN POS ${storeData?.id}`)}&accountName=${encodeURIComponent(props.ACCOUNT_NAME)}`} 
+                alt="VietQR Payment" 
+                style={{ width: '220px', height: '220px', objectFit: 'contain', borderRadius: '10px' }}
+              />
+              <div style={{ marginTop: '15px', textAlign: 'left', background: '#f8fafc', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ marginBottom: '6px', fontSize: '13px', color: '#1e293b' }}>Ngân hàng: <strong>{props.MY_BANK_ID}</strong></div>
+                  <div style={{ marginBottom: '6px', fontSize: '13px', color: '#1e293b' }}>Số tài khoản: <strong style={{ color: '#2563eb' }}>{props.MY_ACCOUNT_NO}</strong></div>
+                  <div style={{ marginBottom: '6px', fontSize: '13px', color: '#1e293b' }}>Chủ tài khoản: <strong>{props.ACCOUNT_NAME}</strong></div>
+                  <div style={{ marginBottom: '6px', fontSize: '13px', color: '#1e293b' }}>Số tiền gia hạn: <strong style={{ color: '#ef4444' }}>{props.SUBSCRIPTION_FEE?.toLocaleString()}đ</strong> / tháng</div>
+                  <div style={{ fontSize: '13px', color: '#1e293b' }}>Nội dung CK: <strong style={{ background: '#fef3c7', padding: '2px 6px', borderRadius: '4px' }}>GIAHAN POS {storeData?.id}</strong></div>
+              </div>
+              <p style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic', margin: '12px 0 20px 0' }}>
+                 *Hệ thống tự động cộng dồn thêm 1 tháng vào sau ngày hết hạn cũ của bạn ngay khi nhận được tiền.
+              </p>
+              <button 
+                onClick={() => setShowRenewPopup(false)}
+                style={{ width: '100%', padding: '12px', background: '#1e293b', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                ĐÓNG CỬA SỔ
+              </button>
+           </div>
+        </div>
+      )}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
         <div className="premium-banner" onClick={toggleWindyMusic} style={{ display: 'flex', alignItems: 'center', padding: '10px 24px', borderRadius: '16px', cursor: 'pointer', minWidth: '320px', position: 'relative', overflow: 'hidden' }} title="Bật/Tắt nhạc">
