@@ -228,21 +228,9 @@ export const ProductTable: React.FC<ProductTableProps> = ({
                       )}
                     </td>
                     <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                        <span style={{ 
-                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '4px 10px', 
-                          background: p.stock < 10 ? '#fef2f2' : '#ecfdf5', 
-                          color: p.stock < 10 ? '#ef4444' : '#059669', 
-                          borderRadius: '12px', fontWeight: '700', fontSize: '13px' 
-                        }}>
-                          {p.stock} pc
-                        </span>
-                        {p.stock < 10 && (
-                          <span style={{ color: '#ef4444', fontSize: '11px', fontWeight: '600' }}>
-                            ⚠️ Sắp hết hàng
-                          </span>
-                        )}
-                      </div>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '4px 10px', background: p.stock <= 5 ? '#fef2f2' : '#ecfdf5', color: p.stock <= 5 ? '#ef4444' : '#059669', borderRadius: '12px', fontWeight: '700', fontSize: '13px' }}>
+                        {p.stock}
+                      </span>
                     </td>
                     <td style={{ padding: '12px 16px', textAlign: 'right', color: '#64748b', fontWeight: '500' }} onClick={() => handleEdit(p.id, 'import_price', p.import_price)}>
                       {(p.import_price || 0).toLocaleString()}đ
