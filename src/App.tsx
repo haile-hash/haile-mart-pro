@@ -67,6 +67,10 @@ export default function App() {
   const [isStorageLoading, setIsStorageLoading] = useState(true); 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
+  // KHAI BÁO BIẾN KIỂM TRA THUÊ BAO
+  const [isExpired, setIsExpired] = useState(false);
+  const [storeData, setStoreData] = useState<any>(null);
+
   const [isLocked, setIsLocked] = useState(() => {
     if (typeof window !== 'undefined') {
       const isLoggedLocal = window.localStorage.getItem('mart_logged_in') === 'true';
@@ -84,7 +88,7 @@ export default function App() {
   const [bankBin, setBankBin] = useState(""); const [bankAcc, setBankAcc] = useState(""); const [bankNameStr, setBankNameStr] = useState(""); const [zaloPayId, setZaloPayId] = useState(""); const [adminPin, setAdminPin] = useState("1234"); const [pendingAction, setPendingAction] = useState<(() => void) | null>(null); 
   
   // =========================================================================
-  // ⚙️ CẤU HÌNH CỔNG THANH TOÁN VIETQR CHO TÀI KHOẢN CỦA SẾP
+  // CẤU HÌNH CỔNG THANH TOÁN VIETQR CHO TÀI KHOẢN CỦA SẾP
   // =========================================================================
   const MY_BANK_ID = "MB";
   const MY_ACCOUNT_NO = "0936407061";
@@ -171,6 +175,7 @@ export default function App() {
   const totalValue = useMemo(() => products.reduce((sum, p) => sum + ((p.stock || 0) * (p.import_price || 0)), 0), [products]);
   const lowStockCount = useMemo(() => products.filter(p => p.stock > 0 && p.stock < 10).length, [products]);
 
+  // Lấy dữ liệu và kiểm tra khóa màn hình
   useEffect(() => {
     if (!isLoggedIn) return;
     const initDataAndCheckLeak = async () => {
@@ -191,8 +196,14 @@ export default function App() {
 
           const { data: store } = await supabase.from('stores').select('*').eq('owner_id', user.id).single();
           if (store) {
+            setStoreData(store);
             await dbSet("mart_current_store", store);
             window.localStorage.setItem("mart_current_store", JSON.stringify(store));
+            
+            if (store.expire_at) {
+                const expireDate = new Date(store.expire_at).getTime();
+                setIsExpired(Date.now() > expireDate);
+            }
           }
           fetchProducts(); loadCloudData(); fetchSettingsFromCloud();
         }
@@ -200,6 +211,7 @@ export default function App() {
     };
 
     initDataAndCheckLeak();
+    
     const channel = supabase.channel("db_changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchProducts())
       .on("postgres_changes", { event: "*", schema: "public", table: "history" }, () => loadCloudData())
@@ -209,7 +221,17 @@ export default function App() {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload: any) => { 
           setScanQueue(prev => [...prev, payload.new.code]); 
       })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "stores" }, (payload) => {
+          const currentOwner = window.localStorage.getItem("mart_owner_id");
+          if (payload.new && payload.new.owner_id === currentOwner) {
+              setStoreData(payload.new);
+              if (payload.new.expire_at) {
+                  setIsExpired(Date.now() > new Date(payload.new.expire_at).getTime());
+              }
+          }
+      })
       .subscribe();
+      
     return () => { supabase.removeChannel(channel) };
   }, [isLoggedIn]);
 
@@ -224,7 +246,7 @@ export default function App() {
   }, [isLocked]);
 
   useEffect(() => { 
-    if (!isLoggedIn || isLocked) return; 
+    if (!isLoggedIn || isLocked || isExpired) return; 
     let timeout: any; 
     const resetTimer = () => { 
       clearTimeout(timeout); 
@@ -243,7 +265,7 @@ export default function App() {
       window.removeEventListener('keydown', resetTimer); 
       window.removeEventListener('click', resetTimer); 
     }; 
-  }, [isLoggedIn, isLocked]);
+  }, [isLoggedIn, isLocked, isExpired]);
 
   useEffect(() => { const handler = setTimeout(() => { setDebouncedSearchTerm(searchTerm); }, 300); return () => clearTimeout(handler); }, [searchTerm]);
 
@@ -324,7 +346,7 @@ export default function App() {
   useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_suppliers", suppliers); }, [suppliers, isStorageLoading]);
   useEffect(() => { if (!isStorageLoading && !APP_IS_WIPING) dbSet("mart_history", history); }, [history, isStorageLoading]);
 
-  useEffect(() => { const handleKeyDown = (e: KeyboardEvent) => { if (!isLoggedIn || isCheckoutOpen || ui.showPinModal || ui.showAuditModal || ui.showCustomerModal || ui.showSettings || ui.showStoreSettings || ui.showInputForm || ui.showInventoryModal || ui.cashFlowModalInfo || ui.showPOModal) return; if (e.key === 'F1') { e.preventDefault(); document.getElementById('search-barcode')?.focus(); } if (e.key === 'F2') { e.preventDefault(); if (cart.length > 0) confirmCheckout('TIỀN MẶT'); } if (e.key === 'F3') { e.preventDefault(); if (cart.length > 0) confirmCheckout('CHUYỂN KHOẢN'); } if (e.key === 'F4') { e.preventDefault(); handleHoldOrder(); } }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); }, [isLoggedIn, isCheckoutOpen, ui, cart]);
+  useEffect(() => { const handleKeyDown = (e: KeyboardEvent) => { if (!isLoggedIn || isLocked || isExpired || isCheckoutOpen || ui.showPinModal || ui.showAuditModal || ui.showCustomerModal || ui.showSettings || ui.showStoreSettings || ui.showInputForm || ui.showInventoryModal || ui.cashFlowModalInfo || ui.showPOModal) return; if (e.key === 'F1') { e.preventDefault(); document.getElementById('search-barcode')?.focus(); } if (e.key === 'F2') { e.preventDefault(); if (cart.length > 0) confirmCheckout('TIỀN MẶT'); } if (e.key === 'F3') { e.preventDefault(); if (cart.length > 0) confirmCheckout('CHUYỂN KHOẢN'); } if (e.key === 'F4') { e.preventDefault(); handleHoldOrder(); } }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); }, [isLoggedIn, isLocked, isExpired, isCheckoutOpen, ui, cart]);
 
   useEffect(() => {
     if (ui.scannerMode !== null) {
@@ -361,6 +383,7 @@ export default function App() {
   
   const updateSettingsToCloud = async (bin: string, acc: string, nameStr: string, zaloId: string, hStart: string, hEnd: string, pin: string) => { if (!navigator.onLine) return toast.error("Mất mạng! Không thể lưu Cài đặt."); setLoading(true); try { const { data: { user } } = await supabase.auth.getUser(); if (!user) throw new Error("Lỗi phiên đăng nhập!"); const payload = { owner_id: user.id, bank_bin: bin, bank_acc: acc, bank_name_str: nameStr, zalopay_id: zaloId, happy_hour_start: hStart, happy_hour_end: hEnd, happy_hour_discount: newHappyDiscount, admin_pin: pin, tier_bronze: newTierConfig.bronze, tier_bronze_discount: newTierConfig.bronze_discount, tier_silver: newTierConfig.silver, tier_silver_discount: newTierConfig.silver_discount, tier_gold: newTierConfig.gold, tier_gold_discount: newTierConfig.gold_discount, tier_diamond: newTierConfig.diamond, tier_diamond_discount: newTierConfig.diamond_discount, updated_at: new Date().toISOString() }; const { data, error } = await supabase.from("settings").update(payload).eq("owner_id", user.id).select(); if (error) { toast.error("Lỗi cập nhật: " + error.message); setLoading(false); return; } if (!data || data.length === 0) { const randomId = Math.floor(Math.random() * 2000000000); const { error: insertErr } = await supabase.from("settings").insert([{ id: randomId, ...payload }]); if (insertErr) { toast.error("Lỗi tạo Cài đặt: " + insertErr.message); setLoading(false); return; } } setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr); setZaloPayId(zaloId); setHappyStart(hStart); setHappyEnd(hEnd); setAdminPin(pin); setTierConfig(newTierConfig); setHappyDiscount(newHappyDiscount); window.localStorage.setItem('mart_happy_start', hStart); window.localStorage.setItem('mart_happy_end', hEnd); window.localStorage.setItem('mart_happy_discount', newHappyDiscount.toString()); toast.success("Lưu Cài đặt thành công!"); ui.setShowSettings?.(false); logAudit("CÀI ĐẶT", "Cập nhật hệ thống"); } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); } };
   const saveSettings = () => { const bin = newBankBin.trim(); const acc = newBankAcc.trim(); const nameStr = newBankNameStr.trim().toUpperCase(); const zaloId = newZaloPayId.trim(); const pin = newAdminPinInput.trim(); if (!bin || !acc || !nameStr || !pin) return toast.error("Vui lòng điền đủ thông tin & Mã PIN!"); updateSettingsToCloud(bin, acc, nameStr, zaloId, newHappyStart, newHappyEnd, pin); };
+  
   const handleLogoutClick = () => { logAudit("ĐĂNG XUẤT", `Thoát ca ${shift}`); ui.setShowHandoverModal?.(true); };
 
   const confirmHandover = async () => { 
@@ -1003,7 +1026,7 @@ export default function App() {
                 <div style={{ fontSize: '60px', marginBottom: '10px' }}>⚠️</div>
                 <h2 style={{ color: '#dc2626', margin: '0 0 10px 0', fontSize: '26px', textTransform: 'uppercase' }}>Tài khoản đã hết hạn</h2>
                 <p style={{ color: '#475569', fontSize: '15px', marginBottom: '20px', lineHeight: '1.5' }}>
-                   Gói cước <strong>{storeData?.plan_type || 'TRIAL'}</strong> của cửa hàng <strong>{storeData?.store_name}</strong> đã hết hạn vào ngày <strong>{new Date(storeData?.expire_at).toLocaleDateString('vi-VN')}</strong>.<br/>
+                   Gói cước <strong>{storeData?.plan_type || 'TRIAL'}</strong> của cửa hàng <strong>{storeData?.store_name}</strong> đã hết hạn.<br/>
                    Vui lòng thanh toán gia hạn để hệ thống tiếp tục hoạt động.
                 </p>
 
@@ -1034,16 +1057,7 @@ export default function App() {
           </div>
         )}
 
-        {!isLoggedIn && <Login 
-            setIsLoggedIn={setIsLoggedIn} 
-            setRole={() => {}} 
-            shift={shift} 
-            setShift={setShift} 
-            startingCash={startingCash} 
-            setStartingCash={setStartingCash} 
-            installPrompt={installPrompt} 
-            handleInstallApp={handleInstallApp} 
-        />}
+        {!isLoggedIn && <Login setIsLoggedIn={setIsLoggedIn} setRole={() => {}} shift={shift} setShift={setShift} startingCash={startingCash} setStartingCash={setStartingCash} installPrompt={installPrompt} handleInstallApp={handleInstallApp} />}
       </div>
     );
   }
