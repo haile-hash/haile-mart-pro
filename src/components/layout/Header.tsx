@@ -8,62 +8,9 @@ export const Header = (props: any) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showRenewPopup, setShowRenewPopup] = useState(false);
   
-  // BIẾN KIỂM TRA DỮ LIỆU
-  const [debugText, setDebugText] = useState("Đang khởi động quét...");
-  const [alertCount, setAlertCount] = useState(0);
-
-  const ui = props.ui || {};
+  const ui = props.ui;
   const daysLeft = props.daysLeft || 0;
   const storeData = props.storeData;
-
-  useEffect(() => {
-    const checkLowStockFromStorage = () => {
-      try {
-        // Kiểm tra LocalStorage
-        const cachedProds = window.localStorage.getItem("mart_products_cache");
-        if (!cachedProds) {
-          setDebugText("Lỗi: Không tìm thấy 'mart_products_cache' trong LocalStorage");
-          
-          // Thử quét IndexedDB nếu LocalStorage trống
-          const dbRequest = indexedDB.open("HaileMartIndexedDB", 1);
-          dbRequest.onsuccess = () => {
-            const db = dbRequest.result;
-            if (!db.objectStoreNames.contains("kv_store")) {
-              setDebugText("Lỗi: Không tìm thấy bảng 'kv_store' trong IndexedDB");
-              return;
-            }
-            const tx = db.transaction("kv_store", "readonly");
-            const req = tx.objectStore("kv_store").get("mart_products_cache");
-            req.onsuccess = () => {
-              if (req.result && Array.isArray(req.result)) {
-                const count = req.result.filter(p => p.stock !== undefined && p.stock >= 0 && p.stock < 10).length;
-                setAlertCount(count);
-                setDebugText(`Tìm thấy kho trong IndexedDB. Số lượng < 10 là: ${count} mã`);
-              } else {
-                setDebugText("Lỗi: Dữ liệu IndexedDB trống hoặc không phải mảng");
-              }
-            };
-          };
-          return;
-        }
-
-        const arr = JSON.parse(cachedProds);
-        if (Array.isArray(arr)) {
-          const count = arr.filter(p => p.stock !== undefined && p.stock >= 0 && p.stock < 10).length;
-          setAlertCount(count);
-          setDebugText(`Tìm thấy kho trong LocalStorage. Tổng số hàng: ${arr.length} SP. Số lượng < 10 là: ${count} mã`);
-        } else {
-          setDebugText("Lỗi: Dữ liệu 'mart_products_cache' không đúng định dạng mảng JSON");
-        }
-      } catch (e) {
-        setDebugText(`Lỗi Crash hệ thống: ${e.message}`);
-      }
-    };
-
-    checkLowStockFromStorage();
-    const interval = setInterval(checkLowStockFromStorage, 3000);
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     try {
@@ -81,16 +28,11 @@ export const Header = (props: any) => {
     else { audioRef.current.play().catch(err => console.log(err)); setIsPlaying(true); }
   };
 
+  // Điều kiện hiển thị banner: Đang là gói PRO, chưa hết hạn hoàn toàn (daysLeft > 0) và còn nhỏ hơn hoặc bằng 5 ngày
   const shouldShowBanner = storeData?.plan_type === 'PRO' && daysLeft > 0 && daysLeft <= 5;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "20px" }} className="no-print">
-      
-      {/* DÒNG CHỮ ĐO ĐẠC LỖI THỰC TẾ TRÊN MÀN HÌNH */}
-      <div style={{ background: '#f1f5f9', padding: '6px 12px', borderRadius: '8px', fontSize: '12px', color: '#334155', fontFamily: 'monospace', border: '1px solid #cbd5e1' }}>
-        ⚙️ [DEBUG KHO]: {debugText}
-      </div>
-
       <style>{`
         .premium-banner { background: linear-gradient(135deg, #DA251D 0%, #A61611 100%); box-shadow: 0 10px 20px -5px rgba(218, 37, 29, 0.4); transition: all 0.3s ease; }
         .premium-banner:hover { transform: translateY(-2px); box-shadow: 0 12px 25px -4px rgba(218, 37, 29, 0.5); }
@@ -148,7 +90,7 @@ export const Header = (props: any) => {
            <div style={{ background: 'white', padding: '30px', borderRadius: '24px', textAlign: 'center', maxWidth: '460px', width: '90%', boxSizing: 'border-box', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)' }}>
               <div style={{ fontWeight: 'bold', fontSize: '18px', color: '#1e293b', marginBottom: '15px' }}>Quét mã QR để Gia hạn chủ động</div>
               <img 
-                src={`https://img.vietqr.io/image/${props.MY_BANK_ID}-${props.MY_ACCOUNT_NO}-compact2.png?amount=${props.SUBSCRIPTION_FEE}&addInfo=${encodeURIComponent("GIAHAN POS " + storeData?.id)}&accountName=${encodeURIComponent(props.ACCOUNT_NAME)}`}
+                src={`https://img.vietqr.io/image/${props.MY_BANK_ID}-${props.MY_ACCOUNT_NO}-compact2.png?amount=${props.SUBSCRIPTION_FEE}&addInfo=${encodeURIComponent(`GIAHAN POS ${storeData?.id}`)}&accountName=${encodeURIComponent(props.ACCOUNT_NAME)}`} 
                 alt="VietQR Payment" 
                 style={{ width: '220px', height: '220px', objectFit: 'contain', borderRadius: '10px' }}
               />
@@ -201,28 +143,6 @@ export const Header = (props: any) => {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          
-          {alertCount > 0 && (
-            <div 
-              title={`Có ${alertCount} sản phẩm dưới 10 pc cần kiểm tra kho!`}
-              style={{ 
-                position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                width: '44px', height: '44px', borderRadius: '12px', 
-                background: '#fef2f2', border: '1px solid #fecaca',
-                color: '#ef4444', cursor: 'pointer', fontSize: '20px'
-              }}
-            >
-              🔔
-              <span style={{ 
-                position: 'absolute', top: '-4px', right: '-4px', background: '#ef4444', color: 'white', 
-                borderRadius: '50%', width: '18px', height: '18px', fontSize: '11px', fontWeight: 'bold', 
-                display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid white' 
-              }}>
-                {alertCount}
-              </span>
-            </div>
-          )}
-
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '12px', background: props.isOnline ? (ui.darkMode ? 'rgba(16,185,129,0.1)' : '#ecfdf5') : (ui.darkMode ? 'rgba(239,68,68,0.1)' : '#fef2f2'), border: `1px solid ${props.isOnline ? '#a7f3d0' : '#fecaca'}` }}>
             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: props.isOnline ? '#10b981' : '#ef4444', display: 'inline-block' }}></span>
             <span style={{ fontSize: '12px', fontWeight: '700', color: props.isOnline ? '#059669' : '#dc2626' }}>{props.isOnline ? 'Online' : 'Offline'}</span>
@@ -252,6 +172,7 @@ export const Header = (props: any) => {
             <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
               <div style={{ padding: "4px 12px", fontSize: "11px", fontWeight: "800", color: "#94a3b8", textTransform: "uppercase" }}>ĐỐI TÁC & HỆ THỐNG</div>
               
+              {/* MENU KẾT NỐI ĐIỆN THOẠI CHUẨN XỊN ĐÃ VÀO ĐÚNG VỊ TRÍ */}
               <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowScannerLinkModal?.(true); }}>📲 Kết nối Điện Thoại (QR)</button>
               
               <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowCustomerModal?.(true); }}>💳 Danh sách VIP</button>
