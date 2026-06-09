@@ -8,52 +8,59 @@ export const Header = (props: any) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showRenewPopup, setShowRenewPopup] = useState(false);
   
-  // BIẾN TỰ ĐỘNG ĐẾM SẢN PHẨM HỤT KHO TRỰC TIẾP TỪ Ổ CỨNG TRÌNH DUYỆT
+  // BIẾN KIỂM TRA DỮ LIỆU
+  const [debugText, setDebugText] = useState("Đang khởi động quét...");
   const [alertCount, setAlertCount] = useState(0);
 
   const ui = props.ui || {};
   const daysLeft = props.daysLeft || 0;
   const storeData = props.storeData;
 
-  // TUYỆT CHIÊU CUỐI: TỰ ĐỘNG QUÉT Ổ CỨNG ĐỂ ĐẾM SẢN PHẨM < 10 PC BẤT CHẤP FILE APP.TSX
   useEffect(() => {
     const checkLowStockFromStorage = () => {
       try {
-        // 1. Quét bộ nhớ đệm cache sản phẩm
+        // Kiểm tra LocalStorage
         const cachedProds = window.localStorage.getItem("mart_products_cache");
-        if (cachedProds) {
-          const arr = JSON.parse(cachedProds);
-          if (Array.isArray(arr)) {
-            const count = arr.filter(p => p.stock !== undefined && p.stock >= 0 && p.stock < 10).length;
-            setAlertCount(count);
-            return;
-          }
-        }
-        
-        // 2. Nếu không có LocalStorage, quét IndexedDB bằng hàm thủ công
-        const dbRequest = indexedDB.open("HaileMartIndexedDB", 1);
-        dbRequest.onsuccess = () => {
-          const db = dbRequest.result;
-          if (db.objectStoreNames.contains("kv_store")) {
+        if (!cachedProds) {
+          setDebugText("Lỗi: Không tìm thấy 'mart_products_cache' trong LocalStorage");
+          
+          // Thử quét IndexedDB nếu LocalStorage trống
+          const dbRequest = indexedDB.open("HaileMartIndexedDB", 1);
+          dbRequest.onsuccess = () => {
+            const db = dbRequest.result;
+            if (!db.objectStoreNames.contains("kv_store")) {
+              setDebugText("Lỗi: Không tìm thấy bảng 'kv_store' trong IndexedDB");
+              return;
+            }
             const tx = db.transaction("kv_store", "readonly");
             const req = tx.objectStore("kv_store").get("mart_products_cache");
             req.onsuccess = () => {
               if (req.result && Array.isArray(req.result)) {
                 const count = req.result.filter(p => p.stock !== undefined && p.stock >= 0 && p.stock < 10).length;
                 setAlertCount(count);
+                setDebugText(`Tìm thấy kho trong IndexedDB. Số lượng < 10 là: ${count} mã`);
+              } else {
+                setDebugText("Lỗi: Dữ liệu IndexedDB trống hoặc không phải mảng");
               }
             };
-          }
-        };
+          };
+          return;
+        }
+
+        const arr = JSON.parse(cachedProds);
+        if (Array.isArray(arr)) {
+          const count = arr.filter(p => p.stock !== undefined && p.stock >= 0 && p.stock < 10).length;
+          setAlertCount(count);
+          setDebugText(`Tìm thấy kho trong LocalStorage. Tổng số hàng: ${arr.length} SP. Số lượng < 10 là: ${count} mã`);
+        } else {
+          setDebugText("Lỗi: Dữ liệu 'mart_products_cache' không đúng định dạng mảng JSON");
+        }
       } catch (e) {
-        console.log("Lỗi quét ổ cứng:", e);
+        setDebugText(`Lỗi Crash hệ thống: ${e.message}`);
       }
     };
 
-    // Chạy kiểm tra ngay khi mở web
     checkLowStockFromStorage();
-    
-    // Cứ 3 giây tự động quét ổ cứng một lần để cập nhật số lượng chuông nhịp nhàng theo thao tác bán hàng
     const interval = setInterval(checkLowStockFromStorage, 3000);
     return () => clearInterval(interval);
   }, []);
@@ -78,6 +85,12 @@ export const Header = (props: any) => {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "20px" }} className="no-print">
+      
+      {/* DÒNG CHỮ ĐO ĐẠC LỖI THỰC TẾ TRÊN MÀN HÌNH */}
+      <div style={{ background: '#f1f5f9', padding: '6px 12px', borderRadius: '8px', fontSize: '12px', color: '#334155', fontFamily: 'monospace', border: '1px solid #cbd5e1' }}>
+        ⚙️ [DEBUG KHO]: {debugText}
+      </div>
+
       <style>{`
         .premium-banner { background: linear-gradient(135deg, #DA251D 0%, #A61611 100%); box-shadow: 0 10px 20px -5px rgba(218, 37, 29, 0.4); transition: all 0.3s ease; }
         .premium-banner:hover { transform: translateY(-2px); box-shadow: 0 12px 25px -4px rgba(218, 37, 29, 0.5); }
@@ -189,7 +202,6 @@ export const Header = (props: any) => {
 
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           
-          {/* CHUÔNG BÁO ĐỘNG ĐỘC LẬP TỰ ĐỘNG BÙM LÊN KHI NHẬN THẤY SẢN PHẨM HỤT KHO */}
           {alertCount > 0 && (
             <div 
               title={`Có ${alertCount} sản phẩm dưới 10 pc cần kiểm tra kho!`}
