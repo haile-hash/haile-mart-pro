@@ -61,7 +61,7 @@ export default function App() {
   if (typeof window !== "undefined" && window.location.search.includes("scanner=true")) return <MobileScanner />;
   const VAT_RATE = 0.1; const IDLE_TIMEOUT = 5 * 60 * 1000; const todayStrStr = new Date().toLocaleDateString('vi-VN');
 
-  useEffect(() => { emailjs.init("5ric0kxuwNPlUleAv"); }, []);
+  useEffect(() => { emailjs.init(process.env.REACT_APP_EMAILJS_PUBLIC_KEY || ""); }, []);
   useEffect(() => { if (typeof window !== 'undefined' && !(window as any).XLSX) { const script = document.createElement('script'); script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; script.async = true; document.head.appendChild(script); } }, []);
 
   const [isStorageLoading, setIsStorageLoading] = useState(true); 
@@ -88,12 +88,12 @@ export default function App() {
   const [bankBin, setBankBin] = useState(""); const [bankAcc, setBankAcc] = useState(""); const [bankNameStr, setBankNameStr] = useState(""); const [zaloPayId, setZaloPayId] = useState(""); const [adminPin, setAdminPin] = useState("1234"); const [pendingAction, setPendingAction] = useState<(() => void) | null>(null); 
   
   // =========================================================================
-  // CẤU HÌNH CỔNG THANH TOÁN VIETQR CHO TÀI KHOẢN CỦA SẾP
+  // CẤU HÌNH CỔNG THANH TOÁN VIETQR CHO TÀI KHOẢN CỦA SẾP (TỪ BIẾN MÔI TRƯỜNG)
   // =========================================================================
-  const MY_BANK_ID = "MB";
-  const MY_ACCOUNT_NO = "0936407061";
-  const SUBSCRIPTION_FEE = 199000;
-  const ACCOUNT_NAME = "LÊ HỒNG HẢI";
+  const MY_BANK_ID = process.env.REACT_APP_BANK_ID || "MB";
+  const MY_ACCOUNT_NO = process.env.REACT_APP_BANK_ACCOUNT_NO || "";
+  const SUBSCRIPTION_FEE = Number(process.env.REACT_APP_SUBSCRIPTION_FEE) || 199000;
+  const ACCOUNT_NAME = process.env.REACT_APP_BANK_ACCOUNT_NAME || "";
   // =========================================================================
 
   const [happyStart, setHappyStart] = useState("11:00"); 
@@ -111,10 +111,10 @@ export default function App() {
 
   const ui = useUIState();
 
-  const EMAILJS_SERVICE_ID = "service_7ie990l";
-  const EMAILJS_TEMPLATE_ID = "template_m1j9i7k";     
-  const EMAILJS_TEMPLATE_VIP_ID = "template_t91erhg"; 
-  const EMAILJS_TEMPLATE_PO_ID = "template_m1j9i7k";  
+  const EMAILJS_SERVICE_ID = process.env.REACT_APP_EMAILJS_SERVICE_ID || "";
+  const EMAILJS_TEMPLATE_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_ID || "";     
+  const EMAILJS_TEMPLATE_VIP_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_VIP_ID || ""; 
+  const EMAILJS_TEMPLATE_PO_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_PO_ID || "";  
 
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState(""); const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(""); const [selectedCategory, setSelectedCategory] = useState("Tất cả"); const [loading, setLoading] = useState(false); const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null); const [filters, setFilters] = useState<Record<string, any[]>>({}); const [showSuggestions, setShowSuggestions] = useState(false);
