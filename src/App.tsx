@@ -93,7 +93,7 @@ export default function App() {
   // Danh sách mã ngân hàng xem tại: https://vietqr.net/portal/bank-list
   // =========================================================================
   const MY_BANK_ID = "MB";       // <-- Sửa mã ngân hàng của sếp ở đây
-  const MY_ACCOUNT_NO = "123456789"; // <-- Sửa số tài khoản của sếp ở đây
+  const MY_ACCOUNT_NO = "0936407061"; // <-- Sửa số tài khoản của sếp ở đây
   const SUBSCRIPTION_FEE = 199000; // Giá gia hạn hàng tháng (199k)
   const ACCOUNT_NAME = "HỆ THỐNG POS PRO"; // Tên hiển thị trên mã QR
   // =========================================================================
