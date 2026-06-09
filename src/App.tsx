@@ -793,8 +793,13 @@ export default function App() {
     } catch (e) { toast.error("Lỗi khi xử lý PO!"); } finally { setLoading(false); }
   };
   
+  // 1. Đóng khối if lại và trả về màn hình Login
   if (!isStorageLoading && (!isLoggedIn || isLocked || isExpired)) {
-    return (
+    return <Login />; 
+  }
+
+  // 2. Trả về giao diện bán hàng chính
+  return (
     <div className={`app-container ${ui.darkMode ? "dark-theme" : "light-theme"}`} style={{ padding: "16px", minHeight: "100vh", fontFamily: "'Plus Jakarta Sans', -apple-system, sans-serif" }}>
       <Toaster position="top-right" containerStyle={{ zIndex: 9999999 }} />
       
