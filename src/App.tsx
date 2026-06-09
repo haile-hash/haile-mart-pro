@@ -794,10 +794,10 @@ export default function App() {
     } catch (e) { toast.error("Lỗi khi xử lý PO!"); } finally { setLoading(false); }
   };
   
-  if (!isStorageLoading && (!isLoggedIn || isLocked || isExpired)) {
+ if (!isStorageLoading && (!isLoggedIn || isLocked || isExpired)) {
     return (
       <div className={`app-container ${ui.darkMode ? "dark-theme" : "light-theme"}`} style={{ minHeight: "100vh", position: "relative" }}>
-        <Toaster position="top-right" containerStyle="{{" zIndex: 9999999 }}/>
+        <Toaster position="top-right" containerStyle={{ zIndex: 9999999 }} />
         
         {isLoggedIn && isLocked && !isExpired && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
@@ -815,7 +815,7 @@ export default function App() {
                 <div style={{ fontSize: '60px', marginBottom: '10px' }}>⚠️</div>
                 <h2 style={{ color: '#dc2626', margin: '0 0 10px 0', fontSize: '26px', textTransform: 'uppercase' }}>Tài khoản đã hết hạn</h2>
                 <p style={{ color: '#475569', fontSize: '15px', marginBottom: '20px', lineHeight: '1.5' }}>
-                   Gói cước <strong>{storeData?.plan_type || 'TRIAL'}</strong> của cửa hàng <strong>{storeData?.store_name}</strong> đã hết hạn vào ngày <strong>{new Date(storeData?.expire_at).toLocaleDateString('vi-VN')}</strong>.<br/>
+                   Gói cước <strong>{storeData?.plan_type || 'TRIAL'}</strong> của cửa hàng <strong>{storeData?.store_name}</strong> đã hết hạn.<br/>
                    Vui lòng thanh toán gia hạn để hệ thống tiếp tục hoạt động.
                 </p>
 
@@ -846,31 +846,16 @@ export default function App() {
           </div>
         )}
 
-        {!isLoggedIn && <Login setIsLoggedIn="{setIsLoggedIn}" setRole="{()"> {}} 
-            shift={shift} 
-            setShift={setShift} 
-            startingCash={startingCash} 
-            setStartingCash={setStartingCash} 
-            installPrompt={installPrompt} 
-            handleInstallApp={handleInstallApp} 
-        />}
+        {!isLoggedIn && <Login setIsLoggedIn={setIsLoggedIn} setRole={() => {}} shift={shift} setShift={setShift} startingCash={startingCash} setStartingCash={setStartingCash} installPrompt={installPrompt} handleInstallApp={handleInstallApp} />}
       </div>
     );
   }
 
   return (
     <div className={`app-container ${ui.darkMode ? "dark-theme" : "light-theme"}`} style={{ padding: "16px", minHeight: "100vh", fontFamily: "'Plus Jakarta Sans', -apple-system, sans-serif" }}>
-      <Toaster position="top-right" containerStyle="{{" zIndex: 9999999 }}/>
+      <Toaster position="top-right" containerStyle={{ zIndex: 9999999 }} />
       
-      <Header ui="{ui}" shift="{shift}" totalValue="{totalValue}" currentShiftStats="{currentShiftStats}" setCashFlowModalInfo="{ui.setCashFlowModalInfo}" darkMode="{ui.darkMode}" setDarkMode="{ui.setDarkMode}" handleLogoutClick="{handleLogoutClick}" handleLockScreen="{()"> setIsLocked(true)} 
-        lowStockCount={lowStockCount} 
-        isOnline={isOnline} 
-        syncStatus={syncStatus} 
-        syncAllOfflineData={syncPendingImports} 
-        bankBin={bankBin} 
-        bankAcc={bankAcc} 
-        bankNameStr={bankNameStr}
-      />
+      <Header ui={ui} shift={shift} totalValue={totalValue} currentShiftStats={currentShiftStats} setCashFlowModalInfo={ui.setCashFlowModalInfo} darkMode={ui.darkMode} setDarkMode={ui.setDarkMode} handleLogoutClick={handleLogoutClick} handleLockScreen={() => setIsLocked(true)} lowStockCount={lowStockCount} isOnline={isOnline} syncStatus={syncStatus} syncAllOfflineData={syncPendingImports} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} />
 
       {ui.scannerMode !== null && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', zIndex: 999999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
@@ -882,83 +867,45 @@ export default function App() {
 
       <div className="pos-main-workspace" style={{ display: "grid", gridTemplateColumns: "70% 30%", gap: "16px" }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          
-          <ProductSearchAndActions barcodeInput="{barcodeInput}" setBarcodeInput="{setBarcodeInput}" setScannerMode="{ui.setScannerMode}" showSuggestions="{showSuggestions}" setShowSuggestions="{setShowSuggestions}" searchTerm="{searchTerm}" setSearchTerm="{setSearchTerm}" selectedCategory="{selectedCategory}" setSelectedCategory="{setSelectedCategory}" categories="{categories}" sortedAndFilteredProducts="{sortedAndFilteredProducts}" handleSelectSuggest="{handleSelectSuggest}" setShowInputForm="{ui.setShowInputForm}" handleFileUpload="{handleFileUpload}" downloadSampleExcel="{downloadSampleExcel}"/>
+          <ProductSearchAndActions barcodeInput={barcodeInput} setBarcodeInput={setBarcodeInput} setScannerMode={ui.setScannerMode} showSuggestions={showSuggestions} setShowSuggestions={setShowSuggestions} searchTerm={searchTerm} setSearchTerm={setSearchTerm} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} categories={categories} sortedAndFilteredProducts={sortedAndFilteredProducts} handleSelectSuggest={handleSelectSuggest} setShowInputForm={ui.setShowInputForm} handleFileUpload={handleFileUpload} downloadSampleExcel={downloadSampleExcel} />
           
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
-            <button 
-              onClick={handleMagicAICategorize} 
-              style={{ background: 'linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 6px rgba(168, 85, 247, 0.3)' }}
-            >
-              ✨ AI Tự Động Phân Loại ({sortedAndFilteredProducts.length > 50 ? '50' : sortedAndFilteredProducts.length} SP đang hiển thị)
-            </button>
+            <button onClick={handleMagicAICategorize} style={{ background: 'linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 6px rgba(168, 85, 247, 0.3)' }}>✨ AI Tự Động Phân Loại ({sortedAndFilteredProducts.length > 50 ? '50' : sortedAndFilteredProducts.length} SP đang hiển thị)</button>
           </div>
 
-          {ui.showInputForm && <ProductInputForm newCode="{newCode}" setNewCode="{setNewCode}" newName="{newName}" setNewName="{setNewName}" newCategory="{newCategory}" setNewCategory="{setNewCategory}" newImportPrice="{newImportPrice}" setNewImportPrice="{setNewImportPrice}" newPrice="{newPrice}" setNewPrice="{setNewPrice}" newPromoPrice="{newPromoPrice}" setNewPromoPrice="{setNewPromoPrice}" newGiftCondition="{newGiftCondition}" setNewGiftCondition="{setNewGiftCondition}" newGiftInfo="{newGiftInfo}" setNewGiftInfo="{setNewGiftInfo}" newStock="{newStock}" setNewStock="{setNewStock}" newExpiry="{newExpiry}" setNewExpiry="{setNewExpiry}" handleAddProduct="{handleAddProduct}" setShowInputForm="{ui.setShowInputForm}" handleCodeChange="{handleCodeChange}" categories="{categories}" loading="{loading}"/>}
-          <ProductTable products="{sortedAndFilteredProducts}" handleSelectSuggest="{handleSelectSuggest}" handleEdit="{handleEdit}" handleDelete="{handleDelete}" setPrintBarcodeProduct="{setPrintBarcodeProduct}"/>
+          {ui.showInputForm && <ProductInputForm newCode={newCode} setNewCode={setNewCode} newName={newName} setNewName={setNewName} newCategory={newCategory} setNewCategory={setNewCategory} newImportPrice={newImportPrice} setNewImportPrice={setNewImportPrice} newPrice={newPrice} setNewPrice={setNewPrice} newPromoPrice={newPromoPrice} setNewPromoPrice={setNewPromoPrice} newGiftCondition={newGiftCondition} setNewGiftCondition={setNewGiftCondition} newGiftInfo={newGiftInfo} setNewGiftInfo={setNewGiftInfo} newStock={newStock} setNewStock={setNewStock} newExpiry={newExpiry} setNewExpiry={setNewExpiry} handleAddProduct={handleAddProduct} setShowInputForm={ui.setShowInputForm} handleCodeChange={handleCodeChange} categories={categories} loading={loading} />}
+          
+          <ProductTable products={sortedAndFilteredProducts} handleSelectSuggest={handleSelectSuggest} handleEdit={handleEdit} handleDelete={handleDelete} setPrintBarcodeProduct={setPrintBarcodeProduct} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <CartPanel cart="{cart}" setCart="{setCart}" handleQtyChange="{handleQtyChange}" cartTotalAmountDisplay="{cartTotalAmountDisplay}" setIsCheckoutOpen="{setIsCheckoutOpen}" handleHoldOrder="{handleHoldOrder}" setCheckoutStep="{setCheckoutStep}" setShowHoldModal="{ui.setShowHoldModal}"/>
-          <HistoryPanel history="{history}" shift="{shift}" handleRefund="{handleRefund}" handleReprint="{handleReprint}"/>
+          <CartPanel cart={cart} setCart={setCart} handleQtyChange={handleQtyChange} cartTotalAmountDisplay={cartTotalAmountDisplay} setIsCheckoutOpen={setIsCheckoutOpen} handleHoldOrder={handleHoldOrder} setCheckoutStep={setCheckoutStep} setShowHoldModal={ui.setShowHoldModal} />
+          <HistoryPanel history={history} shift={shift} handleRefund={handleRefund} handleReprint={handleReprint} />
         </div>
       </div>
 
-      {ui.showStoreSettings && <StoreSettingsModal role="admin" onClose="{()"> ui.setShowStoreSettings(false)} />}
-      
-      {ui.showSettings && <SettingsModal showSettings="{ui.showSettings}" setShowSettings="{ui.setShowSettings}" newBankBin="{newBankBin}" setNewBankBin="{setNewBankBin}" newBankAcc="{newBankAcc}" setNewBankAcc="{setNewBankAcc}" newBankNameStr="{newBankNameStr}" setNewBankNameStr="{setNewBankNameStr}" newZaloPayId="{newZaloPayId}" setNewZaloPayId="{setNewZaloPayId}" newHappyStart="{newHappyStart}" setNewHappyStart="{setNewHappyStart}" newHappyEnd="{newHappyEnd}" setNewHappyEnd="{newHappyEnd}" newHappyDiscount="{newHappyDiscount}" setNewHappyDiscount="{setNewHappyDiscount}" newAdminPinInput="{newAdminPinInput}" setNewAdminPinInput="{setNewAdminPinInput}" newTierConfig="{newTierConfig}" setNewTierConfig="{setNewTierConfig}" saveSettings="{saveSettings}" loading="{loading}"/>}
-      
-      {ui.showPinModal && <PinModal showPinModal="{ui.showPinModal}" setShowPinModal="{ui.setShowPinModal}" correctPin="{adminPin}" onSuccess="{()"> { if(pendingAction) pendingAction(); setPendingAction(null); }} 
-      />}
-      
-      {ui.cashFlowModalInfo && <CashFlowDetailModal flowType="{ui.cashFlowModalInfo}" onClose="{()"> ui.setCashFlowModalInfo(null)} 
-        allLogs={history} 
-      />}
-      
-      {isCheckoutOpen && <CheckoutModal checkoutStep="{checkoutStep}" setCheckoutStep="{setCheckoutStep}" customersData="{customersData}" custPhone="{custPhone}" setCustPhone="{setCustPhone}" custName="{custName}" setCustName="{setCustName}" customerInput="{customerInput}" setCustomerInput="{setCustomerInput}" custAddress="{custAddress}" setCustAddress="{setCustAddress}" handleCustomerInputChange="{handleCustomerInputChange}" finalToPay="{finalToPay}" useWallet="{useWallet}" setUseWallet="{setUseWallet}" voucherInput="{voucherInput}" setVoucherInput="{setVoucherInput}" handleVoucherSubmit="{handleVoucherSubmit}" customerGiven="{customerGiven}" setCustomerGiven="{setCustomerGiven}" confirmCheckout="{confirmCheckout}" closeCheckout="{closeCheckout}" loading="{loading}" bankBin="{bankBin}" bankAcc="{bankAcc}" bankNameStr="{bankNameStr}" sendReceiptEmail="{sendReceiptEmail}" setScannerMode="{ui.setScannerMode}" handleNextToQR="{handleNextToQR}" setPrintMode="{ui.setPrintMode}"/>}
-      
-      {printBarcodeProduct && <ScannerModal product="{printBarcodeProduct}" barcodeCount="{barcodeCount}" setBarcodeCount="{setBarcodeCount}" onClose="{()"> setPrintBarcodeProduct(null)} 
-      />}
-      
-      {ui.showScannerLinkModal && <ScannerLinkModal showModal="{ui.showScannerLinkModal}" setShowModal="{ui.setShowScannerLinkModal}"/>}
-      
-      {ui.showHandoverModal && <HandoverModal role="admin" shift="{shift}" startingCash="{startingCash}" currentShiftStats="{currentShiftStats}" onConfirm="{confirmHandover}" onClose="{()"> ui.setShowHandoverModal(false)} 
-      />}
-      
-      {ui.showAuditModal && <AuditModal showAuditModal="{ui.showAuditModal}" setShowAuditModal="{ui.setShowAuditModal}" auditLogs="{auditLogs}" exportAuditToCSV="{exportAuditToCSV}" setSelectedAuditLog="{(log:"> setSelectedAuditLog(log)} 
-      />}
-      
-      {selectedAuditLog && <AuditDetailModal selectedAuditLog="{selectedAuditLog}" setSelectedAuditLog="{setSelectedAuditLog}"/>}
-      
-      {ui.showHoldModal && <HoldOrdersModal onClose="{()"> ui.setShowHoldModal(false)} 
-        heldOrders={heldOrders} 
-        restoreOrder={restoreOrder} 
-        deleteHeldOrder={deleteHeldOrder} 
-      />}
-      
-      {ui.showExpenseModal && <ExpenseModal showExpenseModal="{ui.showExpenseModal}" setShowExpenseModal="{ui.setShowExpenseModal}" expenses="{expenses}" expName="{expName}" setExpName="{setExpName}" expAmount="{expAmount}" setExpAmount="{setExpAmount}" addExpense="{addExpense}" deleteExpense="{deleteExpense}"/>}
-      
-      {ui.showSupplierModal && <SupplierModal showSupplierModal="{ui.showSupplierModal}" setShowSupplierModal="{ui.setShowSupplierModal}" suppliers="{suppliers}" supName="{supName}" setSupName="{setSupName}" supPhone="{supPhone}" setSupPhone="{setSupPhone}" supAddress="{supAddress}" setSupAddress="{setSupAddress}" supItem="{supItem}" setSupItem="{setSupItem}" supTaxCode="{supTaxCode}" setSupTaxCode="{setSupTaxCode}" supBankAccount="{supBankAccount}" setSupBankAccount="{setSupBankAccount}" addSupplier="{addSupplier}" deleteSupplier="{deleteSupplier}"/>}
-      
-      {ui.showPOModal && <POModal showPOModal="{ui.showPOModal}" setShowPOModal="{ui.setShowPOModal}" poTab="{poTab}" setPoTab="{setPoTab}" suppliers="{suppliers}" selectedSupplierId="{selectedSupplierId}" setSelectedSupplierId="{setSelectedSupplierId}" products="{products}" poSearch="{poSearch}" setPoSearch="{setPoSearch}" poItems="{poItems}" setPoItems="{setPoItems}" poNote="{poNote}" setPoNote="{setPoNote}" paidAmount="{paidAmount}" setPaidAmount="{setPaidAmount}" searchPoCode="{searchPoCode}" setSearchPoCode="{setSearchPoCode}" foundPO="{foundPO}" setFoundPO="{setFoundPO}" receiveItems="{receiveItems}" setReceiveItems="{setReceiveItems}" allPOs="{allPOs}" loading="{loading}" onSaveNewPO="{handleSaveNewPO}" onConfirmReceipt="{handleConfirmReceipt}" onPrintPO="{(po:"> { setPrintPOData(po); ui.setPrintMode('po'); }} 
-      />}
-      
-      {ui.showStatsModal && <StatsModal reportStartDate="{reportStartDate}" setReportStartDate="{setReportStartDate}" reportEndDate="{reportEndDate}" setReportEndDate="{setReportEndDate}" history="{history}" onClose="{()"> ui.setShowStatsModal(false)} 
-      />}
-      
-      {ui.showInventoryModal && <InventoryModal showInventoryModal="{ui.showInventoryModal}" setShowInventoryModal="{ui.setShowInventoryModal}" products="{products}" inventorySearchTerm="{inventorySearchTerm}" setInventorySearchTerm="{setInventorySearchTerm}" invFilter="{invFilter}" setInvFilter="{setInvFilter}" actualStockInput="{actualStockInput}" setActualStockInput="{setActualStockInput}" syncInventoryCheck="{syncInventory}" handleImportInventoryCSV="{handleImportInventoryCSV}" loading="{loading}" handleInventorySearchEnter="{()"> {}} 
-        exportInventoryCSV={exportInventoryCSV} 
-      />}
-      
-      {ui.showDebtModal && <DebtModal showDebtModal="{ui.showDebtModal}" setShowDebtModal="{ui.setShowDebtModal}" customers="{customersData}" handlePayDebt="{handlePayDebt}"/>}
-      
-      {ui.showCustomerModal && <CustomerModal showCustomerModal="{ui.showCustomerModal}" setShowCustomerModal="{ui.setShowCustomerModal}" customers="{customersData}" setCustomers="{setCustomers}" logAudit="{logAudit}" handleEditPhone="{handleEditPhone}" printCustomerCard="{printCustomerCard}" sendCardEmail="{sendCardEmail}" shareToZalo="{shareToZalo}" tierConfig="{tierConfig}"/>}
-      
-      {ui.showMarketingModal && <MarketingModal showMarketingModal="{ui.showMarketingModal}" setShowMarketingModal="{ui.setShowMarketingModal}" marketingTier="{marketingTier}" setMarketingTier="{setMarketingTier}" marketingMsg="{marketingMsg}" setMarketingMsg="{setMarketingMsg}" customersData="{customersData}"/>}
+      {ui.showStoreSettings && <StoreSettingsModal role="admin" onClose={() => ui.setShowStoreSettings(false)} />}
+      {ui.showSettings && <SettingsModal showSettings={ui.showSettings} setShowSettings={ui.setShowSettings} newBankBin={newBankBin} setNewBankBin={setNewBankBin} newBankAcc={newBankAcc} setNewBankAcc={setNewBankAcc} newBankNameStr={newBankNameStr} setNewBankNameStr={setNewBankNameStr} newZaloPayId={newZaloPayId} setNewZaloPayId={setNewZaloPayId} newHappyStart={newHappyStart} setNewHappyStart={setNewHappyStart} newHappyEnd={newHappyEnd} setNewHappyEnd={newHappyEnd} newHappyDiscount={newHappyDiscount} setNewHappyDiscount={setNewHappyDiscount} newAdminPinInput={newAdminPinInput} setNewAdminPinInput={setNewAdminPinInput} newTierConfig={newTierConfig} setNewTierConfig={setNewTierConfig} saveSettings={saveSettings} loading={loading} />}
+      {ui.showPinModal && <PinModal showPinModal={ui.showPinModal} setShowPinModal={ui.setShowPinModal} correctPin={adminPin} onSuccess={() => { if(pendingAction) pendingAction(); setPendingAction(null); }} />}
+      {ui.cashFlowModalInfo && <CashFlowDetailModal flowType={ui.cashFlowModalInfo} onClose={() => ui.setCashFlowModalInfo(null)} allLogs={history} />}
+      {isCheckoutOpen && <CheckoutModal checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} customersData={customersData} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} customerInput={customerInput} setCustomerInput={setCustomerInput} custAddress={custAddress} setCustAddress={setCustAddress} handleCustomerInputChange={handleCustomerInputChange} finalToPay={finalToPay} useWallet={useWallet} setUseWallet={setUseWallet} voucherInput={voucherInput} setVoucherInput={setVoucherInput} handleVoucherSubmit={handleVoucherSubmit} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} confirmCheckout={confirmCheckout} closeCheckout={closeCheckout} loading={loading} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} sendReceiptEmail={sendReceiptEmail} setScannerMode={ui.setScannerMode} handleNextToQR={handleNextToQR} setPrintMode={ui.setPrintMode} />}
+      {printBarcodeProduct && <ScannerModal product={printBarcodeProduct} barcodeCount={barcodeCount} setBarcodeCount={setBarcodeCount} onClose={() => setPrintBarcodeProduct(null)} />}
+      {ui.showScannerLinkModal && <ScannerLinkModal showModal={ui.showScannerLinkModal} setShowModal={ui.setShowScannerLinkModal} />}
+      {ui.showHandoverModal && <HandoverModal role="admin" shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onConfirm={confirmHandover} onClose={() => ui.setShowHandoverModal(false)} />}
+      {ui.showAuditModal && <AuditModal showAuditModal={ui.showAuditModal} setShowAuditModal={ui.setShowAuditModal} auditLogs={auditLogs} exportAuditToCSV={exportAuditToCSV} setSelectedAuditLog={(log: any) => setSelectedAuditLog(log)} />}
+      {selectedAuditLog && <AuditDetailModal selectedAuditLog={selectedAuditLog} setSelectedAuditLog={setSelectedAuditLog} />}
+      {ui.showHoldModal && <HoldOrdersModal onClose={() => ui.setShowHoldModal(false)} heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={deleteHeldOrder} />}
+      {ui.showExpenseModal && <ExpenseModal showExpenseModal={ui.showExpenseModal} setShowExpenseModal={ui.setShowExpenseModal} expenses={expenses} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} addExpense={addExpense} deleteExpense={deleteExpense} />}
+      {ui.showSupplierModal && <SupplierModal showSupplierModal={ui.showSupplierModal} setShowSupplierModal={ui.setShowSupplierModal} suppliers={suppliers} supName={supName} setSupName={setSupName} supPhone={supPhone} setSupPhone={setSupPhone} supAddress={supAddress} setSupAddress={setSupAddress} supItem={supItem} setSupItem={setSupItem} supTaxCode={supTaxCode} setSupTaxCode={setSupTaxCode} supBankAccount={supBankAccount} setSupBankAccount={setSupBankAccount} addSupplier={addSupplier} deleteSupplier={deleteSupplier} />}
+      {ui.showPOModal && <POModal showPOModal={ui.showPOModal} setShowPOModal={ui.setShowPOModal} poTab={poTab} setPoTab={setPoTab} suppliers={suppliers} selectedSupplierId={selectedSupplierId} setSelectedSupplierId={setSelectedSupplierId} products={products} poSearch={poSearch} setPoSearch={setPoSearch} poItems={poItems} setPoItems={setPoItems} poNote={poNote} setPoNote={setPoNote} paidAmount={paidAmount} setPaidAmount={setPaidAmount} searchPoCode={searchPoCode} setSearchPoCode={setSearchPoCode} foundPO={foundPO} setFoundPO={setFoundPO} receiveItems={receiveItems} setReceiveItems={setReceiveItems} allPOs={allPOs} loading={loading} onSaveNewPO={handleSaveNewPO} onConfirmReceipt={handleConfirmReceipt} onPrintPO={(po: any) => { setPrintPOData(po); ui.setPrintMode('po'); }} />}
+      {ui.showStatsModal && <StatsModal reportStartDate={reportStartDate} setReportStartDate={setReportStartDate} reportEndDate={reportEndDate} setReportEndDate={setReportEndDate} history={history} onClose={() => ui.setShowStatsModal(false)} />}
+      {ui.showInventoryModal && <InventoryModal showInventoryModal={ui.showInventoryModal} setShowInventoryModal={ui.setShowInventoryModal} products={products} inventorySearchTerm={inventorySearchTerm} setInventorySearchTerm={setInventorySearchTerm} invFilter={invFilter} setInvFilter={setInvFilter} actualStockInput={actualStockInput} setActualStockInput={setActualStockInput} syncInventoryCheck={syncInventory} handleImportInventoryCSV={handleImportInventoryCSV} loading={loading} handleInventorySearchEnter={() => {}} exportInventoryCSV={exportInventoryCSV} />}
+      {ui.showDebtModal && <DebtModal showDebtModal={ui.showDebtModal} setShowDebtModal={ui.setShowDebtModal} customers={customersData} handlePayDebt={handlePayDebt} />}
+      {ui.showCustomerModal && <CustomerModal showCustomerModal={ui.showCustomerModal} setShowCustomerModal={ui.setShowCustomerModal} customers={customersData} setCustomers={setCustomers} logAudit={logAudit} handleEditPhone={handleEditPhone} printCustomerCard={printCustomerCard} sendCardEmail={sendCardEmail} shareToZalo={shareToZalo} tierConfig={tierConfig} />}
+      {ui.showMarketingModal && <MarketingModal showMarketingModal={ui.showMarketingModal} setShowMarketingModal={ui.setShowMarketingModal} marketingTier={marketingTier} setMarketingTier={setMarketingTier} marketingMsg={marketingMsg} setMarketingMsg={setMarketingMsg} customersData={customersData} />}
 
       <div className="print-only">
-        <PrintManager printMode="{ui.printMode}" lastOrder="{lastOrder}" shift="{shift}" role="admin" customers="{customersData}" VAT_RATE="{VAT_RATE}" printCustomer="{printCustomer}" printPOData="{printPOData}" printBarcodeProduct="{printBarcodeProduct}" barcodeCount="{barcodeCount}"/>
+        <PrintManager printMode={ui.printMode} lastOrder={lastOrder} shift={shift} role="admin" customers={customersData} VAT_RATE={VAT_RATE} printCustomer={printCustomer} printPOData={printPOData} printBarcodeProduct={printBarcodeProduct} barcodeCount={barcodeCount} />
       </div>
-
     </div>
   );
 }
