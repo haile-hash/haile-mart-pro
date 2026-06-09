@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { toast } from 'react-hot-toast';
 
-export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, setStartingCash, installPrompt, handleInstallApp }: any) => {
+export const Login = ({ setIsLoggedIn, setIsLocked, setRole, shift, setShift, startingCash, setStartingCash, installPrompt, handleInstallApp }: any) => {
   const [authMode, setAuthMode] = useState<"login" | "register" | "forgot" | "update_password" | "google_onboarding">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,8 +31,9 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
 
         if (existingStore) {
           // Nếu đã có cửa hàng, cho vào thẳng bên trong luôn
-          setRole("admin");
+          if (setRole) setRole("admin");
           setIsLoggedIn(true);
+          setIsLocked(false);
         } else {
           // Nếu chưa có cửa hàng, giữ chân lại giao diện điền thông tin bổ sung
           setGoogleUser(user);
@@ -49,7 +50,7 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
       if (event === 'PASSWORD_RECOVERY') setAuthMode('update_password');
     });
     return () => subscription.unsubscribe();
-  }, [setIsLoggedIn, setRole]);
+  }, [setIsLoggedIn, setIsLocked, setRole]);
 
   // Hàm xử lý Đăng nhập / Đăng ký bằng Google gốc
   const handleGoogleLogin = async () => {
@@ -77,7 +78,12 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
       if (authMode === 'login') {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        if (data.user) { setRole("admin"); setIsLoggedIn(true); toast.success("Chào mừng quay trở lại!"); }
+        if (data.user) { 
+          if (setRole) setRole("admin"); 
+          setIsLoggedIn(true); 
+          setIsLocked(false);
+          toast.success("Chào mừng quay trở lại!"); 
+        }
       } 
       // 2. LUỒNG ĐĂNG KÝ EMAIL THƯỜNG
       else if (authMode === 'register') {
@@ -97,7 +103,9 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
           }]);
           if (storeError) throw storeError;
           toast.success("Khởi tạo không gian SaaS thành công!");
-          setRole("admin"); setIsLoggedIn(true);
+          if (setRole) setRole("admin"); 
+          setIsLoggedIn(true);
+          setIsLocked(false);
         }
       }
       // 3. LUỒNG BẮT THÔNG TIN CHO USER ĐĂNG KÝ BẰNG GOOGLE MỚI TINH
@@ -119,8 +127,9 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
         if (storeError) throw storeError;
         
         toast.success("Cấu hình thông tin doanh nghiệp thành công!");
-        setRole("admin"); 
+        if (setRole) setRole("admin"); 
         setIsLoggedIn(true);
+        setIsLocked(false);
       }
       // 4. CÁC LUỒNG QUÊN/ĐỔI MẬT KHẨU
       else if (authMode === 'forgot') {
