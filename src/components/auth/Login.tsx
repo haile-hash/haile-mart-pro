@@ -153,10 +153,10 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
             {authMode === 'google_onboarding' ? "🏪" : authMode === 'register' ? "🚀" : authMode === 'forgot' ? "⏳" : authMode === 'update_password' ? "🔐" : "📦"}
           </div>
           <h1 style={{ margin: '0 0 8px 0', fontSize: '24px', fontWeight: '800', color: '#0f172a' }}>
-            {authMode === 'google_onboarding' ? "THIẾT LẬP CỬA HÀNG" : authMode === 'register' ? "MỞ CỬA HÀNG MỚI" : authMode === 'forgot' ? "KHÔI PHỤC MẬT KHẨU" : authMode === 'update_password' ? "ĐỔI MẬT KHẨU" : "HỆ THỐNG POS PRO"}
+            {authMode === 'google_onboarding' ? "THIẾT LẬP CỬA HÀNG" : authMode === 'register' ? "MỞ CỬA HÀNG MỚI" : authMode === 'forgot' ? "KHÔI PHỤC MẬT KHẨU" : authMode === 'update_password' ? "ĐỔI MẬT KHẨU" : "POS SIÊU TỐC"}
           </h1>
           <p style={{ margin: 0, color: '#64748b', fontSize: '14px' }}>
-            {authMode === 'google_onboarding' ? "Vui lòng hoàn tất thông tin để khởi tạo hệ thống" : "Nền tảng quản lý bán hàng đa cửa hàng Cloud ERP"}
+            {authMode === 'google_onboarding' ? "Vui lòng hoàn tất thông tin để khởi tạo hệ thống" : "Phần mềm quản lý bán hàng số 1 Việt Nam"}
           </p>
         </div>
 
