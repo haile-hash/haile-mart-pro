@@ -93,7 +93,7 @@ export default function App() {
   const MY_BANK_ID = "MB";
   const MY_ACCOUNT_NO = "0936407061";
   const SUBSCRIPTION_FEE = 199000;
-  const ACCOUNT_NAME = "HỆ THỐNG POS PRO";
+  const ACCOUNT_NAME = "LÊ HỒNG HẢI";
   // =========================================================================
 
   const [happyStart, setHappyStart] = useState("11:00"); 
