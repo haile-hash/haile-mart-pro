@@ -83,6 +83,15 @@ export default function App() {
 
   const [bankBin, setBankBin] = useState(""); const [bankAcc, setBankAcc] = useState(""); const [bankNameStr, setBankNameStr] = useState(""); const [zaloPayId, setZaloPayId] = useState(""); const [adminPin, setAdminPin] = useState("1234"); const [pendingAction, setPendingAction] = useState<(() => void) | null>(null); 
   
+  // =========================================================================
+  // ⚙️ CẤU HÌNH CỔNG THANH TOÁN VIETQR CHO TÀI KHOẢN CỦA SẾP
+  // =========================================================================
+  const MY_BANK_ID = "MB";
+  const MY_ACCOUNT_NO = "0936407061";
+  const SUBSCRIPTION_FEE = 199000;
+  const ACCOUNT_NAME = "HỆ THỐNG POS PRO";
+  // =========================================================================
+
   const [happyStart, setHappyStart] = useState("11:00"); 
   const [happyEnd, setHappyEnd] = useState("13:00");
   const [happyDiscount, setHappyDiscount] = useState(20);
@@ -264,11 +273,9 @@ export default function App() {
     if (isStorageLoading) return;
 
     const checkAndCancelPOs = async () => {
-      // Lấy danh sách PO mới nhất ngầm dưới DB để quét, tránh bị sai lệch
       const currentPOs = await dbGet("mart_pos") || [];
       if (currentPOs.length === 0) return;
 
-      // Sếp để 1 * 60 * 1000 để test 1 phút, test xong nhớ sửa lại 30 * 24 * 60 * 60 * 1000 nhé
       const EXPIRATION_TIME_MS = 1 * 60 * 1000; 
       const now = Date.now();
       let changedCount = 0;
@@ -285,21 +292,19 @@ export default function App() {
       });
 
       if (changedCount > 0) {
-        setAllPOs(updatedPOs); // Cập nhật ra ngoài màn hình
-        await dbSet("mart_pos", updatedPOs); // Lưu chốt vào DB
+        setAllPOs(updatedPOs);
+        await dbSet("mart_pos", updatedPOs);
         toast.error(`Hệ thống bot đã tự động chuyển ${changedCount} Phiếu PO sang ĐÃ HỦY do quá hạn!`);
       }
     };
 
-    // 1. Chạy ngay lập tức 1 lần khi sếp vừa mở web
     checkAndCancelPOs();
 
-    // 2. Gắn Bot chạy ngầm: Cứ 10 giây quét DB 1 lần
     const intervalId = setInterval(() => {
       checkAndCancelPOs();
     }, 10000); 
 
-    return () => clearInterval(intervalId); // Tự dọn dẹp bộ nhớ khi tắt web
+    return () => clearInterval(intervalId);
   }, [isStorageLoading]);
 
   useEffect(() => { 
@@ -323,29 +328,9 @@ export default function App() {
 
   useEffect(() => {
     if (ui.scannerMode !== null) {
-      let scanner: any;
-      let lastScanTime = 0;
-      const loadScanner = () => {
-        setTimeout(() => {
-          if ((window as any).Html5QrcodeScanner && document.getElementById("global-camera-scanner")) {
-            scanner = new (window as any).Html5QrcodeScanner("global-camera-scanner", { fps: 30, qrbox: { width: 350, height: 200 }, rememberLastUsedCamera: true, supportedScanTypes: [0] }, false);
-            scanner.render((text: string) => {
-              const now = Date.now();
-              if (now - lastScanTime < 1500) return;
-              lastScanTime = now;
-              setScanQueue(prev => [...prev, text]);
-            }, undefined);
-          }
-        }, 150);
-      };
-      if (!(window as any).Html5QrcodeScanner) {
-        const script = document.createElement("script");
-        script.src = "https://unpkg.com/html5-qrcode";
-        script.onload = loadScanner;
-        document.head.appendChild(script);
-      } else {
-        loadScanner();
-      }
+      let scanner: any; let lastScanTime = 0;
+      const loadScanner = () => { setTimeout(() => { if ((window as any).Html5QrcodeScanner && document.getElementById("global-camera-scanner")) { scanner = new (window as any).Html5QrcodeScanner("global-camera-scanner", { fps: 30, qrbox: { width: 350, height: 200 }, rememberLastUsedCamera: true, supportedScanTypes: [0] }, false); scanner.render((text: string) => { const now = Date.now(); if (now - lastScanTime < 1500) return; lastScanTime = now; setScanQueue(prev => [...prev, text]); }, undefined); } }, 150); };
+      if (!(window as any).Html5QrcodeScanner) { const script = document.createElement("script"); script.src = "https://unpkg.com/html5-qrcode"; script.onload = loadScanner; document.head.appendChild(script); } else { loadScanner(); }
       return () => { if (scanner) scanner.clear().catch(() => {}); };
     }
   }, [ui.scannerMode]);
@@ -353,32 +338,10 @@ export default function App() {
   useEffect(() => {
     if (scanQueue.length > 0) {
       const currentCode = scanQueue[0];
-      if (ui.scannerMode === 'product' || ui.scannerMode === 'barcode' || ui.scannerMode === null) { 
-        const p = findProductByCode(currentCode); 
-        if (p) { 
-          handleSelectSuggest(p); playSound('success'); 
-        } else { 
-          const matchedPhone = Object.keys(customersData || {}).find(phone => phone === currentCode.trim() || customersData[phone]?.cardCode === currentCode.trim()); 
-          if (matchedPhone) { 
-            playSound('success'); setCustomerInput(customersData[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customersData[matchedPhone].name); 
-          } else { 
-            playSound('error'); toast.error(`Mã vạch lạ [${currentCode}], đã điền tự động vào ô nhập hàng nhanh!`); setNewCode(currentCode.trim()); 
-          } 
-        } 
-      }
-      else if (ui.scannerMode === 'voucher') { 
-        const code = currentCode.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; 
-        if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); setVoucherInput(code); playSound('success'); } 
-        else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); setVoucherInput(code); playSound('success'); } 
-        else { playSound('error'); toast.error("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0) } 
-      }
-      else if (ui.scannerMode === 'customer') { 
-        const val = currentCode.trim(); setCustomerInput(val); const matchedPhone = Object.keys(customersData || {}).find(phone => phone === val || customersData[phone]?.cardCode === val); 
-        if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customersData[matchedPhone].name); setCustAddress(customersData[matchedPhone].address || ""); playSound('success'); } 
-        else { setCustPhone(val); setCustName(""); setCustAddress(""); playSound('success'); } 
-      }
-      setTimeout(() => ui.setScannerMode?.(null), 1000); 
-      setScanQueue(prev => prev.slice(1));
+      if (ui.scannerMode === 'product' || ui.scannerMode === 'barcode' || ui.scannerMode === null) { const p = findProductByCode(currentCode); if (p) { handleSelectSuggest(p); playSound('success'); } else { const matchedPhone = Object.keys(customersData || {}).find(phone => phone === currentCode.trim() || customersData[phone]?.cardCode === currentCode.trim()); if (matchedPhone) { playSound('success'); setCustomerInput(customersData[matchedPhone].cardCode || matchedPhone); setCustPhone(matchedPhone); setCustName(customersData[matchedPhone].name); } else { playSound('error'); toast.error(`Mã vạch lạ [${currentCode}], đã điền tự động vào ô nhập hàng nhanh!`); setNewCode(currentCode.trim()); } } }
+      else if (ui.scannerMode === 'voucher') { const code = currentCode.trim().toUpperCase(); const VOUCHERS: Record<string, number> = { "VC50K": 50000, "VC100K": 100000, "VIP200K": 200000, "KM10K": 10000 }; if (VOUCHERS[code]) { setAppliedVoucherAmount(VOUCHERS[code]); setVoucherInput(code); playSound('success'); } else if (!isNaN(Number(code)) && Number(code) > 0) { setAppliedVoucherAmount(Number(code)); setVoucherInput(code); playSound('success'); } else { playSound('error'); toast.error("Mã Voucher không hợp lệ!"); setAppliedVoucherAmount(0) } }
+      else if (ui.scannerMode === 'customer') { const val = currentCode.trim(); setCustomerInput(val); const matchedPhone = Object.keys(customersData || {}).find(phone => phone === val || customersData[phone]?.cardCode === val); if (matchedPhone) { setCustPhone(matchedPhone); setCustName(customersData[matchedPhone].name); setCustAddress(customersData[matchedPhone].address || ""); playSound('success'); } else { setCustPhone(val); setCustName(""); setCustAddress(""); playSound('success'); } }
+      setTimeout(() => ui.setScannerMode?.(null), 1000); setScanQueue(prev => prev.slice(1));
     }
   }, [scanQueue, products, ui.scannerMode]);
 
@@ -386,137 +349,23 @@ export default function App() {
 
   const executeWithAdminCheck = (action: () => void) => { action(); };
   
-  const addTransactionAndSync = async (logData: any) => { 
-    const ownerId = window.localStorage.getItem("mart_owner_id");
-    if (!ownerId) return;
-    const dataWithOwner = { ...logData, owner_id: ownerId };
-    setHistory(prev => [dataWithOwner, ...prev]); 
-    if (navigator.onLine) { 
-      try { await supabase.from("history").insert([dataWithOwner]); } catch (err) {} 
-    } 
-  };
+  const addTransactionAndSync = async (logData: any) => { const ownerId = window.localStorage.getItem("mart_owner_id"); if (!ownerId) return; const dataWithOwner = { ...logData, owner_id: ownerId }; setHistory(prev => [dataWithOwner, ...prev]); if (navigator.onLine) { try { await supabase.from("history").insert([dataWithOwner]); } catch (err) {} } };
   
-  const logAudit = async (action: string, detail: string, extraData: any = null) => { 
-    const ownerId = window.localStorage.getItem("mart_owner_id");
-    if (!ownerId) return;
-    const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user_name: 'Người Dùng', shift, action, detail, extra_data: extraData ? JSON.stringify(extraData) : null, owner_id: ownerId }; 
-    setAuditLogs(prev => [newLog, ...prev].slice(0, 300)); 
-    if (navigator.onLine) { supabase.from("audit_logs").insert([newLog]).catch(()=>{}); }
-  };
+  const logAudit = async (action: string, detail: string, extraData: any = null) => { const ownerId = window.localStorage.getItem("mart_owner_id"); if (!ownerId) return; const newLog = { id: Date.now(), time: new Date().toLocaleString('vi-VN'), user_name: 'Người Dùng', shift, action, detail, extra_data: extraData ? JSON.stringify(extraData) : null, owner_id: ownerId }; setAuditLogs(prev => [newLog, ...prev].slice(0, 300)); if (navigator.onLine) { supabase.from("audit_logs").insert([newLog]).catch(()=>{}); } };
   
-  const exportAuditToCSV = () => {
-    if (!(window as any).XLSX) return toast.error("Đang tải thư viện Excel!");
-    try {
-      const wsData = [["Thời gian", "Tài khoản", "Ca làm việc", "Hành động", "Chi tiết"]];
-      auditLogs.forEach(log => { wsData.push([log.time, log.user_name, log.shift, log.action, log.detail]); });
-      const ws = (window as any).XLSX.utils.aoa_to_sheet(wsData);
-      const wb = (window as any).XLSX.utils.book_new();
-      (window as any).XLSX.utils.book_append_sheet(wb, ws, "NhatKy");
-      (window as any).XLSX.writeFile(wb, `NhatKyHeThong_${Date.now()}.xlsx`);
-      toast.success("Xuất file Nhật ký thành công!");
-    } catch (e) { toast.error("Lỗi xuất file!"); }
-  };
+  const exportAuditToCSV = () => { if (!(window as any).XLSX) return toast.error("Đang tải thư viện Excel!"); try { const wsData = [["Thời gian", "Tài khoản", "Ca làm việc", "Hành động", "Chi tiết"]]; auditLogs.forEach(log => { wsData.push([log.time, log.user_name, log.shift, log.action, log.detail]); }); const ws = (window as any).XLSX.utils.aoa_to_sheet(wsData); const wb = (window as any).XLSX.utils.book_new(); (window as any).XLSX.utils.book_append_sheet(wb, ws, "NhatKy"); (window as any).XLSX.writeFile(wb, `NhatKyHeThong_${Date.now()}.xlsx`); toast.success("Xuất file Nhật ký thành công!"); } catch (e) { toast.error("Lỗi xuất file!"); } };
   
-  const fetchProducts = async () => { 
-    const ownerId = window.localStorage.getItem("mart_owner_id");
-    if (!ownerId) return;
-    try { 
-      if (navigator.onLine) { 
-        const { data, error } = await supabase.from("products").select("*").eq("owner_id", ownerId).order("created_at", { ascending: false }); 
-        if (data && !error) { setProducts(data); await dbSet("mart_products_cache", data); } 
-      } else { 
-        const localData = await dbGet("mart_products_cache"); if (localData) setProducts(localData); 
-      } 
-    } catch (err) { 
-      const localData = await dbGet("mart_products_cache"); if (localData) setProducts(localData); 
-    } 
-  };
+  const fetchProducts = async () => { const ownerId = window.localStorage.getItem("mart_owner_id"); if (!ownerId) return; try { if (navigator.onLine) { const { data, error } = await supabase.from("products").select("*").eq("owner_id", ownerId).order("created_at", { ascending: false }); if (data && !error) { setProducts(data); await dbSet("mart_products_cache", data); } } else { const localData = await dbGet("mart_products_cache"); if (localData) setProducts(localData); } } catch (err) { const localData = await dbGet("mart_products_cache"); if (localData) setProducts(localData); } };
   
-  const fetchSettingsFromCloud = async () => { 
-    try { 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase.from("settings").select("*").eq("owner_id", user.id).single(); 
-      if (data) { 
-        setBankBin(data.bank_bin); setBankAcc(data.bank_acc); setBankNameStr(data.bank_name_str); setZaloPayId(data.zalopay_id || ""); 
-        setNewBankBin(data.bank_bin); setNewBankAcc(data.bank_acc); setNewBankNameStr(data.bank_name_str); setNewZaloPayId(data.zalopay_id || ""); 
-        if (data.admin_pin) { setAdminPin(data.admin_pin); setNewAdminPinInput(data.admin_pin); } 
-        if (data.happy_hour_start) { setHappyStart(data.happy_hour_start); setNewHappyStart(data.happy_hour_start); } 
-        if (data.happy_hour_end) { setHappyEnd(data.happy_hour_end); setNewHappyEnd(data.happy_hour_end); } 
-        if (data.happy_hour_discount !== undefined) {
-          setHappyDiscount(data.happy_hour_discount);
-          setNewHappyDiscount(data.happy_hour_discount);
-          window.localStorage.setItem('mart_happy_discount', data.happy_hour_discount);
-        }
-        window.localStorage.setItem('mart_happy_start', data.happy_hour_start || "11:00");
-        window.localStorage.setItem('mart_happy_end', data.happy_hour_end || "13:00");
-
-        if (data.tier_bronze !== undefined) {
-          const loadedTiers = { 
-            bronze: data.tier_bronze, bronze_discount: data.tier_bronze_discount || 0,
-            silver: data.tier_silver, silver_discount: data.tier_silver_discount || 0, 
-            gold: data.tier_gold, gold_discount: data.tier_gold_discount || 0, 
-            diamond: data.tier_diamond, diamond_discount: data.tier_diamond_discount || 0 
-          };
-          setTierConfig(loadedTiers); setNewTierConfig(loadedTiers);
-        }
-      } 
-    } catch (err) {} 
-  };
+  const fetchSettingsFromCloud = async () => { try { const { data: { user } } = await supabase.auth.getUser(); if (!user) return; const { data } = await supabase.from("settings").select("*").eq("owner_id", user.id).single(); if (data) { setBankBin(data.bank_bin); setBankAcc(data.bank_acc); setBankNameStr(data.bank_name_str); setZaloPayId(data.zalopay_id || ""); setNewBankBin(data.bank_bin); setNewBankAcc(data.bank_acc); setNewBankNameStr(data.bank_name_str); setNewZaloPayId(data.zalopay_id || ""); if (data.admin_pin) { setAdminPin(data.admin_pin); setNewAdminPinInput(data.admin_pin); } if (data.happy_hour_start) { setHappyStart(data.happy_hour_start); setNewHappyStart(data.happy_hour_start); } if (data.happy_hour_end) { setHappyEnd(data.happy_hour_end); setNewHappyEnd(data.happy_hour_end); } if (data.happy_hour_discount !== undefined) { setHappyDiscount(data.happy_hour_discount); setNewHappyDiscount(data.happy_hour_discount); window.localStorage.setItem('mart_happy_discount', data.happy_hour_discount); } window.localStorage.setItem('mart_happy_start', data.happy_hour_start || "11:00"); window.localStorage.setItem('mart_happy_end', data.happy_hour_end || "13:00"); if (data.tier_bronze !== undefined) { const loadedTiers = { bronze: data.tier_bronze, bronze_discount: data.tier_bronze_discount || 0, silver: data.tier_silver, silver_discount: data.tier_silver_discount || 0, gold: data.tier_gold, gold_discount: data.tier_gold_discount || 0, diamond: data.tier_diamond, diamond_discount: data.tier_diamond_discount || 0 }; setTierConfig(loadedTiers); setNewTierConfig(loadedTiers); } } } catch (err) {} };
   
-  const updateSettingsToCloud = async (bin: string, acc: string, nameStr: string, zaloId: string, hStart: string, hEnd: string, pin: string) => { 
-    if (!navigator.onLine) return toast.error("Mất mạng! Không thể lưu Cài đặt."); 
-    setLoading(true); 
-    try { 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Lỗi phiên đăng nhập!");
-
-      const payload = { 
-        owner_id: user.id,
-        bank_bin: bin, bank_acc: acc, bank_name_str: nameStr, zalopay_id: zaloId, 
-        happy_hour_start: hStart, happy_hour_end: hEnd, 
-        happy_hour_discount: newHappyDiscount, 
-        admin_pin: pin, 
-        tier_bronze: newTierConfig.bronze, tier_bronze_discount: newTierConfig.bronze_discount, 
-        tier_silver: newTierConfig.silver, tier_silver_discount: newTierConfig.silver_discount, 
-        tier_gold: newTierConfig.gold, tier_gold_discount: newTierConfig.gold_discount, 
-        tier_diamond: newTierConfig.diamond, tier_diamond_discount: newTierConfig.diamond_discount,
-        updated_at: new Date().toISOString() 
-      };
-
-      const { data, error } = await supabase.from("settings").update(payload).eq("owner_id", user.id).select(); 
-      if (error) { toast.error("Lỗi cập nhật: " + error.message); setLoading(false); return; }
-      if (!data || data.length === 0) {
-         const randomId = Math.floor(Math.random() * 2000000000);
-         const { error: insertErr } = await supabase.from("settings").insert([{ id: randomId, ...payload }]); 
-         if (insertErr) { toast.error("Lỗi tạo Cài đặt: " + insertErr.message); setLoading(false); return; }
-      }
-
-      setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr); setZaloPayId(zaloId); 
-      setHappyStart(hStart); setHappyEnd(hEnd); setAdminPin(pin); 
-      setTierConfig(newTierConfig);
-      setHappyDiscount(newHappyDiscount);
-      window.localStorage.setItem('mart_happy_start', hStart); window.localStorage.setItem('mart_happy_end', hEnd); window.localStorage.setItem('mart_happy_discount', newHappyDiscount.toString());
-
-      toast.success("Lưu Cài đặt thành công!"); ui.setShowSettings?.(false); logAudit("CÀI ĐẶT", "Cập nhật hệ thống"); 
-    } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); } 
-  };
-  
+  const updateSettingsToCloud = async (bin: string, acc: string, nameStr: string, zaloId: string, hStart: string, hEnd: string, pin: string) => { if (!navigator.onLine) return toast.error("Mất mạng! Không thể lưu Cài đặt."); setLoading(true); try { const { data: { user } } = await supabase.auth.getUser(); if (!user) throw new Error("Lỗi phiên đăng nhập!"); const payload = { owner_id: user.id, bank_bin: bin, bank_acc: acc, bank_name_str: nameStr, zalopay_id: zaloId, happy_hour_start: hStart, happy_hour_end: hEnd, happy_hour_discount: newHappyDiscount, admin_pin: pin, tier_bronze: newTierConfig.bronze, tier_bronze_discount: newTierConfig.bronze_discount, tier_silver: newTierConfig.silver, tier_silver_discount: newTierConfig.silver_discount, tier_gold: newTierConfig.gold, tier_gold_discount: newTierConfig.gold_discount, tier_diamond: newTierConfig.diamond, tier_diamond_discount: newTierConfig.diamond_discount, updated_at: new Date().toISOString() }; const { data, error } = await supabase.from("settings").update(payload).eq("owner_id", user.id).select(); if (error) { toast.error("Lỗi cập nhật: " + error.message); setLoading(false); return; } if (!data || data.length === 0) { const randomId = Math.floor(Math.random() * 2000000000); const { error: insertErr } = await supabase.from("settings").insert([{ id: randomId, ...payload }]); if (insertErr) { toast.error("Lỗi tạo Cài đặt: " + insertErr.message); setLoading(false); return; } } setBankBin(bin); setBankAcc(acc); setBankNameStr(nameStr); setZaloPayId(zaloId); setHappyStart(hStart); setHappyEnd(hEnd); setAdminPin(pin); setTierConfig(newTierConfig); setHappyDiscount(newHappyDiscount); window.localStorage.setItem('mart_happy_start', hStart); window.localStorage.setItem('mart_happy_end', hEnd); window.localStorage.setItem('mart_happy_discount', newHappyDiscount.toString()); toast.success("Lưu Cài đặt thành công!"); ui.setShowSettings?.(false); logAudit("CÀI ĐẶT", "Cập nhật hệ thống"); } catch (err: any) { toast.error("Lỗi: " + err.message); } finally { setLoading(false); } };
   const saveSettings = () => { const bin = newBankBin.trim(); const acc = newBankAcc.trim(); const nameStr = newBankNameStr.trim().toUpperCase(); const zaloId = newZaloPayId.trim(); const pin = newAdminPinInput.trim(); if (!bin || !acc || !nameStr || !pin) return toast.error("Vui lòng điền đủ thông tin & Mã PIN!"); updateSettingsToCloud(bin, acc, nameStr, zaloId, newHappyStart, newHappyEnd, pin); };
-  
   const handleLogoutClick = () => { logAudit("ĐĂNG XUẤT", `Thoát ca ${shift}`); ui.setShowHandoverModal?.(true); };
 
   const confirmHandover = async () => { 
-    try { 
-      if (navigator.onLine) { await supabase.auth.signOut(); } 
-    } catch (error) {} 
-    finally { 
-      APP_IS_WIPING = true; 
-      await dbClearAll();
-      window.localStorage.clear();
-      window.sessionStorage.clear();
-      window.location.reload(); 
-    } 
+    try { if (navigator.onLine) { await supabase.auth.signOut(); } } catch (error) {} 
+    finally { APP_IS_WIPING = true; await dbClearAll(); window.localStorage.clear(); window.sessionStorage.clear(); window.location.reload(); } 
   };
 
   const handleEditPhone = async (oldPhone: string) => { executeWithAdminCheck(() => { const newPhone = window.prompt("Nhập SĐT mới:", oldPhone); if (newPhone && newPhone.trim() !== "" && newPhone !== oldPhone) { if (customersData[newPhone]) return toast.error("SĐT đã tồn tại!"); const cData = customersData[oldPhone]; setCustomers((prev: any) => { const updated = { ...prev }; updated[newPhone] = { ...cData, phone: newPhone }; delete updated[oldPhone]; return updated }); logAudit("SỬA KHÁCH HÀNG", `Đổi SĐT ${oldPhone} -> ${newPhone}`); toast.success("Cập nhật thành công!"); } }); };
@@ -543,9 +392,7 @@ export default function App() {
       for (const item of cart) {
         if (navigator.onLine) await supabase.from("products").update({ stock: Math.max(0, item.product.stock - item.qty) }).eq("id", item.product.id);
         let itemSplitCash = 0; if(payMethod === 'KẾT HỢP') { const safeRatio = finalToPay > 0 ? (splitCashAmt / finalToPay) : 0; itemSplitCash = Math.round(safeRatio * Math.round(item.qty * getActualPrice(item.product) * (1 + VAT_RATE))); }
-        
         const calculatedItemProfit = Math.round(item.qty * (getActualPrice(item.product) - (item.product.import_price || 0)));
-        
         newLogs.push({ id: Date.now() + Math.random(), shift, type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", name: cleanName(item.product.name), qty: item.qty, total: item.total, profit: calculatedItemProfit, customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id, paymentMethod: payMethod, split_cash: itemSplitCash, time: new Date().toLocaleString('vi-VN'), order_id: orderIdStr });
       }
 
@@ -953,7 +800,7 @@ export default function App() {
       const reader = new FileReader(); 
       reader.onload = (event) => { 
         const text = event.target?.result as string; 
-        const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''))); 
+        const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(new RegExp(',(?=(?:[^"]*"[^"]*")*[^"]*$)')).map(c => c.trim().replace(/^"|"$/g, ''))); 
         processData(lines); 
       }; 
       reader.readAsText(file); 
@@ -987,7 +834,7 @@ export default function App() {
       logAudit("KIỂM KHO BẰNG EXCEL", `Nạp ${count} mã`); 
     };
     const fileNameStr = file.name.toLowerCase();
-    if (fileNameStr.endsWith('.xlsx') || fileNameStr.endsWith('.xls')) { if (!(window as any).XLSX) { toast.loading("Loading..."); if (e?.target) e.target.value = ''; return; } const reader = new FileReader(); reader.onload = (event) => { try { const data = new Uint8Array(event.target?.result as ArrayBuffer); const workbook = (window as any).XLSX.read(data, { type: 'array' }); const firstSheet = workbook.Sheets[workbook.SheetNames[0]]; const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false }); processData(jsonData); } catch(err) {} }; reader.readAsArrayBuffer(file); } else { const reader = new FileReader(); reader.onload = (event) => { const text = event.target?.result as string; const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''))); processData(lines); }; reader.readAsText(file); } if (e?.target) e.target.value = '';
+    if (fileNameStr.endsWith('.xlsx') || fileNameStr.endsWith('.xls')) { if (!(window as any).XLSX) { toast.loading("Loading..."); if (e?.target) e.target.value = ''; return; } const reader = new FileReader(); reader.onload = (event) => { try { const data = new Uint8Array(event.target?.result as ArrayBuffer); const workbook = (window as any).XLSX.read(data, { type: 'array' }); const firstSheet = workbook.Sheets[workbook.SheetNames[0]]; const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false }); processData(jsonData); } catch(err) {} }; reader.readAsArrayBuffer(file); } else { const reader = new FileReader(); reader.onload = (event) => { const text = event.target?.result as string; const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(new RegExp(',(?=(?:[^"]*"[^"]*")*[^"]*$)')).map(c => c.trim().replace(/^"|"$/g, ''))); processData(lines); }; reader.readAsText(file); } if (e?.target) e.target.value = '';
   };
   
   const exportInventoryCSV = () => {
@@ -1135,11 +982,12 @@ export default function App() {
     } catch (e) { toast.error("Lỗi khi xử lý PO!"); } finally { setLoading(false); }
   };
   
-  if (!isStorageLoading && (!isLoggedIn || isLocked)) {
+  if (!isStorageLoading && (!isLoggedIn || isLocked || isExpired)) {
     return (
       <div className={`app-container ${ui.darkMode ? "dark-theme" : "light-theme"}`} style={{ minHeight: "100vh", position: "relative" }}>
         <Toaster position="top-right" containerStyle={{ zIndex: 9999999 }} />
-        {isLoggedIn && isLocked && (
+        
+        {isLoggedIn && isLocked && !isExpired && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
             <div style={{ background: ui.darkMode ? 'rgba(255,255,255,0.05)' : 'white', padding: '40px', borderRadius: '24px', textAlign: 'center', maxWidth: '400px', width: '90%', border: `1px solid ${ui.darkMode ? 'rgba(255,255,255,0.1)' : 'transparent'}`, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
               <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔒</div><h2 style={{ color: ui.darkMode ? 'white' : '#1e293b', margin: '0 0 8px 0', fontSize: '24px' }}>Màn Hình Đã Khóa</h2><p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>Vui lòng mở khóa để tiếp tục sử dụng.</p>
@@ -1148,14 +996,61 @@ export default function App() {
             </div>
           </div>
         )}
-        {!isLoggedIn && <Login setIsLoggedIn={setIsLoggedIn} setRole={() => {}} shift={shift} setShift={setShift} startingCash={startingCash} setStartingCash={setStartingCash} installPrompt={installPrompt} handleInstallApp={handleInstallApp} />}
+
+        {isLoggedIn && isExpired && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 999999 }}>
+             <div style={{ background: 'white', padding: '40px', borderRadius: '24px', textAlign: 'center', maxWidth: '500px', width: '90%', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+                <div style={{ fontSize: '60px', marginBottom: '10px' }}>⚠️</div>
+                <h2 style={{ color: '#dc2626', margin: '0 0 10px 0', fontSize: '26px', textTransform: 'uppercase' }}>Tài khoản đã hết hạn</h2>
+                <p style={{ color: '#475569', fontSize: '15px', marginBottom: '20px', lineHeight: '1.5' }}>
+                   Gói cước <strong>{storeData?.plan_type || 'TRIAL'}</strong> của cửa hàng <strong>{storeData?.store_name}</strong> đã hết hạn vào ngày <strong>{new Date(storeData?.expire_at).toLocaleDateString('vi-VN')}</strong>.<br/>
+                   Vui lòng thanh toán gia hạn để hệ thống tiếp tục hoạt động.
+                </p>
+
+                <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '16px', border: '2px dashed #cbd5e1', marginBottom: '20px' }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '18px', color: '#1e293b', marginBottom: '15px' }}>Quét mã QR để Gia hạn (Tự động)</div>
+                    <img 
+                      src={`https://img.vietqr.io/image/${MY_BANK_ID}-${MY_ACCOUNT_NO}-compact2.png?amount=${SUBSCRIPTION_FEE}&addInfo=${encodeURIComponent(`GIAHAN POS ${storeData?.id}`)}&accountName=${encodeURIComponent(ACCOUNT_NAME)}`} 
+                      alt="VietQR Payment" 
+                      style={{ width: '250px', height: '250px', objectFit: 'contain', borderRadius: '10px' }}
+                    />
+                    <div style={{ marginTop: '15px', textAlign: 'left', background: 'white', padding: '15px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ marginBottom: '8px', fontSize: '14px' }}><span style={{ color: '#64748b' }}>Ngân hàng:</span> <strong>{MY_BANK_ID}</strong></div>
+                        <div style={{ marginBottom: '8px', fontSize: '14px' }}><span style={{ color: '#64748b' }}>Số tài khoản:</span> <strong style={{ fontSize: '16px', color: '#2563eb' }}>{MY_ACCOUNT_NO}</strong></div>
+                        <div style={{ marginBottom: '8px', fontSize: '14px' }}><span style={{ color: '#64748b' }}>Chủ tài khoản:</span> <strong>{ACCOUNT_NAME}</strong></div>
+                        <div style={{ marginBottom: '8px', fontSize: '14px' }}><span style={{ color: '#64748b' }}>Số tiền:</span> <strong style={{ color: '#ef4444', fontSize: '16px' }}>{SUBSCRIPTION_FEE.toLocaleString()}đ</strong> / tháng</div>
+                        <div style={{ fontSize: '14px' }}><span style={{ color: '#64748b' }}>Nội dung CK:</span> <strong style={{ background: '#fef3c7', padding: '2px 6px', borderRadius: '4px' }}>GIAHAN POS {storeData?.id}</strong></div>
+                    </div>
+                </div>
+
+                <div style={{ fontSize: '13px', color: '#64748b', fontStyle: 'italic', marginBottom: '20px' }}>
+                   *Sau khi chuyển khoản thành công, hệ thống sẽ tự động nhận diện và mở khóa màn hình trong vòng 30 giây.
+                </div>
+
+                <button onClick={handleLogoutClick} style={{ padding: '10px 20px', background: 'transparent', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                   Đăng xuất tài khoản
+                </button>
+             </div>
+          </div>
+        )}
+
+        {!isLoggedIn && <Login 
+            setIsLoggedIn={setIsLoggedIn} 
+            setRole={() => {}} 
+            shift={shift} 
+            setShift={setShift} 
+            startingCash={startingCash} 
+            setStartingCash={setStartingCash} 
+            installPrompt={installPrompt} 
+            handleInstallApp={handleInstallApp} 
+        />}
       </div>
     );
   }
 
   return (
     <div className={`app-container ${ui.darkMode ? "dark-theme" : "light-theme"}`} style={{ padding: "16px", minHeight: "100vh", fontFamily: "'Plus Jakarta Sans', -apple-system, sans-serif" }}>
-     <Toaster position="top-right" containerStyle={{ zIndex: 9999999 }} />
+      <Toaster position="top-right" containerStyle={{ zIndex: 9999999 }} />
       
       <Header 
         ui={ui}
@@ -1187,7 +1082,23 @@ export default function App() {
       <div className="pos-main-workspace" style={{ display: "grid", gridTemplateColumns: "70% 30%", gap: "16px" }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           
-          <ProductSearchAndActions barcodeInput={barcodeInput} setBarcodeInput={setBarcodeInput} setScannerMode={ui.setScannerMode} showSuggestions={showSuggestions} setShowSuggestions={setShowSuggestions} searchTerm={searchTerm} setSearchTerm={setSearchTerm} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} categories={categories} sortedAndFilteredProducts={sortedAndFilteredProducts} handleSelectSuggest={handleSelectSuggest} setShowInputForm={ui.setShowInputForm} handleFileUpload={handleFileUpload} downloadSampleExcel={downloadSampleExcel} />
+          <ProductSearchAndActions 
+            barcodeInput={barcodeInput} 
+            setBarcodeInput={setBarcodeInput} 
+            setScannerMode={ui.setScannerMode} 
+            showSuggestions={showSuggestions} 
+            setShowSuggestions={setShowSuggestions} 
+            searchTerm={searchTerm} 
+            setSearchTerm={setSearchTerm} 
+            selectedCategory={selectedCategory} 
+            setSelectedCategory={setSelectedCategory} 
+            categories={categories} 
+            sortedAndFilteredProducts={sortedAndFilteredProducts} 
+            handleSelectSuggest={handleSelectSuggest} 
+            setShowInputForm={ui.setShowInputForm} 
+            handleFileUpload={handleFileUpload} 
+            downloadSampleExcel={downloadSampleExcel} 
+          />
           
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
             <button 
@@ -1198,81 +1109,244 @@ export default function App() {
             </button>
           </div>
 
-          {ui.showInputForm && <ProductInputForm newCode={newCode} setNewCode={setNewCode} newName={newName} setNewName={setNewName} newCategory={newCategory} setNewCategory={setNewCategory} newImportPrice={newImportPrice} setNewImportPrice={setNewImportPrice} newPrice={newPrice} setNewPrice={setNewPrice} newPromoPrice={newPromoPrice} setNewPromoPrice={setNewPromoPrice} newGiftCondition={newGiftCondition} setNewGiftCondition={setNewGiftCondition} newGiftInfo={newGiftInfo} setNewGiftInfo={setNewGiftInfo} newStock={newStock} setNewStock={setNewStock} newExpiry={newExpiry} setNewExpiry={setNewExpiry} handleAddProduct={handleAddProduct} setShowInputForm={ui.setShowInputForm} handleCodeChange={handleCodeChange} categories={categories} loading={loading} />}
-          <ProductTable products={sortedAndFilteredProducts} handleSelectSuggest={handleSelectSuggest} handleEdit={handleEdit} handleDelete={handleDelete} setPrintBarcodeProduct={setPrintBarcodeProduct} />
+          {ui.showInputForm && <ProductInputForm 
+            newCode={newCode} setNewCode={setNewCode} 
+            newName={newName} setNewName={setNewName} 
+            newCategory={newCategory} setNewCategory={setNewCategory} 
+            newImportPrice={newImportPrice} setNewImportPrice={setNewImportPrice} 
+            newPrice={newPrice} setNewPrice={setNewPrice} 
+            newPromoPrice={newPromoPrice} setNewPromoPrice={setNewPromoPrice} 
+            newGiftCondition={newGiftCondition} setNewGiftCondition={setNewGiftCondition} 
+            newGiftInfo={newGiftInfo} setNewGiftInfo={setNewGiftInfo} 
+            newStock={newStock} setNewStock={setNewStock} 
+            newExpiry={newExpiry} setNewExpiry={setNewExpiry} 
+            handleAddProduct={handleAddProduct} 
+            setShowInputForm={ui.setShowInputForm} 
+            handleCodeChange={handleCodeChange} 
+            categories={categories} loading={loading} 
+          />}
+          <ProductTable 
+            products={sortedAndFilteredProducts} 
+            handleSelectSuggest={handleSelectSuggest} 
+            handleEdit={handleEdit} 
+            handleDelete={handleDelete} 
+            setPrintBarcodeProduct={setPrintBarcodeProduct} 
+          />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <CartPanel cart={cart} setCart={setCart} handleQtyChange={handleQtyChange} cartTotalAmountDisplay={cartTotalAmountDisplay} setIsCheckoutOpen={setIsCheckoutOpen} handleHoldOrder={handleHoldOrder} setCheckoutStep={setCheckoutStep} setShowHoldModal={ui.setShowHoldModal} />
-          <HistoryPanel history={history} shift={shift} handleRefund={handleRefund} handleReprint={handleReprint} />
+          <CartPanel 
+            cart={cart} 
+            setCart={setCart} 
+            handleQtyChange={handleQtyChange} 
+            cartTotalAmountDisplay={cartTotalAmountDisplay} 
+            setIsCheckoutOpen={setIsCheckoutOpen} 
+            handleHoldOrder={handleHoldOrder} 
+            setCheckoutStep={setCheckoutStep} 
+            setShowHoldModal={ui.setShowHoldModal} 
+          />
+          <HistoryPanel 
+            history={history} 
+            shift={shift} 
+            handleRefund={handleRefund} 
+            handleReprint={handleReprint} 
+          />
         </div>
       </div>
 
       {ui.showStoreSettings && <StoreSettingsModal role="admin" onClose={() => ui.setShowStoreSettings(false)} />}
       
-      {ui.showSettings && <SettingsModal showSettings={ui.showSettings} setShowSettings={ui.setShowSettings} newBankBin={newBankBin} setNewBankBin={setNewBankBin} newBankAcc={newBankAcc} setNewBankAcc={setNewBankAcc} newBankNameStr={newBankNameStr} setNewBankNameStr={setNewBankNameStr} newZaloPayId={newZaloPayId} setNewZaloPayId={setNewZaloPayId} newHappyStart={newHappyStart} setNewHappyStart={setNewHappyStart} newHappyEnd={newHappyEnd} setNewHappyEnd={newHappyEnd} newHappyDiscount={newHappyDiscount} setNewHappyDiscount={setNewHappyDiscount} newAdminPinInput={newAdminPinInput} setNewAdminPinInput={setNewAdminPinInput} newTierConfig={newTierConfig} setNewTierConfig={setNewTierConfig} saveSettings={saveSettings} loading={loading} />}
+      {ui.showSettings && <SettingsModal 
+        showSettings={ui.showSettings} setShowSettings={ui.setShowSettings} 
+        newBankBin={newBankBin} setNewBankBin={setNewBankBin} 
+        newBankAcc={newBankAcc} setNewBankAcc={setNewBankAcc} 
+        newBankNameStr={newBankNameStr} setNewBankNameStr={setNewBankNameStr} 
+        newZaloPayId={newZaloPayId} setNewZaloPayId={setNewZaloPayId} 
+        newHappyStart={newHappyStart} setNewHappyStart={setNewHappyStart} 
+        newHappyEnd={newHappyEnd} setNewHappyEnd={newHappyEnd} 
+        newHappyDiscount={newHappyDiscount} setNewHappyDiscount={setNewHappyDiscount} 
+        newAdminPinInput={newAdminPinInput} setNewAdminPinInput={setNewAdminPinInput} 
+        newTierConfig={newTierConfig} setNewTierConfig={setNewTierConfig} 
+        saveSettings={saveSettings} loading={loading} 
+      />}
       
-      {ui.showPinModal && <PinModal showPinModal={ui.showPinModal} setShowPinModal={ui.setShowPinModal} correctPin={adminPin} onSuccess={() => { if(pendingAction) pendingAction(); setPendingAction(null); }} />}
-      {ui.cashFlowModalInfo && <CashFlowDetailModal flowType={ui.cashFlowModalInfo} onClose={() => ui.setCashFlowModalInfo(null)} allLogs={history} />}
-      {isCheckoutOpen && <CheckoutModal checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} customersData={customersData} custPhone={custPhone} setCustPhone={setCustPhone} custName={custName} setCustName={setCustName} customerInput={customerInput} setCustomerInput={setCustomerInput} custAddress={custAddress} setCustAddress={setCustAddress} handleCustomerInputChange={handleCustomerInputChange} finalToPay={finalToPay} useWallet={useWallet} setUseWallet={setUseWallet} voucherInput={voucherInput} setVoucherInput={setVoucherInput} handleVoucherSubmit={handleVoucherSubmit} customerGiven={customerGiven} setCustomerGiven={setCustomerGiven} confirmCheckout={confirmCheckout} closeCheckout={closeCheckout} loading={loading} bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} sendReceiptEmail={sendReceiptEmail} setScannerMode={ui.setScannerMode} handleNextToQR={handleNextToQR} setPrintMode={ui.setPrintMode} />}
-      {printBarcodeProduct && <ScannerModal product={printBarcodeProduct} barcodeCount={barcodeCount} setBarcodeCount={setBarcodeCount} onClose={() => setPrintBarcodeProduct(null)} />}
-      {ui.showScannerLinkModal && <ScannerLinkModal showModal={ui.showScannerLinkModal} setShowModal={ui.setShowScannerLinkModal} />}
-      {ui.showHandoverModal && <HandoverModal role="admin" shift={shift} startingCash={startingCash} currentShiftStats={currentShiftStats} onConfirm={confirmHandover} onClose={() => ui.setShowHandoverModal(false)} />}
+      {ui.showPinModal && <PinModal 
+        showPinModal={ui.showPinModal} 
+        setShowPinModal={ui.setShowPinModal} 
+        correctPin={adminPin} 
+        onSuccess={() => { if(pendingAction) pendingAction(); setPendingAction(null); }} 
+      />}
       
-      {ui.showAuditModal && <AuditModal showAuditModal={ui.showAuditModal} setShowAuditModal={ui.setShowAuditModal} auditLogs={auditLogs} exportAuditToCSV={exportAuditToCSV} setSelectedAuditLog={(log: AuditLog) => setSelectedAuditLog(log)} />}
+      {ui.cashFlowModalInfo && <CashFlowDetailModal 
+        flowType={ui.cashFlowModalInfo} 
+        onClose={() => ui.setCashFlowModalInfo(null)} 
+        allLogs={history} 
+      />}
       
-      {selectedAuditLog && <AuditDetailModal selectedAuditLog={selectedAuditLog} setSelectedAuditLog={setSelectedAuditLog} />}
-      {ui.showHoldModal && <HoldOrdersModal onClose={() => ui.setShowHoldModal(false)} heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={deleteHeldOrder} />}
-      {ui.showExpenseModal && <ExpenseModal showExpenseModal={ui.showExpenseModal} setShowExpenseModal={ui.setShowExpenseModal} expenses={expenses} expName={expName} setExpName={setExpName} expAmount={expAmount} setExpAmount={setExpAmount} addExpense={addExpense} deleteExpense={deleteExpense} />}
-      {ui.showSupplierModal && <SupplierModal showSupplierModal={ui.showSupplierModal} setShowSupplierModal={ui.setShowSupplierModal} suppliers={suppliers} supName={supName} setSupName={setSupName} supPhone={supPhone} setSupPhone={setSupPhone} supAddress={supAddress} setSupAddress={setSupAddress} supItem={supItem} setSupItem={setSupItem} supTaxCode={supTaxCode} setSupTaxCode={setSupTaxCode} supBankAccount={supBankAccount} setSupBankAccount={setSupBankAccount} addSupplier={addSupplier} deleteSupplier={deleteSupplier} />}
+      {isCheckoutOpen && <CheckoutModal 
+        checkoutStep={checkoutStep} setCheckoutStep={setCheckoutStep} 
+        customersData={customersData} custPhone={custPhone} setCustPhone={setCustPhone} 
+        custName={custName} setCustName={setCustName} 
+        customerInput={customerInput} setCustomerInput={setCustomerInput} 
+        custAddress={custAddress} setCustAddress={setCustAddress} 
+        handleCustomerInputChange={handleCustomerInputChange} 
+        finalToPay={finalToPay} useWallet={useWallet} setUseWallet={setUseWallet} 
+        voucherInput={voucherInput} setVoucherInput={setVoucherInput} 
+        handleVoucherSubmit={handleVoucherSubmit} customerGiven={customerGiven} 
+        setCustomerGiven={setCustomerGiven} confirmCheckout={confirmCheckout} 
+        closeCheckout={closeCheckout} loading={loading} 
+        bankBin={bankBin} bankAcc={bankAcc} bankNameStr={bankNameStr} 
+        sendReceiptEmail={sendReceiptEmail} setScannerMode={ui.setScannerMode} 
+        handleNextToQR={handleNextToQR} setPrintMode={ui.setPrintMode} 
+      />}
+      
+      {printBarcodeProduct && <ScannerModal 
+        product={printBarcodeProduct} 
+        barcodeCount={barcodeCount} 
+        setBarcodeCount={setBarcodeCount} 
+        onClose={() => setPrintBarcodeProduct(null)} 
+      />}
+      
+      {ui.showScannerLinkModal && <ScannerLinkModal 
+        showModal={ui.showScannerLinkModal} 
+        setShowModal={ui.setShowScannerLinkModal} 
+      />}
+      
+      {ui.showHandoverModal && <HandoverModal 
+        role="admin" 
+        shift={shift} 
+        startingCash={startingCash} 
+        currentShiftStats={currentShiftStats} 
+        onConfirm={confirmHandover} 
+        onClose={() => ui.setShowHandoverModal(false)} 
+      />}
+      
+      {ui.showAuditModal && <AuditModal 
+        showAuditModal={ui.showAuditModal} 
+        setShowAuditModal={ui.setShowAuditModal} 
+        auditLogs={auditLogs} 
+        exportAuditToCSV={exportAuditToCSV} 
+        setSelectedAuditLog={(log: any) => setSelectedAuditLog(log)} 
+      />}
+      
+      {selectedAuditLog && <AuditDetailModal 
+        selectedAuditLog={selectedAuditLog} 
+        setSelectedAuditLog={setSelectedAuditLog} 
+      />}
+      
+      {ui.showHoldModal && <HoldOrdersModal 
+        onClose={() => ui.setShowHoldModal(false)} 
+        heldOrders={heldOrders} 
+        restoreOrder={restoreOrder} 
+        deleteHeldOrder={deleteHeldOrder} 
+      />}
+      
+      {ui.showExpenseModal && <ExpenseModal 
+        showExpenseModal={ui.showExpenseModal} 
+        setShowExpenseModal={ui.setShowExpenseModal} 
+        expenses={expenses} 
+        expName={expName} setExpName={setExpName} 
+        expAmount={expAmount} setExpAmount={setExpAmount} 
+        addExpense={addExpense} deleteExpense={deleteExpense} 
+      />}
+      
+      {ui.showSupplierModal && <SupplierModal 
+        showSupplierModal={ui.showSupplierModal} 
+        setShowSupplierModal={ui.setShowSupplierModal} 
+        suppliers={suppliers} 
+        supName={supName} setSupName={setSupName} 
+        supPhone={supPhone} setSupPhone={setSupPhone} 
+        supAddress={supAddress} setSupAddress={setSupAddress} 
+        supItem={supItem} setSupItem={setSupItem} 
+        supTaxCode={supTaxCode} setSupTaxCode={setSupTaxCode} 
+        supBankAccount={supBankAccount} setSupBankAccount={setSupBankAccount} 
+        addSupplier={addSupplier} deleteSupplier={deleteSupplier} 
+      />}
       
       {ui.showPOModal && <POModal 
         showPOModal={ui.showPOModal} 
         setShowPOModal={ui.setShowPOModal} 
-        poTab={poTab} 
-        setPoTab={setPoTab} 
+        poTab={poTab} setPoTab={setPoTab} 
         suppliers={suppliers} 
         selectedSupplierId={selectedSupplierId} 
         setSelectedSupplierId={setSelectedSupplierId} 
         products={products} 
-        poSearch={poSearch} 
-        setPoSearch={setPoSearch} 
-        poItems={poItems} 
-        setPoItems={setPoItems} 
-        poNote={poNote} 
-        setPoNote={setPoNote} 
-        paidAmount={paidAmount} 
-        setPaidAmount={setPaidAmount} 
-        searchPoCode={searchPoCode} 
-        setSearchPoCode={setSearchPoCode} 
-        foundPO={foundPO} 
-        setFoundPO={setFoundPO} 
-        receiveItems={receiveItems} 
-        setReceiveItems={setReceiveItems} 
-        allPOs={allPOs} 
-        loading={loading} 
+        poSearch={poSearch} setPoSearch={setPoSearch} 
+        poItems={poItems} setPoItems={setPoItems} 
+        poNote={poNote} setPoNote={setPoNote} 
+        paidAmount={paidAmount} setPaidAmount={setPaidAmount} 
+        searchPoCode={searchPoCode} setSearchPoCode={setSearchPoCode} 
+        foundPO={foundPO} setFoundPO={setFoundPO} 
+        receiveItems={receiveItems} setReceiveItems={setReceiveItems} 
+        allPOs={allPOs} loading={loading} 
         onSaveNewPO={handleSaveNewPO} 
         onConfirmReceipt={handleConfirmReceipt} 
-        onPrintPO={(po) => { setPrintPOData(po); ui.setPrintMode('po'); }} 
+        onPrintPO={(po: any) => { setPrintPOData(po); ui.setPrintMode('po'); }} 
       />}
       
-      {ui.showStatsModal && <StatsModal reportStartDate={reportStartDate} setReportStartDate={setReportStartDate} reportEndDate={reportEndDate} setReportEndDate={setReportEndDate} history={history} onClose={() => ui.setShowStatsModal(false)} />}
+      {ui.showStatsModal && <StatsModal 
+        reportStartDate={reportStartDate} 
+        setReportStartDate={setReportStartDate} 
+        reportEndDate={reportEndDate} 
+        setReportEndDate={setReportEndDate} 
+        history={history} 
+        onClose={() => ui.setShowStatsModal(false)} 
+      />}
       
-      {ui.showInventoryModal && <InventoryModal showInventoryModal={ui.showInventoryModal} setShowInventoryModal={ui.setShowInventoryModal} products={products} inventorySearchTerm={inventorySearchTerm} setInventorySearchTerm={setInventorySearchTerm} invFilter={invFilter} setInvFilter={setInvFilter} actualStockInput={actualStockInput} setActualStockInput={setActualStockInput} syncInventoryCheck={syncInventory} handleImportInventoryCSV={handleImportInventoryCSV} loading={loading} handleInventorySearchEnter={() => {}} exportInventoryCSV={exportInventoryCSV} />}
+      {ui.showInventoryModal && <InventoryModal 
+        showInventoryModal={ui.showInventoryModal} 
+        setShowInventoryModal={ui.setShowInventoryModal} 
+        products={products} 
+        inventorySearchTerm={inventorySearchTerm} 
+        setInventorySearchTerm={setInventorySearchTerm} 
+        invFilter={invFilter} 
+        setInvFilter={setInvFilter} 
+        actualStockInput={actualStockInput} 
+        setActualStockInput={setActualStockInput} 
+        syncInventoryCheck={syncInventory} 
+        handleImportInventoryCSV={handleImportInventoryCSV} 
+        loading={loading} 
+        handleInventorySearchEnter={() => {}} 
+        exportInventoryCSV={exportInventoryCSV} 
+      />}
       
-      {ui.showDebtModal && <DebtModal showDebtModal={ui.showDebtModal} setShowDebtModal={ui.setShowDebtModal} customers={customersData} handlePayDebt={handlePayDebt} />}
+      {ui.showDebtModal && <DebtModal 
+        showDebtModal={ui.showDebtModal} 
+        setShowDebtModal={ui.setShowDebtModal} 
+        customers={customersData} 
+        handlePayDebt={handlePayDebt} 
+      />}
       
-      {ui.showCustomerModal && <CustomerModal showCustomerModal={ui.showCustomerModal} setShowCustomerModal={ui.setShowCustomerModal} customers={customersData} setCustomers={setCustomers} logAudit={logAudit} handleEditPhone={handleEditPhone} printCustomerCard={printCustomerCard} sendCardEmail={sendCardEmail} shareToZalo={shareToZalo} tierConfig={tierConfig} />}
+      {ui.showCustomerModal && <CustomerModal 
+        showCustomerModal={ui.showCustomerModal} 
+        setShowCustomerModal={ui.setShowCustomerModal} 
+        customers={customersData} 
+        setCustomers={setCustomers} 
+        logAudit={logAudit} 
+        handleEditPhone={handleEditPhone} 
+        printCustomerCard={printCustomerCard} 
+        sendCardEmail={sendCardEmail} 
+        shareToZalo={shareToZalo} 
+        tierConfig={tierConfig} 
+      />}
       
-      {ui.showMarketingModal && <MarketingModal showMarketingModal={ui.showMarketingModal} setShowMarketingModal={ui.setShowMarketingModal} marketingTier={marketingTier} setMarketingTier={setMarketingTier} marketingMsg={marketingMsg} setMarketingMsg={setMarketingMsg} customersData={customersData} />}
+      {ui.showMarketingModal && <MarketingModal 
+        showMarketingModal={ui.showMarketingModal} 
+        setShowMarketingModal={ui.setShowMarketingModal} 
+        marketingTier={marketingTier} 
+        setMarketingTier={setMarketingTier} 
+        marketingMsg={marketingMsg} 
+        setMarketingMsg={setMarketingMsg} 
+        customersData={customersData} 
+      />}
 
       <div className="print-only">
         <PrintManager 
           printMode={ui.printMode} 
           lastOrder={lastOrder} 
-          shift={shift}
-          role="admin"
-          customers={customersData}
-          VAT_RATE={VAT_RATE}
+          shift={shift} 
+          role="admin" 
+          customers={customersData} 
+          VAT_RATE={VAT_RATE} 
           printCustomer={printCustomer} 
           printPOData={printPOData} 
           printBarcodeProduct={printBarcodeProduct} 
