@@ -89,8 +89,6 @@ export default function App() {
   
   // =========================================================================
   // ⚙️ CẤU HÌNH CỔNG THANH TOÁN VIETQR CHO TÀI KHOẢN CỦA SẾP
-  // Sếp thay mã ngân hàng (VD: MB, VCB, ACB) và Số tài khoản vào đây nhé:
-  // Danh sách mã ngân hàng xem tại: https://vietqr.net/portal/bank-list
   // =========================================================================
   const MY_BANK_ID = "MB";       // <-- Sửa mã ngân hàng của sếp ở đây
   const MY_ACCOUNT_NO = "0936407061"; // <-- Sửa số tài khoản của sếp ở đây
