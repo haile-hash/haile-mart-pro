@@ -123,7 +123,7 @@ export default function App() {
   const [scanQueue, setScanQueue] = useState<string[]>([]); const [printBarcodeProduct, setPrintBarcodeProduct] = useState<Product | null>(null); const [printCustomer, setPrintCustomer] = useState<Customer | null>(null); const [barcodeCount, setBarcodeCount] = useState<number>(30); const [selectedAuditLog, setSelectedAuditLog] = useState<AuditLog | null>(null);
   const [localPOs, setLocalPOs] = useState<any[]>([]); const [poTab, setPoTab] = useState<'NEW' | 'RECEIVE'>('NEW'); const [selectedSupplierId, setSelectedSupplierId] = useState(""); const [poItems, setPoItems] = useState<any[]>([]); const [poSearch, setPoSearch] = useState(""); const [poNote, setPoNote] = useState(""); const [paidAmount, setPaidAmount] = useState<number>(0); const [searchPoCode, setSearchPoCode] = useState(""); const [foundPO, setFoundPO] = useState<any>(null); const [receiveItems, setReceiveItems] = useState<any[]>([]); const [allPOs, setAllPOs] = useState<any[]>([]); const [printPOData, setPrintPOData] = useState<any>(null);
 
-  const { newCode, setNewCode, newName, setNewName, newImportPrice, setNewImportPrice, newPrice, setNewPrice, newPromoPrice, setNewPromoPrice, newGiftCondition, setNewGiftCondition, newGiftInfo, setNewGiftInfo, newStock, setNewStock, newExpiry, setNewExpiry, newCategory, setNewCategory, resetProductForm } = useProductInput();
+  const { newCode, setNewCode, newName, setNewName, newCategory, setNewCategory, newImportPrice, setNewImportPrice, newPrice, setNewPrice, newPromoPrice, setNewPromoPrice, newGiftCondition, setNewGiftCondition, newGiftInfo, setNewGiftInfo, newStock, setNewStock, newExpiry, setNewExpiry, resetProductForm } = useProductInput();
   const { cart, setCart, barcodeInput, setBarcodeInput, isCheckoutOpen, setIsCheckoutOpen, checkoutStep, setCheckoutStep, customerInput, setCustomerInput, custPhone, setCustPhone, custName, setCustName, useWallet, setUseWallet, voucherInput, setVoucherInput, appliedVoucherAmount, setAppliedVoucherAmount, customerGiven, setCustomerGiven, lastOrder, setLastOrder, resetCheckout, custAddress, setCustAddress } = useCheckoutState();
 
   const [customersData, setCustomers] = useState<Record<string, Customer>>({});
@@ -188,7 +188,6 @@ export default function App() {
   useEffect(() => {
     if (!isLoggedIn) return;
     const initDataAndCheckLeak = async () => {
-      // ===== BẢN VÁ 1: Ép hệ thống lấy hàng hóa từ ổ cứng ra khi mất mạng =====
       if (!navigator.onLine) {
          fetchProducts(); 
          return;
@@ -237,22 +236,19 @@ export default function App() {
       .on("postgres_changes", { event: "*", schema: "public", table: "stores" }, async (payload) => {
           const currentOwner = window.localStorage.getItem("mart_owner_id");
           
-          // 1. NẾU BỊ QUẢN TRỊ VIÊN XÓA (DELETE) -> KÍCH HOẠT LỆNH TỰ HỦY
           if (payload.eventType === 'DELETE') {
               const currentStoreStr = window.localStorage.getItem("mart_current_store");
               if (currentStoreStr) {
                   const currentStore = JSON.parse(currentStoreStr);
-                  // Kiểm tra xem ID bị xóa có đúng là ID của cửa hàng đang dùng không
                   if (payload.old && payload.old.id === currentStore.id) {
                       APP_IS_WIPING = true;
                       await dbClearAll();
                       window.localStorage.clear();
                       window.sessionStorage.clear();
-                      window.location.reload(); // Ép văng thẳng ra màn hình Login
+                      window.location.reload();
                   }
               }
           } 
-          // 2. NẾU CHỈ LÀ CẬP NHẬT GÓI CƯỚC (UPDATE) -> XỬ LÝ NHƯ CŨ
           else if (payload.eventType === 'UPDATE' && payload.new && payload.new.owner_id === currentOwner) {
               setStoreData(payload.new);
               if (payload.new.expire_at) {
@@ -320,7 +316,6 @@ export default function App() {
     initializeEnterpriseStorage();
   }, []);
 
-  // --- TỰ ĐỘNG DỌN DẸP PO QUÁ HẠN (BOT CHẠY NGẦM LIÊN TỤC) ---
   useEffect(() => {
     if (isStorageLoading) return;
 
@@ -460,7 +455,6 @@ export default function App() {
       setLastOrder({ orderId: orderIdStr, shift, cart: [...cart], subTotal, vatTotal, finalTotal: finalToPay, debtAmount: payMethod === 'GHI NỢ' ? finalToPay : 0, discount: appliedVoucherAmount + tierDiscountAmount, time: new Date().toLocaleString('vi-VN'), paymentMethod: payMethod, customerGiven: Number(customerGiven) || 0, custPhone, custName, isRefund: false, splitCash: splitCashAmt, splitTransfer: Math.max(0, finalToPay - splitCashAmt) });
       logAudit("THANH TOÁN", `${orderIdStr} - ${payMethod} - ${finalToPay.toLocaleString()}đ`);
       
-      // ===== BẢN VÁ 2: CẬP NHẬT TỒN KHO LÊN GIAO DIỆN VÀ Ổ CỨNG KHI OFFLINE =====
       const updatedProducts = products.map(p => {
           const cartItem = cart.find(i => i.product.id === p.id);
           return cartItem ? { ...p, stock: Math.max(0, p.stock - cartItem.qty) } : p;
@@ -1109,6 +1103,7 @@ export default function App() {
       <Header 
         ui={ui}
         shift={shift} 
+        products={products}
         totalValue={totalValue} 
         currentShiftStats={currentShiftStats} 
         setCashFlowModalInfo={ui.setCashFlowModalInfo} 
@@ -1222,7 +1217,7 @@ export default function App() {
         newBankNameStr={newBankNameStr} setNewBankNameStr={setNewBankNameStr} 
         newZaloPayId={newZaloPayId} setNewZaloPayId={setNewZaloPayId} 
         newHappyStart={newHappyStart} setNewHappyStart={setNewHappyStart} 
-        newHappyEnd={newHappyEnd} setNewHappyEnd={newHappyEnd} 
+        newHappyEnd={newHappyEnd} setNewHappyEnd={setNewHappyEnd} 
         newHappyDiscount={newHappyDiscount} setNewHappyDiscount={setNewHappyDiscount} 
         newAdminPinInput={newAdminPinInput} setNewAdminPinInput={setNewAdminPinInput} 
         newTierConfig={newTierConfig} setNewTierConfig={setNewTierConfig} 
