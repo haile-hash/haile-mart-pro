@@ -8,11 +8,11 @@ export const Header = (props: any) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showRenewPopup, setShowRenewPopup] = useState(false);
   
-  const ui = props.ui;
+  const ui = props.ui || {};
   const daysLeft = props.daysLeft || 0;
   const storeData = props.storeData;
   
-  // Lấy trực tiếp số lượng đã đếm từ file App.tsx truyền xuống
+  // Lấy trực tiếp số lượng từ file App.tsx truyền xuống
   const alertCount = props.lowStockCount || 0;
 
   useEffect(() => {
@@ -146,14 +146,16 @@ export const Header = (props: any) => {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          {/* CHUÔNG THÔNG BÁO TỰ ĐỘNG HIỆN KHI CÓ SẢN PHẨM SẮP HẾT HOẶC ĐÃ HẾT */}
+          
+          {/* CHUÔNG BÁO ĐỘNG HÀNG LỖI/HỤT KHO < 10 PC ĐÃ ĐƯỢC ÉP HIỂN THỊ */}
           {alertCount > 0 && (
             <div 
-              title={`Có ${alertCount} sản phẩm dưới 10 pc cần kiểm tra kho!`}
+              title={"Có " + alertCount + " sản phẩm hụt kho dưới 10 pc!"}
               style={{ 
                 position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                width: '44px', height: '44px', borderRadius: '12px', background: '#fef2f2', 
-                border: '1px solid #fecaca', cursor: 'pointer', fontSize: '20px'
+                width: '44px', height: '44px', borderRadius: '12px', 
+                background: '#fef2f2', border: '1px solid #fecaca',
+                color: '#ef4444', cursor: 'pointer', fontSize: '20px', zIndex: 999
               }}
             >
               🔔
