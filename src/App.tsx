@@ -175,6 +175,15 @@ export default function App() {
   const totalValue = useMemo(() => products.reduce((sum, p) => sum + ((p.stock || 0) * (p.import_price || 0)), 0), [products]);
   const lowStockCount = useMemo(() => products.filter(p => p.stock > 0 && p.stock < 10).length, [products]);
 
+  // TÍNH TOÁN SỐ NGÀY SỬ DỤNG CÒN LẠI CHO BANNER CẢNH BÁO
+  const daysLeft = useMemo(() => {
+    if (!storeData?.expire_at) return 0;
+    const expireDate = new Date(storeData.expire_at);
+    const today = new Date();
+    const timeDiff = expireDate.getTime() - today.getTime();
+    return Math.ceil(timeDiff / (1000 * 3600 * 24));
+  }, [storeData]);
+
   // Lấy dữ liệu và kiểm tra khóa màn hình
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -880,7 +889,7 @@ export default function App() {
   const handleEdit = async (id: any, field: string, old: any, isText: boolean = false) => { 
     executeWithAdminCheck(async () => { 
       if (!navigator.onLine) return toast.error("Mạng yếu!"); 
-      let label = field; if (field === 'category') label = 'Danh mục'; if (field === 'sale_price') label = 'Giá bán'; if (field === 'promo_price') label = 'Giá KM'; if (field === 'gift_info') label = 'Quà tặng'; if (field === 'expiry_date') label = 'HSD'; if (field === 'name') label = 'Tên SP'; if(field === 'import_price') label = 'Giá vốn';
+      let label = field; if (field === 'category') label = 'Danh mục'; if (field === 'sale_price') label = 'Giá bán'; if (field === 'promo_price') label = 'Giá KM'; if (field === 'gift_info') label = 'Quà tặng'; if (field === 'expiry_date') label = 'HSD'; if (field === 'name') label = 'Tên SP'; if (field === 'import_price') label = 'Giá vốn';
       const val = window.prompt(`Sửa ${label}:`, old || ""); 
       if (val !== null) { 
         let updateData: any = isText ? (field === 'category' ? formatCategoryStr(val) : val) : (Number(String(val).replace(/[^0-9]/g, '')) || 0); 
@@ -1083,6 +1092,12 @@ export default function App() {
         bankBin={bankBin} 
         bankAcc={bankAcc} 
         bankNameStr={bankNameStr}
+        daysLeft={daysLeft}
+        storeData={storeData}
+        MY_BANK_ID={MY_BANK_ID}
+        MY_ACCOUNT_NO={MY_ACCOUNT_NO}
+        SUBSCRIPTION_FEE={SUBSCRIPTION_FEE}
+        ACCOUNT_NAME={ACCOUNT_NAME}
       />
 
       {ui.scannerMode !== null && (
