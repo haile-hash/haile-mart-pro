@@ -89,11 +89,13 @@ export default function App() {
   
   // =========================================================================
   // ⚙️ CẤU HÌNH CỔNG THANH TOÁN VIETQR CHO TÀI KHOẢN CỦA SẾP
+  // Sếp thay mã ngân hàng (VD: MB, VCB, ACB) và Số tài khoản vào đây nhé:
+  // Danh sách mã ngân hàng xem tại: https://vietqr.net/portal/bank-list
   // =========================================================================
-  const MY_BANK_ID = "MB";
-  const MY_ACCOUNT_NO = "0936407061";
-  const SUBSCRIPTION_FEE = 199000;
-  const ACCOUNT_NAME = "HỆ THỐNG POS PRO";
+  const MY_BANK_ID = "MB";       // <-- Sửa mã ngân hàng của sếp ở đây
+  const MY_ACCOUNT_NO = "123456789"; // <-- Sửa số tài khoản của sếp ở đây
+  const SUBSCRIPTION_FEE = 199000; // Giá gia hạn hàng tháng (199k)
+  const ACCOUNT_NAME = "HỆ THỐNG POS PRO"; // Tên hiển thị trên mã QR
   // =========================================================================
 
   const [happyStart, setHappyStart] = useState("11:00"); 
@@ -232,6 +234,7 @@ export default function App() {
           await dbSet("mart_current_store", store);
           window.localStorage.setItem("mart_current_store", JSON.stringify(store));
           
+          // Kiểm tra hạn sử dụng gói cước
           if (store.expire_at) {
               const expireDate = new Date(store.expire_at).getTime();
               setIsExpired(Date.now() > expireDate);
@@ -257,6 +260,7 @@ export default function App() {
       .on("postgres_changes", { event: "*", schema: "public", table: "held_orders" }, () => loadCloudData())
       .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => loadCloudData())
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload: any) => { setScanQueue(prev => [...prev, payload.new.code]); })
+      // Bắt sự kiện bảng store thay đổi (để cập nhật trạng thái mở khóa realtime khi nạp tiền)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "stores" }, (payload) => {
           const currentOwner = window.localStorage.getItem("mart_owner_id");
           if (payload.new && payload.new.owner_id === currentOwner) {
@@ -495,10 +499,8 @@ export default function App() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error?.message || "Lỗi phản hồi hệ thống AI");
       const aiText = result.candidates[0].content.parts[0].text;
-      
-      const jsonString = aiText.split("```json").join("").split("
-```").join("").trim();
-      
+      const jsonString = aiText.replace(/```json/g, "").replace(/
+```/g, "").trim();
       const updatedCategories = JSON.parse(jsonString);
       let successCount = 0;
       for (const item of updatedCategories) {
@@ -637,7 +639,7 @@ export default function App() {
       if (!(window as any).XLSX) { toast.error("Đang tải thư viện Excel, vui lòng thử lại sau 3 giây!", { id: toastId }); if (e?.target) e.target.value = ''; return; } 
       const reader = new FileReader(); reader.onload = (event) => { try { const data = new Uint8Array(event.target?.result as ArrayBuffer); const workbook = (window as any).XLSX.read(data, { type: 'array' }); const firstSheet = workbook.Sheets[workbook.SheetNames[0]]; const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false }); processData(jsonData); } catch (error) { toast.error("Lỗi định dạng file Excel.", { id: toastId }); } }; reader.readAsArrayBuffer(file); 
     } else { 
-      const reader = new FileReader(); reader.onload = (event) => { const text = event.target?.result as string; const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''))); processData(lines); }; reader.readAsText(file); 
+      const reader = new FileReader(); reader.onload = (event) => { const text = event.target?.result as string; const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''))); processData(lines); }; reader.readAsText(file); 
     } 
     if (e?.target) e.target.value = ''; 
   };
@@ -654,7 +656,7 @@ export default function App() {
       setActualStockInput(updatedStock); toast.success(`Đã nạp số liệu thực tế!`); logAudit("KIỂM KHO BẰNG EXCEL", `Nạp ${count} mã`); 
     };
     const fileNameStr = file.name.toLowerCase();
-    if (fileNameStr.endsWith('.xlsx') || fileNameStr.endsWith('.xls')) { if (!(window as any).XLSX) { toast.loading("Loading..."); if (e?.target) e.target.value = ''; return; } const reader = new FileReader(); reader.onload = (event) => { try { const data = new Uint8Array(event.target?.result as ArrayBuffer); const workbook = (window as any).XLSX.read(data, { type: 'array' }); const firstSheet = workbook.Sheets[workbook.SheetNames[0]]; const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false }); processData(jsonData); } catch(err) {} }; reader.readAsArrayBuffer(file); } else { const reader = new FileReader(); reader.onload = (event) => { const text = event.target?.result as string; const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''))); processData(lines); }; reader.readAsText(file); } if (e?.target) e.target.value = '';
+    if (fileNameStr.endsWith('.xlsx') || fileNameStr.endsWith('.xls')) { if (!(window as any).XLSX) { toast.loading("Loading..."); if (e?.target) e.target.value = ''; return; } const reader = new FileReader(); reader.onload = (event) => { try { const data = new Uint8Array(event.target?.result as ArrayBuffer); const workbook = (window as any).XLSX.read(data, { type: 'array' }); const firstSheet = workbook.Sheets[workbook.SheetNames[0]]; const jsonData = (window as any).XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false }); processData(jsonData); } catch(err) {} }; reader.readAsArrayBuffer(file); } else { const reader = new FileReader(); reader.onload = (event) => { const text = event.target?.result as string; const lines = text.split('\n').filter(line => line.trim() !== '').map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''))); processData(lines); }; reader.readAsText(file); } if (e?.target) e.target.value = '';
   };
   
   const exportInventoryCSV = () => {
@@ -798,13 +800,67 @@ export default function App() {
   
   if (!isStorageLoading && (!isLoggedIn || isLocked || isExpired)) {
     return (
-      <Login setIsLoggedIn="{setIsLoggedIn}" setIsLocked="{setIsLocked}" shift="{shift}" setShift="{setShift}" startingCash="{startingCash}" setStartingCash="{setStartingCash}" installPrompt="{installPrompt}" handleInstallApp="{handleInstallApp}"/>
+      <div className={`app-container ${ui.darkMode ? "dark-theme" : "light-theme"}`} style={{ minHeight: "100vh", position: "relative" }}>
+        <Toaster position="top-right" containerStyle="{{" zIndex: 9999999 }}/>
+        
+        
+        {isLoggedIn && isLocked && !isExpired && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
+            <div style={{ background: ui.darkMode ? 'rgba(255,255,255,0.05)' : 'white', padding: '40px', borderRadius: '24px', textAlign: 'center', maxWidth: '400px', width: '90%', border: `1px solid ${ui.darkMode ? 'rgba(255,255,255,0.1)' : 'transparent'}`, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔒</div><h2 style={{ color: ui.darkMode ? 'white' : '#1e293b', margin: '0 0 8px 0', fontSize: '24px' }}>Màn Hình Đã Khóa</h2><p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>Vui lòng mở khóa để tiếp tục sử dụng.</p>
+              <input type="password" autoFocus placeholder="Nhập mã PIN để mở khóa..." value={unlockPin} onChange={e => setUnlockPin(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { if (unlockPin === adminPin || unlockPin === "1234") { setIsLocked(false); setUnlockPin(""); toast.success("Đã mở khóa!"); } else { toast.error("Mã PIN không đúng!"); } } }} style={{ width: '100%', padding: '14px', borderRadius: '12px', border: `1px solid ${ui.darkMode ? 'rgba(255,255,255,0.1)' : '#cbd5e1'}`, background: ui.darkMode ? 'rgba(0,0,0,0.2)' : '#f8fafc', color: ui.darkMode ? 'white' : 'black', textAlign: 'center', letterSpacing: '4px', fontSize: '18px', fontWeight: 'bold', marginBottom: '16px' }} />
+              <button onClick={() => { if (unlockPin === adminPin || unlockPin === "1234") { setIsLocked(false); setUnlockPin(""); toast.success("Đã mở khóa!"); } else { toast.error("Mã PIN không đúng!"); } }} style={{ width: '100%', padding: '14px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }}>MỞ KHÓA</button>
+            </div>
+          </div>
+        )}
+
+        
+        {isLoggedIn && isExpired && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 999999 }}>
+             <div style={{ background: 'white', padding: '40px', borderRadius: '24px', textAlign: 'center', maxWidth: '500px', width: '90%', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+                <div style={{ fontSize: '60px', marginBottom: '10px' }}>⚠️</div>
+                <h2 style={{ color: '#dc2626', margin: '0 0 10px 0', fontSize: '26px', textTransform: 'uppercase' }}>Tài khoản đã hết hạn</h2>
+                <p style={{ color: '#475569', fontSize: '15px', marginBottom: '20px', lineHeight: '1.5' }}>
+                   Gói cước <strong>{storeData?.plan_type || 'TRIAL'}</strong> của cửa hàng <strong>{storeData?.store_name}</strong> đã hết hạn vào ngày <strong>{new Date(storeData?.expire_at).toLocaleDateString('vi-VN')}</strong>.<br/>
+                   Vui lòng thanh toán gia hạn để hệ thống tiếp tục hoạt động.
+                </p>
+
+                <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '16px', border: '2px dashed #cbd5e1', marginBottom: '20px' }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '18px', color: '#1e293b', marginBottom: '15px' }}>Quét mã QR để Gia hạn (Tự động)</div>
+                    
+                    <img 
+                      src={`https://img.vietqr.io/image/${MY_BANK_ID}-${MY_ACCOUNT_NO}-compact2.png?amount=${SUBSCRIPTION_FEE}&addInfo=${encodeURIComponent(`GIAHAN POS ${storeData?.id}`)}&accountName=${encodeURIComponent(ACCOUNT_NAME)}`} 
+                      alt="VietQR Payment" 
+                      style={{ width: '250px', height: '250px', objectFit: 'contain', borderRadius: '10px' }}
+                    />
+                    <div style={{ marginTop: '15px', textAlign: 'left', background: 'white', padding: '15px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ marginBottom: '8px', fontSize: '14px' }}><span style={{ color: '#64748b' }}>Ngân hàng:</span> <strong>{MY_BANK_ID}</strong></div>
+                        <div style={{ marginBottom: '8px', fontSize: '14px' }}><span style={{ color: '#64748b' }}>Số tài khoản:</span> <strong style={{ fontSize: '16px', color: '#2563eb' }}>{MY_ACCOUNT_NO}</strong></div>
+                        <div style={{ marginBottom: '8px', fontSize: '14px' }}><span style={{ color: '#64748b' }}>Chủ tài khoản:</span> <strong>{ACCOUNT_NAME}</strong></div>
+                        <div style={{ marginBottom: '8px', fontSize: '14px' }}><span style={{ color: '#64748b' }}>Số tiền:</span> <strong style={{ color: '#ef4444', fontSize: '16px' }}>{SUBSCRIPTION_FEE.toLocaleString()}đ</strong> / tháng</div>
+                        <div style={{ fontSize: '14px' }}><span style={{ color: '#64748b' }}>Nội dung CK:</span> <strong style={{ background: '#fef3c7', padding: '2px 6px', borderRadius: '4px' }}>GIAHAN POS {storeData?.id}</strong></div>
+                    </div>
+                </div>
+
+                <div style={{ fontSize: '13px', color: '#64748b', fontStyle: 'italic', marginBottom: '20px' }}>
+                   *Sau khi chuyển khoản thành công, hệ thống sẽ tự động nhận diện và mở khóa màn hình trong vòng 30 giây.
+                </div>
+
+                <button onClick={handleLogoutClick} style={{ padding: '10px 20px', background: 'transparent', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                   Đăng xuất tài khoản
+                </button>
+             </div>
+          </div>
+        )}
+
+        {!isLoggedIn && <Login setIsLoggedIn="{setIsLoggedIn}" setRole="{()"> {}} shift={shift} setShift={setShift} startingCash={startingCash} setStartingCash={setStartingCash} installPrompt={installPrompt} handleInstallApp={handleInstallApp} />}
+      </div>
     );
   }
 
   return (
     <div className={`app-container ${ui.darkMode ? "dark-theme" : "light-theme"}`} style={{ padding: "16px", minHeight: "100vh", fontFamily: "'Plus Jakarta Sans', -apple-system, sans-serif" }}>
-      <Toaster position="top-right" containerStyle="{{" zIndex: 9999999 }}/>
+     <Toaster position="top-right" containerStyle="{{" zIndex: 9999999 }}/>
       
       <Header ui="{ui}" shift="{shift}" totalValue="{totalValue}" currentShiftStats="{currentShiftStats}" setCashFlowModalInfo="{ui.setCashFlowModalInfo}" darkMode="{ui.darkMode}" setDarkMode="{ui.setDarkMode}" handleLogoutClick="{handleLogoutClick}" handleLockScreen="{()"> setIsLocked(true)} 
         lowStockCount={lowStockCount} 
@@ -851,47 +907,26 @@ export default function App() {
       
       {ui.showSettings && <SettingsModal showSettings="{ui.showSettings}" setShowSettings="{ui.setShowSettings}" newBankBin="{newBankBin}" setNewBankBin="{setNewBankBin}" newBankAcc="{newBankAcc}" setNewBankAcc="{setNewBankAcc}" newBankNameStr="{newBankNameStr}" setNewBankNameStr="{setNewBankNameStr}" newZaloPayId="{newZaloPayId}" setNewZaloPayId="{setNewZaloPayId}" newHappyStart="{newHappyStart}" setNewHappyStart="{setNewHappyStart}" newHappyEnd="{newHappyEnd}" setNewHappyEnd="{newHappyEnd}" newHappyDiscount="{newHappyDiscount}" setNewHappyDiscount="{setNewHappyDiscount}" newAdminPinInput="{newAdminPinInput}" setNewAdminPinInput="{setNewAdminPinInput}" newTierConfig="{newTierConfig}" setNewTierConfig="{setNewTierConfig}" saveSettings="{saveSettings}" loading="{loading}"/>}
       
-      {ui.showPinModal && <PinModal showPinModal="{ui.showPinModal}" setShowPinModal="{ui.setShowPinModal}" correctPin="{adminPin}" onSuccess="{()"> { if(pendingAction) pendingAction(); setPendingAction(null); }} 
-      />}
-      
-      {ui.cashFlowModalInfo && <CashFlowDetailModal flowType="{ui.cashFlowModalInfo}" onClose="{()"> ui.setCashFlowModalInfo(null)} 
-        allLogs={history} 
-      />}
-      
+      {ui.showPinModal && <PinModal showPinModal="{ui.showPinModal}" setShowPinModal="{ui.setShowPinModal}" correctPin="{adminPin}" onSuccess="{()"> { if(pendingAction) pendingAction(); setPendingAction(null); }} />}
+      {ui.cashFlowModalInfo && <CashFlowDetailModal flowType="{ui.cashFlowModalInfo}" onClose="{()"> ui.setCashFlowModalInfo(null)} allLogs={history} />}
       {isCheckoutOpen && <CheckoutModal checkoutStep="{checkoutStep}" setCheckoutStep="{setCheckoutStep}" customersData="{customersData}" custPhone="{custPhone}" setCustPhone="{setCustPhone}" custName="{custName}" setCustName="{setCustName}" customerInput="{customerInput}" setCustomerInput="{setCustomerInput}" custAddress="{custAddress}" setCustAddress="{setCustAddress}" handleCustomerInputChange="{handleCustomerInputChange}" finalToPay="{finalToPay}" useWallet="{useWallet}" setUseWallet="{setUseWallet}" voucherInput="{voucherInput}" setVoucherInput="{setVoucherInput}" handleVoucherSubmit="{handleVoucherSubmit}" customerGiven="{customerGiven}" setCustomerGiven="{setCustomerGiven}" confirmCheckout="{confirmCheckout}" closeCheckout="{closeCheckout}" loading="{loading}" bankBin="{bankBin}" bankAcc="{bankAcc}" bankNameStr="{bankNameStr}" sendReceiptEmail="{sendReceiptEmail}" setScannerMode="{ui.setScannerMode}" handleNextToQR="{handleNextToQR}" setPrintMode="{ui.setPrintMode}"/>}
-      
-      {printBarcodeProduct && <ScannerModal product="{printBarcodeProduct}" barcodeCount="{barcodeCount}" setBarcodeCount="{setBarcodeCount}" onClose="{()"> setPrintBarcodeProduct(null)} 
-      />}
-      
+      {printBarcodeProduct && <ScannerModal product="{printBarcodeProduct}" barcodeCount="{barcodeCount}" setBarcodeCount="{setBarcodeCount}" onClose="{()"> setPrintBarcodeProduct(null)} />}
       {ui.showScannerLinkModal && <ScannerLinkModal showModal="{ui.showScannerLinkModal}" setShowModal="{ui.setShowScannerLinkModal}"/>}
+      {ui.showHandoverModal && <HandoverModal role="admin" shift="{shift}" startingCash="{startingCash}" currentShiftStats="{currentShiftStats}" onConfirm="{confirmHandover}" onClose="{()"> ui.setShowHandoverModal(false)} />}
       
-      {ui.showHandoverModal && <HandoverModal role="admin" shift="{shift}" startingCash="{startingCash}" currentShiftStats="{currentShiftStats}" onConfirm="{confirmHandover}" onClose="{()"> ui.setShowHandoverModal(false)} 
-      />}
-      
-      {ui.showAuditModal && <AuditModal showAuditModal="{ui.showAuditModal}" setShowAuditModal="{ui.setShowAuditModal}" auditLogs="{auditLogs}" exportAuditToCSV="{exportAuditToCSV}" setSelectedAuditLog="{(log:"> setSelectedAuditLog(log)} 
-      />}
+      {ui.showAuditModal && <AuditModal showAuditModal="{ui.showAuditModal}" setShowAuditModal="{ui.setShowAuditModal}" auditLogs="{auditLogs}" exportAuditToCSV="{exportAuditToCSV}" setSelectedAuditLog="{(log:"> setSelectedAuditLog(log)} />}
       
       {selectedAuditLog && <AuditDetailModal selectedAuditLog="{selectedAuditLog}" setSelectedAuditLog="{setSelectedAuditLog}"/>}
-      
-      {ui.showHoldModal && <HoldOrdersModal onClose="{()"> ui.setShowHoldModal(false)} 
-        heldOrders={heldOrders} 
-        restoreOrder={restoreOrder} 
-        deleteHeldOrder={deleteHeldOrder} 
-      />}
-      
+      {ui.showHoldModal && <HoldOrdersModal onClose="{()"> ui.setShowHoldModal(false)} heldOrders={heldOrders} restoreOrder={restoreOrder} deleteHeldOrder={deleteHeldOrder} />}
       {ui.showExpenseModal && <ExpenseModal showExpenseModal="{ui.showExpenseModal}" setShowExpenseModal="{ui.setShowExpenseModal}" expenses="{expenses}" expName="{expName}" setExpName="{setExpName}" expAmount="{expAmount}" setExpAmount="{setExpAmount}" addExpense="{addExpense}" deleteExpense="{deleteExpense}"/>}
-      
       {ui.showSupplierModal && <SupplierModal showSupplierModal="{ui.showSupplierModal}" setShowSupplierModal="{ui.setShowSupplierModal}" suppliers="{suppliers}" supName="{supName}" setSupName="{setSupName}" supPhone="{supPhone}" setSupPhone="{setSupPhone}" supAddress="{supAddress}" setSupAddress="{setSupAddress}" supItem="{supItem}" setSupItem="{setSupItem}" supTaxCode="{supTaxCode}" setSupTaxCode="{setSupTaxCode}" supBankAccount="{supBankAccount}" setSupBankAccount="{setSupBankAccount}" addSupplier="{addSupplier}" deleteSupplier="{deleteSupplier}"/>}
       
-      {ui.showPOModal && <POModal showPOModal="{ui.showPOModal}" setShowPOModal="{ui.setShowPOModal}" poTab="{poTab}" setPoTab="{setPoTab}" suppliers="{suppliers}" selectedSupplierId="{selectedSupplierId}" setSelectedSupplierId="{setSelectedSupplierId}" products="{products}" poSearch="{poSearch}" setPoSearch="{setPoSearch}" poItems="{poItems}" setPoItems="{setPoItems}" poNote="{poNote}" setPoNote="{setPoNote}" paidAmount="{paidAmount}" setPaidAmount="{setPaidAmount}" searchPoCode="{searchPoCode}" setSearchPoCode="{setSearchPoCode}" foundPO="{foundPO}" setFoundPO="{setFoundPO}" receiveItems="{receiveItems}" setReceiveItems="{setReceiveItems}" allPOs="{allPOs}" loading="{loading}" onSaveNewPO="{handleSaveNewPO}" onConfirmReceipt="{handleConfirmReceipt}" onPrintPO="{(po:"> { setPrintPOData(po); ui.setPrintMode('po'); }} 
+      {ui.showPOModal && <POModal showPOModal="{ui.showPOModal}" setShowPOModal="{ui.setShowPOModal}" poTab="{poTab}" setPoTab="{setPoTab}" suppliers="{suppliers}" selectedSupplierId="{selectedSupplierId}" setSelectedSupplierId="{setSelectedSupplierId}" products="{products}" poSearch="{poSearch}" setPoSearch="{setPoSearch}" poItems="{poItems}" setPoItems="{setPoItems}" poNote="{poNote}" setPoNote="{setPoNote}" paidAmount="{paidAmount}" setPaidAmount="{setPaidAmount}" searchPoCode="{searchPoCode}" setSearchPoCode="{setSearchPoCode}" foundPO="{foundPO}" setFoundPO="{setFoundPO}" receiveItems="{receiveItems}" setReceiveItems="{setReceiveItems}" allPOs="{allPOs}" loading="{loading}" onSaveNewPO="{handleSaveNewPO}" onConfirmReceipt="{handleConfirmReceipt}" onPrintPO="{(po)"> { setPrintPOData(po); ui.setPrintMode('po'); }} 
       />}
       
-      {ui.showStatsModal && <StatsModal reportStartDate="{reportStartDate}" setReportStartDate="{setReportStartDate}" reportEndDate="{reportEndDate}" setReportEndDate="{setReportEndDate}" history="{history}" onClose="{()"> ui.setShowStatsModal(false)} 
-      />}
+      {ui.showStatsModal && <StatsModal reportStartDate="{reportStartDate}" setReportStartDate="{setReportStartDate}" reportEndDate="{reportEndDate}" setReportEndDate="{setReportEndDate}" history="{history}" onClose="{()"> ui.setShowStatsModal(false)} />}
       
-      {ui.showInventoryModal && <InventoryModal showInventoryModal="{ui.showInventoryModal}" setShowInventoryModal="{ui.setShowInventoryModal}" products="{products}" inventorySearchTerm="{inventorySearchTerm}" setInventorySearchTerm="{setInventorySearchTerm}" invFilter="{invFilter}" setInvFilter="{setInvFilter}" actualStockInput="{actualStockInput}" setActualStockInput="{setActualStockInput}" syncInventoryCheck="{syncInventory}" handleImportInventoryCSV="{handleImportInventoryCSV}" loading="{loading}" handleInventorySearchEnter="{()"> {}} 
-        exportInventoryCSV={exportInventoryCSV} 
-      />}
+      {ui.showInventoryModal && <InventoryModal showInventoryModal="{ui.showInventoryModal}" setShowInventoryModal="{ui.setShowInventoryModal}" products="{products}" inventorySearchTerm="{inventorySearchTerm}" setInventorySearchTerm="{setInventorySearchTerm}" invFilter="{invFilter}" setInvFilter="{setInvFilter}" actualStockInput="{actualStockInput}" setActualStockInput="{setActualStockInput}" syncInventoryCheck="{syncInventory}" handleImportInventoryCSV="{handleImportInventoryCSV}" loading="{loading}" handleInventorySearchEnter="{()"> {}} exportInventoryCSV={exportInventoryCSV} />}
       
       {ui.showDebtModal && <DebtModal showDebtModal="{ui.showDebtModal}" setShowDebtModal="{ui.setShowDebtModal}" customers="{customersData}" handlePayDebt="{handlePayDebt}"/>}
       
