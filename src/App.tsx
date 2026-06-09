@@ -230,9 +230,26 @@ export default function App() {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "remote_scans" }, (payload: any) => { 
           setScanQueue(prev => [...prev, payload.new.code]); 
       })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "stores" }, (payload) => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "stores" }, async (payload) => {
           const currentOwner = window.localStorage.getItem("mart_owner_id");
-          if (payload.new && payload.new.owner_id === currentOwner) {
+          
+          // 1. NẾU BỊ QUẢN TRỊ VIÊN XÓA (DELETE) -> KÍCH HOẠT LỆNH TỰ HỦY
+          if (payload.eventType === 'DELETE') {
+              const currentStoreStr = window.localStorage.getItem("mart_current_store");
+              if (currentStoreStr) {
+                  const currentStore = JSON.parse(currentStoreStr);
+                  // Kiểm tra xem ID bị xóa có đúng là ID của cửa hàng đang dùng không
+                  if (payload.old && payload.old.id === currentStore.id) {
+                      APP_IS_WIPING = true;
+                      await dbClearAll();
+                      window.localStorage.clear();
+                      window.sessionStorage.clear();
+                      window.location.reload(); // Ép văng thẳng ra màn hình Login
+                  }
+              }
+          } 
+          // 2. NẾU CHỈ LÀ CẬP NHẬT GÓI CƯỚC (UPDATE) -> XỬ LÝ NHƯ CŨ
+          else if (payload.eventType === 'UPDATE' && payload.new && payload.new.owner_id === currentOwner) {
               setStoreData(payload.new);
               if (payload.new.expire_at) {
                   setIsExpired(Date.now() > new Date(payload.new.expire_at).getTime());
