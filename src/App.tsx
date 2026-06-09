@@ -259,6 +259,49 @@ export default function App() {
     initializeEnterpriseStorage();
   }, []);
 
+  // --- TỰ ĐỘNG DỌN DẸP PO QUÁ HẠN (BOT CHẠY NGẦM LIÊN TỤC) ---
+  useEffect(() => {
+    if (isStorageLoading) return;
+
+    const checkAndCancelPOs = async () => {
+      // Lấy danh sách PO mới nhất ngầm dưới DB để quét, tránh bị sai lệch
+      const currentPOs = await dbGet("mart_pos") || [];
+      if (currentPOs.length === 0) return;
+
+      // Sếp để 1 * 60 * 1000 để test 1 phút, test xong nhớ sửa lại 30 * 24 * 60 * 60 * 1000 nhé
+      const EXPIRATION_TIME_MS = 1 * 60 * 1000; 
+      const now = Date.now();
+      let changedCount = 0;
+
+      const updatedPOs = currentPOs.map((po: any) => {
+        if (po.status === 'PENDING') {
+          const createdAt = new Date(po.created_at || po.id).getTime();
+          if (now - createdAt >= EXPIRATION_TIME_MS) {
+            changedCount++;
+            return { ...po, status: 'CANCELLED' };
+          }
+        }
+        return po;
+      });
+
+      if (changedCount > 0) {
+        setAllPOs(updatedPOs); // Cập nhật ra ngoài màn hình
+        await dbSet("mart_pos", updatedPOs); // Lưu chốt vào DB
+        toast.error(`Hệ thống bot đã tự động chuyển ${changedCount} Phiếu PO sang ĐÃ HỦY do quá hạn!`);
+      }
+    };
+
+    // 1. Chạy ngay lập tức 1 lần khi sếp vừa mở web
+    checkAndCancelPOs();
+
+    // 2. Gắn Bot chạy ngầm: Cứ 10 giây quét DB 1 lần
+    const intervalId = setInterval(() => {
+      checkAndCancelPOs();
+    }, 10000); 
+
+    return () => clearInterval(intervalId); // Tự dọn dẹp bộ nhớ khi tắt web
+  }, [isStorageLoading]);
+
   useEffect(() => { 
     if (!isStorageLoading && !APP_IS_WIPING) {
       dbSet("mart_logged_in", isLoggedIn ? "true" : "false"); 
@@ -501,7 +544,6 @@ export default function App() {
         if (navigator.onLine) await supabase.from("products").update({ stock: Math.max(0, item.product.stock - item.qty) }).eq("id", item.product.id);
         let itemSplitCash = 0; if(payMethod === 'KẾT HỢP') { const safeRatio = finalToPay > 0 ? (splitCashAmt / finalToPay) : 0; itemSplitCash = Math.round(safeRatio * Math.round(item.qty * getActualPrice(item.product) * (1 + VAT_RATE))); }
         
-        // Công thức tính toán biên lợi nhuận chuẩn ERP dựa theo giá vốn sếp đã thiết lập
         const calculatedItemProfit = Math.round(item.qty * (getActualPrice(item.product) - (item.product.import_price || 0)));
         
         newLogs.push({ id: Date.now() + Math.random(), shift, type: payMethod === 'GHI NỢ' ? "GHI NỢ" : "BÁN", name: cleanName(item.product.name), qty: item.qty, total: item.total, profit: calculatedItemProfit, customer: custPhone ? `${custName} (${custPhone})` : "Khách lẻ", product_id: item.product.id, paymentMethod: payMethod, split_cash: itemSplitCash, time: new Date().toLocaleString('vi-VN'), order_id: orderIdStr });
@@ -1056,9 +1098,7 @@ export default function App() {
         ];
 
         finalReceiveItems.forEach((item: any) => {
-          const receiveQ = Number(item.receiveQty !== undefined ? item.receiveQty : item.qty) || 0;
-          const faultQ = Number(item.faultyQty || item.errorQty || item.returnQty) || 0;
-          const actualImport = Math.max(0, receiveQ - faultQ);
+          const actualImport = Number(item.receiveQty !== undefined ? item.receiveQty : item.qty) || 0;
 
           if (actualImport > 0) {
             const baseProd = products.find(p => p.product_code === item.product_code || p.name === item.name);
