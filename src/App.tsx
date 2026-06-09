@@ -495,8 +495,7 @@ export default function App() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error?.message || "Lỗi phản hồi hệ thống AI");
       const aiText = result.candidates[0].content.parts[0].text;
-      const jsonString = aiText.replace(/```json/g, "").replace(/
-```/g, "").trim();
+      const jsonString = aiText.replace(/```json/g, "").replace(/\n?```/g, "").trim();
       const updatedCategories = JSON.parse(jsonString);
       let successCount = 0;
       for (const item of updatedCategories) {
