@@ -188,7 +188,11 @@ export default function App() {
   useEffect(() => {
     if (!isLoggedIn) return;
     const initDataAndCheckLeak = async () => {
-      if (!navigator.onLine) return;
+      // ===== BẢN VÁ 1: Ép hệ thống lấy hàng hóa từ ổ cứng ra khi mất mạng =====
+      if (!navigator.onLine) {
+         fetchProducts(); 
+         return;
+      }
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
@@ -455,7 +459,17 @@ export default function App() {
       
       setLastOrder({ orderId: orderIdStr, shift, cart: [...cart], subTotal, vatTotal, finalTotal: finalToPay, debtAmount: payMethod === 'GHI NỢ' ? finalToPay : 0, discount: appliedVoucherAmount + tierDiscountAmount, time: new Date().toLocaleString('vi-VN'), paymentMethod: payMethod, customerGiven: Number(customerGiven) || 0, custPhone, custName, isRefund: false, splitCash: splitCashAmt, splitTransfer: Math.max(0, finalToPay - splitCashAmt) });
       logAudit("THANH TOÁN", `${orderIdStr} - ${payMethod} - ${finalToPay.toLocaleString()}đ`);
-      setCheckoutStep(3); fetchProducts(); 
+      
+      // ===== BẢN VÁ 2: CẬP NHẬT TỒN KHO LÊN GIAO DIỆN VÀ Ổ CỨNG KHI OFFLINE =====
+      const updatedProducts = products.map(p => {
+          const cartItem = cart.find(i => i.product.id === p.id);
+          return cartItem ? { ...p, stock: Math.max(0, p.stock - cartItem.qty) } : p;
+      });
+      setProducts(updatedProducts);
+      dbSet("mart_products_cache", updatedProducts).catch(()=>{});
+
+      setCheckoutStep(3); 
+      if (navigator.onLine) fetchProducts(); 
     } catch (err: any) { toast.error("Lỗi thanh toán: " + err.message); } finally { setLoading(false); }
   };
 
