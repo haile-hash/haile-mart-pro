@@ -8,12 +8,55 @@ export const Header = (props: any) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showRenewPopup, setShowRenewPopup] = useState(false);
   
+  // BIẾN TỰ ĐỘNG ĐẾM SẢN PHẨM HỤT KHO TRỰC TIẾP TỪ Ổ CỨNG TRÌNH DUYỆT
+  const [alertCount, setAlertCount] = useState(0);
+
   const ui = props.ui || {};
   const daysLeft = props.daysLeft || 0;
   const storeData = props.storeData;
-  
-  // TỰ ĐỘNG QUÉT VÀ ĐẾM SẢN PHẨM DƯỚI 10 PC TRỰC TIẾP TẠI HEADER, KHÔNG PHỤ THUỘC BÊN NGOÀI
-  const alertCount = props.products?.filter((p: any) => p.stock !== undefined && p.stock >= 0 && p.stock < 10).length || 0;
+
+  // TUYỆT CHIÊU CUỐI: TỰ ĐỘNG QUÉT Ổ CỨNG ĐỂ ĐẾM SẢN PHẨM < 10 PC BẤT CHẤP FILE APP.TSX
+  useEffect(() => {
+    const checkLowStockFromStorage = () => {
+      try {
+        // 1. Quét bộ nhớ đệm cache sản phẩm
+        const cachedProds = window.localStorage.getItem("mart_products_cache");
+        if (cachedProds) {
+          const arr = JSON.parse(cachedProds);
+          if (Array.isArray(arr)) {
+            const count = arr.filter(p => p.stock !== undefined && p.stock >= 0 && p.stock < 10).length;
+            setAlertCount(count);
+            return;
+          }
+        }
+        
+        // 2. Nếu không có LocalStorage, quét IndexedDB bằng hàm thủ công
+        const dbRequest = indexedDB.open("HaileMartIndexedDB", 1);
+        dbRequest.onsuccess = () => {
+          const db = dbRequest.result;
+          if (db.objectStoreNames.contains("kv_store")) {
+            const tx = db.transaction("kv_store", "readonly");
+            const req = tx.objectStore("kv_store").get("mart_products_cache");
+            req.onsuccess = () => {
+              if (req.result && Array.isArray(req.result)) {
+                const count = req.result.filter(p => p.stock !== undefined && p.stock >= 0 && p.stock < 10).length;
+                setAlertCount(count);
+              }
+            };
+          }
+        };
+      } catch (e) {
+        console.log("Lỗi quét ổ cứng:", e);
+      }
+    };
+
+    // Chạy kiểm tra ngay khi mở web
+    checkLowStockFromStorage();
+    
+    // Cứ 3 giây tự động quét ổ cứng một lần để cập nhật số lượng chuông nhịp nhàng theo thao tác bán hàng
+    const interval = setInterval(checkLowStockFromStorage, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     try {
@@ -31,7 +74,6 @@ export const Header = (props: any) => {
     else { audioRef.current.play().catch(err => console.log(err)); setIsPlaying(true); }
   };
 
-  // Điều kiện hiển thị banner: Đang là gói PRO, chưa hết hạn hoàn toàn (daysLeft > 0) và còn nhỏ hơn hoặc bằng 5 ngày
   const shouldShowBanner = storeData?.plan_type === 'PRO' && daysLeft > 0 && daysLeft <= 5;
 
   return (
@@ -147,10 +189,10 @@ export const Header = (props: any) => {
 
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           
-          {/* CHUÔNG BÁO ĐỘNG TỰ ĐỘNG LẮNG NGHE MẢNG PRODUCTS ĐỂ HIỂN THỊ */}
+          {/* CHUÔNG BÁO ĐỘNG ĐỘC LẬP TỰ ĐỘNG BÙM LÊN KHI NHẬN THẤY SẢN PHẨM HỤT KHO */}
           {alertCount > 0 && (
             <div 
-              title={`Có ${alertCount} sản phẩm hụt kho dưới 10 pc!`}
+              title={`Có ${alertCount} sản phẩm dưới 10 pc cần kiểm tra kho!`}
               style={{ 
                 position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', 
                 width: '44px', height: '44px', borderRadius: '12px', 
