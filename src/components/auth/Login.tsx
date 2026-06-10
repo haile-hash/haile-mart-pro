@@ -33,6 +33,11 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
           // Nếu đã có cửa hàng, cho vào thẳng bên trong luôn
           setRole("admin");
           setIsLoggedIn(true);
+          
+          // 🚀 GẮN TRACKING GA4: Người dùng Google quay trở lại
+          if (typeof window !== "undefined" && window.gtag) {
+            window.gtag('config', 'G-0C4S89SZR7', { 'user_id': user.id });
+          }
         } else {
           // Nếu chưa có cửa hàng, giữ chân lại giao diện điền thông tin bổ sung
           setGoogleUser(user);
@@ -77,7 +82,16 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
       if (authMode === 'login') {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        if (data.user) { setRole("admin"); setIsLoggedIn(true); toast.success("Chào mừng quay trở lại!"); }
+        if (data.user) { 
+          setRole("admin"); 
+          setIsLoggedIn(true); 
+          toast.success("Chào mừng quay trở lại!"); 
+          
+          // 🚀 GẮN TRACKING GA4: Người dùng đăng nhập bằng Email/Pass
+          if (typeof window !== "undefined" && window.gtag) {
+            window.gtag('config', 'G-0C4S89SZR7', { 'user_id': data.user.id });
+          }
+        }
       } 
       // 2. LUỒNG ĐĂNG KÝ EMAIL THƯỜNG
       else if (authMode === 'register') {
@@ -91,13 +105,19 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
           const { error: storeError } = await supabase.from('stores').insert([{ 
             store_name: storeName, 
             phone: phone, 
-            tax_code: taxCode, // Lưu thêm MST nếu có
-            address: address,   // Lưu thêm địa chỉ nếu có
+            tax_code: taxCode, 
+            address: address,  
             owner_id: authData.user.id 
           }]);
           if (storeError) throw storeError;
           toast.success("Khởi tạo không gian SaaS thành công!");
-          setRole("admin"); setIsLoggedIn(true);
+          setRole("admin"); 
+          setIsLoggedIn(true);
+
+          // 🚀 GẮN TRACKING GA4: Người dùng vừa đăng ký tài khoản mới
+          if (typeof window !== "undefined" && window.gtag) {
+            window.gtag('config', 'G-0C4S89SZR7', { 'user_id': authData.user.id });
+          }
         }
       }
       // 3. LUỒNG BẮT THÔNG TIN CHO USER ĐĂNG KÝ BẰNG GOOGLE MỚI TINH
@@ -107,7 +127,6 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
         
         if (!currentUser) throw new Error("Không tìm thấy thông tin phiên đăng nhập Google!");
 
-        // Tiến hành ghi nhận thông tin cửa hàng vào bảng dữ liệu cấu trúc doanh nghiệp của bạn
         const { error: storeError } = await supabase.from('stores').insert([{ 
           store_name: storeName, 
           phone: phone, 
@@ -121,6 +140,11 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
         toast.success("Cấu hình thông tin doanh nghiệp thành công!");
         setRole("admin"); 
         setIsLoggedIn(true);
+
+        // 🚀 GẮN TRACKING GA4: Người dùng Google vừa hoàn tất onboarding
+        if (typeof window !== "undefined" && window.gtag) {
+          window.gtag('config', 'G-0C4S89SZR7', { 'user_id': currentUser.id });
+        }
       }
       // 4. CÁC LUỒNG QUÊN/ĐỔI MẬT KHẨU
       else if (authMode === 'forgot') {
@@ -162,7 +186,6 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
 
         <form onSubmit={handleAction} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           
-          {/* CÁC TRƯỜNG HIỂN THỊ KHI ĐĂNG KÝ THƯỜNG HOẶC ĐĂNG KÝ BẰNG GOOGLE LẦN ĐẦU */}
           {(authMode === 'register' || authMode === 'google_onboarding') && (
             <>
               <input type="text" required value={storeName} onChange={e => setStoreName(e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '14px' }} placeholder="Tên Cửa Hàng / Thương Hiệu *" />
@@ -172,7 +195,6 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
             </>
           )}
 
-          {/* CÁC TRƯỜNG ĐĂNG NHẬP / ĐĂNG KÝ BẰNG EMAIL TRUYỀN THỐNG */}
           {(authMode !== 'update_password' && authMode !== 'google_onboarding') && (
             <input type="email" required value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '14px' }} placeholder="Tài khoản Email" />
           )}
@@ -203,7 +225,6 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
           </button>
         </form>
 
-        {/* NÚT ĐĂNG NHẬP GOOGLE CHỈ HIỆN Ở GIAO DIỆN CHƯA VÀO TRONG */}
         {(authMode === 'login' || authMode === 'register') && (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0 16px 0' }}>
