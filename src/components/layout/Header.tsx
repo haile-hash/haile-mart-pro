@@ -12,7 +12,6 @@ export const Header = (props: any) => {
   const daysLeft = props.daysLeft || 0;
   const storeData = props.storeData;
   
-  // CHỈ LẤY ĐÚNG BIẾN ĐÃ ĐƯỢC TÍNH SẴN TỪ APP.TSX, KHÔNG TÍNH LẠI, KHÔNG QUÉT Ổ CỨNG
   const alertCount = props.lowStockCount || 0;
 
   useEffect(() => {
@@ -47,7 +46,6 @@ export const Header = (props: any) => {
         @keyframes wave-slide { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
       `}</style>
 
-      {/* BANNER THÔNG BÁO SẮP HẾT HẠN */}
       {shouldShowBanner && (
         <div style={{ backgroundColor: '#fff3cd', color: '#856404', padding: '12px 24px', borderRadius: '12px', textAlign: 'center', fontSize: '14px', fontWeight: 'bold', border: '1px solid #ffeeba', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', width: '100%', boxSizing: 'border-box' }}>
           <span>⚠️ Gói cước POS PRO của cửa hàng sẽ hết hạn sau <strong>{daysLeft} ngày</strong> nữa.</span>
@@ -57,7 +55,6 @@ export const Header = (props: any) => {
         </div>
       )}
 
-      {/* POPUP HIỂN THỊ MÃ QR */}
       {showRenewPopup && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999999 }}>
            <div style={{ background: 'white', padding: '30px', borderRadius: '24px', textAlign: 'center', maxWidth: '460px', width: '90%', boxSizing: 'border-box', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)' }}>
@@ -72,6 +69,9 @@ export const Header = (props: any) => {
         <div className="premium-banner" onClick={toggleWindyMusic} style={{ display: 'flex', alignItems: 'center', padding: '10px 24px', borderRadius: '16px', cursor: 'pointer', minWidth: '320px', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', bottom: 0, left: 0, width: '200%', height: '55%', animation: 'wave-slide 4s linear infinite', pointerEvents: 'none' }}>
             <svg viewBox="0 0 800 100" preserveAspectRatio="none" style={{ width: '100%', height: '100%' }}><path d="M0,50 Q100,0 200,50 T400,50 T600,50 T800,50 L800,120 L0,120 Z" fill="rgba(255, 206, 0, 0.15)" /></svg>
+          </div>
+          <div style={{ position: 'absolute', bottom: 0, left: 0, width: '200%', height: '70%', animation: 'wave-slide 6s linear infinite reverse', pointerEvents: 'none' }}>
+            <svg viewBox="0 0 800 100" preserveAspectRatio="none" style={{ width: '100%', height: '100%' }}><path d="M0,50 Q100,100 200,50 T400,50 T600,50 T800,50 L800,120 L0,120 Z" fill="rgba(255, 255, 255, 0.08)" /></svg>
           </div>
           <div style={{ position: 'relative', zIndex: 1, marginRight: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: storeInfo.logo ? '8px' : '0', overflow: 'hidden', transform: isPlaying ? 'scale(1.1)' : 'none', transition: 'all 0.3s ease' }}>
             {storeInfo.logo ? ( <img src={storeInfo.logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> ) : isPlaying ? ( <span style={{ animation: 'spinSlow 3s linear infinite', fontSize: '26px' }}>📀</span> ) : ( <span style={{fontSize: '24px'}}>⭐</span> )}
@@ -90,15 +90,19 @@ export const Header = (props: any) => {
 
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           
-          {/* CÁI CHUÔNG AN TOÀN TUYỆT ĐỐI - CHỈ HIỆN KHI APP.TSX TÍNH RA SỐ > 0 */}
+          {/* CÁI CHUÔNG ĐÃ ĐƯỢC GẮN CÔNG TẮC ONCLICK MỞ SỔ KHO */}
           {alertCount > 0 && (
             <div 
-              title={`Có ${alertCount} sản phẩm sắp hết hàng!`}
+              title={`Có ${alertCount} sản phẩm sắp hết hàng! Click để mở sổ kho.`}
+              onClick={() => ui.setShowInventoryModal?.(true)}
               style={{ 
                 position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', 
                 width: '44px', height: '44px', borderRadius: '12px', background: '#fef2f2', 
-                border: '1px solid #fecaca', cursor: 'pointer', fontSize: '20px'
+                border: '1px solid #fecaca', cursor: 'pointer', fontSize: '20px',
+                transition: 'all 0.2s',
               }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
             >
               🔔
               <span style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#ef4444', color: 'white', borderRadius: '50%', width: '18px', height: '18px', fontSize: '11px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid white' }}>
@@ -117,17 +121,30 @@ export const Header = (props: any) => {
         </div>
       </div>
 
-      {/* Menu thả xuống */}
       <div style={{ display: "flex", justifycontent: "flex-start", width: "100%", position: "relative" }}>
         <button className="main-menu-btn" onClick={(e) => { e.stopPropagation(); ui.setShowMainMenu?.(!ui.showMainMenu); }}>☰ MENU TÍNH NĂNG</button>
         {ui.showMainMenu && (
           <div className="dropdown-menu-saas" style={{ position: "absolute", left: 0, top: "100%", marginTop: "8px", width: "480px", zIndex: 99999, padding: "12px", borderRadius: "16px", background: ui.darkMode ? '#1e293b' : '#ffffff', border: `1px solid ${ui.darkMode ? '#334155' : '#e2e8f0'}`, boxShadow: "0 20px 25px -5px rgba(0,0,0,0.15)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <div style={{ padding: "4px 12px", fontSize: "11px", fontWeight: "800", color: "#94a3b8", textTransform: "uppercase" }}>NGHIỆP VỤ</div>
               <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowStatsModal?.(true); }}>📊 Báo cáo doanh thu</button>
+              <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowPOModal?.(true); }}>📦 Nhập hàng (PO)</button>
               <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowInventoryModal?.(true); }}>🔍 Kiểm kho định kỳ</button>
+              <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowDebtModal?.(true); }}>💸 Sổ nợ Khách</button>
+              <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowExpenseModal?.(true); }}>📉 Lập Phiếu Chi</button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-              <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowSettings?.(true); }}>⚙️ Cài đặt hệ thống</button>
+              <div style={{ padding: "4px 12px", fontSize: "11px", fontWeight: "800", color: "#94a3b8", textTransform: "uppercase" }}>ĐỐI TÁC & HỆ THỐNG</div>
+              
+              <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowScannerLinkModal?.(true); }}>📲 Kết nối Điện Thoại (QR)</button>
+              
+              <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowCustomerModal?.(true); }}>💳 Danh sách VIP</button>
+              <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowSupplierModal?.(true); }}>🏭 Nhà Cung Cấp</button>
+              <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowMarketingModal?.(true); }}>💌 Chiến dịch Marketing</button>
+              <div style={{ margin: "4px 0", borderBottom: `1px solid ${ui.darkMode ? 'rgba(255,255,255,0.05)' : '#f1f5f9'}` }}></div>
+              <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowAuditModal?.(true); }}>📝 Nhật ký hệ thống</button>
+              <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowSettings?.(true); }}>⚙️ Cài đặt & Giờ vàng</button>
+              <button onClick={() => { ui.setShowMainMenu?.(false); ui.setShowStoreSettings?.(true); }}>🏪 Thiết lập Logo</button>
             </div>
           </div>
         )}
