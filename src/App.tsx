@@ -1373,7 +1373,7 @@ export default function App() {
       {ui.showDebtModal && <DebtModal 
         showDebtModal={ui.showDebtModal} 
         setShowDebtModal={ui.setShowDebtModal} 
-        {customersData}={customersData} 
+        customers={customersData} 
         handlePayDebt={handlePayDebt} 
       />}
       
@@ -1391,15 +1391,15 @@ export default function App() {
       />}
       
       <MarketingModal 
-     showMarketingModal={ui.showMarketingModal}    // <-- THÊM "ui." VÀO ĐÂY
-     setShowMarketingModal={ui.setShowMarketingModal} // <-- THÊM "ui." VÀO ĐÂY
-     marketingTier={marketingTier}
-     setMarketingTier={setMarketingTier}
-     marketingMsg={marketingMsg}
-     setMarketingMsg={setMarketingMsg}
-     customersData={customers}
-     tierConfig={tierConfig} 
-   />
+        showMarketingModal={ui.showMarketingModal}
+        setShowMarketingModal={ui.setShowMarketingModal}
+        marketingTier={marketingTier}
+        setMarketingTier={setMarketingTier}
+        marketingMsg={marketingMsg}
+        setMarketingMsg={setMarketingMsg}
+        customersData={customersData} 
+        tierConfig={tierConfig} 
+      />
 
       <div className="print-only">
         <PrintManager 
