@@ -381,8 +381,39 @@ export default function App() {
   useEffect(() => {
     if (ui.scannerMode !== null) {
       let scanner: any; let lastScanTime = 0;
-      const loadScanner = () => { setTimeout(() => { if ((window as any).Html5QrcodeScanner && document.getElementById("global-camera-scanner")) { scanner = new (window as any).Html5QrcodeScanner("global-camera-scanner", { fps: 30, qrbox: { width: 350, height: 200 }, rememberLastUsedCamera: true, supportedScanTypes: [0] }, false); scanner.render((text: string) => { const now = Date.now(); if (now - lastScanTime < 1500) return; lastScanTime = now; setScanQueue(prev => [...prev, text]); }, undefined); } }, 150); };
-      if (!(window as any).Html5QrcodeScanner) { const script = document.createElement("script"); script.src = "https://unpkg.com/html5-qrcode"; script.onload = loadScanner; document.head.appendChild(script); } else { loadScanner(); }
+      const loadScanner = () => { 
+        setTimeout(() => { 
+          if ((window as any).Html5QrcodeScanner && document.getElementById("global-camera-scanner")) { 
+            scanner = new (window as any).Html5QrcodeScanner("global-camera-scanner", { 
+              fps: 30, 
+              qrbox: { width: 350, height: 200 }, 
+              rememberLastUsedCamera: true, 
+              supportedScanTypes: [0],
+              // ÉP HỆ THỐNG PHẢI DÙNG CAMERA SAU VÀ LẤY NÉT TỰ ĐỘNG
+              videoConstraints: { 
+                facingMode: "environment",
+                advanced: [{ focusMode: "continuous" }]
+              }
+            }, false); 
+            
+            scanner.render((text: string) => { 
+              const now = Date.now(); 
+              if (now - lastScanTime < 1500) return; // Chống quét lặp 1 mã liên tục trong 1.5s
+              lastScanTime = now; 
+              setScanQueue(prev => [...prev, text]); 
+            }, undefined); 
+          } 
+        }, 150); 
+      };
+      
+      if (!(window as any).Html5QrcodeScanner) { 
+        const script = document.createElement("script"); 
+        script.src = "https://unpkg.com/html5-qrcode"; 
+        script.onload = loadScanner; 
+        document.head.appendChild(script); 
+      } else { 
+        loadScanner(); 
+      }
       return () => { if (scanner) scanner.clear().catch(() => {}); };
     }
   }, [ui.scannerMode]);
