@@ -1108,7 +1108,8 @@ export default function App() {
       
       <Header 
         ui={ui}
-        shift={shift} 
+        shift={shift}
+        products={products}
         totalValue={totalValue} 
         currentShiftStats={currentShiftStats} 
         setCashFlowModalInfo={ui.setCashFlowModalInfo} 
