@@ -1390,15 +1390,16 @@ export default function App() {
         tierConfig={tierConfig} 
       />}
       
-      {ui.showMarketingModal && <MarketingModal 
-        showMarketingModal={ui.showMarketingModal} 
-        setShowMarketingModal={ui.setShowMarketingModal} 
-        marketingTier={marketingTier} 
-        setMarketingTier={setMarketingTier} 
-        marketingMsg={marketingMsg} 
-        setMarketingMsg={setMarketingMsg} 
-        customersData={customersData} 
-      />}
+      <MarketingModal 
+  showMarketingModal={showMarketingModal}
+  setShowMarketingModal={setShowMarketingModal}
+  marketingTier={marketingTier}
+  setMarketingTier={setMarketingTier}
+  marketingMsg={marketingMsg}
+  setMarketingMsg={setMarketingMsg}
+  customersData={customers}
+  tierConfig={tierConfig} // <--- CHÈN DÒNG NÀY VÀO LÀ CÓ PHÉP MÀU!
+/>
 
       <div className="print-only">
         <PrintManager 
