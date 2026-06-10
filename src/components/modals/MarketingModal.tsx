@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import emailjs from '@emailjs/browser';
 import { toast } from 'react-hot-toast';
 
+// IMPORT HÀM TÍNH HẠNG CỦA SẾP VÀO ĐÂY
+import { getCustomerTier } from '../../utils/helpers';
+
 interface MarketingModalProps {
   showMarketingModal: boolean;
   setShowMarketingModal: (val: boolean) => void;
@@ -10,6 +13,7 @@ interface MarketingModalProps {
   marketingMsg: string;
   setMarketingMsg: (val: string) => void;
   customersData: any;
+  tierConfig: any; // NHẬN BIẾN CÀI ĐẶT CỦA CỬA HÀNG
 }
 
 export const MarketingModal: React.FC<MarketingModalProps> = ({
@@ -19,7 +23,8 @@ export const MarketingModal: React.FC<MarketingModalProps> = ({
   setMarketingTier,
   marketingMsg,
   setMarketingMsg,
-  customersData
+  customersData,
+  tierConfig
 }) => {
   const [loading, setLoading] = useState(false);
   const [marketingSubject, setMarketingSubject] = useState("");
@@ -46,12 +51,18 @@ export const MarketingModal: React.FC<MarketingModalProps> = ({
       const c = safeCustomers[phone];
       
       if (c && c.email) {
-        // BỘ LỌC ĐÃ ĐƯỢC FIX: ÉP VỀ CHỮ THƯỜNG ĐỂ SO SÁNH CHUẨN XÁC 100%
+        
+        // TỰ ĐỘNG TÍNH LẠI HẠNG CHUẨN XÁC 100% NHỜ HÀM getCustomerTier CỦA SẾP
+        // Hàm này trả về một object (ví dụ: { name: 'Kim Cương', color: '#...', bg: '#...' })
+        const calculatedTierObj = getCustomerTier(Number(c.totalSpent) || 0, tierConfig);
+        const calculatedTierName = calculatedTierObj.name || "Thường";
+
+        // BỘ LỌC HẠNG ĐÃ ĐƯỢC CHUẨN HÓA
         if (marketingTier !== "Tất cả") {
-          const dbTier = (c.tier || "").trim().toLowerCase();
+          const dbTier = calculatedTierName.toLowerCase();
           const filterTier = marketingTier.trim().toLowerCase();
           if (dbTier !== filterTier) {
-            continue; // Nếu chữ không khớp nhau thì bỏ qua khách này
+            continue; // Nếu chữ không khớp nhau thì lướt qua khách này
           }
         }
 
