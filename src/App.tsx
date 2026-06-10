@@ -173,7 +173,7 @@ export default function App() {
   }, [products, selectedCategory, debouncedSearchTerm, sortConfig, filters]);
 
   const totalValue = useMemo(() => products.reduce((sum, p) => sum + ((p.stock || 0) * (p.import_price || 0)), 0), [products]);
-  const lowStockCount = useMemo(() => products.filter(p => p.stock >= 0 && p.stock < 10).length, [products]);
+  const lowStockCount = useMemo(() => products.filter(p => p.stock > 0 && p.stock < 10).length, [products]);
 
   // TÍNH TOÁN SỐ NGÀY SỬ DỤNG CÒN LẠI CHO BANNER CẢNH BÁO
   const daysLeft = useMemo(() => {
@@ -1108,8 +1108,7 @@ export default function App() {
       
       <Header 
         ui={ui}
-        shift={shift}
-        products={products}
+        shift={shift} 
         totalValue={totalValue} 
         currentShiftStats={currentShiftStats} 
         setCashFlowModalInfo={ui.setCashFlowModalInfo} 
