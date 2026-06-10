@@ -1391,15 +1391,15 @@ export default function App() {
       />}
       
       <MarketingModal 
-  showMarketingModal={showMarketingModal}
-  setShowMarketingModal={setShowMarketingModal}
-  marketingTier={marketingTier}
-  setMarketingTier={setMarketingTier}
-  marketingMsg={marketingMsg}
-  setMarketingMsg={setMarketingMsg}
-  customersData={customers}
-  tierConfig={tierConfig} // <--- CHÈN DÒNG NÀY VÀO LÀ CÓ PHÉP MÀU!
-/>
+     showMarketingModal={ui.showMarketingModal}    // <-- THÊM "ui." VÀO ĐÂY
+     setShowMarketingModal={ui.setShowMarketingModal} // <-- THÊM "ui." VÀO ĐÂY
+     marketingTier={marketingTier}
+     setMarketingTier={setMarketingTier}
+     marketingMsg={marketingMsg}
+     setMarketingMsg={setMarketingMsg}
+     customersData={customers}
+     tierConfig={tierConfig} 
+   />
 
       <div className="print-only">
         <PrintManager 
