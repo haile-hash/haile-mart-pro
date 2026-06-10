@@ -1373,7 +1373,7 @@ export default function App() {
       {ui.showDebtModal && <DebtModal 
         showDebtModal={ui.showDebtModal} 
         setShowDebtModal={ui.setShowDebtModal} 
-        customers={customersData} 
+        {customersData}={customersData} 
         handlePayDebt={handlePayDebt} 
       />}
       
