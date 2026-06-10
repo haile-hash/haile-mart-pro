@@ -22,8 +22,6 @@ export const MarketingModal: React.FC<MarketingModalProps> = ({
   customersData
 }) => {
   const [loading, setLoading] = useState(false);
-  
-  // THÊM LOCAL STATE ĐỂ LƯU TIÊU ĐỀ EMAIL
   const [marketingSubject, setMarketingSubject] = useState("");
 
   if (!showMarketingModal) return null;
@@ -35,7 +33,6 @@ export const MarketingModal: React.FC<MarketingModalProps> = ({
     setLoading(true);
     let successCount = 0;
     
-    // BỌC GIÁP: Đảm bảo customersData không bị undefined
     const safeCustomers = customersData || {};
     const keys = Object.keys(safeCustomers);
 
@@ -48,21 +45,24 @@ export const MarketingModal: React.FC<MarketingModalProps> = ({
     for (const phone of keys) {
       const c = safeCustomers[phone];
       
-      // BỘ LỌC PHÂN HẠNG THÀNH VIÊN
-      // Bỏ qua nếu khách không có email, hoặc nếu đang chọn gửi theo hạng mà khách không đúng hạng
       if (c && c.email) {
-        if (marketingTier !== "Tất cả" && c.tier !== marketingTier) {
-          continue; // Chuyển sang khách tiếp theo
+        // BỘ LỌC ĐÃ ĐƯỢC FIX: ÉP VỀ CHỮ THƯỜNG ĐỂ SO SÁNH CHUẨN XÁC 100%
+        if (marketingTier !== "Tất cả") {
+          const dbTier = (c.tier || "").trim().toLowerCase();
+          const filterTier = marketingTier.trim().toLowerCase();
+          if (dbTier !== filterTier) {
+            continue; // Nếu chữ không khớp nhau thì bỏ qua khách này
+          }
         }
 
         try {
           await emailjs.send(
-            "service_7ie990l", // Service ID
-            "template_m1j9i7k", // Template ID
+            "service_7ie990l", 
+            "template_m1j9i7k", 
             {
               to_email: c.email,
               to_name: c.name || "Quý khách",
-              subject: marketingSubject, // ĐÃ NỐI BIẾN TIÊU ĐỀ VÀO ĐÂY ĐỂ TRUYỀN SANG EMAILJS
+              subject: marketingSubject, 
               message: marketingMsg
             }
           );
@@ -78,9 +78,9 @@ export const MarketingModal: React.FC<MarketingModalProps> = ({
       toast.success(`Đã gửi thành công ${successCount} email!`);
       setShowMarketingModal(false);
       setMarketingMsg("");
-      setMarketingSubject(""); // Làm sạch ô tiêu đề sau khi gửi xong
+      setMarketingSubject(""); 
     } else {
-      toast.error("Không có khách hàng nào phù hợp hoặc gửi thất bại.");
+      toast.error("Không tìm thấy khách hàng nào có Email thuộc hạng " + marketingTier);
     }
   };
 
@@ -95,10 +95,10 @@ export const MarketingModal: React.FC<MarketingModalProps> = ({
             <option value="Tất cả">Tất cả khách hàng có Email</option>
             <option value="Kim Cương">Chỉ gửi khách Kim Cương</option>
             <option value="Vàng">Chỉ gửi khách Vàng</option>
+            <option value="Bạc">Chỉ gửi khách Bạc</option>
           </select>
         </div>
 
-        {/* Ô NHẬP TIÊU ĐỀ VỪA ĐƯỢC THÊM VÀO */}
         <div style={{ marginBottom: "15px" }}>
           <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold" }}>Tiêu đề Email:</label>
           <input 
@@ -119,6 +119,9 @@ export const MarketingModal: React.FC<MarketingModalProps> = ({
             placeholder="Kính gửi Quý khách, nhân dịp sinh nhật cửa hàng, chúng tôi tặng bạn Voucher..."
             style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1", resize: "vertical", boxSizing: 'border-box' }}
           />
+          <p style={{ fontSize: '12px', color: '#64748b', marginTop: '6px' }}>
+            *Lưu ý: Bạn phải chèn <strong>{"{{{message}}}"}</strong> vào Email Templates trên web EmailJS thì nội dung mới hiển thị.
+          </p>
         </div>
 
         <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
