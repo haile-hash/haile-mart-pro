@@ -47,5 +47,18 @@
         }
     </script>
 </body>
+    <script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(registration => {
+          console.log('SW đã đăng ký thành công:', registration.scope);
+        })
+        .catch(error => {
+          console.log('Lỗi đăng ký SW:', error);
+        });
+    });
+  }
+</script>
 
 </html>
