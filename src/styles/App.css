@@ -161,3 +161,36 @@ body {
 #qr-reader__dashboard_section_csr span {
   display: none !important; /* Ẩn các text rác của thư viện scanner */
 }
+
+/* ========================================================= */
+/* 📱 CSS RESPONSIVE CHO ĐIỆN THOẠI (MOBILE FIX) */
+/* ========================================================= */
+
+/* Mặc định trên máy tính (Desktop) */
+.login-container {
+  padding: 40px;
+}
+.mobile-stack {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* KHI MÀN HÌNH NHỎ HƠN 768px (Điện thoại) NÓ SẼ TỰ ĐỘNG KÍCH HOẠT ĐOẠN NÀY */
+@media screen and (max-width: 768px) {
+  /* Ép tất cả các thẻ input, button nhỏ lại 1 chút cho vừa tay */
+  input, select, button {
+    font-size: 14px !important;
+    padding: 12px !important;
+  }
+
+  /* Khung đăng nhập giảm lề viền để màn hình rộng hơn */
+  .login-container {
+    padding: 20px !important;
+  }
+
+  /* Biến các ô đang xếp ngang thành xếp dọc cho khỏi chật */
+  .mobile-stack {
+    grid-template-columns: 1fr !important; /* Đẩy Ca làm việc và Tiền thành 1 cột dọc */
+  }
+}
