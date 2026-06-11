@@ -194,3 +194,50 @@ body {
     grid-template-columns: 1fr !important; /* Đẩy Ca làm việc và Tiền thành 1 cột dọc */
   }
 }
+
+/* ========================================================= */
+/* 📱 ÉP XOAY NGANG MÀN HÌNH (PORTRAIT LOCK) */
+/* ========================================================= */
+
+/* Mặc định ẩn cái màn hình cảnh báo đi */
+.landscape-warning {
+  display: none;
+}
+
+/* KHI ĐIỆN THOẠI ĐANG CẦM DỌC (PORTRAIT) */
+@media screen and (max-width: 768px) and (orientation: portrait) {
+  
+  /* Hiện màn hình đen che hết App */
+  .landscape-warning {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #0f172a;
+    color: white;
+    z-index: 999999; /* Nổi lên trên cùng */
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 20px;
+  }
+
+  /* Tạo cái icon điện thoại xoay tròn cho sinh động */
+  .landscape-warning::before {
+    content: "📱";
+    font-size: 60px;
+    margin-bottom: 20px;
+    animation: rotatePhone 2s infinite ease-in-out;
+  }
+
+  /* Ẩn toàn bộ giao diện App bên dưới đi */
+  #root {
+    display: none !important;
+  }
+}
+
+@keyframes rotatePhone {
+  0% { transform: rotate(0deg); }
+  50% { transform: rotate(-90deg); }
+  100% { transform: rotate(0deg); }
+}
