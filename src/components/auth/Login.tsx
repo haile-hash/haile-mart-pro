@@ -170,7 +170,7 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '20px', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-      <div style={{ background: '#ffffff', padding: '40px', borderRadius: '24px', boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.05)', width: '100%', maxWidth: '440px', border: '1px solid #f1f5f9' }}>
+      <div className="login-container" style={{ background: '#ffffff', borderRadius: '24px', boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.05)', width: '100%', maxWidth: '440px', border: '1px solid #f1f5f9' }}>
         
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '60px', height: '60px', borderRadius: '16px', background: authMode === 'google_onboarding' ? '#10b981' : '#2563eb', color: 'white', fontSize: '28px', marginBottom: '16px' }}>
@@ -204,7 +204,7 @@ export const Login = ({ setIsLoggedIn, setRole, shift, setShift, startingCash, s
           )}
 
           {authMode === 'login' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div className="mobile-stack">
               <select value={shift} onChange={e => setShift(e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '12px', border: '1px solid #cbd5e1', background: '#fff', outline: 'none', fontSize: '14px' }}>
                 <option value="Ca Sáng">🌅 Ca Sáng</option>
                 <option value="Ca Chiều">🌇 Ca Chiều</option>
