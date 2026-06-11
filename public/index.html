@@ -3,16 +3,18 @@
 
 <head>
     <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-0C4S89SZR7"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-0C4S89SZR7"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
 
-  gtag('config', 'G-0C4S89SZR7');
-</script>
+      gtag('config', 'G-0C4S89SZR7');
+    </script>
+    
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no">
+    <!-- KHÓA ZOOM TRÊN ĐIỆN THOẠI -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     
     <meta name="theme-color" content="#1e293b">
     <meta name="description" content="POS Siêu Tốc - Phần mềm quản lý bán hàng">
@@ -55,18 +57,4 @@
         }
     </script>
 </body>
-    <script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
-        .then(registration => {
-          console.log('SW đã đăng ký thành công:', registration.scope);
-        })
-        .catch(error => {
-          console.log('Lỗi đăng ký SW:', error);
-        });
-    });
-  }
-</script>
-
 </html>
